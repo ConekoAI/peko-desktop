@@ -4,11 +4,13 @@ import Dashboard from "./pages/Dashboard";
 import Agents from "./pages/Agents";
 import AgentDetail from "./pages/AgentDetail";
 import Teams from "./pages/Teams";
+import TeamDetail from "./pages/TeamDetail";
 import Sessions from "./pages/Sessions";
 import SessionDetail from "./pages/SessionDetail";
 import Extensions from "./pages/Extensions";
 import Registry from "./pages/Registry";
 import Cron from "./pages/Cron";
+import Chat from "./pages/Chat";
 import EventBus from "./pages/EventBus";
 import Logs from "./pages/Logs";
 import Settings from "./pages/Settings";
@@ -41,6 +43,12 @@ const teamsRoute = new Route({
   component: Teams,
 });
 
+const teamDetailRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/teams/$name",
+  component: TeamDetail,
+});
+
 const sessionsRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/sessions",
@@ -71,6 +79,12 @@ const cronRoute = new Route({
   component: Cron,
 });
 
+const chatRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat",
+  component: Chat,
+});
+
 const eventBusRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/event-bus",
@@ -94,11 +108,13 @@ export const routeTree = rootRoute.addChildren([
   agentsRoute,
   agentDetailRoute,
   teamsRoute,
+  teamDetailRoute,
   sessionsRoute,
   sessionDetailRoute,
   extensionsRoute,
   registryRoute,
   cronRoute,
+  chatRoute,
   eventBusRoute,
   logsRoute,
   settingsRoute,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   useExtensions,
+  useInstallExtension,
   useEnableExtension,
   useDisableExtension,
   useUninstallExtension,
@@ -8,8 +9,74 @@ import {
 import DataTable from "../components/DataTable";
 import ConfirmModal from "../components/modals/ConfirmModal";
 import { formatDate } from "../lib/format";
-import { Plus, Power, PowerOff, Trash2 } from "lucide-react";
+import { Plus, Power, PowerOff, Trash2, X, Loader2 } from "lucide-react";
 import type { ExtensionSummary } from "../types";
+
+function InstallModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const install = useInstallExtension();
+  const [path, setPath] = useState("");
+
+  if (!open) return null;
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!path.trim()) return;
+    install.mutate(path.trim(), { onSuccess: onClose });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-950">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Install Extension</h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Path or URL
+            </label>
+            <input
+              type="text"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              placeholder="/path/to/extension or https://..."
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+              required
+            />
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+              Enter a local file path or remote URL to the extension package.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={install.isPending || !path.trim()}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {install.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Install
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function Extensions() {
   const { data: extensions, isLoading } = useExtensions();
@@ -17,6 +84,7 @@ export default function Extensions() {
   const disable = useDisableExtension();
   const uninstall = useUninstallExtension();
   const [confirmName, setConfirmName] = useState<string | null>(null);
+  const [installOpen, setInstallOpen] = useState(false);
 
   const columns = [
     {
@@ -112,7 +180,10 @@ export default function Extensions() {
             Manage installed extensions
           </p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
+        <button
+          onClick={() => setInstallOpen(true)}
+          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+        >
           <Plus className="h-4 w-4" />
           Install Extension
         </button>
@@ -141,6 +212,8 @@ export default function Extensions() {
         }}
         onCancel={() => setConfirmName(null)}
       />
+
+      <InstallModal open={installOpen} onClose={() => setInstallOpen(false)} />
     </div>
   );
 }

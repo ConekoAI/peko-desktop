@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   sessionList,
   sessionShow,
+  sessionCreate,
   sessionBranch,
   sessionCompact,
 } from "../lib/api";
@@ -18,6 +19,14 @@ export function useSession(id: string) {
     queryKey: ["sessions", id],
     queryFn: () => sessionShow(id),
     enabled: !!id,
+  });
+}
+
+export function useCreateSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof sessionCreate>[0]) => sessionCreate(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sessions"] }),
   });
 }
 

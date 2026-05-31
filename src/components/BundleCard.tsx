@@ -1,4 +1,4 @@
-import { Download, Tag, User } from "lucide-react";
+import { Download, Tag, User, Loader2 } from "lucide-react";
 import type { BundleItem, SearchResult } from "../types";
 
 type Bundle = BundleItem | SearchResult;
@@ -6,13 +6,14 @@ type Bundle = BundleItem | SearchResult;
 interface BundleCardProps {
   bundle: Bundle;
   onInstall?: (ref: string) => void;
+  isInstalling?: boolean;
 }
 
 function isSearchResult(b: Bundle): b is SearchResult {
   return "downloads" in b;
 }
 
-export default function BundleCard({ bundle, onInstall }: BundleCardProps) {
+export default function BundleCard({ bundle, onInstall, isInstalling }: BundleCardProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-2 flex items-start justify-between">
@@ -62,9 +63,17 @@ export default function BundleCard({ bundle, onInstall }: BundleCardProps) {
       {onInstall && (
         <button
           onClick={() => onInstall(bundle.ref)}
-          className="w-full rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          disabled={isInstalling}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
         >
-          Install
+          {isInstalling ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Installing...
+            </>
+          ) : (
+            "Install"
+          )}
         </button>
       )}
     </div>
