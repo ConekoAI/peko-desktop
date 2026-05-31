@@ -20,32 +20,52 @@ pub struct AgentDetail {
 }
 
 #[tauri::command]
-pub fn agent_list() -> Result<Vec<AgentSummary>, String> {
-    super::util::run_peko_json(&["agent", "list", "--json"])
+pub async fn agent_list() -> Result<Vec<AgentSummary>, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.list_agents().await.map_err(|e| e.to_string())?;
+    let agents = value
+        .get("agents")
+        .cloned()
+        .unwrap_or(serde_json::Value::Array(vec![]));
+    serde_json::from_value(agents).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn agent_show(name: String) -> Result<AgentDetail, String> {
-    super::util::run_peko_json(&["agent", "show", &name, "--json"])
+pub async fn agent_show(name: String) -> Result<AgentDetail, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.get_agent(&name).await.map_err(|e| e.to_string())?;
+    let agent = value
+        .get("agent")
+        .cloned()
+        .ok_or_else(|| "agent not found".to_string())?;
+    serde_json::from_value(agent).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn agent_create(name: String, provider: String, model: String) -> Result<String, String> {
-    super::util::run_peko_ok(&[
-        "agent",
-        "create",
-        &name,
-        "--provider",
-        &provider,
-        "--model",
-        &model,
-        "--yes",
-    ])
+pub async fn agent_create(name: String, provider: String, model: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client
+        .create_agent(&name, &provider, &model)
+        .await
+        .map_err(|e| e.to_string())?;
+    let msg = value
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or("created")
+        .to_string();
+    Ok(msg)
 }
 
 #[tauri::command]
-pub fn agent_remove(name: String) -> Result<String, String> {
-    super::util::run_peko_ok(&["agent", "remove", &name, "--force"])
+pub async fn agent_remove(name: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.delete_agent(&name).await.map_err(|e| e.to_string())?;
+    let msg = value
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or("removed")
+        .to_string();
+    Ok(msg)
 }
 
 #[tauri::command]

@@ -17,13 +17,25 @@ pub struct TeamDetail {
 }
 
 #[tauri::command]
-pub fn team_list() -> Result<Vec<TeamSummary>, String> {
-    super::util::run_peko_json(&["team", "list", "--json"])
+pub async fn team_list() -> Result<Vec<TeamSummary>, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.list_teams().await.map_err(|e| e.to_string())?;
+    let teams = value
+        .get("teams")
+        .cloned()
+        .unwrap_or(serde_json::Value::Array(vec![]));
+    serde_json::from_value(teams).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn team_show(name: String) -> Result<TeamDetail, String> {
-    super::util::run_peko_json(&["team", "show", &name, "--json"])
+pub async fn team_show(name: String) -> Result<TeamDetail, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.get_team(&name).await.map_err(|e| e.to_string())?;
+    let team = value
+        .get("team")
+        .cloned()
+        .ok_or_else(|| "team not found".to_string())?;
+    serde_json::from_value(team).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

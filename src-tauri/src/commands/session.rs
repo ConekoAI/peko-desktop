@@ -20,13 +20,25 @@ pub struct SessionDetail {
 }
 
 #[tauri::command]
-pub fn session_list(agent: String) -> Result<Vec<SessionSummary>, String> {
-    super::util::run_peko_json(&["session", "list", &agent, "--json"])
+pub async fn session_list(agent: String) -> Result<Vec<SessionSummary>, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.list_sessions(&agent).await.map_err(|e| e.to_string())?;
+    let sessions = value
+        .get("sessions")
+        .cloned()
+        .unwrap_or(serde_json::Value::Array(vec![]));
+    serde_json::from_value(sessions).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn session_show(id: String) -> Result<SessionDetail, String> {
-    super::util::run_peko_json(&["session", "show", &id, "--json"])
+pub async fn session_show(id: String) -> Result<SessionDetail, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.get_session(&id).await.map_err(|e| e.to_string())?;
+    let session = value
+        .get("session")
+        .cloned()
+        .ok_or_else(|| "session not found".to_string())?;
+    serde_json::from_value(session).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

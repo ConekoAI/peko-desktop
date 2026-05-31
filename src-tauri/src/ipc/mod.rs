@@ -110,16 +110,8 @@ impl IpcClient {
         })
     }
 
-    /// Send a ping and wait for a pong response.
-    pub async fn ping(&self) -> Result<PongResponse> {
-        ensure_daemon().await?;
-
-        let request = serde_json::json!({
-            "type": "ping",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64
-        });
-
+    /// Send a request and wait for a single response (non-streaming).
+    async fn request_response(&self, request: serde_json::Value) -> Result<serde_json::Value> {
         let bytes = serde_json::to_vec(&request)
             .map_err(|e| IpcError::Serialization(e.to_string()))?;
         let mut buf = vec![0u8; 65536];
@@ -130,33 +122,7 @@ impl IpcClient {
                 .send_to(&bytes, "127.0.0.1:11435")
                 .await
                 .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-
-            let len = tokio::time::timeout(Duration::from_secs(3), self.socket.recv_from(&mut buf))
-                .await
-                .map_err(|_| IpcError::Timeout)?
-                .map_err(|e| IpcError::ReceiveFailed(e.to_string()))?
-                .0;
-
-            let value: serde_json::Value = serde_json::from_slice(&buf[..len])
-                .map_err(|e| IpcError::Serialization(e.to_string()))?;
-
-            Ok(PongResponse {
-                request_id: value
-                    .get("request_id")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0),
-                version: value
-                    .get("version")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string(),
-                uptime_secs: value
-                    .get("uptime_secs")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0),
-            })
         }
-
         #[cfg(unix)]
         {
             let sock_path = default_socket_path();
@@ -164,32 +130,147 @@ impl IpcClient {
                 .send_to(&bytes, &sock_path)
                 .await
                 .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-
-            let len = tokio::time::timeout(Duration::from_secs(3), self.socket.recv_from(&mut buf))
-                .await
-                .map_err(|_| IpcError::Timeout)?
-                .map_err(|e| IpcError::ReceiveFailed(e.to_string()))?
-                .0;
-
-            let value: serde_json::Value = serde_json::from_slice(&buf[..len])
-                .map_err(|e| IpcError::Serialization(e.to_string()))?;
-
-            Ok(PongResponse {
-                request_id: value
-                    .get("request_id")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0),
-                version: value
-                    .get("version")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string(),
-                uptime_secs: value
-                    .get("uptime_secs")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0),
-            })
         }
+
+        let len = tokio::time::timeout(Duration::from_secs(10), self.socket.recv_from(&mut buf))
+            .await
+            .map_err(|_| IpcError::Timeout)?
+            .map_err(|e| IpcError::ReceiveFailed(e.to_string()))?
+            .0;
+
+        let value: serde_json::Value = serde_json::from_slice(&buf[..len])
+            .map_err(|e| IpcError::Serialization(e.to_string()))?;
+        Ok(value)
+    }
+
+    /// Send a ping and wait for a pong response.
+    pub async fn ping(&self) -> Result<PongResponse> {
+        ensure_daemon().await?;
+
+        let request = serde_json::json!({
+            "type": "ping",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64
+        });
+
+        let value = self.request_response(request).await?;
+
+        Ok(PongResponse {
+            request_id: value
+                .get("request_id")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0),
+            version: value
+                .get("version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            uptime_secs: value
+                .get("uptime_secs")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0),
+        })
+    }
+
+    // ── Agent CRUD ────────────────────────────────────────────────
+
+    pub async fn list_agents(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "agent_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "team_filter": null,
+        });
+        self.request_response(req).await
+    }
+
+    pub async fn get_agent(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "agent_get",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "team": null,
+        });
+        self.request_response(req).await
+    }
+
+    pub async fn create_agent(
+        &self,
+        name: &str,
+        provider: &str,
+        model: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "agent_create",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "provider": provider,
+            "model": model,
+        });
+        self.request_response(req).await
+    }
+
+    pub async fn delete_agent(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "agent_delete",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    // ── Team CRUD ─────────────────────────────────────────────────
+
+    pub async fn list_teams(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "team_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    pub async fn get_team(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "team_get",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    // ── Session CRUD ──────────────────────────────────────────────
+
+    pub async fn list_sessions(&self, agent: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "session_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "agent": agent,
+        });
+        self.request_response(req).await
+    }
+
+    pub async fn get_session(&self, id: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "session_get",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "id": id,
+        });
+        self.request_response(req).await
     }
 
     /// Send an execute request and emit stream events via the Tauri app handle.
