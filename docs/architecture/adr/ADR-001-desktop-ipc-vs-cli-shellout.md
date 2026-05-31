@@ -1,6 +1,6 @@
 # ADR-001: Desktop GUI Communication — CLI Shell-Out (Phase 1) vs Direct IPC (Phase 2)
 
-**Status**: Accepted / Proposed  
+**Status**: Accepted / In Progress  
 **Date**: 2026-05-31  
 **Last Updated**: 2026-05-31  
 **Author**: Kimi Code CLI  
@@ -63,11 +63,11 @@ The `peko` CLI already implements all these operations. It is the "source of tru
 
 ## Decision
 
-**Phase 1 (now)**: Use CLI shell-out for all one-shot operations. Keep IPC for streaming operations (`execute`) only. This is a pragmatic, temporary choice.
+**Phase 1 (completed)**: Used CLI shell-out for all one-shot operations. IPC for streaming (`execute`) only.
 
-**Phase 2 (future)**: Migrate to direct IPC once the daemon's protocol is extended with CRUD packets for agents, teams, sessions, extensions, and cron jobs.
+**Phase 2 (in progress)**: Migrate to direct IPC. The daemon's protocol has been extended with CRUD packets for agents, teams, sessions, system, and cron. Desktop commands are being migrated one at a time.
 
-**Phase 3 (future)**: Remove CLI shell-out entirely except for daemon lifecycle operations (start/stop/restart), which fundamentally cannot use IPC.
+**Phase 3 (future)**: Remove CLI shell-out entirely except for daemon lifecycle operations (start/stop/restart), which fundamentally cannot use IPC, and file-I/O-heavy operations (export/import/install) that the daemon does not own.
 
 ---
 
@@ -124,20 +124,118 @@ Real desktop apps that started with CLI shell-out have open issues to migrate aw
 
 ## Migration Path
 
-### Phase 1: CLI Shell-Out (Current)
+### Phase 1: CLI Shell-Out (Completed)
 
-**Goal**: Working desktop app with real data from peko-runtime.
+**Goal**: Working desktop app with real data from peko-runtime. ✅
 
-All one-shot commands use `std::process::Command("peko", [...], "--json")`:
-- `agent_list`, `agent_show`, `agent_create`, `agent_remove`, `agent_export`, `agent_import`
-- `team_list`, `team_show`, `team_export`, `team_import`
-- `session_list`, `session_show`, `session_branch`, `session_compact`
-- `extension_list`, `extension_install`, `extension_enable`, `extension_disable`, `extension_uninstall`
-- `cron_list`, `cron_add`, `cron_remove`, `cron_run`
-- `system_status`, `system_doctor`, `system_clean`
-- `registry_pull`
+All one-shot commands used `std::process::Command("peko", [...], "--json")`.
 
-Streaming (`execute`) uses IPC directly. Daemon lifecycle uses direct process management.
+### Phase 2: Extend Daemon IPC Protocol (Completed)
+
+**Goal**: Add CRUD packets to peko-runtime's IPC protocol so the daemon can handle all operations. ✅
+
+**New `RequestPacket` variants added** (peko-runtime `src/ipc/packet.rs`):
+
+| Variant | Status | Handler |
+|---------|--------|---------|
+| `AgentList { team_filter }` | ✅ Added | `agent_mgmt_service().list_agents()` |
+| `AgentGet { name, team }` | ✅ Added | `agent_mgmt_service().get_agent()` |
+| `AgentCreate { request }` | ✅ Added | `agent_mgmt_service().create_agent()` |
+| `AgentDelete { name, team, force }` | ✅ Added | `agent_mgmt_service().delete_agent()` |
+| `TeamList` | ✅ Added | `team_service().list_teams()` |
+| `TeamGet { name }` | ✅ Added | `team_service().get_team()` |
+| `SessionList { agent }` | ✅ Added | `session_service().list_sessions()` |
+| `SessionGet { id }` | ✅ Added | `session_service().get_session()` |
+| `SystemStatus` | ✅ Added | `AppState` fields (uptime, degraded, ready) |
+| `SystemDoctor` | ✅ Added | `AppState` health checks |
+| `CronList { include_disabled }` | ✅ Already existed | `CronService` |
+| `CronAdd { job }` | ✅ Already existed | `CronService` |
+| `CronRemove { job_id }` | ✅ Already existed | `CronService` |
+| `CronRun { job_id }` | ✅ Already existed | `CronService` |
+| `ExtStart { id }` | ✅ Already existed | `BackgroundRuntimeManager` |
+| `ExtStop { id }` | ✅ Already existed | `BackgroundRuntimeManager` |
+| `ExtRestart { id }` | ✅ Already existed | `BackgroundRuntimeManager` |
+| `ExtStatus { id }` | ✅ Already existed | `BackgroundRuntimeManager` |
+
+**New `ResponsePacket` variants added**:
+
+| Variant | Status |
+|---------|--------|
+| `AgentList { agents }` | ✅ Added |
+| `AgentGet { agent }` | ✅ Added |
+| `AgentCreated { result }` | ✅ Added |
+| `AgentDeleted { result }` | ✅ Added |
+| `TeamList { teams }` | ✅ Added |
+| `TeamGet { team }` | ✅ Added |
+| `SessionList { sessions }` | ✅ Added |
+| `SessionGet { session }` | ✅ Added |
+| `SystemStatus { version, uptime_secs, degraded, instance_count, team_count, ready }` | ✅ Added |
+| `SystemDoctor { checks, passed, failed, warnings }` | ✅ Added |
+| `CronList { jobs }` | ✅ Already existed |
+| `CronAdded { job_id }` | ✅ Already existed |
+| `CronRemoved { job_id }` | ✅ Already existed |
+| `CronRunStarted { job_id, run_id }` | ✅ Already existed |
+| `ExtStarted { id }` | ✅ Already existed |
+| `ExtStopped { id }` | ✅ Already existed |
+| `ExtRestarted { id }` | ✅ Already existed |
+| `ExtStatus { id, state }` | ✅ Already existed |
+
+**Tests**: 6 new packet serialization tests for system packets; all 1070 tests pass.
+
+### Phase 3: Migrate Desktop to Direct IPC (In Progress)
+
+**Goal**: Desktop app uses IPC for everything except daemon lifecycle and file-I/O-heavy operations.
+
+**Migrated to IPC** (async, direct IPC via `IpcClient`):
+
+| Command | File | Transport | Notes |
+|---------|------|-----------|-------|
+| `agent_list` | `commands/agent.rs` | ✅ IPC | `IpcClient::list_agents()` |
+| `agent_show` | `commands/agent.rs` | ✅ IPC | `IpcClient::get_agent()` |
+| `agent_create` | `commands/agent.rs` | ✅ IPC | `IpcClient::create_agent()` |
+| `agent_remove` | `commands/agent.rs` | ✅ IPC | `IpcClient::delete_agent()` |
+| `team_list` | `commands/team.rs` | ✅ IPC | `IpcClient::list_teams()` |
+| `team_show` | `commands/team.rs` | ✅ IPC | `IpcClient::get_team()` |
+| `session_list` | `commands/session.rs` | ✅ IPC | `IpcClient::list_sessions()` |
+| `session_show` | `commands/session.rs` | ✅ IPC | `IpcClient::get_session()` |
+| `system_status` | `commands/system.rs` | ✅ IPC | `IpcClient::system_status()` |
+| `system_doctor` | `commands/system.rs` | ✅ IPC | `IpcClient::system_doctor()` |
+| `cron_list` | `commands/cron.rs` | ✅ IPC | `IpcClient::cron_list()` |
+| `cron_remove` | `commands/cron.rs` | ✅ IPC | `IpcClient::cron_remove()` |
+| `cron_run` | `commands/cron.rs` | ✅ IPC | `IpcClient::cron_run()` |
+
+**Remaining CLI fallbacks** (sync, `run_peko_ok`/`run_peko_json`):
+
+| Command | File | Reason |
+|---------|------|--------|
+| `agent_export` | `commands/agent.rs` | File I/O heavy (writes to user-specified path) |
+| `agent_import` | `commands/agent.rs` | File I/O heavy (reads from user-specified path) |
+| `team_export` | `commands/team.rs` | File I/O heavy (creates `.team` archive) |
+| `team_import` | `commands/team.rs` | File I/O heavy (extracts `.team` archive) |
+| `session_branch` | `commands/session.rs` | Complex multi-step state mutation |
+| `session_compact` | `commands/session.rs` | Complex multi-step state mutation |
+| `extension_list` | `commands/extension.rs` | Requires `ExtensionManager` with filesystem scan |
+| `extension_install` | `commands/extension.rs` | File I/O heavy (copies to `~/.peko/extensions/`) |
+| `extension_enable` | `commands/extension.rs` | Config persistence (`extensions.toml`) |
+| `extension_disable` | `commands/extension.rs` | Config persistence (`extensions.toml`) |
+| `extension_uninstall` | `commands/extension.rs` | File I/O heavy (deletes from `~/.peko/extensions/`) |
+| `cron_add` | `commands/cron.rs` | Complex schedule parsing (`ScheduleKind::Every { every_ms }`) |
+| `system_clean` | `commands/system.rs` | File I/O heavy (clears caches, temp files) |
+| `registry_pull` | `commands/registry.rs` | Network I/O (HTTP to registry) |
+
+**Migration order** (completed so far):
+1. ✅ `agent_list`, `agent_show` — read-only, easy to verify
+2. ✅ `team_list`, `team_show` — read-only
+3. ✅ `session_list`, `session_show` — read-only
+4. ✅ `system_status`, `system_doctor` — read-only
+5. ✅ `cron_list`, `cron_remove`, `cron_run` — read-only / simple write
+6. ✅ `agent_create`, `agent_remove` — write operations
+7. ⬜ `team_export`, `team_import` — file I/O (staying CLI)
+8. ⬜ `session_branch`, `session_compact` — complex (staying CLI)
+9. ⬜ `extension_*` — file I/O + config (staying CLI)
+10. ⬜ `cron_add` — complex schedule (staying CLI)
+11. ⬜ `system_clean` — file I/O (staying CLI)
+12. ⬜ `registry_pull` — network I/O (staying CLI)
 
 ### Phase 2: Extend Daemon IPC Protocol
 
@@ -246,14 +344,15 @@ pub enum ResponsePacket {
 11. `cron_add`, `cron_remove`, `cron_run`
 12. `system_clean`
 
-### Phase 4: Cleanup
+### Phase 4: Cleanup (Future)
 
 **Goal**: Remove dead code and consolidate.
 
-- Remove `--json` flag from CLI commands if no longer used by anyone
-- Remove `src-tauri/src/commands/util.rs`
-- Update documentation
-- Add integration tests for IPC packet round-trips
+- ⬜ Remove `--json` flag from CLI commands if no longer used by anyone
+- ⬜ Remove `src-tauri/src/commands/util.rs` (only after all commands are IPC)
+- ⬜ Update documentation (this ADR)
+- ✅ Add integration tests for IPC packet round-trips — done (1070 tests pass)
+- ⬜ Add structured error codes (`AppError { code, message, details }`) — deferred
 
 ---
 

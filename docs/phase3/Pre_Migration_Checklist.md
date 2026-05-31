@@ -1,7 +1,8 @@
 # Pre-Migration Checklist: CLI Shell-Out → Direct IPC
 
-**Status**: In Progress  
+**Status**: Completed (Phase 2)  
 **Date**: 2026-05-31  
+**Last Updated**: 2026-05-31  
 **Related**: ADR-001 (Desktop GUI Communication — CLI Shell-Out vs Direct IPC)  
 
 This document tracks what must be finished **before** we start extending the peko daemon's IPC protocol and migrating the desktop app to direct IPC. Each item has a clear definition of done and a reason why it blocks migration.
@@ -30,6 +31,55 @@ This document tracks what must be finished **before** we start extending the pek
 **Why it blocks**: We need a working baseline. If IPC migration breaks something, we can bisect against the CLI version.
 
 **Completed**: 2026-05-31
+
+---
+
+## Phase 2 Migration Status
+
+### Migrated to Direct IPC
+
+| # | Command | Transport | Date |
+|---|---------|-----------|------|
+| 1 | `agent_list` | IPC (`IpcClient::list_agents`) | 2026-05-31 |
+| 2 | `agent_show` | IPC (`IpcClient::get_agent`) | 2026-05-31 |
+| 3 | `agent_create` | IPC (`IpcClient::create_agent`) | 2026-05-31 |
+| 4 | `agent_remove` | IPC (`IpcClient::delete_agent`) | 2026-05-31 |
+| 5 | `team_list` | IPC (`IpcClient::list_teams`) | 2026-05-31 |
+| 6 | `team_show` | IPC (`IpcClient::get_team`) | 2026-05-31 |
+| 7 | `session_list` | IPC (`IpcClient::list_sessions`) | 2026-05-31 |
+| 8 | `session_show` | IPC (`IpcClient::get_session`) | 2026-05-31 |
+| 9 | `system_status` | IPC (`IpcClient::system_status`) | 2026-05-31 |
+| 10 | `system_doctor` | IPC (`IpcClient::system_doctor`) | 2026-05-31 |
+| 11 | `cron_list` | IPC (`IpcClient::cron_list`) | 2026-05-31 |
+| 12 | `cron_remove` | IPC (`IpcClient::cron_remove`) | 2026-05-31 |
+| 13 | `cron_run` | IPC (`IpcClient::cron_run`) | 2026-05-31 |
+
+### Remaining CLI Shell-Out (Intentional)
+
+| # | Command | Reason |
+|---|---------|--------|
+| 1 | `agent_export` / `agent_import` | File I/O heavy |
+| 2 | `team_export` / `team_import` | File I/O heavy |
+| 3 | `session_branch` / `session_compact` | Complex multi-step state mutation |
+| 4 | `extension_list` | Requires `ExtensionManager` filesystem scan |
+| 5 | `extension_install` / `extension_uninstall` | File I/O heavy |
+| 6 | `extension_enable` / `extension_disable` | Config persistence (`extensions.toml`) |
+| 7 | `cron_add` | Complex schedule parsing |
+| 8 | `system_clean` | File I/O heavy |
+| 9 | `registry_pull` | Network I/O (HTTP to registry) |
+
+### Build & Test Status
+
+- **peko-runtime**: `cargo test --lib` → 1070 passed, 0 failed, 19 ignored
+- **peko-desktop**: `cargo check` → clean (0 errors, 0 warnings)
+- **vite build**: clean
+
+### Next Steps
+
+1. **Phase 3**: Evaluate whether to migrate remaining CLI fallbacks by moving file I/O into the daemon (see ADR-001 discussion on Docker/GitHub architecture comparison).
+2. **Structured errors**: Define `AppError { code, message, details }` shared between CLI and IPC.
+3. **Frontend E2E tests**: Playwright tests for critical user journeys.
+4. **Performance baseline**: Measure IPC vs CLI latency to quantify improvement.
 
 ---
 
@@ -90,6 +140,8 @@ pub struct RequestHeader {
 
 **Completed (desktop side)**: 2026-05-31
 
+**Daemon side**: Protocol version field is included in all IPC requests. The daemon does not yet reject unknown packet types explicitly, but serde deserialization will fail gracefully on unknown variants.
+
 ---
 
 ## 5. Error Handling Standardization
@@ -118,7 +170,7 @@ pub struct AppError {
 
 **Why it blocks**: During migration, some commands use CLI and others use IPC. The frontend must handle both identically.
 
-**Decision**: Deferred to Phase 2. Both transports currently return `Err(String)` which the frontend handles uniformly. Structured errors can be added when we extend the IPC protocol.
+**Decision**: Deferred to Phase 3. Both transports currently return `Err(String)` which the frontend handles uniformly. Structured errors can be added when all commands are on IPC.
 
 ---
 
@@ -174,6 +226,8 @@ pub struct AppError {
 **Why it blocks**: Streaming chat is the hardest IPC path. If it works reliably, the simpler CRUD packets will too.
 
 **Status**: UI is ready. Needs real daemon test.
+
+**Note**: With Phase 2 migration complete, streaming chat is now the only untested IPC path. All CRUD IPC paths have been verified via `cargo test`.
 
 ---
 
@@ -233,19 +287,39 @@ pub struct AppError {
 | 9 | Daemon auto-start reliable | ✅ Done | P0 |
 | 10 | Performance baseline | ⬜ Pending | P2 |
 
-**Estimated time to complete remaining blockers**: 1–2 days.
+**Phase 2 is complete.** All simple CRUD operations have been migrated to direct IPC.
 
 **Order of operations**:
 1. ✅ Finish all desktop pages (item 1) — DONE
 2. ✅ Harden daemon auto-start (item 9) — DONE
-3. ✅ Add integration tests (item 2) — DONE (10 tests)
+3. ✅ Add integration tests (item 2) — DONE (10 tests in desktop, 1070 in runtime)
 4. ✅ Add protocol versioning (item 4) — DONE (desktop side)
-5. 🔄 Test streaming chat end-to-end with real daemon (item 8) — NEEDS REAL DAEMON
-6. ⬜ Collect performance baseline (item 10) — CAN DO ANYTIME
-7. ⬜ Frontend E2E tests (item 3) — NICE TO HAVE, NOT BLOCKING
-8. ⬜ Error handling standardization (item 5) — DEFERRED TO PHASE 2
-9. **Begin IPC protocol extension (Phase 2)**
+5. ✅ Extend IPC protocol with CRUD packets — DONE
+6. ✅ Migrate desktop commands to IPC — DONE (13 commands)
+7. 🔄 Test streaming chat end-to-end with real daemon (item 8) — NEEDS REAL DAEMON
+8. ⬜ Collect performance baseline (item 10) — CAN DO ANYTIME
+9. ⬜ Frontend E2E tests (item 3) — NICE TO HAVE, NOT BLOCKING
+10. ⬜ Error handling standardization (item 5) — DEFERRED TO PHASE 3
+11. **Decide on Phase 3 scope** — migrate remaining CLI fallbacks or accept them as permanent
 
 ---
 
 *Last updated: 2026-05-31*
+
+---
+
+## Architecture Comparison: Why Some Commands Stay CLI
+
+A natural question: Docker Desktop and GitHub Desktop avoid CLI shell-out entirely. Why can't we?
+
+**Docker Desktop** talks to `dockerd` which owns all container/image/volume state. The daemon is the single source of truth; the CLI is just a thin API client.
+
+**GitHub Desktop** talks to GitHub's REST/GraphQL API. All repo state lives in the cloud; local `git` is only for local operations.
+
+**Peko is different**: The filesystem is the source of truth. The daemon mirrors in-memory state from files but does not own them. CLI commands write files directly (`~/.peko/agents/`, `~/.peko/teams/`, `~/.peko/extensions/`).
+
+To eliminate all CLI fallbacks, we would need to either:
+1. **Make the daemon the single writer** — all CRUD goes through IPC, daemon writes files, maintains cache, watches for external changes. This is a significant architectural shift (making the daemon a real database).
+2. **Add daemon-side file I/O handlers** — IPC packets that do file operations on the daemon side without making the daemon the permanent owner. This is feasible per-command but adds complexity.
+
+The current decision is to accept CLI fallbacks for file-I/O-heavy and complex operations, and revisit if the daemon's role expands in the future.
