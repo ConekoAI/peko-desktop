@@ -3798,6 +3798,7 @@ name = "peko-desktop"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dirs",
  "keyring",
  "keyring-core",
  "notify",

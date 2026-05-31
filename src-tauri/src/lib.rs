@@ -10,6 +10,11 @@ pub mod vault;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            // Build system tray
+            let _ = tray::build_tray(app.handle());
+            Ok(())
+        })
         .invoke_handler(commands::register_commands())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

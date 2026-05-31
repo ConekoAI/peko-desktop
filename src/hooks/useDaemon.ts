@@ -6,6 +6,7 @@ export function useDaemonStatus() {
     queryKey: ["daemon", "status"],
     queryFn: daemonStatus,
     refetchInterval: 5000,
+    retry: 2,
   });
 }
 

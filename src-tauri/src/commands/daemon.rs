@@ -1,36 +1,27 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DaemonStatus {
-    pub running: bool,
-    pub version: String,
-    pub uptime_secs: u64,
-    pub jobs_checked: u64,
-    pub jobs_executed: u64,
-}
+pub use crate::daemon::DaemonStatus;
 
 #[tauri::command]
 pub fn daemon_start() -> Result<String, String> {
-    Ok("daemon started".to_string())
+    crate::daemon::start()
+        .map(|pid| format!("daemon started (pid: {})", pid))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn daemon_stop() -> Result<String, String> {
-    Ok("daemon stopped".to_string())
+    crate::daemon::stop()
+        .map(|_| "daemon stopped".to_string())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn daemon_restart() -> Result<String, String> {
-    Ok("daemon restarted".to_string())
+    crate::daemon::restart()
+        .map(|pid| format!("daemon restarted (pid: {})", pid))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn daemon_status() -> Result<DaemonStatus, String> {
-    Ok(DaemonStatus {
-        running: false,
-        version: "0.0.0".to_string(),
-        uptime_secs: 0,
-        jobs_checked: 0,
-        jobs_executed: 0,
-    })
+    crate::daemon::status().map_err(|e| e.to_string())
 }

@@ -1,9 +1,9 @@
+import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import StatusBar from "./StatusBar";
 import { useDaemonStatus } from "../hooks/useDaemon";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
 import { Sun, Moon, Monitor } from "lucide-react";
-import { useState, useEffect } from "react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: daemon } = useDaemonStatus();
