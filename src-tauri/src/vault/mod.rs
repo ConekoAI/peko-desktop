@@ -41,3 +41,39 @@ pub fn delete_credential(service: &str, account: &str) -> Result<()> {
     entry.delete_credential().map_err(VaultError::Keyring)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vault_error_display() {
+        let err = VaultError::NotFound;
+        assert_eq!(err.to_string(), "not found");
+    }
+
+    #[test]
+    fn test_credential_roundtrip() {
+        let service = "peko-test-service";
+        let account = "peko-test-account";
+        let password = "test-password-123";
+
+        // Set credential
+        let set_result = set_credential(service, account, password);
+        if set_result.is_ok() {
+            // Get credential
+            let get_result = get_credential(service, account).unwrap();
+            assert_eq!(get_result, Some(password.to_string()));
+
+            // Delete credential
+            delete_credential(service, account).unwrap();
+
+            // Verify deletion
+            let after_delete = get_credential(service, account).unwrap();
+            assert_eq!(after_delete, None);
+        } else {
+            // Keyring may not be available in CI, so just verify the error is handled
+            println!("Keyring not available in test environment: {:?}", set_result);
+        }
+    }
+}

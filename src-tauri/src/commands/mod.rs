@@ -15,6 +15,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         daemon::daemon_stop,
         daemon::daemon_restart,
         daemon::daemon_status,
+        daemon::daemon_ensure_running,
         agent::agent_list,
         agent::agent_show,
         agent::agent_create,

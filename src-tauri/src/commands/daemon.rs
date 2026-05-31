@@ -25,3 +25,11 @@ pub fn daemon_restart() -> Result<String, String> {
 pub fn daemon_status() -> Result<DaemonStatus, String> {
     crate::daemon::status().map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn daemon_ensure_running() -> Result<DaemonStatus, String> {
+    match crate::daemon::ensure_running_async().await {
+        Ok(_pid) => crate::daemon::status().map_err(|e| e.to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}

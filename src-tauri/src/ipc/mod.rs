@@ -1,7 +1,23 @@
+//! IPC client for communicating with the peko daemon.
+//!
+//! Protocol version: 1
+//! - Version 1: Initial protocol with Ping, Execute, AsyncSpawn, AsyncCancel
+//! - Future versions will add CRUD packets for agents, teams, sessions, etc.
+
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tauri::Emitter;
 use thiserror::Error;
+
+/// Current IPC protocol version
+pub const PROTOCOL_VERSION: u16 = 1;
+
+/// Every request packet includes this header
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RequestHeader {
+    pub protocol_version: u16,
+    pub request_id: u64,
+}
 
 #[derive(Error, Debug)]
 pub enum IpcError {
@@ -41,6 +57,15 @@ pub enum StreamEvent {
     Error { message: String },
 }
 
+/// Check if a response indicates a protocol version mismatch.
+/// Returns true if the daemon rejected the request due to version.
+pub fn is_version_mismatch(response: &serde_json::Value) -> bool {
+    response.get("type").and_then(|v| v.as_str()) == Some("error")
+        && response.get("message").and_then(|v| v.as_str())
+            .map(|m| m.contains("protocol version") || m.contains("unsupported"))
+            .unwrap_or(false)
+}
+
 /// Async IPC client for communicating with the peko daemon.
 pub struct IpcClient {
     #[cfg(windows)]
@@ -49,6 +74,13 @@ pub struct IpcClient {
     socket: tokio::net::UnixDatagram,
     #[cfg(unix)]
     _tmp_path: std::path::PathBuf,
+}
+
+async fn ensure_daemon() -> Result<()> {
+    crate::daemon::ensure_running_async().await.map_err(|e| {
+        IpcError::ConnectionFailed(format!("daemon not running and auto-start failed: {}", e))
+    })?;
+    Ok(())
 }
 
 impl IpcClient {
@@ -80,8 +112,11 @@ impl IpcClient {
 
     /// Send a ping and wait for a pong response.
     pub async fn ping(&self) -> Result<PongResponse> {
+        ensure_daemon().await?;
+
         let request = serde_json::json!({
             "type": "ping",
+            "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64
         });
 
@@ -165,8 +200,11 @@ impl IpcClient {
         message: String,
         session_id: Option<String>,
     ) -> Result<()> {
+        ensure_daemon().await?;
+
         let request = serde_json::json!({
             "type": "execute",
+            "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "agent": agent,
             "message": message,
@@ -222,4 +260,35 @@ fn default_socket_path() -> std::path::PathBuf {
     dirs::home_dir()
         .map(|d| d.join(".peko").join("run").join("daemon.sock"))
         .unwrap_or_else(|| std::path::PathBuf::from(".peko").join("run").join("daemon.sock"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stream_event_serialization() {
+        let event = StreamEvent::Text { content: "hello".to_string() };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("hello"));
+        
+        let deserialized: StreamEvent = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            StreamEvent::Text { content } => assert_eq!(content, "hello"),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_pong_response_serialization() {
+        let pong = PongResponse {
+            request_id: 123,
+            version: "1.0.0".to_string(),
+            uptime_secs: 42,
+        };
+        let json = serde_json::to_string(&pong).unwrap();
+        let deserialized: PongResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.request_id, 123);
+        assert_eq!(deserialized.version, "1.0.0");
+    }
 }

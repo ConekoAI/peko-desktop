@@ -165,6 +165,46 @@ pub fn restart() -> Result<u32> {
     start()
 }
 
+/// Ensure the daemon is running, starting it if necessary.
+/// Returns the daemon PID.
+pub fn ensure_running() -> Result<u32> {
+    if is_running() {
+        // Try to read PID from file
+        let pid_path = default_pid_path();
+        if let Ok(content) = std::fs::read_to_string(&pid_path) {
+            if let Ok(pid) = content.trim().parse::<u32>() {
+                return Ok(pid);
+            }
+        }
+    }
+    
+    // Not running — start it
+    start()?;
+    
+    // Wait for PID file with retry
+    let pid_path = default_pid_path();
+    for _ in 0..20 {
+        std::thread::sleep(Duration::from_millis(500));
+        if let Ok(content) = std::fs::read_to_string(&pid_path) {
+            if let Ok(pid) = content.trim().parse::<u32>() {
+                if is_running() {
+                    return Ok(pid);
+                }
+            }
+        }
+    }
+    
+    Err(DaemonError::StartFailed(
+        "daemon started but did not write PID file within 10 seconds".to_string()
+    ))
+}
+
+pub async fn ensure_running_async() -> Result<u32> {
+    tokio::task::spawn_blocking(ensure_running)
+        .await
+        .map_err(|e| DaemonError::StartFailed(e.to_string()))?
+}
+
 /// Get daemon status
 pub fn status() -> Result<DaemonStatus> {
     let running = is_running();
@@ -311,4 +351,30 @@ fn default_socket_path() -> PathBuf {
     dirs::home_dir()
         .map(|d| d.join(".peko").join("run").join("daemon.sock"))
         .unwrap_or_else(|| PathBuf::from(".peko").join("run").join("daemon.sock"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_pid_path() {
+        let path = default_pid_path();
+        assert!(path.to_string_lossy().contains("daemon.pid"));
+    }
+
+    #[test]
+    fn test_daemon_status_serialization() {
+        let status = DaemonStatus {
+            running: true,
+            version: "1.0.0".to_string(),
+            uptime_secs: 42,
+            jobs_checked: 10,
+            jobs_executed: 5,
+        };
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("1.0.0"));
+        let deserialized: DaemonStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.uptime_secs, 42);
+    }
 }
