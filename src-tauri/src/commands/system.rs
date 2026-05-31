@@ -79,6 +79,20 @@ pub async fn system_doctor() -> Result<DoctorReport, String> {
 }
 
 #[tauri::command]
-pub fn system_clean() -> Result<String, String> {
-    super::util::run_peko_ok(&["system", "clean"])
+pub async fn system_clean() -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.system_clean(Some("all")).await.map_err(|e| e.to_string())?;
+    
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+    
+    let cleaned = resp.get("cleaned")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.len())
+        .unwrap_or(0);
+    
+    let bytes = resp.get("bytes_freed").and_then(|v| v.as_u64()).unwrap_or(0);
+    
+    Ok(format!("Cleaned {} items, freed {} bytes", cleaned, bytes))
 }

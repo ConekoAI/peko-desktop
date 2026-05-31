@@ -335,6 +335,61 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    // ── Extension ─────────────────────────────────────────────────
+
+    /// List extensions from daemon
+    pub async fn list_extensions(&self, enabled_only: bool, ext_type: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "extension_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "enabled_only": enabled_only,
+            "ext_type": ext_type,
+        });
+        self.request_response(req).await
+    }
+
+    /// Enable an extension
+    pub async fn enable_extension(&self, id: &str, target: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "extension_enable",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "id": id,
+            "target": target,
+        });
+        self.request_response(req).await
+    }
+
+    /// Disable an extension
+    pub async fn disable_extension(&self, id: &str, target: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "extension_disable",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "id": id,
+            "target": target,
+        });
+        self.request_response(req).await
+    }
+
+    // ── System ────────────────────────────────────────────────────
+
+    /// Clean system cache
+    pub async fn system_clean(&self, scope: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "system_clean",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "scope": scope,
+        });
+        self.request_response(req).await
+    }
+
     /// Send an execute request and emit stream events via the Tauri app handle.
     pub async fn execute(
         &self,
