@@ -21,38 +21,39 @@ pub struct AgentDetail {
 
 #[tauri::command]
 pub fn agent_list() -> Result<Vec<AgentSummary>, String> {
-    Ok(vec![])
+    super::util::run_peko_json(&["agent", "list", "--json"])
 }
 
 #[tauri::command]
 pub fn agent_show(name: String) -> Result<AgentDetail, String> {
-    Ok(AgentDetail {
-        name,
-        provider: "openai".to_string(),
-        model: "gpt-4".to_string(),
-        system_prompt: "".to_string(),
-        tools: vec![],
-        created_at: "".to_string(),
-        updated_at: "".to_string(),
-    })
+    super::util::run_peko_json(&["agent", "show", &name, "--json"])
 }
 
 #[tauri::command]
 pub fn agent_create(name: String, provider: String, model: String) -> Result<String, String> {
-    Ok(format!("agent '{}' created with {}/{}", name, provider, model))
+    super::util::run_peko_ok(&[
+        "agent",
+        "create",
+        &name,
+        "--provider",
+        &provider,
+        "--model",
+        &model,
+        "--yes",
+    ])
 }
 
 #[tauri::command]
 pub fn agent_remove(name: String) -> Result<String, String> {
-    Ok(format!("agent '{}' removed", name))
+    super::util::run_peko_ok(&["agent", "remove", &name, "--force"])
 }
 
 #[tauri::command]
 pub fn agent_export(name: String, path: String) -> Result<String, String> {
-    Ok(format!("agent '{}' exported to {}", name, path))
+    super::util::run_peko_ok(&["agent", "export", &name, "--output", &path])
 }
 
 #[tauri::command]
 pub fn agent_import(path: String) -> Result<String, String> {
-    Ok(format!("agent imported from {}", path))
+    super::util::run_peko_ok(&["agent", "import", &path])
 }

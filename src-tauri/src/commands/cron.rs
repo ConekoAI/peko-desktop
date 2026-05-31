@@ -11,20 +11,29 @@ pub struct CronJob {
 
 #[tauri::command]
 pub fn cron_list() -> Result<Vec<CronJob>, String> {
-    Ok(vec![])
+    super::util::run_peko_json(&["cron", "list", "--json"])
 }
 
 #[tauri::command]
-pub fn cron_add(name: String, _schedule: String, _message: String) -> Result<String, String> {
-    Ok(format!("cron job '{}' added", name))
+pub fn cron_add(name: String, schedule: String, message: String) -> Result<String, String> {
+    super::util::run_peko_ok(&[
+        "cron",
+        "add",
+        "--name",
+        &name,
+        "--schedule",
+        &schedule,
+        "--message",
+        &message,
+    ])
 }
 
 #[tauri::command]
 pub fn cron_remove(id: String) -> Result<String, String> {
-    Ok(format!("cron job '{}' removed", id))
+    super::util::run_peko_ok(&["cron", "remove", &id])
 }
 
 #[tauri::command]
 pub fn cron_run(id: String) -> Result<String, String> {
-    Ok(format!("cron job '{}' executed", id))
+    super::util::run_peko_ok(&["cron", "run", &id])
 }

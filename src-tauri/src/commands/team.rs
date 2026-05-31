@@ -18,26 +18,20 @@ pub struct TeamDetail {
 
 #[tauri::command]
 pub fn team_list() -> Result<Vec<TeamSummary>, String> {
-    Ok(vec![])
+    super::util::run_peko_json(&["team", "list", "--json"])
 }
 
 #[tauri::command]
 pub fn team_show(name: String) -> Result<TeamDetail, String> {
-    Ok(TeamDetail {
-        name,
-        members: vec![],
-        workflow: "sequential".to_string(),
-        created_at: "".to_string(),
-        updated_at: "".to_string(),
-    })
+    super::util::run_peko_json(&["team", "show", &name, "--json"])
 }
 
 #[tauri::command]
 pub fn team_export(name: String, path: String) -> Result<String, String> {
-    Ok(format!("team '{}' exported to {}", name, path))
+    super::util::run_peko_ok(&["team", "export", &name, "--output", &path])
 }
 
 #[tauri::command]
 pub fn team_import(path: String) -> Result<String, String> {
-    Ok(format!("team imported from {}", path))
+    super::util::run_peko_ok(&["team", "import", &path])
 }

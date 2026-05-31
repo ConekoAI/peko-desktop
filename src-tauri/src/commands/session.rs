@@ -20,29 +20,21 @@ pub struct SessionDetail {
 }
 
 #[tauri::command]
-pub fn session_list(_agent: String) -> Result<Vec<SessionSummary>, String> {
-    Ok(vec![])
+pub fn session_list(agent: String) -> Result<Vec<SessionSummary>, String> {
+    super::util::run_peko_json(&["session", "list", &agent, "--json"])
 }
 
 #[tauri::command]
 pub fn session_show(id: String) -> Result<SessionDetail, String> {
-    Ok(SessionDetail {
-        id,
-        agent: "".to_string(),
-        title: "".to_string(),
-        messages: vec![],
-        branches: vec![],
-        created_at: "".to_string(),
-        updated_at: "".to_string(),
-    })
+    super::util::run_peko_json(&["session", "show", &id, "--json"])
 }
 
 #[tauri::command]
 pub fn session_branch(id: String, name: String) -> Result<String, String> {
-    Ok(format!("session '{}' branched to '{}'", id, name))
+    super::util::run_peko_ok(&["session", "branch", &id, "--name", &name])
 }
 
 #[tauri::command]
 pub fn session_compact(id: String) -> Result<String, String> {
-    Ok(format!("session '{}' compacted", id))
+    super::util::run_peko_ok(&["session", "compact", &id])
 }

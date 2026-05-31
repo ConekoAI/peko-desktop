@@ -7,6 +7,7 @@ pub mod session;
 pub mod settings;
 pub mod system;
 pub mod team;
+pub mod util;
 
 pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![

@@ -31,4 +31,6 @@ reqwest = { version = "0.13.4", features = ["json"] }
 which = "7.0.0"
 keyring-core = "1.0.0"
 dirs = "6"
+toml = "0.8"
+urlencoding = "2"
 

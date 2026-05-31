@@ -25,25 +25,15 @@ pub struct CheckResult {
 
 #[tauri::command]
 pub fn system_status() -> Result<SystemStatus, String> {
-    Ok(SystemStatus {
-        version: "0.1.0".to_string(),
-        platform: std::env::consts::OS.to_string(),
-        arch: std::env::consts::ARCH.to_string(),
-        uptime_secs: 0,
-        memory_used_mb: 0,
-        memory_total_mb: 0,
-    })
+    super::util::run_peko_json(&["system", "status", "--json"])
 }
 
 #[tauri::command]
 pub fn system_doctor() -> Result<DoctorReport, String> {
-    Ok(DoctorReport {
-        checks: vec![],
-        healthy: true,
-    })
+    super::util::run_peko_json(&["system", "doctor", "--json"])
 }
 
 #[tauri::command]
 pub fn system_clean() -> Result<String, String> {
-    Ok("system cleaned".to_string())
+    super::util::run_peko_ok(&["system", "clean"])
 }

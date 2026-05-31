@@ -24,28 +24,43 @@ pub struct AuthStatus {
 }
 
 #[tauri::command]
-pub fn registry_search(
-    _query: String,
+pub async fn registry_search(
+    query: String,
     page: u32,
     per_page: u32,
 ) -> Result<SearchResult, String> {
-    Ok(SearchResult {
-        items: vec![],
-        total: 0,
+    let url = format!(
+        "https://pekohub.org/api/v1/search?q={}&page={}&perPage={}",
+        urlencoding::encode(&query),
         page,
-        per_page,
-    })
+        per_page
+    );
+    let response = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("HTTP request failed: {}", e))?;
+    let result: SearchResult = response
+        .json()
+        .await
+        .map_err(|e| format!("failed to parse response: {}", e))?;
+    Ok(result)
 }
 
 #[tauri::command]
 pub fn registry_pull(ref_str: String) -> Result<String, String> {
-    Ok(format!("pulled {}", ref_str))
+    super::util::run_peko_ok(&["agent", "pull", &ref_str])
 }
 
 #[tauri::command]
 pub fn registry_auth_status() -> Result<AuthStatus, String> {
-    Ok(AuthStatus {
-        authenticated: false,
-        username: None,
-    })
+    match crate::vault::get_credential("peko", "pekohub") {
+        Ok(Some(_)) => Ok(AuthStatus {
+            authenticated: true,
+            username: None,
+        }),
+        Ok(None) => Ok(AuthStatus {
+            authenticated: false,
+            username: None,
+        }),
+        Err(e) => Err(e.to_string()),
+    }
 }
