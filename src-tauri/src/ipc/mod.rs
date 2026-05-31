@@ -273,6 +273,68 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    // ── System ────────────────────────────────────────────────────
+
+    /// Get system status from daemon
+    pub async fn system_status(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "system_status",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Run system doctor check
+    pub async fn system_doctor(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "system_doctor",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    // ── Cron ──────────────────────────────────────────────────────
+
+    /// List cron jobs
+    pub async fn cron_list(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "cron_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "include_disabled": true,
+        });
+        self.request_response(req).await
+    }
+
+    /// Remove a cron job
+    pub async fn cron_remove(&self, id: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "cron_remove",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "job_id": id,
+        });
+        self.request_response(req).await
+    }
+
+    /// Run a cron job now
+    pub async fn cron_run(&self, id: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "cron_run",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "job_id": id,
+        });
+        self.request_response(req).await
+    }
+
     /// Send an execute request and emit stream events via the Tauri app handle.
     pub async fn execute(
         &self,
