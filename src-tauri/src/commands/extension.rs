@@ -29,8 +29,16 @@ pub async fn extension_list() -> Result<Vec<ExtensionSummary>, String> {
 }
 
 #[tauri::command]
-pub fn extension_install(path: String) -> Result<String, String> {
-    super::util::run_peko_ok(&["ext", "install", &path])
+pub async fn extension_install(path: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.install_extension(&path).await.map_err(|e| e.to_string())?;
+    
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+    
+    let msg = resp.get("message").and_then(|v| v.as_str()).unwrap_or("Extension installed");
+    Ok(msg.to_string())
 }
 
 #[tauri::command]
@@ -60,6 +68,14 @@ pub async fn extension_disable(id: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn extension_uninstall(id: String) -> Result<String, String> {
-    super::util::run_peko_ok(&["ext", "uninstall", &id])
+pub async fn extension_uninstall(id: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.uninstall_extension(&id).await.map_err(|e| e.to_string())?;
+    
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+    
+    let msg = resp.get("message").and_then(|v| v.as_str()).unwrap_or("Extension uninstalled");
+    Ok(msg.to_string())
 }

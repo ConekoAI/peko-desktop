@@ -390,6 +390,30 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Install an extension from a path
+    pub async fn install_extension(&self, path: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "extension_install",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "path": path,
+        });
+        self.request_response(req).await
+    }
+
+    /// Uninstall an extension by ID
+    pub async fn uninstall_extension(&self, id: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "extension_uninstall",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "id": id,
+        });
+        self.request_response(req).await
+    }
+
     /// Send an execute request and emit stream events via the Tauri app handle.
     pub async fn execute(
         &self,
