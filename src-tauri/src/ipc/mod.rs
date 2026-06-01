@@ -226,6 +226,35 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Export an agent
+    pub async fn export_agent(&self, name: &str, team: Option<&str>, output: Option<&str>, include_sessions: bool) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "agent_export",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "team": team,
+            "output": output,
+            "include_sessions": include_sessions,
+        });
+        self.request_response(req).await
+    }
+
+    /// Import an agent
+    pub async fn import_agent(&self, file_path: &str, name: Option<&str>, team: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "agent_import",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "file_path": file_path,
+            "name": name,
+            "team": team,
+        });
+        self.request_response(req).await
+    }
+
     // ── Team CRUD ─────────────────────────────────────────────────
 
     pub async fn list_teams(&self) -> Result<serde_json::Value> {
@@ -245,6 +274,34 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Export a team
+    pub async fn export_team(&self, name: &str, output: Option<&str>, include_sessions: bool) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "team_export",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "output": output,
+            "include_sessions": include_sessions,
+        });
+        self.request_response(req).await
+    }
+
+    /// Import a team
+    pub async fn import_team(&self, file_path: &str, name: Option<&str>, force: bool) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "team_import",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "file_path": file_path,
+            "name": name,
+            "force": force,
         });
         self.request_response(req).await
     }
@@ -410,6 +467,67 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "id": id,
+        });
+        self.request_response(req).await
+    }
+
+    /// Add a cron job (simplified)
+    pub async fn cron_add_simple(&self, name: &str, schedule: &str, message: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "cron_add_simple",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "schedule": schedule,
+            "message": message,
+        });
+        self.request_response(req).await
+    }
+
+    /// Branch a session
+    pub async fn branch_session(&self, agent: &str, team: Option<&str>, session_id: &str, label: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "session_branch",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "agent": agent,
+            "team": team,
+            "session_id": session_id,
+            "label": label,
+        });
+        self.request_response(req).await
+    }
+
+    /// Compact a session
+    pub async fn compact_session(&self, agent: &str, team: Option<&str>, session_id: &str, dry_run: bool, instruction: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "session_compact",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "agent": agent,
+            "team": team,
+            "session_id": session_id,
+            "dry_run": dry_run,
+            "instruction": instruction,
+        });
+        self.request_response(req).await
+    }
+
+    /// Pull an agent from registry
+    pub async fn registry_pull(&self, registry_ref: &str, team: Option<&str>, force: bool, token: Option<&str>, host: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "registry_pull",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "registry_ref": registry_ref,
+            "team": team,
+            "force": force,
+            "registry_token": token,
+            "registry_host": host,
         });
         self.request_response(req).await
     }

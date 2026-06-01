@@ -69,11 +69,27 @@ pub async fn agent_remove(name: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn agent_export(name: String, path: String) -> Result<String, String> {
-    super::util::run_peko_ok(&["agent", "export", &name, "--output", &path])
+pub async fn agent_export(name: String, path: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.export_agent(&name, None, Some(&path), false).await.map_err(|e| e.to_string())?;
+
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    let output = resp.get("output_path").and_then(|v| v.as_str()).unwrap_or("unknown");
+    Ok(format!("Agent exported to {}", output))
 }
 
 #[tauri::command]
-pub fn agent_import(path: String) -> Result<String, String> {
-    super::util::run_peko_ok(&["agent", "import", &path])
+pub async fn agent_import(path: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.import_agent(&path, None, None).await.map_err(|e| e.to_string())?;
+
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    let name = resp.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+    Ok(format!("Agent '{}' imported", name))
 }

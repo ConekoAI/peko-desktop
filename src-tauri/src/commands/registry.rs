@@ -46,8 +46,22 @@ pub async fn registry_search(
 }
 
 #[tauri::command]
-pub fn registry_pull(ref_str: String) -> Result<String, String> {
-    super::util::run_peko_ok(&["agent", "pull", &ref_str])
+pub async fn registry_pull(ref_str: String) -> Result<String, String> {
+    // Get registry token from vault
+    let token = crate::vault::get_credential("peko", "pekohub")
+        .ok()
+        .flatten();
+
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.registry_pull(&ref_str, None, false, token.as_deref(), None).await.map_err(|e| e.to_string())?;
+
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    let name = resp.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+    let version = resp.get("version").and_then(|v| v.as_str()).unwrap_or("unknown");
+    Ok(format!("Pulled {}:{}", name, version))
 }
 
 #[tauri::command]

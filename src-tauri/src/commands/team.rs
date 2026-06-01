@@ -39,11 +39,27 @@ pub async fn team_show(name: String) -> Result<TeamDetail, String> {
 }
 
 #[tauri::command]
-pub fn team_export(name: String, path: String) -> Result<String, String> {
-    super::util::run_peko_ok(&["team", "export", &name, "--output", &path])
+pub async fn team_export(name: String, path: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.export_team(&name, Some(&path), false).await.map_err(|e| e.to_string())?;
+
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    let output = resp.get("output_path").and_then(|v| v.as_str()).unwrap_or("unknown");
+    Ok(format!("Team exported to {}", output))
 }
 
 #[tauri::command]
-pub fn team_import(path: String) -> Result<String, String> {
-    super::util::run_peko_ok(&["team", "import", &path])
+pub async fn team_import(path: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.import_team(&path, None, false).await.map_err(|e| e.to_string())?;
+
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    let name = resp.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+    Ok(format!("Team '{}' imported", name))
 }
