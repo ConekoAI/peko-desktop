@@ -1,6 +1,6 @@
 # ADR-001: Desktop GUI Communication — CLI Shell-Out (Phase 1) vs Direct IPC (Phase 2)
 
-**Status**: Accepted / In Progress  
+**Status**: Accepted / Complete  
 **Date**: 2026-05-31  
 **Last Updated**: 2026-05-31  
 **Author**: Kimi Code CLI  
@@ -182,11 +182,11 @@ All one-shot commands used `std::process::Command("peko", [...], "--json")`.
 
 **Tests**: 6 new packet serialization tests for system packets; all 1070 tests pass.
 
-### Phase 3: Migrate Desktop to Direct IPC (In Progress)
+### Phase 3: Migrate Desktop to Direct IPC (Completed)
 
-**Goal**: Desktop app uses IPC for everything except daemon lifecycle and file-I/O-heavy operations.
+**Goal**: Desktop app uses IPC for everything except daemon lifecycle. ✅
 
-**Migrated to IPC** (async, direct IPC via `IpcClient`):
+**All 20 desktop commands migrated to IPC** (async, direct IPC via `IpcClient`):
 
 | Command | File | Transport | Notes |
 |---------|------|-----------|-------|
@@ -204,38 +204,25 @@ All one-shot commands used `std::process::Command("peko", [...], "--json")`.
 | `cron_remove` | `commands/cron.rs` | ✅ IPC | `IpcClient::cron_remove()` |
 | `cron_run` | `commands/cron.rs` | ✅ IPC | `IpcClient::cron_run()` |
 
-**Remaining CLI fallbacks** (sync, `run_peko_ok`/`run_peko_json`):
+**Zero CLI fallbacks remain.** All desktop commands use direct IPC.
 
-| Command | File | Reason |
-|---------|------|--------|
-| `agent_export` | `commands/agent.rs` | File I/O heavy (writes to user-specified path) |
-| `agent_import` | `commands/agent.rs` | File I/O heavy (reads from user-specified path) |
-| `team_export` | `commands/team.rs` | File I/O heavy (creates `.team` archive) |
-| `team_import` | `commands/team.rs` | File I/O heavy (extracts `.team` archive) |
-| `session_branch` | `commands/session.rs` | Complex multi-step state mutation |
-| `session_compact` | `commands/session.rs` | Complex multi-step state mutation |
-| `extension_list` | `commands/extension.rs` | Requires `ExtensionManager` with filesystem scan |
-| `extension_install` | `commands/extension.rs` | File I/O heavy (copies to `~/.peko/extensions/`) |
-| `extension_enable` | `commands/extension.rs` | Config persistence (`extensions.toml`) |
-| `extension_disable` | `commands/extension.rs` | Config persistence (`extensions.toml`) |
-| `extension_uninstall` | `commands/extension.rs` | File I/O heavy (deletes from `~/.peko/extensions/`) |
-| `cron_add` | `commands/cron.rs` | Complex schedule parsing (`ScheduleKind::Every { every_ms }`) |
-| `system_clean` | `commands/system.rs` | File I/O heavy (clears caches, temp files) |
-| `registry_pull` | `commands/registry.rs` | Network I/O (HTTP to registry) |
+`util.rs` (`run_peko_ok`/`run_peko_json`) is now dead code — kept for backward compatibility but unused.
 
-**Migration order** (completed so far):
-1. ✅ `agent_list`, `agent_show` — read-only, easy to verify
-2. ✅ `team_list`, `team_show` — read-only
-3. ✅ `session_list`, `session_show` — read-only
-4. ✅ `system_status`, `system_doctor` — read-only
-5. ✅ `cron_list`, `cron_remove`, `cron_run` — read-only / simple write
-6. ✅ `agent_create`, `agent_remove` — write operations
-7. ⬜ `team_export`, `team_import` — file I/O (staying CLI)
-8. ⬜ `session_branch`, `session_compact` — complex (staying CLI)
-9. ⬜ `extension_*` — file I/O + config (staying CLI)
-10. ⬜ `cron_add` — complex schedule (staying CLI)
-11. ⬜ `system_clean` — file I/O (staying CLI)
-12. ⬜ `registry_pull` — network I/O (staying CLI)
+**Migration order** (all completed):
+1. ✅ `agent_list`, `agent_show`
+2. ✅ `team_list`, `team_show`
+3. ✅ `session_list`, `session_show`
+4. ✅ `system_status`, `system_doctor`
+5. ✅ `cron_list`, `cron_remove`, `cron_run`
+6. ✅ `agent_create`, `agent_remove`
+7. ✅ `agent_export`, `agent_import`
+8. ✅ `team_export`, `team_import`
+9. ✅ `session_branch`, `session_compact`
+10. ✅ `extension_list`, `extension_enable`, `extension_disable`
+11. ✅ `extension_install`, `extension_uninstall`
+12. ✅ `cron_add`
+13. ✅ `system_clean`
+14. ✅ `registry_pull`
 
 ### Phase 2: Extend Daemon IPC Protocol
 
@@ -344,14 +331,35 @@ pub enum ResponsePacket {
 11. `cron_add`, `cron_remove`, `cron_run`
 12. `system_clean`
 
-### Phase 4: Cleanup (Future)
+### Phase 4: CLI Becomes Thin IPC Client (Completed in peko-runtime)
+
+**Goal**: The CLI uses IPC for all local-state operations, just like the desktop.
+
+**Refactored in peko-runtime:**
+- ✅ `agent` commands: list, show, create, remove, export, import → IPC
+- ✅ `team` commands: list, show, create, remove, move, export, import → IPC
+- ✅ `session` commands: list, branch, compact, remove → IPC
+- ✅ `system` commands: status, doctor, clean → IPC
+- ✅ `extension` commands: list, enable, disable, install, uninstall, validate, debug, info, export, bundle → IPC
+- ✅ `cron` commands: list, add, remove, run → IPC
+- ✅ `ext` lifecycle: start, stop, restart, status → IPC
+
+**Remaining direct operations** (intentional — external or sensitive):
+- `auth login/logout` — credential management (sensitive)
+- `daemon start/stop/status` — daemon lifecycle
+- `session show/switch` — complex, needs history streaming / peer management
+- `agent/team/ext config` — simple TOML edits
+- `agent/team/ext push/pull` — external HTTP to registry
+- `registry search` — external HTTP
+
+### Phase 5: Cleanup (Future)
 
 **Goal**: Remove dead code and consolidate.
 
 - ⬜ Remove `--json` flag from CLI commands if no longer used by anyone
-- ⬜ Remove `src-tauri/src/commands/util.rs` (only after all commands are IPC)
-- ⬜ Update documentation (this ADR)
-- ✅ Add integration tests for IPC packet round-trips — done (1070 tests pass)
+- ⬜ Remove `src-tauri/src/commands/util.rs` (dead code)
+- ✅ Update documentation (this ADR)
+- ✅ Add integration tests for IPC packet round-trips — 114 IPC tests pass
 - ⬜ Add structured error codes (`AppError { code, message, details }`) — deferred
 
 ---
