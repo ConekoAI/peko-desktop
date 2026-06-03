@@ -62,19 +62,35 @@ export default function Chat() {
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({ channel: "peko-stream" });
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Track which messages we've already merged into chatItems
+  const mergedCountRef = useRef(0);
 
-  // Append streamed assistant messages to chat items
+  // Append streamed assistant messages to chat items.
+  // The useIpcStream hook already accumulates consecutive chunks into a single message,
+  // so each element in `messages` is one complete assistant response (or error).
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      mergedCountRef.current = 0;
+      return;
+    }
+    const newCount = messages.length - mergedCountRef.current;
+    if (newCount <= 0) return;
+
+    const newMessages = messages.slice(mergedCountRef.current);
+    mergedCountRef.current = messages.length;
+
     setChatItems((prev) => {
-      // Only add new messages that aren't already in the list
-      const existingCount = prev.filter((i) => !i.isUser).length;
-      const newMessages = messages.slice(existingCount);
-      if (newMessages.length === 0) return prev;
       const newItems: ChatItem[] = newMessages.map((event) => ({ event, isUser: false }));
       return [...prev, ...newItems];
     });
   }, [messages]);
+
+  // Reset merged count when chat is cleared
+  useEffect(() => {
+    if (messages.length === 0) {
+      mergedCountRef.current = 0;
+    }
+  }, [messages.length]);
 
   useEffect(() => {
     if (scrollRef.current) {
