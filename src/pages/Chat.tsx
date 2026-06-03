@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useAgents } from "../hooks/useAgents";
 import { useIpcStream } from "../hooks/useIpcStream";
 import { sessionSend } from "../lib/api";
@@ -55,6 +55,33 @@ function ChatMessage({ item }: { item: ChatItem }) {
   );
 }
 
+/**
+ * Merge consecutive assistant chunk events into single messages.
+ * User messages and non-chunk events (tool_call, error, etc.) are preserved as-is.
+ */
+function mergeAssistantChunks(items: ChatItem[]): ChatItem[] {
+  const merged: ChatItem[] = [];
+  for (const item of items) {
+    const last = merged[merged.length - 1];
+    if (
+      !item.isUser &&
+      item.event.type === "chunk" &&
+      last &&
+      !last.isUser &&
+      last.event.type === "chunk"
+    ) {
+      // Merge into last assistant chunk
+      last.event = {
+        ...last.event,
+        content: (last.event.content ?? "") + (item.event.content ?? ""),
+      };
+    } else {
+      merged.push({ ...item });
+    }
+  }
+  return merged;
+}
+
 export default function Chat() {
   const { data: agents, isLoading: agentsLoading } = useAgents();
   const [selectedAgent, setSelectedAgent] = useState<string>("");
@@ -62,12 +89,9 @@ export default function Chat() {
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({ channel: "peko-stream" });
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Track which messages we've already merged into chatItems
   const mergedCountRef = useRef(0);
 
-  // Append streamed assistant messages to chat items.
-  // The useIpcStream hook already accumulates consecutive chunks into a single message,
-  // so each element in `messages` is one complete assistant response (or error).
+  // Append new streamed messages to chatItems
   useEffect(() => {
     if (messages.length === 0) {
       mergedCountRef.current = 0;
@@ -84,13 +108,6 @@ export default function Chat() {
       return [...prev, ...newItems];
     });
   }, [messages]);
-
-  // Reset merged count when chat is cleared
-  useEffect(() => {
-    if (messages.length === 0) {
-      mergedCountRef.current = 0;
-    }
-  }, [messages.length]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -122,6 +139,9 @@ export default function Chat() {
     const sessionId = `chat-${selectedAgent}`;
     await sendMessage(() => sessionSend(sessionId, message));
   }
+
+  // Merge consecutive assistant chunks for rendering
+  const displayItems = useMemo(() => mergeAssistantChunks(chatItems), [chatItems]);
 
   return (
     <div className="flex h-full flex-col space-y-4">
@@ -164,14 +184,14 @@ export default function Chat() {
         ref={scrollRef}
         className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
       >
-        {chatItems.length === 0 ? (
+        {displayItems.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-slate-400 dark:text-slate-600">
             <MessageCircle className="h-10 w-10" />
             <p className="mt-2 text-sm">Select an agent and send a message to start chatting</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {chatItems.map((item, idx) => (
+            {displayItems.map((item, idx) => (
               <ChatMessage key={item.event.timestamp ?? idx} item={item} />
             ))}
             {isStreaming && (
