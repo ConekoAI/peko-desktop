@@ -5,6 +5,11 @@ import { sessionSend } from "../lib/api";
 import { Send, Loader2, MessageCircle, X, User, Bot as BotIcon } from "lucide-react";
 import type { StreamEvent } from "../types";
 
+interface ChatItem {
+  event: StreamEvent;
+  isUser: boolean;
+}
+
 function formatTime(ts?: string) {
   if (!ts) return "";
   const ms = Number(ts);
@@ -16,7 +21,8 @@ function formatTime(ts?: string) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function ChatMessage({ event, isUser }: { event: StreamEvent; isUser?: boolean }) {
+function ChatMessage({ item }: { item: ChatItem }) {
+  const { event, isUser } = item;
   const isError = event.type === "error";
 
   return (
@@ -53,18 +59,28 @@ export default function Chat() {
   const { data: agents, isLoading: agentsLoading } = useAgents();
   const [selectedAgent, setSelectedAgent] = useState<string>("");
   const [input, setInput] = useState("");
-  const [localMessages, setLocalMessages] = useState<StreamEvent[]>([]);
+  const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({ channel: "peko-stream" });
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Combine local user messages with streamed assistant messages
-  const allMessages = [...localMessages, ...messages];
+  // Append streamed assistant messages to chat items
+  useEffect(() => {
+    if (messages.length === 0) return;
+    setChatItems((prev) => {
+      // Only add new messages that aren't already in the list
+      const existingCount = prev.filter((i) => !i.isUser).length;
+      const newMessages = messages.slice(existingCount);
+      if (newMessages.length === 0) return prev;
+      const newItems: ChatItem[] = newMessages.map((event) => ({ event, isUser: false }));
+      return [...prev, ...newItems];
+    });
+  }, [messages]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [allMessages]);
+  }, [chatItems, isStreaming]);
 
   useEffect(() => {
     if (agents && agents.length > 0 && !selectedAgent) {
@@ -79,13 +95,13 @@ export default function Chat() {
     const message = input.trim();
     setInput("");
 
-    // Add user message to local history immediately
+    // Add user message to chat immediately
     const userEvent: StreamEvent = {
       type: "chunk",
       content: message,
       timestamp: Date.now().toString(),
     };
-    setLocalMessages((prev) => [...prev, userEvent]);
+    setChatItems((prev) => [...prev, { event: userEvent, isUser: true }]);
 
     const sessionId = `chat-${selectedAgent}`;
     await sendMessage(() => sessionSend(sessionId, message));
@@ -119,7 +135,7 @@ export default function Chat() {
           <button
             onClick={() => {
               clearMessages();
-              setLocalMessages([]);
+              setChatItems([]);
             }}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
@@ -132,19 +148,15 @@ export default function Chat() {
         ref={scrollRef}
         className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
       >
-        {allMessages.length === 0 ? (
+        {chatItems.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-slate-400 dark:text-slate-600">
             <MessageCircle className="h-10 w-10" />
             <p className="mt-2 text-sm">Select an agent and send a message to start chatting</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {allMessages.map((msg, idx) => (
-              <ChatMessage
-                key={msg.id ?? idx}
-                event={msg}
-                isUser={msg.type === "chunk" && allMessages[idx - 1]?.type !== "chunk" && idx % 2 === 0}
-              />
+            {chatItems.map((item, idx) => (
+              <ChatMessage key={item.event.timestamp ?? idx} item={item} />
             ))}
             {isStreaming && (
               <div className="flex justify-start">
