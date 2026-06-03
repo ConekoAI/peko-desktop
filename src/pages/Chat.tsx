@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useAgents } from "../hooks/useAgents";
 import { useSessions, useSessionHistory } from "../hooks/useSessions";
 
@@ -313,10 +313,16 @@ function SessionToolbar({
 
 export default function Chat() {
   const navigate = useNavigate();
-  const params = useParams({ from: "/chat/$agentName/$sessionId" }) as {
-    agentName?: string;
-    sessionId?: string;
+  const routerState = useRouterState();
+  const pathname = routerState.location.pathname;
+
+  // Parse params from pathname manually since Chat is used by multiple routes
+  const pathParts = pathname.split("/").filter(Boolean);
+  const params = {
+    agentName: pathParts[0] === "chat" ? pathParts[1] : undefined,
+    sessionId: pathParts[0] === "chat" && pathParts[2] ? pathParts[2] : undefined,
   };
+
   const { data: agents, isLoading: agentsLoading } = useAgents();
 
   // Determine selected agent: URL param → first agent → none
