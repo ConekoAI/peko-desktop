@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useAgents } from "../hooks/useAgents";
-import { useSessions } from "../hooks/useSessions";
+import { useSessions, useSessionHistory } from "../hooks/useSessions";
 
 import { useIpcStream } from "../hooks/useIpcStream";
 import { sessionSend } from "../lib/api";
@@ -329,21 +329,38 @@ export default function Chat() {
   const activeSessionId = sessions?.find((s) => s.status === "active")?.id;
   const currentSessionId = params.sessionId ?? activeSessionId ?? sessions?.[0]?.id;
 
+  // Fetch session history from daemon
+  const historyId = currentSessionId ? `${selectedAgent}/${currentSessionId}` : "";
+  const { data: sessionHistory } = useSessionHistory(historyId);
+
   // Local chat state
   const [input, setInput] = useState("");
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
+  const [isNewSession, setIsNewSession] = useState(false);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({
     channel: "peko-stream",
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const mergedCountRef = useRef(0);
 
-  // Clear chat when switching sessions
+  // Load session history when it arrives or session changes
   useEffect(() => {
-    setChatItems([]);
+    if (sessionHistory && sessionHistory.length > 0) {
+      const historyItems: ChatItem[] = sessionHistory.map((msg) => ({
+        event: {
+          type: "chunk",
+          content: msg.content,
+          timestamp: msg.timestamp,
+        } as StreamEvent,
+        isUser: msg.role === "user",
+      }));
+      setChatItems(historyItems);
+    } else {
+      setChatItems([]);
+    }
     mergedCountRef.current = 0;
     clearMessages();
-  }, [currentSessionId, clearMessages]);
+  }, [sessionHistory, currentSessionId, clearMessages]);
 
   // Append new streamed messages to chatItems
   useEffect(() => {
@@ -370,17 +387,20 @@ export default function Chat() {
   }, [chatItems, isStreaming]);
 
   function handleSelectAgent(name: string) {
+    setIsNewSession(false);
     navigate({ to: "/chat/$agentName", params: { agentName: name } });
   }
 
   function handleNewSession() {
-    // Navigate without sessionId — daemon will create new session on next send
+    // Navigate without sessionId and set flag to force new session creation
     navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
     setChatItems([]);
+    setIsNewSession(true);
     clearMessages();
   }
 
   function handleSwitchSession(sessionId: string) {
+    setIsNewSession(false);
     navigate({
       to: "/chat/$agentName/$sessionId",
       params: { agentName: selectedAgent, sessionId },
@@ -406,7 +426,11 @@ export default function Chat() {
     const sessionId = currentSessionId
       ? `${selectedAgent}/${currentSessionId}`
       : `chat-${selectedAgent}`;
-    await sendMessage(() => sessionSend(sessionId, message));
+    await sendMessage(() => sessionSend(sessionId, message, isNewSession));
+    // After first message in a new session, clear the flag
+    if (isNewSession) {
+      setIsNewSession(false);
+    }
   }
 
   const displayItems = useMemo(() => mergeAssistantChunks(chatItems), [chatItems]);

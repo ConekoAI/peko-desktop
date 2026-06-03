@@ -28,6 +28,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         team::team_import,
         session::session_list,
         session::session_show,
+        session::session_history,
         session::session_send,
         session::session_branch,
         session::session_compact,

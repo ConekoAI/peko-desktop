@@ -338,6 +338,22 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Show session details with optional history.
+    /// `agent` and `session_id` are required. `team` defaults to "default".
+    pub async fn show_session(&self, agent: &str, team: Option<&str>, session_id: &str, history: bool) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "session_show",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "agent": agent,
+            "team": team,
+            "session_id": session_id,
+            "history": history,
+        });
+        self.request_response(req).await
+    }
+
     // ── System ────────────────────────────────────────────────────
 
     /// Get system status from daemon

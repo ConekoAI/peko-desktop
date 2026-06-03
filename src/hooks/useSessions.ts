@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   sessionList,
   sessionShow,
+  sessionHistory,
   sessionCreate,
   sessionBranch,
   sessionCompact,
@@ -18,6 +19,14 @@ export function useSession(id: string) {
   return useQuery({
     queryKey: ["sessions", id],
     queryFn: () => sessionShow(id),
+    enabled: !!id,
+  });
+}
+
+export function useSessionHistory(id: string) {
+  return useQuery({
+    queryKey: ["sessions", id, "history"],
+    queryFn: () => sessionHistory(id),
     enabled: !!id,
   });
 }

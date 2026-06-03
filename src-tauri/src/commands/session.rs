@@ -133,13 +133,66 @@ pub async fn session_list(agent: String) -> Result<Vec<SessionSummary>, String> 
 
 #[tauri::command]
 pub async fn session_show(id: String) -> Result<SessionDetail, String> {
+    // Parse id as "agent/session_id" or just "session_id"
+    let (agent, session_id) = if id.contains('/') {
+        let parts: Vec<&str> = id.splitn(2, '/').collect();
+        (parts[0].to_string(), parts[1].to_string())
+    } else {
+        ("default".to_string(), id)
+    };
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let value = client.get_session(&id).await.map_err(|e| e.to_string())?;
+    let value = client.show_session(&agent, None, &session_id, false).await.map_err(|e| e.to_string())?;
+    
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(value.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+    
     let session = value
         .get("session")
         .and_then(parse_session_detail)
         .ok_or_else(|| "session not found".to_string())?;
     Ok(session)
+}
+
+/// Fetch session history with messages.
+/// `id` format: "agent/session_id" or just "session_id"
+#[tauri::command]
+pub async fn session_history(id: String) -> Result<Vec<SessionMessage>, String> {
+    let (agent, session_id) = if id.contains('/') {
+        let parts: Vec<&str> = id.splitn(2, '/').collect();
+        (parts[0].to_string(), parts[1].to_string())
+    } else {
+        ("default".to_string(), id)
+    };
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.show_session(&agent, None, &session_id, true).await.map_err(|e| e.to_string())?;
+    
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(value.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+    
+    let messages = value
+        .get("history")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|event| {
+                    let event_type = event.get("type")?.as_str()?;
+                    if event_type != "Message" {
+                        return None;
+                    }
+                    Some(SessionMessage {
+                        id: event.get("timestamp").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        role: event.get("role").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+                        content: event.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        timestamp: event.get("timestamp").and_then(|v| v.as_str()).unwrap_or("0").to_string(),
+                        metadata: None,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(messages)
 }
 
 /// Get the active session ID for an agent from the daemon.
@@ -197,6 +250,7 @@ pub async fn session_send(
     app: tauri::AppHandle,
     id: String,
     message: String,
+    new_session: Option<bool>,
 ) -> Result<(), String> {
     // Parse id as "agent/session_id" or just "agent"
     // The frontend may prefix with "chat-" (e.g. "chat-my-agent") — strip it.
@@ -208,15 +262,16 @@ pub async fn session_send(
         (id.to_string(), None)
     };
 
-    // If no explicit session ID, query the daemon for the active session.
-    // This ensures continuity across messages in the same chat.
-    let session_id = if let Some(sid) = explicit_session_id {
+    // If new_session is explicitly true, don't look up active session
+    let session_id = if new_session == Some(true) {
+        None
+    } else if let Some(sid) = explicit_session_id {
         Some(sid)
     } else {
         get_active_session(&agent).await
     };
 
-    eprintln!("[session_send] agent={}, session_id={:?}", agent, session_id);
+    eprintln!("[session_send] agent={}, session_id={:?}, new_session={:?}", agent, session_id, new_session);
 
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
     client

@@ -11,6 +11,7 @@ import type {
   ExtensionSummary,
   SearchResult,
   SessionDetail,
+  SessionMessage,
   SessionSummary,
   Setting,
   SystemStatus,
@@ -128,6 +129,10 @@ export async function sessionShow(id: string): Promise<SessionDetail> {
   return invoke("session_show", { id });
 }
 
+export async function sessionHistory(id: string): Promise<SessionMessage[]> {
+  return invoke("session_history", { id });
+}
+
 export async function sessionCreate(payload: {
   agent: string;
   title?: string;
@@ -148,8 +153,8 @@ export async function sessionClose(id: string): Promise<void> {
   return invoke("session_close", { id });
 }
 
-export async function sessionSend(id: string, message: string): Promise<void> {
-  return invoke("session_send", { id, message });
+export async function sessionSend(id: string, message: string, newSession?: boolean): Promise<void> {
+  return invoke("session_send", { id, message, newSession });
 }
 
 // ─── Extensions ───────────────────────────────────────────
