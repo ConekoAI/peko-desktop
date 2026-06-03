@@ -625,6 +625,10 @@ impl IpcClient {
                     let message = raw.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string();
                     StreamEvent::Error { message, timestamp }
                 }
+                "heartbeat" => {
+                    // Daemon keepalive — ignore
+                    continue;
+                }
                 other => {
                     // Unknown packet type — skip or log
                     eprintln!("[peko-desktop] Unknown IPC response packet type: {}", other);

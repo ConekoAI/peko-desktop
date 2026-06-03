@@ -7,19 +7,16 @@ import type { StreamEvent } from "../types";
 
 function formatTime(ts?: string) {
   if (!ts) return "";
-  // Handle epoch millis string (e.g. "1780480809752") — parse as number
   const ms = Number(ts);
   if (!isNaN(ms) && ms > 1000000000000) {
     return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
-  // Fallback for ISO strings
   const d = new Date(ts);
   if (isNaN(d.getTime())) return ts;
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function ChatMessage({ event }: { event: StreamEvent }) {
-  const isUser = event.type === "tool_call" || (event.data?.role === "user");
+function ChatMessage({ event, isUser }: { event: StreamEvent; isUser?: boolean }) {
   const isError = event.type === "error";
 
   return (
@@ -56,14 +53,18 @@ export default function Chat() {
   const { data: agents, isLoading: agentsLoading } = useAgents();
   const [selectedAgent, setSelectedAgent] = useState<string>("");
   const [input, setInput] = useState("");
+  const [localMessages, setLocalMessages] = useState<StreamEvent[]>([]);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({ channel: "peko-stream" });
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Combine local user messages with streamed assistant messages
+  const allMessages = [...localMessages, ...messages];
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [allMessages]);
 
   useEffect(() => {
     if (agents && agents.length > 0 && !selectedAgent) {
@@ -78,8 +79,14 @@ export default function Chat() {
     const message = input.trim();
     setInput("");
 
-    // For now we use a placeholder session id derived from agent name.
-    // In a full implementation this would create a session first.
+    // Add user message to local history immediately
+    const userEvent: StreamEvent = {
+      type: "chunk",
+      content: message,
+      timestamp: Date.now().toString(),
+    };
+    setLocalMessages((prev) => [...prev, userEvent]);
+
     const sessionId = `chat-${selectedAgent}`;
     await sendMessage(() => sessionSend(sessionId, message));
   }
@@ -110,7 +117,10 @@ export default function Chat() {
             </select>
           )}
           <button
-            onClick={clearMessages}
+            onClick={() => {
+              clearMessages();
+              setLocalMessages([]);
+            }}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Clear
@@ -122,15 +132,19 @@ export default function Chat() {
         ref={scrollRef}
         className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
       >
-        {messages.length === 0 ? (
+        {allMessages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-slate-400 dark:text-slate-600">
             <MessageCircle className="h-10 w-10" />
             <p className="mt-2 text-sm">Select an agent and send a message to start chatting</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {messages.map((msg, idx) => (
-              <ChatMessage key={msg.id ?? idx} event={msg} />
+            {allMessages.map((msg, idx) => (
+              <ChatMessage
+                key={msg.id ?? idx}
+                event={msg}
+                isUser={msg.type === "chunk" && allMessages[idx - 1]?.type !== "chunk" && idx % 2 === 0}
+              />
             ))}
             {isStreaming && (
               <div className="flex justify-start">

@@ -53,7 +53,6 @@ export function useIpcStream(options: UseIpcStreamOptions = {}) {
 
   const sendMessage = useCallback(
     async (invokeFn: () => Promise<void>) => {
-      setMessages([]);
       setError(null);
       setIsStreaming(true);
       try {
