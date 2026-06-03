@@ -190,11 +190,13 @@ pub async fn session_send(
     message: String,
 ) -> Result<(), String> {
     // Parse id as "agent/session_id" or just "agent"
+    // The frontend may prefix with "chat-" (e.g. "chat-my-agent") — strip it.
+    let id = id.strip_prefix("chat-").unwrap_or(&id);
     let (agent, _session_id) = if id.contains('/') {
         let parts: Vec<&str> = id.splitn(2, '/').collect();
         (parts[0].to_string(), Some(parts[1].to_string()))
     } else {
-        (id, None)
+        (id.to_string(), None)
     };
 
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;

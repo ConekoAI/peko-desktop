@@ -19,7 +19,11 @@ export function useIpcStream(options: UseIpcStreamOptions = {}) {
     listen<StreamEvent>(channel, (event) => {
       if (cancelled) return;
       const payload = event.payload;
-      setMessages((prev) => [...prev, payload]);
+
+      // Don't add Done events to the message list — they're control signals
+      if (payload.type !== "done") {
+        setMessages((prev) => [...prev, payload]);
+      }
 
       if (payload.type === "chunk") {
         setIsStreaming(true);
