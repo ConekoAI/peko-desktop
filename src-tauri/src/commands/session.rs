@@ -216,6 +216,8 @@ pub async fn session_send(
         get_active_session(&agent).await
     };
 
+    eprintln!("[session_send] agent={}, session_id={:?}", agent, session_id);
+
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
     client
         .execute(&app, agent, message, session_id)
