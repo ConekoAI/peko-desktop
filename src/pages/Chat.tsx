@@ -7,8 +7,14 @@ import type { StreamEvent } from "../types";
 
 function formatTime(ts?: string) {
   if (!ts) return "";
+  // Handle epoch millis string (e.g. "1780480809752") — parse as number
+  const ms = Number(ts);
+  if (!isNaN(ms) && ms > 1000000000000) {
+    return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  // Fallback for ISO strings
   const d = new Date(ts);
-  if (isNaN(d.getTime())) return ts; // fallback for non-ISO strings like "0d 12:34:56 UTC"
+  if (isNaN(d.getTime())) return ts;
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
