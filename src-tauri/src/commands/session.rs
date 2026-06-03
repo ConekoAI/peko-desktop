@@ -142,21 +142,11 @@ pub async fn session_show(id: String) -> Result<SessionDetail, String> {
     Ok(session)
 }
 
-/// Get the best session ID for an agent from the daemon.
-/// Since IPC doesn't expose active_session directly, we pick the session
-/// with the most messages (most likely the active one).
+/// Get the active session ID for an agent from the daemon.
 async fn get_active_session(agent: &str) -> Option<String> {
     let client = crate::ipc::IpcClient::new().await.ok()?;
     let resp = client.list_sessions(agent).await.ok()?;
-    let sessions = resp.get("sessions")?.as_array()?;
-    
-    // Find the session with the most messages (best proxy for "active")
-    let best = sessions.iter().max_by_key(|s| {
-        s.get("message_count").and_then(|v| v.as_u64()).unwrap_or(0)
-    })?;
-    
-    best.get("session_id")
-        .or_else(|| best.get("id"))
+    resp.get("active_session")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
 }
