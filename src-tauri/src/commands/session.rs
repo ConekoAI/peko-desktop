@@ -4,19 +4,119 @@ use serde::{Deserialize, Serialize};
 pub struct SessionSummary {
     pub id: String,
     pub agent: String,
-    pub title: String,
+    pub title: Option<String>,
+    pub message_count: usize,
+    pub status: String,
     pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SessionMessage {
+    pub id: String,
+    pub role: String,
+    pub content: String,
+    pub timestamp: String,
+    pub metadata: Option<serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SessionDetail {
     pub id: String,
     pub agent: String,
-    pub title: String,
-    pub messages: Vec<String>,
+    pub title: Option<String>,
+    pub message_count: usize,
+    pub status: String,
+    pub messages: Vec<SessionMessage>,
     pub branches: Vec<String>,
+    pub parent_id: Option<String>,
+    pub metadata: serde_json::Value,
     pub created_at: String,
     pub updated_at: String,
+}
+
+fn format_timestamp(ts: u64) -> String {
+    // Daemon returns timestamps as u64 milliseconds
+    if ts == 0 {
+        return "unknown".to_string();
+    }
+    match std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_millis(ts)) {
+        Some(system_time) => {
+            let secs = system_time
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let days = secs / 86_400;
+            let rem = secs % 86_400;
+            let hh = rem / 3600;
+            let mm = (rem % 3600) / 60;
+            let ss = rem % 60;
+            format!("{}d {:02}:{:02}:{:02} UTC", days, hh, mm, ss)
+        }
+        None => "unknown".to_string(),
+    }
+}
+
+fn parse_session_summary(value: &serde_json::Value) -> Option<SessionSummary> {
+    let created_at = value
+        .get("created_at")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let updated_at = value
+        .get("updated_at")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    Some(SessionSummary {
+        id: value.get("session_id").or_else(|| value.get("id"))?.as_str()?.to_string(),
+        agent: value.get("agent_name")?.as_str()?.to_string(),
+        title: value
+            .get("title")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        message_count: value
+            .get("message_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize,
+        status: "active".to_string(),
+        created_at: format_timestamp(created_at),
+        updated_at: format_timestamp(updated_at),
+    })
+}
+
+fn parse_session_detail(value: &serde_json::Value) -> Option<SessionDetail> {
+    let info = value.get("info").cloned().unwrap_or(value.clone());
+    let created_at = info
+        .get("created_at")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let updated_at = info
+        .get("updated_at")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    Some(SessionDetail {
+        id: info.get("session_id").or_else(|| info.get("id"))?.as_str()?.to_string(),
+        agent: info.get("agent_name")?.as_str()?.to_string(),
+        title: info
+            .get("title")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        message_count: info
+            .get("message_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize,
+        status: "active".to_string(),
+        messages: vec![],
+        branches: vec![],
+        parent_id: info
+            .get("parent_session_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        metadata: serde_json::json!({}),
+        created_at: format_timestamp(created_at),
+        updated_at: format_timestamp(updated_at),
+    })
 }
 
 #[tauri::command]
@@ -25,9 +125,10 @@ pub async fn session_list(agent: String) -> Result<Vec<SessionSummary>, String> 
     let value = client.list_sessions(&agent).await.map_err(|e| e.to_string())?;
     let sessions = value
         .get("sessions")
-        .cloned()
-        .unwrap_or(serde_json::Value::Array(vec![]));
-    serde_json::from_value(sessions).map_err(|e| e.to_string())
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(parse_session_summary).collect())
+        .unwrap_or_default();
+    Ok(sessions)
 }
 
 #[tauri::command]
@@ -36,9 +137,9 @@ pub async fn session_show(id: String) -> Result<SessionDetail, String> {
     let value = client.get_session(&id).await.map_err(|e| e.to_string())?;
     let session = value
         .get("session")
-        .cloned()
+        .and_then(parse_session_detail)
         .ok_or_else(|| "session not found".to_string())?;
-    serde_json::from_value(session).map_err(|e| e.to_string())
+    Ok(session)
 }
 
 #[tauri::command]

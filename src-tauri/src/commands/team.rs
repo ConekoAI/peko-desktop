@@ -3,17 +3,57 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TeamSummary {
     pub name: String,
-    pub members: Vec<String>,
-    pub created_at: String,
+    pub description: Option<String>,
+    pub agent_count: usize,
+    pub status: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TeamDetail {
     pub name: String,
-    pub members: Vec<String>,
-    pub workflow: String,
+    pub description: Option<String>,
+    pub agents: Vec<crate::commands::agent::AgentSummary>,
+    pub agent_count: usize,
+    pub status: String,
+    pub orchestrator: Option<String>,
+    pub config: serde_json::Value,
     pub created_at: String,
     pub updated_at: String,
+}
+
+fn parse_team_summary(value: &serde_json::Value) -> Option<TeamSummary> {
+    let metadata = value.get("metadata").cloned().unwrap_or(serde_json::json!({}));
+    Some(TeamSummary {
+        name: value.get("name")?.as_str()?.to_string(),
+        description: metadata
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        agent_count: value.get("agent_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+        status: "active".to_string(),
+    })
+}
+
+fn parse_team_detail(value: &serde_json::Value) -> Option<TeamDetail> {
+    let metadata = value.get("metadata").cloned().unwrap_or(serde_json::json!({}));
+    Some(TeamDetail {
+        name: value.get("name")?.as_str()?.to_string(),
+        description: metadata
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        agents: vec![],
+        agent_count: value.get("agent_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+        status: "active".to_string(),
+        orchestrator: None,
+        config: serde_json::json!({}),
+        created_at: metadata
+            .get("created_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string(),
+        updated_at: "unknown".to_string(),
+    })
 }
 
 #[tauri::command]
@@ -22,9 +62,10 @@ pub async fn team_list() -> Result<Vec<TeamSummary>, String> {
     let value = client.list_teams().await.map_err(|e| e.to_string())?;
     let teams = value
         .get("teams")
-        .cloned()
-        .unwrap_or(serde_json::Value::Array(vec![]));
-    serde_json::from_value(teams).map_err(|e| e.to_string())
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(parse_team_summary).collect())
+        .unwrap_or_default();
+    Ok(teams)
 }
 
 #[tauri::command]
@@ -33,9 +74,9 @@ pub async fn team_show(name: String) -> Result<TeamDetail, String> {
     let value = client.get_team(&name).await.map_err(|e| e.to_string())?;
     let team = value
         .get("team")
-        .cloned()
+        .and_then(parse_team_detail)
         .ok_or_else(|| "team not found".to_string())?;
-    serde_json::from_value(team).map_err(|e| e.to_string())
+    Ok(team)
 }
 
 #[tauri::command]

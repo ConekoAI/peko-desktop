@@ -3,20 +3,105 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AgentSummary {
     pub name: String,
-    pub provider: String,
+    pub description: Option<String>,
     pub model: String,
-    pub created_at: String,
+    pub team: String,
+    pub status: String,
+    pub session_count: usize,
+    pub last_active: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AgentDetail {
     pub name: String,
-    pub provider: String,
+    pub description: Option<String>,
     pub model: String,
-    pub system_prompt: String,
+    pub team: String,
+    pub status: String,
+    pub session_count: usize,
+    pub last_active: Option<String>,
+    pub system_prompt: Option<String>,
     pub tools: Vec<String>,
+    pub extensions: Vec<String>,
+    pub config: serde_json::Value,
     pub created_at: String,
     pub updated_at: String,
+}
+
+fn extract_provider_from_config(config: &serde_json::Value) -> String {
+    config
+        .get("provider")
+        .and_then(|p| p.get("provider_type"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string()
+}
+
+fn extract_model_from_config(config: &serde_json::Value) -> String {
+    config
+        .get("provider")
+        .and_then(|p| p.get("default_model"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("default")
+        .to_string()
+}
+
+fn extract_system_prompt_from_config(config: &serde_json::Value) -> Option<String> {
+    config
+        .get("system_prompt")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+fn extract_tools_from_config(config: &serde_json::Value) -> Vec<String> {
+    config
+        .get("tools")
+        .and_then(|t| t.get("enabled"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn parse_agent_summary(value: &serde_json::Value) -> Option<AgentSummary> {
+    let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
+    Some(AgentSummary {
+        name: value.get("name")?.as_str()?.to_string(),
+        description: config
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        model: extract_model_from_config(&config),
+        team: value.get("team")?.as_str()?.to_string(),
+        status: "idle".to_string(),
+        session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+        last_active: None,
+    })
+}
+
+fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
+    let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
+    Some(AgentDetail {
+        name: value.get("name")?.as_str()?.to_string(),
+        description: config
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        model: extract_model_from_config(&config),
+        team: value.get("team")?.as_str()?.to_string(),
+        status: "idle".to_string(),
+        session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+        last_active: None,
+        system_prompt: extract_system_prompt_from_config(&config),
+        tools: extract_tools_from_config(&config),
+        extensions: vec![],
+        config,
+        created_at: "unknown".to_string(),
+        updated_at: "unknown".to_string(),
+    })
 }
 
 #[tauri::command]
@@ -25,9 +110,10 @@ pub async fn agent_list() -> Result<Vec<AgentSummary>, String> {
     let value = client.list_agents().await.map_err(|e| e.to_string())?;
     let agents = value
         .get("agents")
-        .cloned()
-        .unwrap_or(serde_json::Value::Array(vec![]));
-    serde_json::from_value(agents).map_err(|e| e.to_string())
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(parse_agent_summary).collect())
+        .unwrap_or_default();
+    Ok(agents)
 }
 
 #[tauri::command]
@@ -36,9 +122,9 @@ pub async fn agent_show(name: String) -> Result<AgentDetail, String> {
     let value = client.get_agent(&name).await.map_err(|e| e.to_string())?;
     let agent = value
         .get("agent")
-        .cloned()
+        .and_then(parse_agent_detail)
         .ok_or_else(|| "agent not found".to_string())?;
-    serde_json::from_value(agent).map_err(|e| e.to_string())
+    Ok(agent)
 }
 
 #[tauri::command]
