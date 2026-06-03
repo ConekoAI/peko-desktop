@@ -180,3 +180,26 @@ pub async fn session_compact(id: String) -> Result<String, String> {
     let saved = resp.get("tokens_saved").and_then(|v| v.as_u64()).unwrap_or(0);
     Ok(format!("Session compacted, saved {} tokens", saved))
 }
+
+/// Send a message to an agent and stream the response via Tauri events.
+/// The frontend listens on "peko-stream" for StreamEvent payloads.
+#[tauri::command]
+pub async fn session_send(
+    app: tauri::AppHandle,
+    id: String,
+    message: String,
+) -> Result<(), String> {
+    // Parse id as "agent/session_id" or just "agent"
+    let (agent, _session_id) = if id.contains('/') {
+        let parts: Vec<&str> = id.splitn(2, '/').collect();
+        (parts[0].to_string(), Some(parts[1].to_string()))
+    } else {
+        (id, None)
+    };
+
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    client
+        .execute(&app, agent, message, _session_id)
+        .await
+        .map_err(|e| e.to_string())
+}

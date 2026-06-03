@@ -42,17 +42,25 @@ pub struct PongResponse {
     pub uptime_secs: u64,
 }
 
+/// Stream event emitted to the frontend via Tauri events.
+/// This is the desktop's unified shape — the daemon uses different
+/// packet shapes (ResponsePacket) which get mapped into this.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum StreamEvent {
-    #[serde(rename = "text")]
-    Text { content: String },
+    /// Text chunk from the assistant (mapped from daemon's ResponsePacket::Text)
+    #[serde(rename = "chunk")]
+    Chunk { content: String },
+    /// Tool call started
     #[serde(rename = "tool_call")]
     ToolCall { name: String, arguments: String },
+    /// Tool execution result
     #[serde(rename = "tool_result")]
     ToolResult { output: String },
+    /// Stream completed successfully
     #[serde(rename = "done")]
     Done,
+    /// Fatal error during streaming
     #[serde(rename = "error")]
     Error { message: String },
 }
@@ -533,6 +541,9 @@ impl IpcClient {
     }
 
     /// Send an execute request and emit stream events via the Tauri app handle.
+    ///
+    /// The daemon returns ResponsePacket shapes (Text { chunk }, Done { success }, Error { message })
+    /// which we map into our frontend-facing StreamEvent enum.
     pub async fn execute(
         &self,
         app: &tauri::AppHandle,
@@ -547,8 +558,12 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "agent": agent,
+            "team": "default",
             "message": message,
             "session_id": session_id,
+            "new_session": session_id.is_none(),
+            "stream": true,
+            "user": "desktop",
         });
 
         let bytes = serde_json::to_vec(&request)
@@ -579,12 +594,39 @@ impl IpcClient {
                 Err(_) => return Err(IpcError::Timeout),
             };
 
-            let event: StreamEvent = serde_json::from_slice(&buf[..len])
+            let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
                 .map_err(|e| IpcError::Serialization(e.to_string()))?;
+
+            let packet_type = raw.get("type").and_then(|v| v.as_str()).unwrap_or("");
+
+            let event = match packet_type {
+                "text" => {
+                    let chunk = raw.get("chunk").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    StreamEvent::Chunk { content: chunk }
+                }
+                "done" => {
+                    let success = raw.get("success").and_then(|v| v.as_bool()).unwrap_or(true);
+                    if !success {
+                        let error_msg = raw.get("error").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string();
+                        StreamEvent::Error { message: error_msg }
+                    } else {
+                        StreamEvent::Done
+                    }
+                }
+                "error" => {
+                    let message = raw.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string();
+                    StreamEvent::Error { message }
+                }
+                other => {
+                    // Unknown packet type — skip or log
+                    eprintln!("[peko-desktop] Unknown IPC response packet type: {}", other);
+                    continue;
+                }
+            };
 
             let is_done = matches!(event, StreamEvent::Done | StreamEvent::Error { .. });
 
-            let _ = app.emit("ipc-stream-event", &event);
+            let _ = app.emit("peko-stream", &event);
 
             if is_done {
                 break;
@@ -608,13 +650,14 @@ mod tests {
 
     #[test]
     fn test_stream_event_serialization() {
-        let event = StreamEvent::Text { content: "hello".to_string() };
+        let event = StreamEvent::Chunk { content: "hello".to_string() };
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("hello"));
+        assert!(json.contains("chunk"));
         
         let deserialized: StreamEvent = serde_json::from_str(&json).unwrap();
         match deserialized {
-            StreamEvent::Text { content } => assert_eq!(content, "hello"),
+            StreamEvent::Chunk { content } => assert_eq!(content, "hello"),
             _ => panic!("wrong variant"),
         }
     }
