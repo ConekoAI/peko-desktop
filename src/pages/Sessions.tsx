@@ -120,8 +120,8 @@ export default function Sessions() {
       sortable: true,
       render: (row: SessionSummary) => (
         <Link
-          to="/sessions/$id"
-          params={{ id: row.id }}
+          to="/chat/$agentName/$sessionId"
+          params={{ agentName: row.agent, sessionId: row.id }}
           className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
         >
           {row.title ?? `Session ${row.id.slice(0, 8)}`}
@@ -170,8 +170,8 @@ export default function Sessions() {
       render: (row: SessionSummary) => (
         <div className="flex items-center gap-2">
           <Link
-            to="/sessions/$id"
-            params={{ id: row.id }}
+            to="/chat/$agentName/$sessionId"
+            params={{ agentName: row.agent, sessionId: row.id }}
             className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
             title="View"
           >

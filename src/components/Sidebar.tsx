@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
-  LayoutDashboard,
+  MessageCircle,
   Bot,
   Users,
-  MessageSquare,
   Puzzle,
   Globe,
   Clock,
-  MessageCircle,
   Radio,
   FileText,
   Settings,
@@ -17,11 +15,9 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/", label: "Chat", icon: MessageCircle },
   { to: "/agents", label: "Agents", icon: Bot },
   { to: "/teams", label: "Teams", icon: Users },
-  { to: "/sessions", label: "Sessions", icon: MessageSquare },
-  { to: "/chat", label: "Chat", icon: MessageCircle },
   { to: "/extensions", label: "Extensions", icon: Puzzle },
   { to: "/registry", label: "Registry", icon: Globe },
   { to: "/cron", label: "Cron", icon: Clock },
@@ -33,6 +29,16 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+
+  function isActive(item: (typeof navItems)[0]) {
+    if (item.to === "/") {
+      return location.pathname === "/" || location.pathname.startsWith("/chat/");
+    }
+    return (
+      location.pathname === item.to ||
+      (item.to !== "/" && location.pathname.startsWith(`${item.to}/`))
+    );
+  }
 
   return (
     <aside
@@ -63,7 +69,7 @@ export default function Sidebar() {
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const active = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(`${item.to}/`));
+          const active = isActive(item);
           return (
             <Link
               key={item.to}

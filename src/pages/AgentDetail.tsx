@@ -75,8 +75,8 @@ export default function AgentDetail() {
       sortable: true,
       render: (row: SessionSummary) => (
         <Link
-          to="/sessions/$id"
-          params={{ id: row.id }}
+          to="/chat/$agentName/$sessionId"
+          params={{ agentName: agent.name, sessionId: row.id }}
           className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
         >
           {row.title ?? `Session ${row.id.slice(0, 8)}`}
@@ -143,7 +143,8 @@ export default function AgentDetail() {
 
         <div className="flex items-center gap-2">
           <Link
-            to="/sessions"
+            to="/chat/$agentName"
+          params={{ agentName: agent.name }}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <MessageSquare className="h-4 w-4" />

@@ -1,16 +1,13 @@
 import { RootRoute, Route, Router } from "@tanstack/react-router";
 import App from "./App";
-import Dashboard from "./pages/Dashboard";
+import Chat from "./pages/Chat";
 import Agents from "./pages/Agents";
 import AgentDetail from "./pages/AgentDetail";
 import Teams from "./pages/Teams";
 import TeamDetail from "./pages/TeamDetail";
-import Sessions from "./pages/Sessions";
-import SessionDetail from "./pages/SessionDetail";
 import Extensions from "./pages/Extensions";
 import Registry from "./pages/Registry";
 import Cron from "./pages/Cron";
-import Chat from "./pages/Chat";
 import EventBus from "./pages/EventBus";
 import Logs from "./pages/Logs";
 import Settings from "./pages/Settings";
@@ -19,10 +16,23 @@ const rootRoute = new RootRoute({
   component: App,
 });
 
-const indexRoute = new Route({
+// Chat is the default landing page
+const chatRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: Dashboard,
+  component: Chat,
+});
+
+const chatAgentRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat/$agentName",
+  component: Chat,
+});
+
+const chatAgentSessionRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat/$agentName/$sessionId",
+  component: Chat,
 });
 
 const agentsRoute = new Route({
@@ -49,18 +59,6 @@ const teamDetailRoute = new Route({
   component: TeamDetail,
 });
 
-const sessionsRoute = new Route({
-  getParentRoute: () => rootRoute,
-  path: "/sessions",
-  component: Sessions,
-});
-
-const sessionDetailRoute = new Route({
-  getParentRoute: () => rootRoute,
-  path: "/sessions/$id",
-  component: SessionDetail,
-});
-
 const extensionsRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/extensions",
@@ -77,12 +75,6 @@ const cronRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/cron",
   component: Cron,
-});
-
-const chatRoute = new Route({
-  getParentRoute: () => rootRoute,
-  path: "/chat",
-  component: Chat,
 });
 
 const eventBusRoute = new Route({
@@ -104,17 +96,16 @@ const settingsRoute = new Route({
 });
 
 export const routeTree = rootRoute.addChildren([
-  indexRoute,
+  chatRoute,
+  chatAgentRoute,
+  chatAgentSessionRoute,
   agentsRoute,
   agentDetailRoute,
   teamsRoute,
   teamDetailRoute,
-  sessionsRoute,
-  sessionDetailRoute,
   extensionsRoute,
   registryRoute,
   cronRoute,
-  chatRoute,
   eventBusRoute,
   logsRoute,
   settingsRoute,
