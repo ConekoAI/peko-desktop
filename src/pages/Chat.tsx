@@ -5,8 +5,10 @@ import { sessionSend } from "../lib/api";
 import { Send, Loader2, MessageCircle, X, User, Bot as BotIcon } from "lucide-react";
 import type { StreamEvent } from "../types";
 
-function formatTime(ts: string) {
+function formatTime(ts?: string) {
+  if (!ts) return "";
   const d = new Date(ts);
+  if (isNaN(d.getTime())) return ts; // fallback for non-ISO strings like "0d 12:34:56 UTC"
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
@@ -121,8 +123,8 @@ export default function Chat() {
           </div>
         ) : (
           <div className="space-y-3">
-            {messages.map((msg) => (
-              <ChatMessage key={msg.id} event={msg} />
+            {messages.map((msg, idx) => (
+              <ChatMessage key={msg.id ?? idx} event={msg} />
             ))}
             {isStreaming && (
               <div className="flex justify-start">

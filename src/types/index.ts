@@ -146,11 +146,11 @@ export interface DoctorCheck {
 }
 
 export interface StreamEvent {
-  id: string;
+  id?: string;
   type: "chunk" | "done" | "error" | "tool_call" | "tool_result";
   content?: string;
   data?: Record<string, unknown>;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface Setting {
