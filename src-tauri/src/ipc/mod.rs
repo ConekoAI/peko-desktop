@@ -599,11 +599,13 @@ impl IpcClient {
 
             let packet_type = raw.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
-            let now = std::time::SystemTime::now()
+            // Emit milliseconds since epoch — JavaScript's Date constructor
+            // handles this natively: new Date("1717421234567") works.
+            let timestamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
-                .as_millis() as u64;
-            let timestamp = format!("{}d {:02}:{:02}:{:02} UTC", now / 86_400_000, (now / 3_600_000) % 24, (now / 60_000) % 60, (now / 1_000) % 60);
+                .as_millis()
+                .to_string();
 
             let event = match packet_type {
                 "text" => {
