@@ -142,6 +142,15 @@ pub async fn session_show(id: String) -> Result<SessionDetail, String> {
     Ok(session)
 }
 
+/// Get the active session ID for an agent from the daemon.
+async fn get_active_session(agent: &str) -> Option<String> {
+    let client = crate::ipc::IpcClient::new().await.ok()?;
+    let resp = client.list_sessions(agent).await.ok()?;
+    resp.get("active_session")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
 #[tauri::command]
 pub async fn session_branch(id: String, name: String) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
@@ -192,16 +201,24 @@ pub async fn session_send(
     // Parse id as "agent/session_id" or just "agent"
     // The frontend may prefix with "chat-" (e.g. "chat-my-agent") — strip it.
     let id = id.strip_prefix("chat-").unwrap_or(&id);
-    let (agent, _session_id) = if id.contains('/') {
+    let (agent, explicit_session_id) = if id.contains('/') {
         let parts: Vec<&str> = id.splitn(2, '/').collect();
         (parts[0].to_string(), Some(parts[1].to_string()))
     } else {
         (id.to_string(), None)
     };
 
+    // If no explicit session ID, query the daemon for the active session.
+    // This ensures continuity across messages in the same chat.
+    let session_id = if let Some(sid) = explicit_session_id {
+        Some(sid)
+    } else {
+        get_active_session(&agent).await
+    };
+
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
     client
-        .execute(&app, agent, message, _session_id)
+        .execute(&app, agent, message, session_id)
         .await
         .map_err(|e| e.to_string())
 }
