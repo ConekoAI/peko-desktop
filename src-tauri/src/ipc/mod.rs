@@ -50,19 +50,19 @@ pub struct PongResponse {
 pub enum StreamEvent {
     /// Text chunk from the assistant (mapped from daemon's ResponsePacket::Text)
     #[serde(rename = "chunk")]
-    Chunk { content: String },
+    Chunk { content: String, timestamp: String },
     /// Tool call started
     #[serde(rename = "tool_call")]
-    ToolCall { name: String, arguments: String },
+    ToolCall { name: String, arguments: String, timestamp: String },
     /// Tool execution result
     #[serde(rename = "tool_result")]
-    ToolResult { output: String },
+    ToolResult { output: String, timestamp: String },
     /// Stream completed successfully
     #[serde(rename = "done")]
-    Done,
+    Done { timestamp: String },
     /// Fatal error during streaming
     #[serde(rename = "error")]
-    Error { message: String },
+    Error { message: String, timestamp: String },
 }
 
 /// Check if a response indicates a protocol version mismatch.
@@ -599,23 +599,29 @@ impl IpcClient {
 
             let packet_type = raw.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            let timestamp = format!("{}d {:02}:{:02}:{:02} UTC", now / 86_400_000, (now / 3_600_000) % 24, (now / 60_000) % 60, (now / 1_000) % 60);
+
             let event = match packet_type {
                 "text" => {
                     let chunk = raw.get("chunk").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    StreamEvent::Chunk { content: chunk }
+                    StreamEvent::Chunk { content: chunk, timestamp }
                 }
                 "done" => {
                     let success = raw.get("success").and_then(|v| v.as_bool()).unwrap_or(true);
                     if !success {
                         let error_msg = raw.get("error").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string();
-                        StreamEvent::Error { message: error_msg }
+                        StreamEvent::Error { message: error_msg, timestamp }
                     } else {
-                        StreamEvent::Done
+                        StreamEvent::Done { timestamp }
                     }
                 }
                 "error" => {
                     let message = raw.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string();
-                    StreamEvent::Error { message }
+                    StreamEvent::Error { message, timestamp }
                 }
                 other => {
                     // Unknown packet type — skip or log
@@ -624,7 +630,7 @@ impl IpcClient {
                 }
             };
 
-            let is_done = matches!(event, StreamEvent::Done | StreamEvent::Error { .. });
+            let is_done = matches!(event, StreamEvent::Done { .. } | StreamEvent::Error { .. });
 
             let _ = app.emit("peko-stream", &event);
 
@@ -650,14 +656,14 @@ mod tests {
 
     #[test]
     fn test_stream_event_serialization() {
-        let event = StreamEvent::Chunk { content: "hello".to_string() };
+        let event = StreamEvent::Chunk { content: "hello".to_string(), timestamp: "0d 12:00:00 UTC".to_string() };
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("hello"));
         assert!(json.contains("chunk"));
         
         let deserialized: StreamEvent = serde_json::from_str(&json).unwrap();
         match deserialized {
-            StreamEvent::Chunk { content } => assert_eq!(content, "hello"),
+            StreamEvent::Chunk { content, .. } => assert_eq!(content, "hello"),
             _ => panic!("wrong variant"),
         }
     }
