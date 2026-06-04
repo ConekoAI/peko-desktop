@@ -103,7 +103,7 @@ function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => voi
     if (!name.trim() || !selectedProvider) return;
     const model = selectedModel || selectedProvider.default_model;
     create.mutate(
-      { name: name.trim(), model, description: description.trim() || undefined },
+      { name: name.trim(), provider: selectedProvider.id, model, description: description.trim() || undefined },
       { onSuccess: onClose }
     );
   }

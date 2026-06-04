@@ -50,13 +50,18 @@ export async function agentShow(name: string): Promise<AgentDetail> {
 
 export async function agentCreate(payload: {
   name: string;
+  provider: string;
   model: string;
   description?: string;
   systemPrompt?: string;
   team?: string;
   config?: Record<string, unknown>;
 }): Promise<AgentDetail> {
-  return invoke("agent_create", { payload });
+  return invoke("agent_create", { 
+    name: payload.name, 
+    provider: payload.provider, 
+    model: payload.model 
+  });
 }
 
 export async function agentUpdate(
