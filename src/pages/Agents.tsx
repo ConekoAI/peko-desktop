@@ -131,9 +131,12 @@ function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => voi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-lg flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
+      <form
+        onSubmit={handleSubmit}
+        className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
               {step === 1 ? "Choose a Provider" : "Agent Details"}
@@ -145,6 +148,7 @@ function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => voi
             </p>
           </div>
           <button
+            type="button"
             onClick={handleClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
@@ -153,7 +157,7 @@ function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 px-6 pt-4">
+        <div className="flex shrink-0 items-center gap-2 px-6 pt-4">
           <span
             className={[
               "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
@@ -180,7 +184,7 @@ function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {step === 1 && (
             <div className="space-y-3">
               {providersLoading ? (
@@ -263,10 +267,10 @@ function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => voi
               </div>
             </div>
           )}
-        </form>
+        </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-slate-800">
           {step === 2 ? (
             <>
               <button
@@ -278,7 +282,6 @@ function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => voi
               </button>
               <button
                 type="submit"
-                onClick={handleSubmit}
                 disabled={create.isPending || !name.trim()}
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
               >
@@ -298,7 +301,7 @@ function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => voi
             </div>
           )}
         </div>
-      </div>
+      </form>
     </div>
   );
 }
