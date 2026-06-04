@@ -15,18 +15,6 @@ import ConfirmModal from "../components/modals/ConfirmModal";
 import DataTable from "../components/DataTable";
 import type { AgentSummary } from "../types";
 
-const STATUS_STYLE: Record<string, string> = {
-  active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
-  inactive: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-};
-
-const AGENT_STATUS_STYLE: Record<string, string> = {
-  idle: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
-  busy: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
-  error: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400",
-  offline: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-};
-
 type TabKey = "overview" | "agents" | "config";
 
 export default function TeamDetail() {
@@ -89,18 +77,11 @@ export default function TeamDetail() {
       render: (row: AgentSummary) => <span className="text-slate-600 dark:text-slate-400">{row.model}</span>,
     },
     {
-      key: "status",
-      header: "Status",
+      key: "provider",
+      header: "Provider",
       sortable: true,
       render: (row: AgentSummary) => (
-        <span
-          className={[
-            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-            AGENT_STATUS_STYLE[row.status] ?? AGENT_STATUS_STYLE.offline,
-          ].join(" ")}
-        >
-          {row.status}
-        </span>
+        <span className="text-slate-600 dark:text-slate-400">{row.provider}</span>
       ),
     },
     {
@@ -126,14 +107,7 @@ export default function TeamDetail() {
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">{team.name}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">{team.description ?? "No description"}</p>
           </div>
-          <span
-            className={[
-              "ml-2 inline-flex rounded-full px-3 py-1 text-xs font-medium",
-              STATUS_STYLE[team.status] ?? STATUS_STYLE.inactive,
-            ].join(" ")}
-          >
-            {team.status}
-          </span>
+
         </div>
 
         <div className="flex items-center gap-2">

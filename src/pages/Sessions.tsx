@@ -16,8 +16,8 @@ import type { SessionSummary } from "../types";
 
 const STATUS_STYLE: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
-  paused: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
-  closed: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  inactive: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  unknown: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
 };
 
 function CreateSessionModal({ open, onClose }: { open: boolean; onClose: () => void }) {

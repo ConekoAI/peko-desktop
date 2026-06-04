@@ -19,12 +19,7 @@ import ConfirmModal from "../components/modals/ConfirmModal";
 import DataTable from "../components/DataTable";
 import type { SessionSummary } from "../types";
 
-const STATUS_STYLE: Record<string, string> = {
-  idle: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
-  busy: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
-  error: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400",
-  offline: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-};
+
 
 type TabKey = "overview" | "sessions" | "config";
 
@@ -93,9 +88,7 @@ export default function AgentDetail() {
             "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
             row.status === "active"
               ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-              : row.status === "paused"
-                ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
-                : "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+              : "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
           ].join(" ")}
         >
           {row.status}
@@ -131,13 +124,8 @@ export default function AgentDetail() {
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">{agent.name}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">{agent.description ?? "No description"}</p>
           </div>
-          <span
-            className={[
-              "ml-2 inline-flex rounded-full px-3 py-1 text-xs font-medium",
-              STATUS_STYLE[agent.status] ?? STATUS_STYLE.offline,
-            ].join(" ")}
-          >
-            {agent.status}
+          <span className="ml-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            {agent.provider}
           </span>
         </div>
 

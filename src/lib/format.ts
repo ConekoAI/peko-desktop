@@ -1,5 +1,18 @@
-export function formatDate(date: string): string {
+export function formatDate(date: string | number): string {
+  // Handle raw millisecond timestamps from backend
+  const ms = typeof date === "number" ? date : Number(date);
+  if (!isNaN(ms) && ms > 1000000000000) {
+    return new Date(ms).toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  // Fallback: try parsing as ISO/date string
   const d = new Date(date);
+  if (isNaN(d.getTime())) return String(date);
   return d.toLocaleString(undefined, {
     year: "numeric",
     month: "short",

@@ -116,7 +116,7 @@ function AgentListSidebar({
   selectedAgent,
   onSelectAgent,
 }: {
-  agents: { name: string; description?: string; lastActive?: string }[] | undefined;
+  agents: { name: string; description?: string }[] | undefined;
   selectedAgent: string;
   onSelectAgent: (name: string) => void;
 }) {
@@ -124,12 +124,7 @@ function AgentListSidebar({
 
   const filtered = useMemo(() => {
     if (!agents) return [];
-    const sorted = [...agents].sort((a, b) => {
-      // Sort by lastActive desc, then by name
-      const aTime = a.lastActive ? new Date(a.lastActive).getTime() : 0;
-      const bTime = b.lastActive ? new Date(b.lastActive).getTime() : 0;
-      return bTime - aTime || a.name.localeCompare(b.name);
-    });
+    const sorted = [...agents].sort((a, b) => a.name.localeCompare(b.name));
     if (!search.trim()) return sorted;
     const q = search.toLowerCase();
     return sorted.filter((a) => a.name.toLowerCase().includes(q));
@@ -173,9 +168,9 @@ function AgentListSidebar({
                 />
                 {agent.name}
               </span>
-              {agent.lastActive && (
+              {agent.description && (
                 <span className="mt-0.5 pl-4 text-[11px] text-slate-400 dark:text-slate-500">
-                  {formatRelativeTime(agent.lastActive)}
+                  {agent.description}
                 </span>
               )}
             </button>
@@ -349,7 +344,14 @@ export default function Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const mergedCountRef = useRef(0);
 
-  // Load session history when it arrives or session changes
+  // Clear chat when switching sessions
+  useEffect(() => {
+    setChatItems([]);
+    mergedCountRef.current = 0;
+    clearMessages();
+  }, [currentSessionId, clearMessages]);
+
+  // Load session history when data arrives
   useEffect(() => {
     if (sessionHistory && sessionHistory.length > 0) {
       const historyItems: ChatItem[] = sessionHistory.map((msg) => ({
@@ -361,12 +363,8 @@ export default function Chat() {
         isUser: msg.role === "user",
       }));
       setChatItems(historyItems);
-    } else {
-      setChatItems([]);
     }
-    mergedCountRef.current = 0;
-    clearMessages();
-  }, [sessionHistory, currentSessionId, clearMessages]);
+  }, [sessionHistory]);
 
   // Append new streamed messages to chatItems
   useEffect(() => {

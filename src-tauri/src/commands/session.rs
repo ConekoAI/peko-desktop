@@ -36,28 +36,14 @@ pub struct SessionDetail {
 }
 
 fn format_timestamp(ts: u64) -> String {
-    // Daemon returns timestamps as u64 milliseconds
+    // Return raw millisecond timestamp as string for frontend parsing
     if ts == 0 {
         return "unknown".to_string();
     }
-    match std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_millis(ts)) {
-        Some(system_time) => {
-            let secs = system_time
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            let days = secs / 86_400;
-            let rem = secs % 86_400;
-            let hh = rem / 3600;
-            let mm = (rem % 3600) / 60;
-            let ss = rem % 60;
-            format!("{}d {:02}:{:02}:{:02} UTC", days, hh, mm, ss)
-        }
-        None => "unknown".to_string(),
-    }
+    ts.to_string()
 }
 
-fn parse_session_summary(value: &serde_json::Value) -> Option<SessionSummary> {
+fn parse_session_summary(value: &serde_json::Value, active_session_id: Option<&str>) -> Option<SessionSummary> {
     let created_at = value
         .get("created_at")
         .and_then(|v| v.as_u64())
@@ -66,9 +52,14 @@ fn parse_session_summary(value: &serde_json::Value) -> Option<SessionSummary> {
         .get("updated_at")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
+    let session_id = value.get("session_id").or_else(|| value.get("id"))?.as_str()?.to_string();
+    let status = active_session_id
+        .map(|active| if active == session_id { "active" } else { "inactive" })
+        .unwrap_or("unknown")
+        .to_string();
 
     Some(SessionSummary {
-        id: value.get("session_id").or_else(|| value.get("id"))?.as_str()?.to_string(),
+        id: session_id,
         agent: value.get("agent_name")?.as_str()?.to_string(),
         title: value
             .get("title")
@@ -78,7 +69,7 @@ fn parse_session_summary(value: &serde_json::Value) -> Option<SessionSummary> {
             .get("message_count")
             .and_then(|v| v.as_u64())
             .unwrap_or(0) as usize,
-        status: "active".to_string(),
+        status,
         created_at: format_timestamp(created_at),
         updated_at: format_timestamp(updated_at),
     })
@@ -94,6 +85,12 @@ fn parse_session_detail(value: &serde_json::Value) -> Option<SessionDetail> {
         .get("updated_at")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
+    let status = info
+        .get("is_active")
+        .and_then(|v| v.as_bool())
+        .map(|b| if b { "active" } else { "inactive" })
+        .unwrap_or("unknown")
+        .to_string();
 
     Some(SessionDetail {
         id: info.get("session_id").or_else(|| info.get("id"))?.as_str()?.to_string(),
@@ -106,7 +103,7 @@ fn parse_session_detail(value: &serde_json::Value) -> Option<SessionDetail> {
             .get("message_count")
             .and_then(|v| v.as_u64())
             .unwrap_or(0) as usize,
-        status: "active".to_string(),
+        status,
         messages: vec![],
         branches: vec![],
         parent_id: info
@@ -123,10 +120,13 @@ fn parse_session_detail(value: &serde_json::Value) -> Option<SessionDetail> {
 pub async fn session_list(agent: String) -> Result<Vec<SessionSummary>, String> {
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
     let value = client.list_sessions(&agent).await.map_err(|e| e.to_string())?;
+    let active_session = value
+        .get("active_session")
+        .and_then(|v| v.as_str());
     let sessions = value
         .get("sessions")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(parse_session_summary).collect())
+        .map(|arr| arr.iter().filter_map(|s| parse_session_summary(s, active_session)).collect())
         .unwrap_or_default();
     Ok(sessions)
 }

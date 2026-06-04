@@ -8,14 +8,19 @@ export interface DaemonStatus {
 export interface AgentSummary {
   name: string;
   description?: string;
+  provider: string;
   model: string;
   team?: string;
-  status: "idle" | "busy" | "error" | "offline";
   sessionCount: number;
-  lastActive?: string;
 }
 
-export interface AgentDetail extends AgentSummary {
+export interface AgentDetail {
+  name: string;
+  description?: string;
+  provider: string;
+  model: string;
+  team?: string;
+  sessionCount: number;
   systemPrompt?: string;
   tools: string[];
   extensions: string[];
@@ -44,7 +49,7 @@ export interface SessionSummary {
   agent: string;
   title?: string;
   messageCount: number;
-  status: "active" | "paused" | "closed";
+  status: string;
   createdAt: string;
   updatedAt: string;
 }

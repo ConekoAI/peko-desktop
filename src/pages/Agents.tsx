@@ -3,16 +3,11 @@ import { Link } from "@tanstack/react-router";
 import { useAgents, useRemoveAgent, useCreateAgent, useProviders } from "../hooks/useAgents";
 import DataTable from "../components/DataTable";
 import ConfirmModal from "../components/modals/ConfirmModal";
-import { formatDate } from "../lib/format";
+// STATUS_STYLE removed — agent status not meaningful in this architecture
 import { Plus, Trash2, ExternalLink, Loader2, Bot, X, Cloud, Home, Key, ChevronRight, Check } from "lucide-react";
 import type { AgentSummary, ProviderInfo } from "../types";
 
-const STATUS_STYLE: Record<string, string> = {
-  idle: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
-  busy: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
-  error: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400",
-  offline: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-};
+
 
 // Curated model lists per provider (static for now, expandable later)
 const PROVIDER_MODELS: Record<string, string[]> = {
@@ -331,38 +326,15 @@ export default function Agents() {
       key: "provider",
       header: "Provider",
       sortable: true,
-      render: (row: AgentSummary) => {
-        const parts = row.model.split("/");
-        const provider = parts.length > 1 ? parts[0] : "—";
-        return <span className="text-slate-600 dark:text-slate-400">{provider}</span>;
-      },
+      render: (row: AgentSummary) => (
+        <span className="text-slate-600 dark:text-slate-400">{row.provider}</span>
+      ),
     },
     {
       key: "model",
       header: "Model",
       sortable: true,
       render: (row: AgentSummary) => <span className="text-slate-600 dark:text-slate-400">{row.model}</span>,
-    },
-    {
-      key: "status",
-      header: "Status",
-      sortable: true,
-      render: (row: AgentSummary) => (
-        <span
-          className={[
-            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-            STATUS_STYLE[row.status] ?? STATUS_STYLE.offline,
-          ].join(" ")}
-        >
-          {row.status}
-        </span>
-      ),
-    },
-    {
-      key: "lastActive",
-      header: "Last Activity",
-      sortable: true,
-      render: (row: AgentSummary) => (row.lastActive ? formatDate(row.lastActive) : "—"),
     },
     {
       key: "actions",

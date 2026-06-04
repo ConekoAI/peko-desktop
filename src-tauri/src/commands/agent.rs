@@ -5,10 +5,9 @@ pub struct AgentSummary {
     pub name: String,
     pub description: Option<String>,
     pub model: String,
+    pub provider: String,
     pub team: String,
-    pub status: String,
     pub session_count: usize,
-    pub last_active: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -16,10 +15,9 @@ pub struct AgentDetail {
     pub name: String,
     pub description: Option<String>,
     pub model: String,
+    pub provider: String,
     pub team: String,
-    pub status: String,
     pub session_count: usize,
-    pub last_active: Option<String>,
     pub system_prompt: Option<String>,
     pub tools: Vec<String>,
     pub extensions: Vec<String>,
@@ -75,15 +73,28 @@ fn parse_agent_summary(value: &serde_json::Value) -> Option<AgentSummary> {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         model: extract_model_from_config(&config),
+        provider: extract_provider_from_config(&config),
         team: value.get("team")?.as_str()?.to_string(),
-        status: "idle".to_string(),
         session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
-        last_active: None,
     })
 }
 
 fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
     let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
+    let created_at = value
+        .get("created_at_ms")
+        .or_else(|| value.get("created_at"))
+        .and_then(|v| v.as_u64())
+        .map(|ts| ts.to_string())
+        .or_else(|| config.get("created_at").and_then(|v| v.as_u64()).map(|ts| ts.to_string()))
+        .unwrap_or_else(|| "unknown".to_string());
+    let updated_at = value
+        .get("updated_at_ms")
+        .or_else(|| value.get("updated_at"))
+        .and_then(|v| v.as_u64())
+        .map(|ts| ts.to_string())
+        .or_else(|| config.get("updated_at").and_then(|v| v.as_u64()).map(|ts| ts.to_string()))
+        .unwrap_or_else(|| "unknown".to_string());
     Some(AgentDetail {
         name: value.get("name")?.as_str()?.to_string(),
         description: config
@@ -91,16 +102,15 @@ fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         model: extract_model_from_config(&config),
+        provider: extract_provider_from_config(&config),
         team: value.get("team")?.as_str()?.to_string(),
-        status: "idle".to_string(),
         session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
-        last_active: None,
         system_prompt: extract_system_prompt_from_config(&config),
         tools: extract_tools_from_config(&config),
         extensions: vec![],
         config,
-        created_at: "unknown".to_string(),
-        updated_at: "unknown".to_string(),
+        created_at,
+        updated_at,
     })
 }
 
