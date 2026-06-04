@@ -79,7 +79,14 @@ function ChatMessage({ item }: { item: ChatItem }) {
             <BotIcon className="h-4 w-4" />
           )}
         </div>
-        <div className="min-w-0 prose prose-sm dark:prose-invert max-w-none">
+        <div
+          className={[
+            "min-w-0 max-w-none overflow-wrap-anywhere",
+            isUser
+              ? "text-white [&_p]:text-white [&_a]:text-white [&_code]:text-white [&_strong]:text-white"
+              : "prose prose-sm dark:prose-invert",
+          ].join(" ")}
+        >
           {isUser ? (
             <p className="whitespace-pre-wrap break-words">{event.content ?? ""}</p>
           ) : (
