@@ -216,9 +216,11 @@ impl IpcClient {
             "type": "agent_create",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "name": name,
-            "provider": provider,
-            "model": model,
+            "request": {
+                "name": name,
+                "provider": provider,
+                "model": model,
+            },
         });
         self.request_response(req).await
     }
