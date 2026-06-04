@@ -17,6 +17,8 @@ import {
   Clock,
   Search,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { StreamEvent, SessionSummary } from "../types";
 
 interface ChatItem {
@@ -77,8 +79,14 @@ function ChatMessage({ item }: { item: ChatItem }) {
             <BotIcon className="h-4 w-4" />
           )}
         </div>
-        <div className="min-w-0">
-          <p className="whitespace-pre-wrap break-words">{event.content ?? ""}</p>
+        <div className="min-w-0 prose prose-sm dark:prose-invert max-w-none">
+          {isUser ? (
+            <p className="whitespace-pre-wrap break-words">{event.content ?? ""}</p>
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {event.content ?? ""}
+            </ReactMarkdown>
+          )}
           <span className="mt-1 block text-[10px] opacity-60">{formatTime(event.timestamp)}</span>
         </div>
       </div>
