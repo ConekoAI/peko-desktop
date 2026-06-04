@@ -77,7 +77,7 @@ function ChatMessage({ item }: { item: ChatItem }) {
         )}
       </div>
       {/* Content */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             {isUser ? "You" : isError ? "Error" : "Assistant"}
@@ -86,11 +86,11 @@ function ChatMessage({ item }: { item: ChatItem }) {
         </div>
         <div className="mt-0.5 text-sm text-slate-800 dark:text-slate-200">
           {isUser ? (
-            <p className="whitespace-pre-wrap break-words">{event.content ?? ""}</p>
+            <p className="whitespace-pre-wrap break-all">{event.content ?? ""}</p>
           ) : isError ? (
-            <p className="whitespace-pre-wrap break-words text-red-600 dark:text-red-400">{event.content ?? ""}</p>
+            <p className="whitespace-pre-wrap break-all text-red-600 dark:text-red-400">{event.content ?? ""}</p>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div className="prose prose-sm dark:prose-invert max-w-none break-all">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {event.content ?? ""}
               </ReactMarkdown>
