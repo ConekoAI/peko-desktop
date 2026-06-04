@@ -22,6 +22,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         agent::agent_remove,
         agent::agent_export,
         agent::agent_import,
+        agent::provider_list,
         team::team_list,
         team::team_show,
         team::team_export,

@@ -153,6 +153,15 @@ export interface StreamEvent {
   timestamp?: string;
 }
 
+export interface ProviderInfo {
+  id: string;
+  display_name: string;
+  api_type: string;
+  default_model: string;
+  requires_key: boolean;
+  is_local: boolean;
+}
+
 export interface Setting {
   key: string;
   value: string;

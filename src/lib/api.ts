@@ -9,6 +9,7 @@ import type {
   DaemonStatus,
   DoctorReport,
   ExtensionSummary,
+  ProviderInfo,
   SearchResult,
   SessionDetail,
   SessionMessage,
@@ -81,6 +82,10 @@ export async function agentExport(name: string): Promise<string> {
 
 export async function agentImport(path: string): Promise<AgentDetail> {
   return invoke("agent_import", { path });
+}
+
+export async function providerList(): Promise<ProviderInfo[]> {
+  return invoke("provider_list");
 }
 
 // ─── Teams ────────────────────────────────────────────────

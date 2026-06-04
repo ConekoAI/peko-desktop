@@ -6,6 +6,7 @@ import {
   agentRemove,
   agentExport,
   agentImport,
+  providerList,
 } from "../lib/api";
 
 export function useAgents() {
@@ -50,5 +51,12 @@ export function useImportAgent() {
   return useMutation({
     mutationFn: (path: string) => agentImport(path),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+  });
+}
+
+export function useProviders() {
+  return useQuery({
+    queryKey: ["providers"],
+    queryFn: providerList,
   });
 }

@@ -179,3 +179,43 @@ pub async fn agent_import(path: String) -> Result<String, String> {
     let name = resp.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
     Ok(format!("Agent '{}' imported", name))
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProviderInfo {
+    pub id: String,
+    pub display_name: String,
+    pub api_type: String,
+    pub default_model: String,
+    pub requires_key: bool,
+    pub is_local: bool,
+}
+
+#[tauri::command]
+pub async fn provider_list() -> Result<Vec<ProviderInfo>, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.list_providers().await.map_err(|e| e.to_string())?;
+
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(value.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    let providers = value
+        .get("providers")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|p| {
+                    Some(ProviderInfo {
+                        id: p.get("id")?.as_str()?.to_string(),
+                        display_name: p.get("display_name")?.as_str()?.to_string(),
+                        api_type: p.get("api_type")?.as_str()?.to_string(),
+                        default_model: p.get("default_model")?.as_str()?.to_string(),
+                        requires_key: p.get("requires_key")?.as_bool().unwrap_or(true),
+                        is_local: p.get("is_local")?.as_bool().unwrap_or(false),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(providers)
+}
