@@ -59,42 +59,43 @@ function ChatMessage({ item }: { item: ChatItem }) {
   const isError = event.type === "error";
 
   return (
-    <div className={["flex w-full", isUser ? "justify-end" : "justify-start"].join(" ")}>
-      <div
-        className={[
-          "flex max-w-[80%] gap-2 rounded-xl px-4 py-2.5 text-sm",
-          isUser
-            ? "bg-indigo-600 text-white"
-            : isError
-            ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
-            : "bg-emerald-50 text-slate-800 dark:bg-emerald-950/30 dark:text-emerald-100",
-        ].join(" ")}
-      >
-        <div className="mt-0.5 shrink-0">
-          {isUser ? (
-            <User className="h-4 w-4" />
-          ) : isError ? (
-            <X className="h-4 w-4" />
-          ) : (
-            <BotIcon className="h-4 w-4" />
-          )}
+    <div className="flex w-full gap-3 px-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/50">
+      {/* Avatar */}
+      <div className="mt-0.5 shrink-0">
+        {isUser ? (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+            <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          </div>
+        ) : isError ? (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+            <X className="h-4 w-4 text-red-600 dark:text-red-400" />
+          </div>
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+            <BotIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          </div>
+        )}
+      </div>
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {isUser ? "You" : isError ? "Error" : "Assistant"}
+          </span>
+          <span className="text-[11px] text-slate-400 dark:text-slate-500">{formatTime(event.timestamp)}</span>
         </div>
-        <div
-          className={[
-            "min-w-0 max-w-none overflow-wrap-anywhere",
-            isUser
-              ? "text-white [&_p]:text-white [&_a]:text-white [&_code]:text-white [&_strong]:text-white"
-              : "prose prose-sm dark:prose-invert",
-          ].join(" ")}
-        >
+        <div className="mt-0.5 text-sm text-slate-800 dark:text-slate-200">
           {isUser ? (
             <p className="whitespace-pre-wrap break-words">{event.content ?? ""}</p>
+          ) : isError ? (
+            <p className="whitespace-pre-wrap break-words text-red-600 dark:text-red-400">{event.content ?? ""}</p>
           ) : (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {event.content ?? ""}
-            </ReactMarkdown>
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {event.content ?? ""}
+              </ReactMarkdown>
+            </div>
           )}
-          <span className="mt-1 block text-[10px] opacity-60">{formatTime(event.timestamp)}</span>
         </div>
       </div>
     </div>
