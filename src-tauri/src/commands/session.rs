@@ -171,7 +171,7 @@ pub async fn session_history(id: String) -> Result<Vec<SessionMessage>, String> 
         return Err(value.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
     }
     
-    let messages = value
+    let mut messages: Vec<SessionMessage> = value
         .get("history")
         .and_then(|v| v.as_array())
         .map(|arr| {
@@ -181,9 +181,14 @@ pub async fn session_history(id: String) -> Result<Vec<SessionMessage>, String> 
                     if event_type != "Message" {
                         return None;
                     }
+                    let role = event.get("role").and_then(|v| v.as_str()).unwrap_or("unknown");
+                    // Skip system prompt messages — not part of user-facing chat
+                    if role == "system" {
+                        return None;
+                    }
                     Some(SessionMessage {
                         id: event.get("timestamp").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        role: event.get("role").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+                        role: role.to_string(),
                         content: event.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                         timestamp: event.get("timestamp").and_then(|v| v.as_str()).unwrap_or("0").to_string(),
                         metadata: None,
@@ -192,6 +197,8 @@ pub async fn session_history(id: String) -> Result<Vec<SessionMessage>, String> 
                 .collect()
         })
         .unwrap_or_default();
+    // Daemon returns history newest-first; reverse for chronological display
+    messages.reverse();
     Ok(messages)
 }
 
