@@ -10,12 +10,40 @@ import {
   Trash2,
   Loader2,
   Bot,
+  Calendar,
+  Clock,
+  Hash,
+  Sparkles,
 } from "lucide-react";
 import ConfirmModal from "../components/modals/ConfirmModal";
 import DataTable from "../components/DataTable";
 import type { AgentSummary } from "../types";
 
 type TabKey = "overview" | "agents" | "config";
+
+function DetailItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800">
+        <Icon className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-medium text-slate-900 dark:text-white">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function TeamDetail() {
   const { name } = useParams({ from: "/teams/$name" });
@@ -74,40 +102,50 @@ export default function TeamDetail() {
       key: "model",
       header: "Model",
       sortable: true,
-      render: (row: AgentSummary) => <span className="text-slate-600 dark:text-slate-400">{row.model}</span>,
+      render: (row: AgentSummary) => (
+        <span className="text-slate-600 dark:text-slate-400">{row.model}</span>
+      ),
     },
     {
       key: "provider",
       header: "Provider",
       sortable: true,
       render: (row: AgentSummary) => (
-        <span className="text-slate-600 dark:text-slate-400">{row.provider}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+          {row.provider}
+        </span>
       ),
     },
     {
       key: "sessionCount",
       header: "Sessions",
       sortable: true,
-      render: (row: AgentSummary) => row.sessionCount,
+      render: (row: AgentSummary) => (
+        <span className="inline-flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
+          <Hash className="h-3 w-3" />
+          {row.sessionCount}
+        </span>
+      ),
     },
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
           <Link
             to="/teams"
-            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            className="mt-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">{team.name}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{team.description ?? "No description"}</p>
+            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+              {team.description ?? "No description"}
+            </p>
           </div>
-
         </div>
 
         <div className="flex items-center gap-2">
@@ -145,41 +183,44 @@ export default function TeamDetail() {
 
       {/* Overview Tab */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
+          {/* Details */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Details</h3>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Name</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{team.name}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Description</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{team.description ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Orchestrator</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{team.orchestrator ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Agents</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{team.agentCount}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Created</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{formatDate(team.createdAt)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Updated</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{formatDate(team.updatedAt)}</dd>
-              </div>
-            </dl>
+            <h3 className="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-200">Details</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <DetailItem
+                icon={Sparkles}
+                label="Description"
+                value={team.description ?? "—"}
+              />
+              <DetailItem
+                icon={Hash}
+                label="Agents"
+                value={team.agentCount}
+              />
+              <DetailItem
+                icon={Calendar}
+                label="Created"
+                value={formatDate(team.createdAt)}
+              />
+              <DetailItem
+                icon={Clock}
+                label="Updated"
+                value={formatDate(team.updatedAt)}
+              />
+            </div>
           </div>
 
+          {/* Agents preview */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-3 flex items-center gap-2">
               <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Agents</h3>
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Agents
+                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                  {team.agents.length}
+                </span>
+              </h3>
             </div>
             {team.agents.length === 0 ? (
               <p className="text-sm text-slate-400 dark:text-slate-600">No agents in this team</p>
@@ -190,7 +231,7 @@ export default function TeamDetail() {
                     key={agent.name}
                     className="flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   >
-                    <Bot className="h-3 w-3 text-slate-400" />
+                    <Bot className="h-3 w-3 shrink-0 text-slate-400" />
                     <Link
                       to="/agents/$name"
                       params={{ name: agent.name }}
@@ -210,7 +251,6 @@ export default function TeamDetail() {
       {/* Agents Tab */}
       {activeTab === "agents" && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Agents</h3>
           {team.agents.length > 0 ? (
             <DataTable
               columns={agentColumns}
@@ -233,9 +273,9 @@ export default function TeamDetail() {
       {activeTab === "config" && (
         <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
           <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Team Config</h3>
-          <pre className="overflow-auto rounded-lg bg-slate-50 p-4 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            {JSON.stringify(team.config, null, 2)}
-          </pre>
+          <p className="text-sm text-slate-400 dark:text-slate-600">
+            Team configuration is managed through the daemon. No editable config available.
+          </p>
         </div>
       )}
 

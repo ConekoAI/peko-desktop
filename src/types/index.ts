@@ -33,13 +33,10 @@ export interface TeamSummary {
   name: string;
   description?: string;
   agentCount: number;
-  status: "active" | "inactive";
 }
 
 export interface TeamDetail extends TeamSummary {
   agents: AgentSummary[];
-  orchestrator?: string;
-  config: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }

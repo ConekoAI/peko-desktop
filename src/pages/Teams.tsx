@@ -7,10 +7,7 @@ import ConfirmModal from "../components/modals/ConfirmModal";
 import { Plus, Trash2, ExternalLink, Loader2, Users, X } from "lucide-react";
 import type { TeamSummary } from "../types";
 
-const STATUS_STYLE: Record<string, string> = {
-  active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
-  inactive: "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-};
+
 
 function CreateTeamModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateTeam();
@@ -173,21 +170,6 @@ export default function Teams() {
       header: "Agents",
       sortable: true,
       render: (row: TeamSummary) => row.agentCount,
-    },
-    {
-      key: "status",
-      header: "Status",
-      sortable: true,
-      render: (row: TeamSummary) => (
-        <span
-          className={[
-            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-            STATUS_STYLE[row.status] ?? STATUS_STYLE.inactive,
-          ].join(" ")}
-        >
-          {row.status}
-        </span>
-      ),
     },
     {
       key: "actions",

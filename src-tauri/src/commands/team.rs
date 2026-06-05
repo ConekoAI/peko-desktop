@@ -15,8 +15,6 @@ pub struct TeamDetail {
     pub agents: Vec<crate::commands::agent::AgentSummary>,
     pub agent_count: usize,
     pub status: String,
-    pub orchestrator: Option<String>,
-    pub config: serde_json::Value,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -36,6 +34,23 @@ fn parse_team_summary(value: &serde_json::Value) -> Option<TeamSummary> {
 
 fn parse_team_detail(value: &serde_json::Value) -> Option<TeamDetail> {
     let metadata = value.get("metadata").cloned().unwrap_or(serde_json::json!({}));
+    let team_path = value.get("path").and_then(|v| v.as_str());
+
+    // created_at is a string from metadata (e.g., "2024-01-15T10:30:00Z")
+    let created_at = metadata
+        .get("created_at")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    // updated_at from directory modification time
+    let updated_at = team_path
+        .and_then(|path| std::fs::metadata(path).ok())
+        .and_then(|meta| meta.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
     Some(TeamDetail {
         name: value.get("name")?.as_str()?.to_string(),
         description: metadata
@@ -45,14 +60,8 @@ fn parse_team_detail(value: &serde_json::Value) -> Option<TeamDetail> {
         agents: vec![],
         agent_count: value.get("agent_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
         status: "active".to_string(),
-        orchestrator: None,
-        config: serde_json::json!({}),
-        created_at: metadata
-            .get("created_at")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown")
-            .to_string(),
-        updated_at: "unknown".to_string(),
+        created_at,
+        updated_at,
     })
 }
 
@@ -71,11 +80,29 @@ pub async fn team_list() -> Result<Vec<TeamSummary>, String> {
 #[tauri::command]
 pub async fn team_show(name: String) -> Result<TeamDetail, String> {
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+
+    // Get team info
     let value = client.get_team(&name).await.map_err(|e| e.to_string())?;
-    let team = value
+    let mut team = value
         .get("team")
         .and_then(parse_team_detail)
         .ok_or_else(|| "team not found".to_string())?;
+
+    // Get all agents and filter by team
+    let agents_value = client.list_agents().await.map_err(|e| e.to_string())?;
+    let all_agents: Vec<crate::commands::agent::AgentSummary> = agents_value
+        .get("agents")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(crate::commands::agent::parse_agent_summary)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    team.agents = all_agents.into_iter().filter(|a| a.team == name).collect();
+    team.agent_count = team.agents.len();
+
     Ok(team)
 }
 

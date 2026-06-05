@@ -66,7 +66,7 @@ fn extract_extensions_from_config(config: &serde_json::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn parse_agent_summary(value: &serde_json::Value) -> Option<AgentSummary> {
+pub fn parse_agent_summary(value: &serde_json::Value) -> Option<AgentSummary> {
     let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
     Some(AgentSummary {
         name: value.get("name")?.as_str()?.to_string(),
