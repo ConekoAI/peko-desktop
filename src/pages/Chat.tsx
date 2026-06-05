@@ -367,6 +367,13 @@ export default function Chat() {
     clearMessages();
   }, [currentSessionId, clearMessages]);
 
+  // Clear stream state when entering pending-new-session mode
+  useEffect(() => {
+    if (pendingNewSession) {
+      clearMessages();
+    }
+  }, [pendingNewSession, clearMessages]);
+
   // Load session history when data arrives
   useEffect(() => {
     if (sessionHistory && sessionHistory.length > 0) {
@@ -406,11 +413,21 @@ export default function Chat() {
     }
   }, [chatItems, isStreaming]);
 
-  // After streaming completes in a pending new session, refetch sessions and navigate
+  // When pendingNewSession becomes true, clear stream state so old events
+  // don't leak into the new session. When stream completes, refetch and navigate.
   useEffect(() => {
-    if (!pendingNewSession || isStreaming) return;
+    if (!pendingNewSession) return;
 
-    // Stream finished — refetch to get the new session ID, then navigate to it
+    if (isStreaming) {
+      // Stream is running — wait for it to finish
+      return;
+    }
+
+    // If messages is empty, we haven't started streaming yet — don't refetch
+    if (messages.length === 0) return;
+
+    // Stream finished after sending a message in pending new session —
+    // refetch to get the new session ID, then navigate to it
     refetchSessions().then((result) => {
       const newActiveSession = result.data?.find((s) => s.status === "active");
       if (newActiveSession) {
@@ -421,7 +438,7 @@ export default function Chat() {
       }
       setPendingNewSession(false);
     });
-  }, [isStreaming, pendingNewSession, selectedAgent, navigate, refetchSessions]);
+  }, [isStreaming, pendingNewSession, messages.length, selectedAgent, navigate, refetchSessions]);
 
   function handleSelectAgent(name: string) {
     setPendingNewSession(false);
@@ -433,7 +450,9 @@ export default function Chat() {
     navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
     setChatItems([]);
     setPendingNewSession(true);
-    clearMessages();
+    // Note: don't call clearMessages() here — it sets isStreaming=false which
+    // triggers the pendingNewSession effect prematurely. Stream state is cleared
+    // when the first message is sent (sendMessage calls its own reset).
   }
 
   function handleSwitchSession(sessionId: string) {

@@ -273,15 +273,15 @@ pub async fn session_send(
     };
 
     // If new_session is explicitly true, don't look up active session
-    let session_id = if new_session == Some(true) {
-        None
+    let (session_id, debug_explicit) = if new_session == Some(true) {
+        (None, explicit_session_id.clone())
     } else if let Some(sid) = explicit_session_id {
-        Some(sid)
+        (Some(sid), None)
     } else {
-        get_active_session(&agent).await
+        (get_active_session(&agent).await, None)
     };
 
-    eprintln!("[session_send] agent={}, session_id={:?}, new_session={:?}", agent, session_id, new_session);
+    eprintln!("[session_send] agent={}, explicit_session_id={:?}, new_session={:?}, resolved_session_id={:?}", agent, debug_explicit, new_session, session_id);
 
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
     client
