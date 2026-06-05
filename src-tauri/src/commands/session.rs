@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionSummary {
     pub id: String,
     pub agent: String,
@@ -12,6 +13,7 @@ pub struct SessionSummary {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionMessage {
     pub id: String,
     pub role: String,
@@ -21,6 +23,7 @@ pub struct SessionMessage {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionDetail {
     pub id: String,
     pub agent: String,

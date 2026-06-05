@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentSummary {
     pub name: String,
     pub description: Option<String>,
@@ -11,6 +12,7 @@ pub struct AgentSummary {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentDetail {
     pub name: String,
     pub description: Option<String>,
