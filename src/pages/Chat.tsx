@@ -340,7 +340,7 @@ export default function Chat() {
   const selectedAgent = params.agentName ?? agents?.[0]?.name ?? "";
 
   // Fetch sessions for selected agent
-  const { data: sessions } = useSessions(selectedAgent || undefined);
+  const { data: sessions, refetch: refetchSessions } = useSessions(selectedAgent || undefined);
 
   // Determine current session: URL param → active session from daemon → first session
   const activeSessionId = sessions?.find((s) => s.status === "active")?.id;
@@ -353,7 +353,7 @@ export default function Chat() {
   // Local chat state
   const [input, setInput] = useState("");
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
-  const [isNewSession, setIsNewSession] = useState(false);
+  const [pendingNewSession, setPendingNewSession] = useState(false);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({
     channel: "peko-stream",
   });
@@ -406,8 +406,25 @@ export default function Chat() {
     }
   }, [chatItems, isStreaming]);
 
+  // After streaming completes in a pending new session, refetch sessions and navigate
+  useEffect(() => {
+    if (!pendingNewSession || isStreaming) return;
+
+    // Stream finished — refetch to get the new session ID, then navigate to it
+    refetchSessions().then((result) => {
+      const newActiveSession = result.data?.find((s) => s.status === "active");
+      if (newActiveSession) {
+        navigate({
+          to: "/chat/$agentName/$sessionId",
+          params: { agentName: selectedAgent, sessionId: newActiveSession.id },
+        });
+      }
+      setPendingNewSession(false);
+    });
+  }, [isStreaming, pendingNewSession, selectedAgent, navigate, refetchSessions]);
+
   function handleSelectAgent(name: string) {
-    setIsNewSession(false);
+    setPendingNewSession(false);
     navigate({ to: "/chat/$agentName", params: { agentName: name } });
   }
 
@@ -415,12 +432,12 @@ export default function Chat() {
     // Navigate without sessionId and set flag to force new session creation
     navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
     setChatItems([]);
-    setIsNewSession(true);
+    setPendingNewSession(true);
     clearMessages();
   }
 
   function handleSwitchSession(sessionId: string) {
-    setIsNewSession(false);
+    setPendingNewSession(false);
     navigate({
       to: "/chat/$agentName/$sessionId",
       params: { agentName: selectedAgent, sessionId },
@@ -446,11 +463,7 @@ export default function Chat() {
     const sessionId = currentSessionId
       ? `${selectedAgent}/${currentSessionId}`
       : `chat-${selectedAgent}`;
-    await sendMessage(() => sessionSend(sessionId, message, isNewSession));
-    // After first message in a new session, clear the flag
-    if (isNewSession) {
-      setIsNewSession(false);
-    }
+    await sendMessage(() => sessionSend(sessionId, message, pendingNewSession));
   }
 
   const displayItems = useMemo(() => mergeAssistantChunks(chatItems), [chatItems]);
