@@ -8,7 +8,7 @@ import {
 } from "../hooks/useExtensions";
 import DataTable from "../components/DataTable";
 import ConfirmModal from "../components/modals/ConfirmModal";
-import { formatDate } from "../lib/format";
+
 import { Plus, Power, PowerOff, Trash2, X, Loader2 } from "lucide-react";
 import type { ExtensionSummary } from "../types";
 
@@ -96,21 +96,30 @@ export default function Extensions() {
       ),
     },
     {
-      key: "version",
-      header: "Version",
+      key: "extType",
+      header: "Type",
       sortable: true,
       render: (row: ExtensionSummary) => (
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-          v{row.version}
+          {row.extType}
         </span>
       ),
     },
     {
-      key: "description",
-      header: "Description",
-      sortable: false,
+      key: "source",
+      header: "Source",
+      sortable: true,
       render: (row: ExtensionSummary) => (
-        <span className="text-slate-600 dark:text-slate-400">{row.description ?? "—"}</span>
+        <span
+          className={[
+            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
+            row.source === "built-in"
+              ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+              : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+          ].join(" ")}
+        >
+          {row.source}
+        </span>
       ),
     },
     {
@@ -129,12 +138,6 @@ export default function Extensions() {
           {row.enabled ? "Enabled" : "Disabled"}
         </span>
       ),
-    },
-    {
-      key: "installedAt",
-      header: "Installed",
-      sortable: true,
-      render: (row: ExtensionSummary) => formatDate(row.installedAt),
     },
     {
       key: "actions",

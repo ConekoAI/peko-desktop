@@ -70,12 +70,13 @@ export interface SessionDetail extends SessionSummary {
 }
 
 export interface ExtensionSummary {
+  id: string;
   name: string;
   version: string;
   description?: string;
-  author?: string;
   enabled: boolean;
-  installedAt: string;
+  source: string;
+  extType: string;
 }
 
 export interface SearchResult {

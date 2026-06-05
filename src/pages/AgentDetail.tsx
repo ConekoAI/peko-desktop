@@ -5,7 +5,6 @@ import { useSessions } from "../hooks/useSessions";
 import { formatDate } from "../lib/format";
 import {
   ArrowLeft,
-  Wrench,
   Puzzle,
   MessageSquare,
   Trash2,
@@ -209,33 +208,11 @@ export default function AgentDetail() {
 
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-3 flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Tools</h3>
-            </div>
-            {agent.tools.length === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-600">No tools configured</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {agent.tools.map((tool) => (
-                  <li
-                    key={tool}
-                    className="flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                  >
-                    <Wrench className="h-3 w-3 text-slate-400" />
-                    {tool}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-3 flex items-center gap-2">
               <Puzzle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Extensions</h3>
             </div>
             {agent.extensions.length === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-600">No extensions installed</p>
+              <p className="text-sm text-slate-400 dark:text-slate-600">No extensions enabled</p>
             ) : (
               <ul className="space-y-1.5">
                 {agent.extensions.map((ext) => (

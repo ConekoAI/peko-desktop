@@ -53,10 +53,10 @@ fn extract_system_prompt_from_config(config: &serde_json::Value) -> Option<Strin
         .map(|s| s.to_string())
 }
 
-fn extract_tools_from_config(config: &serde_json::Value) -> Vec<String> {
+fn extract_extensions_from_config(config: &serde_json::Value) -> Vec<String> {
     config
-        .get("tools")
-        .and_then(|t| t.get("enabled"))
+        .get("extensions")
+        .and_then(|e| e.get("enabled"))
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
@@ -83,20 +83,43 @@ fn parse_agent_summary(value: &serde_json::Value) -> Option<AgentSummary> {
 
 fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
     let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
-    let created_at = value
-        .get("created_at_ms")
-        .or_else(|| value.get("created_at"))
-        .and_then(|v| v.as_u64())
-        .map(|ts| ts.to_string())
-        .or_else(|| config.get("created_at").and_then(|v| v.as_u64()).map(|ts| ts.to_string()))
-        .unwrap_or_else(|| "unknown".to_string());
-    let updated_at = value
-        .get("updated_at_ms")
-        .or_else(|| value.get("updated_at"))
-        .and_then(|v| v.as_u64())
-        .map(|ts| ts.to_string())
-        .or_else(|| config.get("updated_at").and_then(|v| v.as_u64()).map(|ts| ts.to_string()))
-        .unwrap_or_else(|| "unknown".to_string());
+    // The daemon's AgentConfig doesn't have created_at/updated_at fields.
+    // Try to get file metadata from config_path if available.
+    let config_path = value
+        .get("config_path")
+        .and_then(|v| v.as_str());
+    let (created_at, updated_at) = config_path
+        .and_then(|path| std::fs::metadata(path).ok())
+        .map(|meta| {
+            let created = meta.created()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            let modified = meta.modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            (created, modified)
+        })
+        .unwrap_or_else(|| {
+            // Fallback: try to find timestamps in the response
+            let created = value
+                .get("created_at_ms")
+                .or_else(|| value.get("created_at"))
+                .and_then(|v| v.as_u64())
+                .map(|ts| ts.to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            let updated = value
+                .get("updated_at_ms")
+                .or_else(|| value.get("updated_at"))
+                .and_then(|v| v.as_u64())
+                .map(|ts| ts.to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            (created, updated)
+        });
+    let extensions = extract_extensions_from_config(&config);
     Some(AgentDetail {
         name: value.get("name")?.as_str()?.to_string(),
         description: config
@@ -108,8 +131,8 @@ fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
         team: value.get("team")?.as_str()?.to_string(),
         session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
         system_prompt: extract_system_prompt_from_config(&config),
-        tools: extract_tools_from_config(&config),
-        extensions: vec![],
+        tools: extensions.clone(),
+        extensions,
         config,
         created_at,
         updated_at,

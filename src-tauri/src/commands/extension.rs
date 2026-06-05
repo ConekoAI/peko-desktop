@@ -1,11 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ExtensionSummary {
     pub id: String,
     pub name: String,
     pub version: String,
+    pub description: Option<String>,
     pub enabled: bool,
+    pub source: String,
+    pub ext_type: String,
 }
 
 #[tauri::command]
@@ -20,7 +24,10 @@ pub async fn extension_list() -> Result<Vec<ExtensionSummary>, String> {
                 id: e.get("id")?.as_str()?.to_string(),
                 name: e.get("name")?.as_str()?.to_string(),
                 version: e.get("version").and_then(|v| v.as_str()).unwrap_or("n/a").to_string(),
+                description: e.get("description").and_then(|v| v.as_str()).map(|s| s.to_string()),
                 enabled: e.get("enabled")?.as_bool().unwrap_or(true),
+                source: e.get("source").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
+                ext_type: e.get("ext_type").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
             })
         }).collect())
         .unwrap_or_default();
