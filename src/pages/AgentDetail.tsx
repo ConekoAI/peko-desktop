@@ -13,14 +13,51 @@ import {
   Bot,
   FileCode,
   Activity,
+  Calendar,
+  Clock,
+  Hash,
+  Sparkles,
+  Cloud,
 } from "lucide-react";
 import ConfirmModal from "../components/modals/ConfirmModal";
 import DataTable from "../components/DataTable";
 import type { SessionSummary } from "../types";
 
 
-
 type TabKey = "overview" | "sessions" | "config";
+
+function DetailItem({
+  icon: Icon,
+  label,
+  value,
+  badge,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+  badge?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800">
+        <Icon className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+        <div className="mt-0.5 flex items-center gap-2">
+          <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+            {value}
+          </p>
+          {badge && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+              {badge}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AgentDetail() {
   const { name } = useParams({ from: "/agents/$name" });
@@ -65,7 +102,7 @@ export default function AgentDetail() {
   const sessionColumns = [
     {
       key: "title",
-      header: "Title",
+      header: "Session",
       sortable: true,
       render: (row: SessionSummary) => (
         <Link
@@ -78,64 +115,55 @@ export default function AgentDetail() {
       ),
     },
     {
-      key: "status",
-      header: "Status",
+      key: "messageCount",
+      header: "Messages",
       sortable: true,
       render: (row: SessionSummary) => (
-        <span
-          className={[
-            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-            row.status === "active"
-              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-              : "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-          ].join(" ")}
-        >
-          {row.status}
+        <span className="inline-flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
+          <Hash className="h-3 w-3" />
+          {row.messageCount}
         </span>
       ),
     },
     {
-      key: "messageCount",
-      header: "Messages",
-      sortable: true,
-      render: (row: SessionSummary) => row.messageCount,
-    },
-    {
       key: "updatedAt",
-      header: "Last Updated",
+      header: "Last Active",
       sortable: true,
-      render: (row: SessionSummary) => formatDate(row.updatedAt),
+      render: (row: SessionSummary) => (
+        <span className="text-sm text-slate-500 dark:text-slate-400">
+          {formatDate(row.updatedAt)}
+        </span>
+      ),
     },
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
           <Link
             to="/agents"
-            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            className="mt-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">{agent.name}</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{agent.description ?? "No description"}</p>
+            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+              {agent.description ?? "No description"}
+            </p>
           </div>
-          <span className="ml-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-            {agent.provider}
-          </span>
         </div>
 
         <div className="flex items-center gap-2">
           <Link
             to="/chat/$agentName"
-          params={{ agentName: agent.name }}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            params={{ agentName: agent.name }}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
           >
             <MessageSquare className="h-4 w-4" />
-            Send Message
+            Chat
           </Link>
           <button
             onClick={() => exportAgent.mutate(agent.name)}
@@ -179,70 +207,88 @@ export default function AgentDetail() {
 
       {/* Overview Tab */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-4">
+          {/* Details row */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Details</h3>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Model</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{agent.model}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Team</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{agent.team ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Sessions</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{agent.sessionCount}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Created</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{formatDate(agent.createdAt)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-slate-500 dark:text-slate-400">Updated</dt>
-                <dd className="font-medium text-slate-900 dark:text-white">{formatDate(agent.updatedAt)}</dd>
-              </div>
-            </dl>
+            <h3 className="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-200">Details</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <DetailItem
+                icon={Sparkles}
+                label="Model"
+                value={agent.model}
+                badge={agent.provider}
+              />
+              <DetailItem
+                icon={Cloud}
+                label="Team"
+                value={agent.team ?? "—"}
+              />
+              <DetailItem
+                icon={Hash}
+                label="Sessions"
+                value={agent.sessionCount}
+              />
+              <DetailItem
+                icon={Calendar}
+                label="Created"
+                value={formatDate(agent.createdAt)}
+              />
+              <DetailItem
+                icon={Clock}
+                label="Updated"
+                value={formatDate(agent.updatedAt)}
+              />
+            </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-3 flex items-center gap-2">
-              <Puzzle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Extensions</h3>
+          {/* Extensions + System Prompt side by side */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-3 flex items-center gap-2">
+                <Puzzle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  Extensions
+                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                    {agent.extensions.length}
+                  </span>
+                </h3>
+              </div>
+              {agent.extensions.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-600">No extensions enabled</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {agent.extensions.map((ext) => (
+                    <li
+                      key={ext}
+                      className="flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    >
+                      <Puzzle className="h-3 w-3 shrink-0 text-slate-400" />
+                      <span className="truncate font-mono text-xs">{ext}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            {agent.extensions.length === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-600">No extensions enabled</p>
+
+            {agent.systemPrompt ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">System Prompt</h3>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  {agent.systemPrompt}
+                </pre>
+              </div>
             ) : (
-              <ul className="space-y-1.5">
-                {agent.extensions.map((ext) => (
-                  <li
-                    key={ext}
-                    className="flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                  >
-                    <Puzzle className="h-3 w-3 text-slate-400" />
-                    {ext}
-                  </li>
-                ))}
-              </ul>
+              <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                <p className="text-sm text-slate-400 dark:text-slate-600">No system prompt configured</p>
+              </div>
             )}
           </div>
-
-          {agent.systemPrompt && (
-            <div className="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-3 dark:border-slate-800 dark:bg-slate-900">
-              <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">System Prompt</h3>
-              <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                {agent.systemPrompt}
-              </pre>
-            </div>
-          )}
         </div>
       )}
 
       {/* Sessions Tab */}
       {activeTab === "sessions" && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Sessions</h3>
           {sessions && sessions.length > 0 ? (
             <DataTable
               columns={sessionColumns}
