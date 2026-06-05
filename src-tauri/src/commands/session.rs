@@ -255,7 +255,7 @@ pub async fn session_compact(id: String) -> Result<String, String> {
 
 /// Send a message to an agent and stream the response via Tauri events.
 /// The frontend listens on "peko-stream" for StreamEvent payloads.
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub async fn session_send(
     app: tauri::AppHandle,
     id: String,

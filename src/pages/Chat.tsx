@@ -342,18 +342,22 @@ export default function Chat() {
   // Fetch sessions for selected agent
   const { data: sessions, refetch: refetchSessions } = useSessions(selectedAgent || undefined);
 
-  // Determine current session: URL param → active session from daemon → first session
-  const activeSessionId = sessions?.find((s) => s.status === "active")?.id;
-  const currentSessionId = params.sessionId ?? activeSessionId ?? sessions?.[0]?.id;
-
-  // Fetch session history from daemon
-  const historyId = currentSessionId ? `${selectedAgent}/${currentSessionId}` : "";
-  const { data: sessionHistory } = useSessionHistory(historyId);
-
   // Local chat state
   const [input, setInput] = useState("");
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [pendingNewSession, setPendingNewSession] = useState(false);
+
+  // Determine current session: URL param → active session from daemon → first session
+  // When pendingNewSession is true, don't fall back to active session — we want
+  // to show an empty chat until the user sends a message and the new session is created.
+  const activeSessionId = sessions?.find((s) => s.status === "active")?.id;
+  const currentSessionId = pendingNewSession
+    ? params.sessionId
+    : (params.sessionId ?? activeSessionId ?? sessions?.[0]?.id);
+
+  // Fetch session history from daemon
+  const historyId = currentSessionId ? `${selectedAgent}/${currentSessionId}` : "";
+  const { data: sessionHistory } = useSessionHistory(historyId);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({
     channel: "peko-stream",
   });
@@ -450,6 +454,7 @@ export default function Chat() {
     navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
     setChatItems([]);
     setPendingNewSession(true);
+
     // Note: don't call clearMessages() here — it sets isStreaming=false which
     // triggers the pendingNewSession effect prematurely. Stream state is cleared
     // when the first message is sent (sendMessage calls its own reset).
@@ -482,6 +487,7 @@ export default function Chat() {
     const sessionId = currentSessionId
       ? `${selectedAgent}/${currentSessionId}`
       : `chat-${selectedAgent}`;
+
     await sendMessage(() => sessionSend(sessionId, message, pendingNewSession));
   }
 

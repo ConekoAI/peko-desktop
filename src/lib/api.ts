@@ -163,7 +163,7 @@ export async function sessionClose(id: string): Promise<void> {
   return invoke("session_close", { id });
 }
 
-export async function sessionSend(id: string, message: string, newSession?: boolean): Promise<void> {
+export async function sessionSend(id: string, message: string, newSession: boolean = false): Promise<void> {
   return invoke("session_send", { id, message, new_session: newSession });
 }
 
