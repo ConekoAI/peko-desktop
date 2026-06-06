@@ -13,7 +13,7 @@ pub struct TeamSummary {
 pub struct TeamDetail {
     pub name: String,
     pub description: Option<String>,
-    pub agents: Vec<crate::commands::agent::AgentSummary>,
+    pub members: Vec<String>,
     pub agent_count: usize,
     pub created_at: String,
     pub updated_at: String,
@@ -50,13 +50,18 @@ fn parse_team_detail(value: &serde_json::Value) -> Option<TeamDetail> {
         .map(|d| d.as_millis().to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
+    let members = value
+        .get("members")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default();
     Some(TeamDetail {
         name: value.get("name")?.as_str()?.to_string(),
         description: metadata
             .get("description")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
-        agents: vec![],
+        members,
         agent_count: value.get("agent_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
         created_at,
         updated_at,
@@ -86,20 +91,8 @@ pub async fn team_show(name: String) -> Result<TeamDetail, String> {
         .and_then(parse_team_detail)
         .ok_or_else(|| "team not found".to_string())?;
 
-    // Get all agents and filter by team
-    let agents_value = client.list_agents().await.map_err(|e| e.to_string())?;
-    let all_agents: Vec<crate::commands::agent::AgentSummary> = agents_value
-        .get("agents")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(crate::commands::agent::parse_agent_summary)
-                .collect()
-        })
-        .unwrap_or_default();
-
-    team.agents = all_agents.into_iter().filter(|a| a.team == name).collect();
-    team.agent_count = team.agents.len();
+    // agent_count already populated from daemon's TeamInfo.members
+    team.agent_count = team.members.len();
 
     Ok(team)
 }

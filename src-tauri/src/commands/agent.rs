@@ -7,7 +7,7 @@ pub struct AgentSummary {
     pub description: Option<String>,
     pub model: String,
     pub provider: String,
-    pub team: String,
+    pub memberships: Vec<String>,
     pub session_count: usize,
 }
 
@@ -18,7 +18,7 @@ pub struct AgentDetail {
     pub description: Option<String>,
     pub model: String,
     pub provider: String,
-    pub team: String,
+    pub memberships: Vec<String>,
     pub session_count: usize,
     pub system_prompt: Option<String>,
     pub tools: Vec<String>,
@@ -76,7 +76,11 @@ pub fn parse_agent_summary(value: &serde_json::Value) -> Option<AgentSummary> {
             .map(|s| s.to_string()),
         model: extract_model_from_config(&config),
         provider: extract_provider_from_config(&config),
-        team: value.get("team")?.as_str()?.to_string(),
+        memberships: value
+            .get("memberships")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .unwrap_or_default(),
         session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
     })
 }
@@ -128,7 +132,11 @@ fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
             .map(|s| s.to_string()),
         model: extract_model_from_config(&config),
         provider: extract_provider_from_config(&config),
-        team: value.get("team")?.as_str()?.to_string(),
+        memberships: value
+            .get("memberships")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .unwrap_or_default(),
         session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
         system_prompt: extract_system_prompt_from_config(&config),
         tools: extensions.clone(),
@@ -163,18 +171,19 @@ pub async fn agent_show(name: String) -> Result<AgentDetail, String> {
 }
 
 #[tauri::command]
-pub async fn agent_create(name: String, provider: String, model: String) -> Result<String, String> {
+pub async fn agent_create(name: String, provider: String, model: String) -> Result<AgentDetail, String> {
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let value = client
+    let _value = client
         .create_agent(&name, &provider, &model)
         .await
         .map_err(|e| e.to_string())?;
-    let msg = value
-        .get("message")
-        .and_then(|v| v.as_str())
-        .unwrap_or("created")
-        .to_string();
-    Ok(msg)
+    // Fetch the newly created agent to return full details
+    let agent_value = client.get_agent(&name).await.map_err(|e| e.to_string())?;
+    let agent = agent_value
+        .get("agent")
+        .and_then(parse_agent_detail)
+        .ok_or_else(|| "agent created but could not be fetched".to_string())?;
+    Ok(agent)
 }
 
 #[tauri::command]

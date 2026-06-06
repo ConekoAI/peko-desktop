@@ -439,24 +439,40 @@ export default function Chat() {
   }
 
   if (!selectedAgent) {
+    const hasAgents = agents && agents.length > 0;
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
         <div className="text-center">
           <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            No agents in {resolvedTeam || "this team"}
+            {hasAgents
+              ? `No agents assigned to ${resolvedTeam}`
+              : "No agents yet"}
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            Create an agent for this team to start chatting
+            {hasAgents
+              ? "Assign an existing agent to this team, or create a new one"
+              : "Create an agent to start chatting"}
           </p>
         </div>
-        <button
-          onClick={() => navigate({ to: "/agents" })}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-        >
-          <Plus className="h-4 w-4" />
-          Create Agent
-        </button>
+        <div className="flex items-center gap-2">
+          {hasAgents && (
+            <button
+              onClick={() => navigate({ to: "/agents" })}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <BotIcon className="h-4 w-4" />
+              Manage Agents
+            </button>
+          )}
+          <button
+            onClick={() => navigate({ to: "/agents" })}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+          >
+            <Plus className="h-4 w-4" />
+            Create Agent
+          </button>
+        </div>
       </div>
     );
   }
