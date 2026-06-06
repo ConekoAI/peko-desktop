@@ -25,16 +25,24 @@ export function useInstallExtension() {
 export function useEnableExtension() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => extensionEnable(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["extensions"] }),
+    mutationFn: ({ name, target }: { name: string; target?: string }) =>
+      extensionEnable(name, target),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["extensions"] });
+      qc.invalidateQueries({ queryKey: ["agents"] });
+    },
   });
 }
 
 export function useDisableExtension() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => extensionDisable(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["extensions"] }),
+    mutationFn: ({ name, target }: { name: string; target?: string }) =>
+      extensionDisable(name, target),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["extensions"] });
+      qc.invalidateQueries({ queryKey: ["agents"] });
+    },
   });
 }
 

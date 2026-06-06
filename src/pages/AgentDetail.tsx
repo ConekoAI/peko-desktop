@@ -3,6 +3,7 @@ import { useParams, Link } from "@tanstack/react-router";
 import { useAgent, useRemoveAgent, useExportAgent } from "../hooks/useAgents";
 import { useTeams } from "../hooks/useTeams";
 import { useSessions } from "../hooks/useSessions";
+import { useExtensions, useEnableExtension, useDisableExtension } from "../hooks/useExtensions";
 import { formatDate } from "../lib/format";
 import {
   ArrowLeft,
@@ -19,13 +20,14 @@ import {
   Hash,
   Sparkles,
   Cloud,
+  Power,
+  PowerOff,
 } from "lucide-react";
 import ConfirmModal from "../components/modals/ConfirmModal";
 import DataTable from "../components/DataTable";
 import type { SessionSummary } from "../types";
 
-
-type TabKey = "overview" | "sessions" | "config";
+type TabKey = "overview" | "sessions" | "extensions" | "config";
 
 function DetailItem({
   icon: Icon,
@@ -99,6 +101,7 @@ export default function AgentDetail() {
   const tabs: { id: TabKey; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: Activity },
     { id: "sessions", label: "Sessions", icon: MessageSquare },
+    { id: "extensions", label: "Extensions", icon: Puzzle },
     { id: "config", label: "Config", icon: FileCode },
   ];
 
@@ -310,6 +313,15 @@ export default function AgentDetail() {
         </div>
       )}
 
+      {/* Extensions Tab */}
+      {activeTab === "extensions" && (
+        <AgentExtensionsTab
+          agentName={agent.name}
+          agentTeam={agentTeam}
+          agentExtensions={agent.extensions}
+        />
+      )}
+
       {/* Config Tab */}
       {activeTab === "config" && (
         <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -332,6 +344,128 @@ export default function AgentDetail() {
         }}
         onCancel={() => setConfirmRemove(false)}
       />
+    </div>
+  );
+}
+
+function AgentExtensionsTab({
+  agentName,
+  agentTeam,
+  agentExtensions,
+}: {
+  agentName: string;
+  agentTeam: string;
+  agentExtensions: string[];
+}) {
+  const { data: allExtensions, isLoading } = useExtensions();
+  const enable = useEnableExtension();
+  const disable = useDisableExtension();
+
+  const target = `${agentTeam}/${agentName}`;
+
+  // Build a set of enabled extension IDs for quick lookup
+  const enabledSet = new Set(agentExtensions);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-300 dark:text-slate-700" />
+        <p className="text-sm text-slate-400 dark:text-slate-600">Loading extensions...</p>
+      </div>
+    );
+  }
+
+  if (!allExtensions || allExtensions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-900">
+        <Puzzle className="h-8 w-8 text-slate-300 dark:text-slate-700" />
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No extensions installed</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          Install extensions from the Extensions page to enable them for this agent
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+          Extensions for {agentName}
+        </h3>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {agentExtensions.length} enabled
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {allExtensions.map((ext) => {
+          const isEnabled = enabledSet.has(ext.id) || enabledSet.has(ext.name);
+          const isPending = enable.isPending || disable.isPending;
+
+          return (
+            <div
+              key={ext.id}
+              className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/50"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">
+                    {ext.name}
+                  </span>
+                  <span
+                    className={[
+                      "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium",
+                      ext.source === "built-in"
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+                        : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+                    ].join(" ")}
+                  >
+                    {ext.source}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                    {ext.extType}
+                  </span>
+                </div>
+                {ext.description && (
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    {ext.description}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={() => {
+                  if (isEnabled) {
+                    disable.mutate({ name: ext.id, target });
+                  } else {
+                    enable.mutate({ name: ext.id, target });
+                  }
+                }}
+                disabled={isPending}
+                className={[
+                  "ml-4 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                  isEnabled
+                    ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:hover:bg-emerald-950/50"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700",
+                ].join(" ")}
+              >
+                {isEnabled ? (
+                  <>
+                    <Power className="h-3.5 w-3.5" />
+                    Enabled
+                  </>
+                ) : (
+                  <>
+                    <PowerOff className="h-3.5 w-3.5" />
+                    Disabled
+                  </>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

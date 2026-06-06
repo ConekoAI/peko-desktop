@@ -177,12 +177,12 @@ export async function extensionInstall(path: string): Promise<ExtensionSummary> 
   return invoke("extension_install", { path });
 }
 
-export async function extensionEnable(name: string): Promise<ExtensionSummary> {
-  return invoke("extension_enable", { name });
+export async function extensionEnable(name: string, target?: string): Promise<ExtensionSummary> {
+  return invoke("extension_enable", { name, target });
 }
 
-export async function extensionDisable(name: string): Promise<ExtensionSummary> {
-  return invoke("extension_disable", { name });
+export async function extensionDisable(name: string, target?: string): Promise<ExtensionSummary> {
+  return invoke("extension_disable", { name, target });
 }
 
 export async function extensionUninstall(name: string): Promise<void> {

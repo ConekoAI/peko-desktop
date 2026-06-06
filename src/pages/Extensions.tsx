@@ -147,7 +147,7 @@ export default function Extensions() {
         <div className="flex items-center gap-2">
           {row.enabled ? (
             <button
-              onClick={() => disable.mutate(row.name)}
+              onClick={() => disable.mutate({ name: row.name })}
               className="rounded p-1 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/30 dark:hover:text-amber-400"
               title="Disable"
             >
@@ -155,7 +155,7 @@ export default function Extensions() {
             </button>
           ) : (
             <button
-              onClick={() => enable.mutate(row.name)}
+              onClick={() => enable.mutate({ name: row.name })}
               className="rounded p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
               title="Enable"
             >
