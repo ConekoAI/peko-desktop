@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useAgents } from "../hooks/useAgents";
+import { useTeams } from "../hooks/useTeams";
 import { useSessions, useSessionHistory } from "../hooks/useSessions";
-
 import { useIpcStream } from "../hooks/useIpcStream";
 import { sessionSend } from "../lib/api";
 import {
@@ -15,7 +15,6 @@ import {
   Plus,
   ChevronDown,
   Clock,
-  Search,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -60,7 +59,6 @@ function ChatMessage({ item }: { item: ChatItem }) {
 
   return (
     <div className="flex w-full gap-3 px-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/50">
-      {/* Avatar */}
       <div className="mt-0.5 shrink-0">
         {isUser ? (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
@@ -76,7 +74,6 @@ function ChatMessage({ item }: { item: ChatItem }) {
           </div>
         )}
       </div>
-      {/* Content */}
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -102,9 +99,6 @@ function ChatMessage({ item }: { item: ChatItem }) {
   );
 }
 
-/**
- * Merge consecutive assistant chunk events into single messages.
- */
 function mergeAssistantChunks(items: ChatItem[]): ChatItem[] {
   const merged: ChatItem[] = [];
   for (const item of items) {
@@ -127,96 +121,6 @@ function mergeAssistantChunks(items: ChatItem[]): ChatItem[] {
   return merged;
 }
 
-function AgentListSidebar({
-  agents,
-  selectedAgent,
-  onSelectAgent,
-}: {
-  agents: { name: string; description?: string }[] | undefined;
-  selectedAgent: string;
-  onSelectAgent: (name: string) => void;
-}) {
-  const [search, setSearch] = useState("");
-
-  const filtered = useMemo(() => {
-    if (!agents) return [];
-    const sorted = [...agents].sort((a, b) => a.name.localeCompare(b.name));
-    if (!search.trim()) return sorted;
-    const q = search.toLowerCase();
-    return sorted.filter((a) => a.name.toLowerCase().includes(q));
-  }, [agents, search]);
-
-  return (
-    <div className="flex h-full w-64 flex-col border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
-      <div className="border-b border-slate-200 p-3 dark:border-slate-800">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search agents..."
-            className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-          />
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-2">
-        {filtered.map((agent) => {
-          const isActive = agent.name === selectedAgent;
-          return (
-            <button
-              key={agent.name}
-              onClick={() => onSelectAgent(agent.name)}
-              className={[
-                "flex w-full flex-col rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                isActive
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                  : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
-              ].join(" ")}
-            >
-              <span className="flex items-center gap-2 font-medium">
-                <span
-                  className={[
-                    "h-2 w-2 rounded-full",
-                    isActive ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600",
-                  ].join(" ")}
-                />
-                {agent.name}
-              </span>
-              {agent.description && (
-                <span className="mt-0.5 pl-4 text-[11px] text-slate-400 dark:text-slate-500">
-                  {agent.description}
-                </span>
-              )}
-            </button>
-          );
-        })}
-
-        {filtered.length === 0 && (
-          <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-600">
-            No agents found
-          </div>
-        )}
-      </div>
-
-      <div className="border-t border-slate-200 p-2 dark:border-slate-800">
-        <a
-          href="/agents"
-          onClick={(e) => {
-            e.preventDefault();
-            window.location.href = "/agents";
-          }}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-        >
-          <Plus className="h-4 w-4" />
-          New Agent
-        </a>
-      </div>
-    </div>
-  );
-}
-
 function SessionToolbar({
   agentName,
   sessions,
@@ -233,7 +137,6 @@ function SessionToolbar({
   const [historyOpen, setHistoryOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -325,37 +228,70 @@ function SessionToolbar({
 export default function Chat() {
   const navigate = useNavigate();
   const routerState = useRouterState();
+  const params = useParams({ strict: false });
   const pathname = routerState.location.pathname;
 
-  // Parse params from pathname manually since Chat is used by multiple routes
-  const pathParts = pathname.split("/").filter(Boolean);
-  const params = {
-    agentName: pathParts[0] === "chat" ? pathParts[1] : undefined,
-    sessionId: pathParts[0] === "chat" && pathParts[2] ? pathParts[2] : undefined,
-  };
-
+  const { data: teams, isLoading: teamsLoading } = useTeams();
   const { data: agents, isLoading: agentsLoading } = useAgents();
 
-  // Determine selected agent: URL param → first agent → none
-  const selectedAgent = params.agentName ?? agents?.[0]?.name ?? "";
+  // Parse params: support both legacy /chat/$agentName and new /chat/$teamName/$agentName
+  const pathParts = pathname.split("/").filter(Boolean);
 
-  // Fetch sessions for selected agent
+  let teamName: string | undefined;
+  let agentName: string | undefined;
+  let sessionId: string | undefined;
+
+  if (pathParts[0] === "chat") {
+    if (pathParts.length === 2) {
+      agentName = pathParts[1];
+    } else if (pathParts.length >= 3) {
+      teamName = pathParts[1];
+      agentName = pathParts[2];
+      sessionId = pathParts[3];
+    }
+  }
+
+  const paramTeam = (params as Record<string, string | undefined>).teamName;
+  const paramAgent = (params as Record<string, string | undefined>).agentName;
+  const paramSession = (params as Record<string, string | undefined>).sessionId;
+  if (paramTeam) teamName = paramTeam;
+  if (paramAgent) agentName = paramAgent;
+  if (paramSession) sessionId = paramSession;
+
+  const resolvedTeam = teamName ?? teams?.[0]?.name ?? "";
+
+  const teamAgents = useMemo(() => {
+    if (!agents || !resolvedTeam) return [];
+    return agents.filter((a) => a.team === resolvedTeam || !a.team);
+  }, [agents, resolvedTeam]);
+
+  const selectedAgent = agentName ?? teamAgents[0]?.name ?? agents?.[0]?.name ?? "";
+
+  // Redirect to canonical chat route when landing on home or legacy route
+  useEffect(() => {
+    if (!resolvedTeam || !selectedAgent) return;
+    const needsRedirect =
+      pathname === "/" ||
+      (pathname.startsWith("/chat/") && pathname.split("/").filter(Boolean).length === 2);
+    if (needsRedirect) {
+      navigate({
+        to: "/chat/$teamName/$agentName",
+        params: { teamName: resolvedTeam, agentName: selectedAgent },
+      });
+    }
+  }, [pathname, resolvedTeam, selectedAgent, navigate]);
+
   const { data: sessions, refetch: refetchSessions } = useSessions(selectedAgent || undefined);
 
-  // Local chat state
   const [input, setInput] = useState("");
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [pendingNewSession, setPendingNewSession] = useState(false);
 
-  // Determine current session: URL param → active session from daemon → first session
-  // When pendingNewSession is true, don't fall back to active session — we want
-  // to show an empty chat until the user sends a message and the new session is created.
   const activeSessionId = sessions?.find((s) => s.status === "active")?.id;
   const currentSessionId = pendingNewSession
-    ? params.sessionId
-    : (params.sessionId ?? activeSessionId ?? sessions?.[0]?.id);
+    ? sessionId
+    : (sessionId ?? activeSessionId ?? sessions?.[0]?.id);
 
-  // Fetch session history from daemon
   const historyId = currentSessionId ? `${selectedAgent}/${currentSessionId}` : "";
   const { data: sessionHistory } = useSessionHistory(historyId);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({
@@ -364,21 +300,18 @@ export default function Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const mergedCountRef = useRef(0);
 
-  // Clear chat when switching sessions
   useEffect(() => {
     setChatItems([]);
     mergedCountRef.current = 0;
     clearMessages();
   }, [currentSessionId, clearMessages]);
 
-  // Clear stream state when entering pending-new-session mode
   useEffect(() => {
     if (pendingNewSession) {
       clearMessages();
     }
   }, [pendingNewSession, clearMessages]);
 
-  // Load session history when data arrives
   useEffect(() => {
     if (sessionHistory && sessionHistory.length > 0) {
       const historyItems: ChatItem[] = sessionHistory.map((msg) => ({
@@ -393,7 +326,6 @@ export default function Chat() {
     }
   }, [sessionHistory]);
 
-  // Append new streamed messages to chatItems
   useEffect(() => {
     if (messages.length === 0) {
       mergedCountRef.current = 0;
@@ -417,54 +349,43 @@ export default function Chat() {
     }
   }, [chatItems, isStreaming]);
 
-  // When pendingNewSession becomes true, clear stream state so old events
-  // don't leak into the new session. When stream completes, refetch and navigate.
   useEffect(() => {
     if (!pendingNewSession) return;
-
-    if (isStreaming) {
-      // Stream is running — wait for it to finish
-      return;
-    }
-
-    // If messages is empty, we haven't started streaming yet — don't refetch
+    if (isStreaming) return;
     if (messages.length === 0) return;
 
-    // Stream finished after sending a message in pending new session —
-    // refetch to get the new session ID, then navigate to it
     refetchSessions().then((result) => {
       const newActiveSession = result.data?.find((s) => s.status === "active");
-      if (newActiveSession) {
+      if (newActiveSession && resolvedTeam) {
         navigate({
-          to: "/chat/$agentName/$sessionId",
-          params: { agentName: selectedAgent, sessionId: newActiveSession.id },
+          to: "/chat/$teamName/$agentName/$sessionId",
+          params: {
+            teamName: resolvedTeam,
+            agentName: selectedAgent,
+            sessionId: newActiveSession.id,
+          },
         });
       }
       setPendingNewSession(false);
     });
-  }, [isStreaming, pendingNewSession, messages.length, selectedAgent, navigate, refetchSessions]);
-
-  function handleSelectAgent(name: string) {
-    setPendingNewSession(false);
-    navigate({ to: "/chat/$agentName", params: { agentName: name } });
-  }
+  }, [isStreaming, pendingNewSession, messages.length, selectedAgent, resolvedTeam, navigate, refetchSessions]);
 
   function handleNewSession() {
-    // Navigate without sessionId and set flag to force new session creation
-    navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
+    if (!resolvedTeam || !selectedAgent) return;
+    navigate({
+      to: "/chat/$teamName/$agentName",
+      params: { teamName: resolvedTeam, agentName: selectedAgent },
+    });
     setChatItems([]);
     setPendingNewSession(true);
-
-    // Note: don't call clearMessages() here — it sets isStreaming=false which
-    // triggers the pendingNewSession effect prematurely. Stream state is cleared
-    // when the first message is sent (sendMessage calls its own reset).
   }
 
-  function handleSwitchSession(sessionId: string) {
+  function handleSwitchSession(id: string) {
+    if (!resolvedTeam || !selectedAgent) return;
     setPendingNewSession(false);
     navigate({
-      to: "/chat/$agentName/$sessionId",
-      params: { agentName: selectedAgent, sessionId },
+      to: "/chat/$teamName/$agentName/$sessionId",
+      params: { teamName: resolvedTeam, agentName: selectedAgent, sessionId: id },
     });
   }
 
@@ -475,7 +396,6 @@ export default function Chat() {
     const message = input.trim();
     setInput("");
 
-    // Add user message to chat immediately
     const userEvent: StreamEvent = {
       type: "chunk",
       content: message,
@@ -483,17 +403,13 @@ export default function Chat() {
     };
     setChatItems((prev) => [...prev, { event: userEvent, isUser: true }]);
 
-    // Build session ID for backend: if we have a current session, pass it
-    const sessionId = currentSessionId
-      ? `${selectedAgent}/${currentSessionId}`
-      : `chat-${selectedAgent}`;
-
-    await sendMessage(() => sessionSend(sessionId, message, pendingNewSession));
+    const sid = currentSessionId ? `${selectedAgent}/${currentSessionId}` : `chat-${selectedAgent}`;
+    await sendMessage(() => sessionSend(sid, message, pendingNewSession));
   }
 
   const displayItems = useMemo(() => mergeAssistantChunks(chatItems), [chatItems]);
 
-  if (agentsLoading) {
+  if (teamsLoading || agentsLoading) {
     return (
       <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-slate-300 dark:text-slate-700" />
@@ -511,103 +427,105 @@ export default function Chat() {
             Create an agent to start chatting
           </p>
         </div>
-        <a
-          href="/agents"
-          onClick={(e) => {
-            e.preventDefault();
-            window.location.href = "/agents";
-          }}
+        <button
+          onClick={() => navigate({ to: "/agents" })}
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
           <Plus className="h-4 w-4" />
           Create Agent
-        </a>
+        </button>
+      </div>
+    );
+  }
+
+  if (!selectedAgent) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
+        <div className="text-center">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            No agents in {resolvedTeam || "this team"}
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Create an agent for this team to start chatting
+          </p>
+        </div>
+        <button
+          onClick={() => navigate({ to: "/agents" })}
+          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+        >
+          <Plus className="h-4 w-4" />
+          Create Agent
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full">
-      {/* Agent list sidebar */}
-      <AgentListSidebar
-        agents={agents}
-        selectedAgent={selectedAgent}
-        onSelectAgent={handleSelectAgent}
+    <div className="flex h-full flex-col overflow-hidden">
+      <SessionToolbar
+        agentName={selectedAgent}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        onNewSession={handleNewSession}
+        onSwitchSession={handleSwitchSession}
       />
 
-      {/* Chat area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Session toolbar */}
-        <SessionToolbar
-          agentName={selectedAgent}
-          sessions={sessions}
-          currentSessionId={currentSessionId}
-          onNewSession={handleNewSession}
-          onSwitchSession={handleSwitchSession}
-        />
-
-        {/* Messages */}
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto bg-white p-4 dark:bg-slate-950"
-        >
-          {displayItems.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-slate-400 dark:text-slate-600">
-              <MessageCircle className="h-10 w-10" />
-              <p className="mt-2 text-sm">
-                {currentSessionId
-                  ? "Start the conversation..."
-                  : "Start a new session to begin chatting"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {displayItems.map((item, idx) => (
-                <ChatMessage key={item.event.timestamp ?? idx} item={item} />
-              ))}
-              {isStreaming && (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Thinking...</span>
-                  </div>
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto bg-white p-4 dark:bg-slate-950"
+      >
+        {displayItems.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+            <MessageCircle className="h-10 w-10" />
+            <p className="mt-2 text-sm">
+              {currentSessionId
+                ? "Start the conversation..."
+                : "Start a new session to begin chatting"}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {displayItems.map((item, idx) => (
+              <ChatMessage key={item.event.timestamp ?? idx} item={item} />
+            ))}
+            {isStreaming && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Thinking...</span>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
 
-          {error && (
-            <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400">
-              {error}
-            </div>
-          )}
-        </div>
+        {error && (
+          <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400">
+            {error}
+          </div>
+        )}
+      </div>
 
-        {/* Input */}
-        <div className="border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-          <form onSubmit={handleSend} className="flex items-center gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a message..."
-              disabled={isStreaming || !selectedAgent}
-              className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-            />
-            <button
-              type="submit"
-              disabled={isStreaming || !input.trim() || !selectedAgent}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {isStreaming ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              Send
-            </button>
-          </form>
-        </div>
+      <div className="border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+        <form onSubmit={handleSend} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type a message..."
+            disabled={isStreaming || !selectedAgent}
+            className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+          />
+          <button
+            type="submit"
+            disabled={isStreaming || !input.trim() || !selectedAgent}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Send
+          </button>
+        </form>
       </div>
     </div>
   );

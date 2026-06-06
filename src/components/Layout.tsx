@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "@tanstack/react-router";
 import Sidebar from "./Sidebar";
+import TeamRail from "./TeamRail";
+import AgentSidebar from "./AgentSidebar";
 import StatusBar from "./StatusBar";
 import { useDaemonStatus } from "../hooks/useDaemon";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
@@ -8,6 +11,7 @@ import { Sun, Moon, Monitor } from "lucide-react";
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: daemon } = useDaemonStatus();
   const [theme, setThemeState] = useState<"light" | "dark" | "system">("system");
+  const location = useLocation();
 
   useEffect(() => {
     setThemeState(getTheme());
@@ -22,18 +26,28 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
 
+  const isChatRoute =
+    location.pathname === "/" || location.pathname.startsWith("/chat/");
+
   return (
     <div className="flex h-screen w-screen flex-col bg-white dark:bg-slate-950">
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        {/* Far left: team rail (always visible) */}
+        <TeamRail />
 
+        {/* Context sidebar: agent list on chat, tools on other pages */}
+        {isChatRoute ? <AgentSidebar /> : <Sidebar />}
+
+        {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header */}
-          <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-950">
+          <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950">
             <div className="flex items-center gap-3">
-              <h1 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                Peko Desktop
-              </h1>
+              {!isChatRoute && (
+                <h1 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                  Peko
+                </h1>
+              )}
               <span
                 className={[
                   "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
@@ -64,7 +78,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </header>
 
           {/* Content */}
-          <main className="flex-1 overflow-auto p-6">{children}</main>
+          <main className={["flex-1 overflow-hidden", isChatRoute ? "" : "overflow-auto p-6"].join(" ")}>
+            {children}
+          </main>
 
           {/* Status bar */}
           <StatusBar />

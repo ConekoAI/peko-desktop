@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
-  MessageCircle,
-  Bot,
-  Users,
   Puzzle,
   Globe,
   Clock,
@@ -15,9 +12,6 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { to: "/", label: "Chat", icon: MessageCircle },
-  { to: "/agents", label: "Agents", icon: Bot },
-  { to: "/teams", label: "Teams", icon: Users },
   { to: "/extensions", label: "Extensions", icon: Puzzle },
   { to: "/registry", label: "Registry", icon: Globe },
   { to: "/cron", label: "Cron", icon: Clock },
@@ -31,9 +25,6 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   function isActive(item: (typeof navItems)[0]) {
-    if (item.to === "/") {
-      return location.pathname === "/" || location.pathname.startsWith("/chat/");
-    }
     return (
       location.pathname === item.to ||
       (item.to !== "/" && location.pathname.startsWith(`${item.to}/`))
@@ -44,15 +35,12 @@ export default function Sidebar() {
     <aside
       className={[
         "flex h-full flex-col border-r border-slate-200 bg-slate-50 transition-all duration-200 dark:border-slate-800 dark:bg-slate-900",
-        collapsed ? "w-16" : "w-56",
+        collapsed ? "w-16" : "w-48",
       ].join(" ")}
     >
       <div className="flex h-14 items-center gap-2 px-4">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-600">
-          <Bot className="h-4 w-4 text-white" />
-        </div>
         {!collapsed && (
-          <span className="text-lg font-bold text-slate-900 dark:text-white">Peko</span>
+          <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Tools</span>
         )}
         <button
           onClick={() => setCollapsed((c) => !c)}
@@ -66,7 +54,7 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item);

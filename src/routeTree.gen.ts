@@ -16,13 +16,32 @@ const rootRoute = new RootRoute({
   component: App,
 });
 
-// Chat is the default landing page
+// Chat is the default landing page — redirects to first team/agent
 const chatRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/",
   component: Chat,
 });
 
+const chatTeamRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat/$teamName",
+  component: Chat,
+});
+
+const chatTeamAgentRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat/$teamName/$agentName",
+  component: Chat,
+});
+
+const chatTeamAgentSessionRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat/$teamName/$agentName/$sessionId",
+  component: Chat,
+});
+
+// Legacy redirects for bookmarks
 const chatAgentRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/chat/$agentName",
@@ -97,6 +116,9 @@ const settingsRoute = new Route({
 
 export const routeTree = rootRoute.addChildren([
   chatRoute,
+  chatTeamRoute,
+  chatTeamAgentRoute,
+  chatTeamAgentSessionRoute,
   chatAgentRoute,
   chatAgentSessionRoute,
   agentsRoute,

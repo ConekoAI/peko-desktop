@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useSessions, useCreateSession, useCompactSession } from "../hooks/useSessions";
 import { useAgents } from "../hooks/useAgents";
+import { useTeams } from "../hooks/useTeams";
 import DataTable from "../components/DataTable";
 import ConfirmModal from "../components/modals/ConfirmModal";
 import { formatDate } from "../lib/format";
@@ -109,7 +110,9 @@ export default function Sessions() {
   const [agentFilter, setAgentFilter] = useState<string>("");
   const { data: sessions, isLoading } = useSessions(agentFilter || undefined);
   const { data: agents } = useAgents();
+  const { data: teams } = useTeams();
   const compact = useCompactSession();
+  const teamByAgent = new Map(agents?.map((a) => [a.name, a.team ?? teams?.[0]?.name ?? ""]) ?? []);
   const [compactId, setCompactId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -120,8 +123,8 @@ export default function Sessions() {
       sortable: true,
       render: (row: SessionSummary) => (
         <Link
-          to="/chat/$agentName/$sessionId"
-          params={{ agentName: row.agent, sessionId: row.id }}
+          to="/chat/$teamName/$agentName/$sessionId"
+          params={{ teamName: teamByAgent.get(row.agent) ?? teams?.[0]?.name ?? "", agentName: row.agent, sessionId: row.id }}
           className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
         >
           {row.title ?? `Session ${row.id.slice(0, 8)}`}
@@ -170,8 +173,8 @@ export default function Sessions() {
       render: (row: SessionSummary) => (
         <div className="flex items-center gap-2">
           <Link
-            to="/chat/$agentName/$sessionId"
-            params={{ agentName: row.agent, sessionId: row.id }}
+            to="/chat/$teamName/$agentName/$sessionId"
+            params={{ teamName: teamByAgent.get(row.agent) ?? teams?.[0]?.name ?? "", agentName: row.agent, sessionId: row.id }}
             className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
             title="View"
           >
