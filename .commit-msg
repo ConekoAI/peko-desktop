@@ -1,0 +1,12 @@
+fix: team detail camelCase serialization and UI cleanup
+
+Backend:
+- Add #[serde(rename_all = "camelCase")] to TeamSummary and TeamDetail
+  structs so created_at/updated_at/agent_count serialize correctly for
+  the frontend (was causing "undefined" for timestamps and counts)
+- Remove status field from TeamSummary (not meaningful, always "active")
+
+Frontend:
+- Remove Config tab (teams have no editable config in this framework)
+- Remove Sessions column from Agents tab
+- Remove unused Settings import

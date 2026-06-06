@@ -1,20 +1,20 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TeamSummary {
     pub name: String,
     pub description: Option<String>,
     pub agent_count: usize,
-    pub status: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TeamDetail {
     pub name: String,
     pub description: Option<String>,
     pub agents: Vec<crate::commands::agent::AgentSummary>,
     pub agent_count: usize,
-    pub status: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -28,7 +28,6 @@ fn parse_team_summary(value: &serde_json::Value) -> Option<TeamSummary> {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         agent_count: value.get("agent_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
-        status: "active".to_string(),
     })
 }
 
@@ -59,7 +58,6 @@ fn parse_team_detail(value: &serde_json::Value) -> Option<TeamDetail> {
             .map(|s| s.to_string()),
         agents: vec![],
         agent_count: value.get("agent_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
-        status: "active".to_string(),
         created_at,
         updated_at,
     })

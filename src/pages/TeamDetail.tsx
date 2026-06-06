@@ -5,7 +5,6 @@ import { formatDate } from "../lib/format";
 import {
   ArrowLeft,
   Users,
-  Settings,
   Activity,
   Trash2,
   Loader2,
@@ -19,7 +18,7 @@ import ConfirmModal from "../components/modals/ConfirmModal";
 import DataTable from "../components/DataTable";
 import type { AgentSummary } from "../types";
 
-type TabKey = "overview" | "agents" | "config";
+type TabKey = "overview" | "agents";
 
 function DetailItem({
   icon: Icon,
@@ -80,7 +79,6 @@ export default function TeamDetail() {
   const tabs: { id: TabKey; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: Activity },
     { id: "agents", label: "Agents", icon: Users },
-    { id: "config", label: "Config", icon: Settings },
   ];
 
   const agentColumns = [
@@ -113,17 +111,6 @@ export default function TeamDetail() {
       render: (row: AgentSummary) => (
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
           {row.provider}
-        </span>
-      ),
-    },
-    {
-      key: "sessionCount",
-      header: "Sessions",
-      sortable: true,
-      render: (row: AgentSummary) => (
-        <span className="inline-flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
-          <Hash className="h-3 w-3" />
-          {row.sessionCount}
         </span>
       ),
     },
@@ -266,16 +253,6 @@ export default function TeamDetail() {
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No agents in this team</p>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Config Tab */}
-      {activeTab === "config" && (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Team Config</h3>
-          <p className="text-sm text-slate-400 dark:text-slate-600">
-            Team configuration is managed through the daemon. No editable config available.
-          </p>
         </div>
       )}
 
