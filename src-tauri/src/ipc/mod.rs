@@ -316,6 +316,55 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    pub async fn create_team(&self, name: &str, description: Option<&str>, members: Option<Vec<String>>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "team_create",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "description": description,
+            "members": members,
+        });
+        self.request_response(req).await
+    }
+
+    pub async fn delete_team(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "team_delete",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "force": false,
+        });
+        self.request_response(req).await
+    }
+
+    pub async fn join_team(&self, team: &str, agent: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "team_join",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "team": team,
+            "agent": agent,
+        });
+        self.request_response(req).await
+    }
+
+    pub async fn leave_team(&self, team: &str, agent: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "team_leave",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "team": team,
+            "agent": agent,
+        });
+        self.request_response(req).await
+    }
+
     // ── Session CRUD ──────────────────────────────────────────────
 
     pub async fn list_sessions(&self, agent: &str) -> Result<serde_json::Value> {

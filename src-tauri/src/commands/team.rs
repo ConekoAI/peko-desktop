@@ -98,6 +98,61 @@ pub async fn team_show(name: String) -> Result<TeamDetail, String> {
 }
 
 #[tauri::command]
+pub async fn team_create(name: String, description: Option<String>, members: Option<Vec<String>>) -> Result<TeamDetail, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let value = client.create_team(&name, description.as_deref(), members).await.map_err(|e| e.to_string())?;
+
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(value.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    // Fetch the newly created team to return full details
+    let team_value = client.get_team(&name).await.map_err(|e| e.to_string())?;
+    let mut team = team_value
+        .get("team")
+        .and_then(parse_team_detail)
+        .ok_or_else(|| "team created but could not be fetched".to_string())?;
+    team.agent_count = team.members.len();
+    Ok(team)
+}
+
+#[tauri::command]
+pub async fn team_remove(name: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.delete_team(&name).await.map_err(|e| e.to_string())?;
+
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    Ok(format!("Team '{}' removed", name))
+}
+
+#[tauri::command]
+pub async fn team_join(team: String, agent: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.join_team(&team, &agent).await.map_err(|e| e.to_string())?;
+
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    Ok(format!("Agent '{}' joined team '{}'", agent, team))
+}
+
+#[tauri::command]
+pub async fn team_leave(team: String, agent: String) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let resp = client.leave_team(&team, &agent).await.map_err(|e| e.to_string())?;
+
+    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    }
+
+    Ok(format!("Agent '{}' left team '{}'", agent, team))
+}
+
+#[tauri::command]
 pub async fn team_export(name: String, path: String) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
     let resp = client.export_team(&name, Some(&path), false).await.map_err(|e| e.to_string())?;
