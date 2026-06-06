@@ -33,4 +33,6 @@ keyring-core = "1.0.0"
 dirs = "6"
 toml = "0.8"
 urlencoding = "2"
+tauri-plugin-window-state = "2.4.1"
+tauri-plugin-os = "2.3.2"
 

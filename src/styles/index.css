@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Manual dark mode toggle via .dark class on <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-sidebar: #f8fafc;
   --color-sidebar-dark: #0f172a;

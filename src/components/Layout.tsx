@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import TeamRail from "./TeamRail";
 import AgentSidebar from "./AgentSidebar";
 import StatusBar from "./StatusBar";
+import TitleBar from "./TitleBar";
 import { useDaemonStatus } from "../hooks/useDaemon";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
 import { Sun, Moon, Monitor } from "lucide-react";
@@ -30,7 +31,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     location.pathname === "/" || location.pathname === "/chat" || location.pathname.startsWith("/chat/");
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-white dark:bg-slate-950">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-white dark:bg-slate-950">
+      {/* Custom title bar */}
+      <TitleBar />
+
       <div className="flex flex-1 overflow-hidden">
         {/* Far left: team rail (always visible) */}
         <TeamRail />
@@ -41,7 +45,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header */}
-          <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950">
+          <header className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950">
             <div className="flex items-center gap-3">
               {!isChatRoute && (
                 <h1 className="text-base font-semibold text-slate-800 dark:text-slate-200">
