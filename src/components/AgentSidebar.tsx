@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams, useLocation } from "@tanstack/react-router";
 import { useAgents, useRemoveAgent } from "../hooks/useAgents";
 import { useTeam } from "../hooks/useTeams";
 import ConfirmModal from "./modals/ConfirmModal";
@@ -15,8 +15,13 @@ import {
 export default function AgentSidebar() {
   const navigate = useNavigate();
   const params = useParams({ strict: false });
+  const location = useLocation();
   const teamName = (params as Record<string, string | undefined>).teamName ?? "";
   const agentName = (params as Record<string, string | undefined>).agentName ?? "";
+
+  // Home/DM mode: / or /chat or /chat/$agentName (no team)
+  const isHome = location.pathname === "/" || location.pathname === "/chat" ||
+    (location.pathname.startsWith("/chat/") && !location.pathname.startsWith("/chat/team/"));
 
   const { data: team, isLoading: teamLoading } = useTeam(teamName);
   const { data: allAgents, isLoading: agentsLoading } = useAgents();
@@ -26,35 +31,50 @@ export default function AgentSidebar() {
 
   const agents = useMemo(() => {
     if (!allAgents) return [];
-    const memberNames = team?.members ?? [];
-    const filtered = memberNames.length > 0
-      ? allAgents.filter((a) => memberNames.includes(a.name))
-      : allAgents.filter((a) => a.memberships?.includes(teamName));
+    let filtered: typeof allAgents;
+    if (isHome) {
+      // Home/DM mode: show ALL agents
+      filtered = allAgents;
+    } else {
+      // Team mode: show team members only
+      const memberNames = team?.members ?? [];
+      filtered = memberNames.length > 0
+        ? allAgents.filter((a) => memberNames.includes(a.name))
+        : allAgents.filter((a) => a.memberships?.includes(teamName));
+    }
     if (!search.trim()) return filtered;
     const q = search.toLowerCase();
     return filtered.filter((a) => a.name.toLowerCase().includes(q));
-  }, [allAgents, team, teamName, search]);
+  }, [allAgents, team, teamName, search, isHome]);
 
   function handleSelectAgent(name: string) {
-    navigate({
-      to: "/chat/$teamName/$agentName",
-      params: { teamName, agentName: name },
-    });
+    if (isHome) {
+      navigate({ to: "/chat/$agentName", params: { agentName: name } });
+    } else {
+      navigate({
+        to: "/chat/team/$teamName/$agentName",
+        params: { teamName, agentName: name },
+      });
+    }
   }
 
   function handleNewAgent() {
     navigate({ to: "/agents" });
   }
 
-  const isLoading = teamLoading || agentsLoading;
+  const isLoading = (!isHome && teamLoading) || agentsLoading;
 
   return (
     <div className="flex h-full w-60 flex-col border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
       <div className="border-b border-slate-200 p-3 dark:border-slate-800">
         <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-          {team?.name ?? teamName ?? "Select a team"}
+          {isHome ? "Direct Messages" : (team?.name ?? teamName ?? "Select a team")}
         </h3>
-        {team?.description && (
+        {isHome ? (
+          <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+            All your agents
+          </p>
+        ) : team?.description && (
           <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
             {team.description}
           </p>
@@ -120,7 +140,7 @@ export default function AgentSidebar() {
           })
         ) : (
           <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-600">
-            {search.trim() ? "No agents match" : "No agents in this team"}
+            {search.trim() ? "No agents match" : (isHome ? "No agents yet" : "No agents in this team")}
           </div>
         )}
       </div>
@@ -133,14 +153,16 @@ export default function AgentSidebar() {
           <Plus className="h-4 w-4" />
           New Agent
         </button>
-        <button
-          onClick={() => teamName && navigate({ to: "/teams/$name", params: { name: teamName } })}
-          disabled={!teamName}
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800"
-        >
-          <Settings className="h-4 w-4" />
-          Team Settings
-        </button>
+        {!isHome && (
+          <button
+            onClick={() => teamName && navigate({ to: "/teams/$name", params: { name: teamName } })}
+            disabled={!teamName}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            <Settings className="h-4 w-4" />
+            Team Settings
+          </button>
+        )}
       </div>
 
       <ConfirmModal

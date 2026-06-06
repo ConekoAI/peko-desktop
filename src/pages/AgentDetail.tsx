@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "@tanstack/react-router";
 import { useAgent, useRemoveAgent, useExportAgent } from "../hooks/useAgents";
-import { useTeams } from "../hooks/useTeams";
 import { useSessions } from "../hooks/useSessions";
 import { useExtensions, useEnableExtension, useDisableExtension } from "../hooks/useExtensions";
 import { formatDate } from "../lib/format";
@@ -65,9 +64,7 @@ function DetailItem({
 export default function AgentDetail() {
   const { name } = useParams({ from: "/agents/$name" });
   const { data: agent, isLoading } = useAgent(name);
-  const { data: teams } = useTeams();
   const { data: sessions } = useSessions(name);
-  const agentTeam = agent?.memberships?.[0] ?? teams?.[0]?.name ?? "";
   const remove = useRemoveAgent();
   const exportAgent = useExportAgent();
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
@@ -112,8 +109,8 @@ export default function AgentDetail() {
       sortable: true,
       render: (row: SessionSummary) => (
         <Link
-          to="/chat/$teamName/$agentName/$sessionId"
-          params={{ teamName: agentTeam, agentName: agent.name, sessionId: row.id }}
+          to="/chat/$agentName/$sessionId"
+          params={{ agentName: agent.name, sessionId: row.id }}
           className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
         >
           {row.title ?? `Session ${row.id.slice(0, 8)}`}
@@ -164,8 +161,8 @@ export default function AgentDetail() {
 
         <div className="flex items-center gap-2">
           <Link
-            to="/chat/$teamName/$agentName"
-            params={{ teamName: agentTeam, agentName: agent.name }}
+            to="/chat/$agentName"
+            params={{ agentName: agent.name }}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
           >
             <MessageSquare className="h-4 w-4" />

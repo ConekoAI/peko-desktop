@@ -231,23 +231,34 @@ export default function Chat() {
   const params = useParams({ strict: false });
   const pathname = routerState.location.pathname;
 
-  const { data: teams, isLoading: teamsLoading } = useTeams();
+  const { isLoading: teamsLoading } = useTeams();
   const { data: agents, isLoading: agentsLoading } = useAgents();
 
-  // Parse params: support both legacy /chat/$agentName and new /chat/$teamName/$agentName
+  // Parse route to determine mode: personal (home) vs team
+  // / or /chat → home (personal)
+  // /chat/$agentName → personal chat
+  // /chat/$agentName/$sessionId → personal chat with session
+  // /chat/team/$teamName → team view
+  // /chat/team/$teamName/$agentName → team chat
+  // /chat/team/$teamName/$agentName/$sessionId → team chat with session
   const pathParts = pathname.split("/").filter(Boolean);
 
+  let isPersonal = true;
   let teamName: string | undefined;
   let agentName: string | undefined;
   let sessionId: string | undefined;
 
   if (pathParts[0] === "chat") {
-    if (pathParts.length === 2) {
+    if (pathParts[1] === "team") {
+      // Team mode: /chat/team/$teamName/...
+      isPersonal = false;
+      teamName = pathParts[2];
+      agentName = pathParts[3];
+      sessionId = pathParts[4];
+    } else if (pathParts.length >= 2) {
+      // Personal mode: /chat/$agentName/...
       agentName = pathParts[1];
-    } else if (pathParts.length >= 3) {
-      teamName = pathParts[1];
-      agentName = pathParts[2];
-      sessionId = pathParts[3];
+      sessionId = pathParts[2];
     }
   }
 
@@ -258,28 +269,22 @@ export default function Chat() {
   if (paramAgent) agentName = paramAgent;
   if (paramSession) sessionId = paramSession;
 
-  const resolvedTeam = teamName ?? teams?.[0]?.name ?? "";
-
-  const teamAgents = useMemo(() => {
-    if (!agents || !resolvedTeam) return [];
+  // For team mode, filter agents by membership. For personal mode, show all.
+  const visibleAgents = useMemo(() => {
+    if (!agents) return [];
+    if (isPersonal) return agents;
+    const resolvedTeam = teamName ?? "";
     return agents.filter((a) => a.memberships?.includes(resolvedTeam));
-  }, [agents, resolvedTeam]);
+  }, [agents, teamName, isPersonal]);
 
-  const selectedAgent = agentName ?? teamAgents[0]?.name ?? "";
+  const selectedAgent = agentName ?? visibleAgents[0]?.name ?? "";
 
-  // Redirect to canonical chat route when landing on home or legacy route
+  // Redirect / to /chat if no agent selected, or to personal chat if agents exist
   useEffect(() => {
-    if (!resolvedTeam || !selectedAgent) return;
-    const needsRedirect =
-      pathname === "/" ||
-      (pathname.startsWith("/chat/") && pathname.split("/").filter(Boolean).length === 2);
-    if (needsRedirect) {
-      navigate({
-        to: "/chat/$teamName/$agentName",
-        params: { teamName: resolvedTeam, agentName: selectedAgent },
-      });
+    if (pathname === "/" && selectedAgent) {
+      navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
     }
-  }, [pathname, resolvedTeam, selectedAgent, navigate]);
+  }, [pathname, selectedAgent, navigate]);
 
   const { data: sessions, refetch: refetchSessions } = useSessions(selectedAgent || undefined);
 
@@ -356,37 +361,51 @@ export default function Chat() {
 
     refetchSessions().then((result) => {
       const newActiveSession = result.data?.find((s) => s.status === "active");
-      if (newActiveSession && resolvedTeam) {
-        navigate({
-          to: "/chat/$teamName/$agentName/$sessionId",
-          params: {
-            teamName: resolvedTeam,
-            agentName: selectedAgent,
-            sessionId: newActiveSession.id,
-          },
-        });
+      if (newActiveSession && selectedAgent) {
+        if (isPersonal) {
+          navigate({
+            to: "/chat/$agentName/$sessionId",
+            params: { agentName: selectedAgent, sessionId: newActiveSession.id },
+          });
+        } else if (teamName) {
+          navigate({
+            to: "/chat/team/$teamName/$agentName/$sessionId",
+            params: { teamName, agentName: selectedAgent, sessionId: newActiveSession.id },
+          });
+        }
       }
       setPendingNewSession(false);
     });
-  }, [isStreaming, pendingNewSession, messages.length, selectedAgent, resolvedTeam, navigate, refetchSessions]);
+  }, [isStreaming, pendingNewSession, messages.length, selectedAgent, teamName, isPersonal, navigate, refetchSessions]);
 
   function handleNewSession() {
-    if (!resolvedTeam || !selectedAgent) return;
-    navigate({
-      to: "/chat/$teamName/$agentName",
-      params: { teamName: resolvedTeam, agentName: selectedAgent },
-    });
+    if (!selectedAgent) return;
+    if (isPersonal) {
+      navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
+    } else if (teamName) {
+      navigate({
+        to: "/chat/team/$teamName/$agentName",
+        params: { teamName, agentName: selectedAgent },
+      });
+    }
     setChatItems([]);
     setPendingNewSession(true);
   }
 
   function handleSwitchSession(id: string) {
-    if (!resolvedTeam || !selectedAgent) return;
+    if (!selectedAgent) return;
     setPendingNewSession(false);
-    navigate({
-      to: "/chat/$teamName/$agentName/$sessionId",
-      params: { teamName: resolvedTeam, agentName: selectedAgent, sessionId: id },
-    });
+    if (isPersonal) {
+      navigate({
+        to: "/chat/$agentName/$sessionId",
+        params: { agentName: selectedAgent, sessionId: id },
+      });
+    } else if (teamName) {
+      navigate({
+        to: "/chat/team/$teamName/$agentName/$sessionId",
+        params: { teamName, agentName: selectedAgent, sessionId: id },
+      });
+    }
   }
 
   async function handleSend(e: React.FormEvent) {
@@ -445,26 +464,17 @@ export default function Chat() {
         <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
         <div className="text-center">
           <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            {hasAgents
-              ? `No agents assigned to ${resolvedTeam}`
-              : "No agents yet"}
+            {isPersonal
+              ? (hasAgents ? "Select an agent to start chatting" : "No agents yet")
+              : (hasAgents ? `No agents in ${teamName}` : "No agents yet")}
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            {hasAgents
-              ? "Assign an existing agent to this team, or create a new one"
-              : "Create an agent to start chatting"}
+            {isPersonal
+              ? (hasAgents ? "Choose from the sidebar" : "Create an agent to start chatting")
+              : (hasAgents ? "Assign agents to this team in Team Settings" : "Create an agent to start chatting")}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {hasAgents && (
-            <button
-              onClick={() => navigate({ to: "/agents" })}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              <BotIcon className="h-4 w-4" />
-              Manage Agents
-            </button>
-          )}
+        {!hasAgents && (
           <button
             onClick={() => navigate({ to: "/agents" })}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
@@ -472,7 +482,7 @@ export default function Chat() {
             <Plus className="h-4 w-4" />
             Create Agent
           </button>
-        </div>
+        )}
       </div>
     );
   }

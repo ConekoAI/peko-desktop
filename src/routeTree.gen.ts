@@ -16,41 +16,47 @@ const rootRoute = new RootRoute({
   component: App,
 });
 
-// Chat is the default landing page — redirects to first team/agent
+// Home / Personal chat — shows all agents, no team context
 const chatRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/",
   component: Chat,
 });
 
-const chatTeamRoute = new Route({
+const chatHomeRoute = new Route({
   getParentRoute: () => rootRoute,
-  path: "/chat/$teamName",
+  path: "/chat",
   component: Chat,
 });
 
-const chatTeamAgentRoute = new Route({
-  getParentRoute: () => rootRoute,
-  path: "/chat/$teamName/$agentName",
-  component: Chat,
-});
-
-const chatTeamAgentSessionRoute = new Route({
-  getParentRoute: () => rootRoute,
-  path: "/chat/$teamName/$agentName/$sessionId",
-  component: Chat,
-});
-
-// Legacy redirects for bookmarks
-const chatAgentRoute = new Route({
+const chatPersonalAgentRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/chat/$agentName",
   component: Chat,
 });
 
-const chatAgentSessionRoute = new Route({
+const chatPersonalAgentSessionRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/chat/$agentName/$sessionId",
+  component: Chat,
+});
+
+// Team chat — shows team members only
+const chatTeamRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat/team/$teamName",
+  component: Chat,
+});
+
+const chatTeamAgentRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat/team/$teamName/$agentName",
+  component: Chat,
+});
+
+const chatTeamAgentSessionRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/chat/team/$teamName/$agentName/$sessionId",
   component: Chat,
 });
 
@@ -116,11 +122,12 @@ const settingsRoute = new Route({
 
 export const routeTree = rootRoute.addChildren([
   chatRoute,
+  chatHomeRoute,
+  chatPersonalAgentRoute,
+  chatPersonalAgentSessionRoute,
   chatTeamRoute,
   chatTeamAgentRoute,
   chatTeamAgentSessionRoute,
-  chatAgentRoute,
-  chatAgentSessionRoute,
   agentsRoute,
   agentDetailRoute,
   teamsRoute,

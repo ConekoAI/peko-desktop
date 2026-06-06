@@ -172,11 +172,15 @@ export default function TeamRail() {
   const [confirmName, setConfirmName] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ team: TeamSummary; x: number; y: number } | null>(null);
 
-  const selectedTeam =
-    (params as Record<string, string | undefined>).teamName ?? teams?.[0]?.name ?? "";
+  const paramTeam = (params as Record<string, string | undefined>).teamName;
+  const isHome = location.pathname === "/" || location.pathname === "/chat" || (!paramTeam && location.pathname.startsWith("/chat/") && !location.pathname.startsWith("/chat/team/"));
+
+  function handleSelectHome() {
+    navigate({ to: "/chat" });
+  }
 
   function handleSelectTeam(name: string) {
-    navigate({ to: "/chat/$teamName", params: { teamName: name } });
+    navigate({ to: "/chat/team/$teamName", params: { teamName: name } });
   }
 
   if (isLoading) {
@@ -190,16 +194,16 @@ export default function TeamRail() {
   return (
     <>
       <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-slate-200 bg-slate-50 py-3 dark:border-slate-800 dark:bg-slate-900">
-        {/* Home / Chat */}
+        {/* Home / Direct Messages */}
         <button
-          onClick={() => navigate({ to: "/" })}
+          onClick={handleSelectHome}
           className={[
             "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
-            (location.pathname === "/" || location.pathname.startsWith("/chat/"))
+            isHome
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
               : "text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200",
           ].join(" ")}
-          title="Chat"
+          title="Direct Messages"
         >
           <MessageCircle className="h-5 w-5" />
         </button>
@@ -208,7 +212,7 @@ export default function TeamRail() {
 
         {/* Teams */}
         {teams?.map((team) => {
-          const active = team.name === selectedTeam;
+          const active = paramTeam === team.name;
           return (
             <div key={team.name} className="relative group">
               <button
