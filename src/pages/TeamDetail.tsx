@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, Link } from "@tanstack/react-router";
-import { useTeam, useRemoveTeam } from "../hooks/useTeams";
+import { useTeam, useRemoveTeam, useLeaveTeam } from "../hooks/useTeams";
 import { useAgents } from "../hooks/useAgents";
 import { formatDate } from "../lib/format";
 import {
@@ -14,8 +14,12 @@ import {
   Clock,
   Hash,
   Sparkles,
+  Settings,
+  Minus,
+  UserPlus,
 } from "lucide-react";
 import ConfirmModal from "../components/modals/ConfirmModal";
+import ManageTeamMembersModal from "../components/modals/ManageTeamMembersModal";
 import DataTable from "../components/DataTable";
 import type { AgentSummary } from "../types";
 
@@ -50,8 +54,11 @@ export default function TeamDetail() {
   const { data: team, isLoading } = useTeam(name);
   const { data: allAgents } = useAgents();
   const remove = useRemoveTeam();
+  const leave = useLeaveTeam();
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [confirmLeaveAgent, setConfirmLeaveAgent] = useState<string | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const teamAgentSummaries = useMemo(() => {
     if (!team?.members || !allAgents) return [];
@@ -123,6 +130,20 @@ export default function TeamDetail() {
         </span>
       ),
     },
+    {
+      key: "actions",
+      header: "",
+      sortable: false,
+      render: (row: AgentSummary) => (
+        <button
+          onClick={() => setConfirmLeaveAgent(row.name)}
+          className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100 dark:text-slate-500 dark:hover:text-red-400"
+          title="Remove from team"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+      ),
+    },
   ];
 
   return (
@@ -145,6 +166,13 @@ export default function TeamDetail() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setManageOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+          >
+            <Settings className="h-4 w-4" />
+            Manage Members
+          </button>
           <button
             onClick={() => setConfirmRemove(true)}
             className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950/30"
@@ -209,23 +237,42 @@ export default function TeamDetail() {
 
           {/* Members preview */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                Members
-                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                  {teamAgentSummaries.length}
-                </span>
-              </h3>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  Members
+                  <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                    {teamAgentSummaries.length}
+                  </span>
+                </h3>
+              </div>
+              <button
+                onClick={() => setManageOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+              >
+                <UserPlus className="h-3 w-3" />
+                Manage
+              </button>
             </div>
             {teamAgentSummaries.length === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-600">No members in this team</p>
+              <div className="flex flex-col items-center justify-center py-8">
+                <Users className="h-8 w-8 text-slate-300 dark:text-slate-700" />
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No members yet</p>
+                <button
+                  onClick={() => setManageOpen(true)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
+                >
+                  <UserPlus className="h-3 w-3" />
+                  Add Members
+                </button>
+              </div>
             ) : (
               <ul className="space-y-1.5">
                 {teamAgentSummaries.map((agent) => (
                   <li
                     key={agent.name}
-                    className="flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    className="group flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   >
                     <Bot className="h-3 w-3 shrink-0 text-slate-400" />
                     <Link
@@ -236,6 +283,13 @@ export default function TeamDetail() {
                       {agent.name}
                     </Link>
                     <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">{agent.model}</span>
+                    <button
+                      onClick={() => setConfirmLeaveAgent(agent.name)}
+                      className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100 dark:text-slate-500 dark:hover:text-red-400"
+                      title="Remove from team"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -247,6 +301,25 @@ export default function TeamDetail() {
       {/* Members Tab */}
       {activeTab === "members" && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Members
+                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                  {teamAgentSummaries.length}
+                </span>
+              </h3>
+            </div>
+            <button
+              onClick={() => setManageOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+            >
+              <UserPlus className="h-4 w-4" />
+              Manage Members
+            </button>
+          </div>
+
           {teamAgentSummaries.length > 0 ? (
             <DataTable
               columns={agentColumns}
@@ -260,11 +333,19 @@ export default function TeamDetail() {
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-900">
               <Users className="h-8 w-8 text-slate-300 dark:text-slate-700" />
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No members in this team</p>
+              <button
+                onClick={() => setManageOpen(true)}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+              >
+                <UserPlus className="h-4 w-4" />
+                Add Members
+              </button>
             </div>
           )}
         </div>
       )}
 
+      {/* Delete team confirm */}
       <ConfirmModal
         open={confirmRemove}
         title="Remove Team"
@@ -276,6 +357,30 @@ export default function TeamDetail() {
           setConfirmRemove(false);
         }}
         onCancel={() => setConfirmRemove(false)}
+      />
+
+      {/* Remove member confirm */}
+      <ConfirmModal
+        open={!!confirmLeaveAgent}
+        title="Remove Member"
+        message={`Remove agent "${confirmLeaveAgent ?? ""}" from team "${team.name}"?`}
+        variant="danger"
+        confirmText="Remove"
+        onConfirm={() => {
+          if (confirmLeaveAgent) {
+            leave.mutate({ team: team.name, agent: confirmLeaveAgent });
+          }
+          setConfirmLeaveAgent(null);
+        }}
+        onCancel={() => setConfirmLeaveAgent(null)}
+      />
+
+      {/* Manage members modal */}
+      <ManageTeamMembersModal
+        open={manageOpen}
+        teamName={team.name}
+        currentMembers={team.members ?? []}
+        onClose={() => setManageOpen(false)}
       />
     </div>
   );
