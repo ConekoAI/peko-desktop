@@ -27,7 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
 
   const isChatRoute =
-    location.pathname === "/" || location.pathname.startsWith("/chat/");
+    location.pathname === "/" || location.pathname === "/chat" || location.pathname.startsWith("/chat/");
 
   return (
     <div className="flex h-screen w-screen flex-col bg-white dark:bg-slate-950">
