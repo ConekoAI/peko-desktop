@@ -107,7 +107,11 @@ export async function teamCreate(payload: {
   members?: string[];
   config?: Record<string, unknown>;
 }): Promise<TeamDetail> {
-  return invoke("team_create", { payload });
+  return invoke("team_create", {
+    name: payload.name,
+    description: payload.description,
+    members: payload.members,
+  });
 }
 
 export async function teamJoin(team: string, agent: string): Promise<void> {
