@@ -262,10 +262,10 @@ export default function Chat() {
 
   const teamAgents = useMemo(() => {
     if (!agents || !resolvedTeam) return [];
-    return agents.filter((a) => a.team === resolvedTeam || !a.team);
+    return agents.filter((a) => a.memberships?.includes(resolvedTeam));
   }, [agents, resolvedTeam]);
 
-  const selectedAgent = agentName ?? teamAgents[0]?.name ?? agents?.[0]?.name ?? "";
+  const selectedAgent = agentName ?? teamAgents[0]?.name ?? "";
 
   // Redirect to canonical chat route when landing on home or legacy route
   useEffect(() => {

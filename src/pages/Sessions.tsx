@@ -112,7 +112,9 @@ export default function Sessions() {
   const { data: agents } = useAgents();
   const { data: teams } = useTeams();
   const compact = useCompactSession();
-  const teamByAgent = new Map(agents?.map((a) => [a.name, a.team ?? teams?.[0]?.name ?? ""]) ?? []);
+  const teamByAgent = new Map(
+    agents?.map((a) => [a.name, a.memberships?.[0] ?? teams?.[0]?.name ?? ""]) ?? []
+  );
   const [compactId, setCompactId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 

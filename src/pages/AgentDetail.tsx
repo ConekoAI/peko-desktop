@@ -67,7 +67,7 @@ export default function AgentDetail() {
   const { data: agent, isLoading } = useAgent(name);
   const { data: teams } = useTeams();
   const { data: sessions } = useSessions(name);
-  const agentTeam = agent?.team ?? teams?.[0]?.name ?? "";
+  const agentTeam = agent?.memberships?.[0] ?? teams?.[0]?.name ?? "";
   const remove = useRemoveAgent();
   const exportAgent = useExportAgent();
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
@@ -226,8 +226,8 @@ export default function AgentDetail() {
               />
               <DetailItem
                 icon={Cloud}
-                label="Team"
-                value={agent.team ?? "—"}
+                label="Teams"
+                value={agent.memberships?.length ? agent.memberships.join(", ") : "Standalone"}
               />
               <DetailItem
                 icon={Hash}
@@ -317,7 +317,6 @@ export default function AgentDetail() {
       {activeTab === "extensions" && (
         <AgentExtensionsTab
           agentName={agent.name}
-          agentTeam={agentTeam}
           agentExtensions={agent.extensions}
         />
       )}
@@ -350,18 +349,16 @@ export default function AgentDetail() {
 
 function AgentExtensionsTab({
   agentName,
-  agentTeam,
   agentExtensions,
 }: {
   agentName: string;
-  agentTeam: string;
   agentExtensions: string[];
 }) {
   const { data: allExtensions, isLoading } = useExtensions();
   const enable = useEnableExtension();
   const disable = useDisableExtension();
 
-  const target = `${agentTeam}/${agentName}`;
+  const target = agentName;
 
   // Build a set of enabled extension IDs for quick lookup
   const enabledSet = new Set(agentExtensions);

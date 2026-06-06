@@ -10,7 +10,7 @@ export interface AgentSummary {
   description?: string;
   provider: string;
   model: string;
-  team?: string;
+  memberships?: string[];
   sessionCount: number;
 }
 
@@ -19,7 +19,7 @@ export interface AgentDetail {
   description?: string;
   provider: string;
   model: string;
-  team?: string;
+  memberships?: string[];
   sessionCount: number;
   systemPrompt?: string;
   tools: string[];
@@ -36,7 +36,7 @@ export interface TeamSummary {
 }
 
 export interface TeamDetail extends TeamSummary {
-  agents: AgentSummary[];
+  members?: string[];
   createdAt: string;
   updatedAt: string;
 }

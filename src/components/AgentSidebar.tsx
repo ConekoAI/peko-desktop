@@ -26,10 +26,10 @@ export default function AgentSidebar() {
 
   const agents = useMemo(() => {
     if (!allAgents) return [];
-    const teamAgents = team?.agents ?? [];
-    const filtered = teamAgents.length > 0
-      ? allAgents.filter((a) => teamAgents.some((ta) => ta.name === a.name))
-      : allAgents.filter((a) => a.team === teamName || !a.team);
+    const memberNames = team?.members ?? [];
+    const filtered = memberNames.length > 0
+      ? allAgents.filter((a) => memberNames.includes(a.name))
+      : allAgents.filter((a) => a.memberships?.includes(teamName));
     if (!search.trim()) return filtered;
     const q = search.toLowerCase();
     return filtered.filter((a) => a.name.toLowerCase().includes(q));

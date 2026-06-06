@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "@tanstack/react-router";
 import { useTeams, useCreateTeam, useRemoveTeam } from "../hooks/useTeams";
-import { useAgents } from "../hooks/useAgents";
 import ConfirmModal from "./modals/ConfirmModal";
 import {
   Plus,
@@ -46,19 +45,10 @@ function TeamIcon({ team, active }: { team: TeamSummary; active: boolean }) {
 
 function CreateTeamModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateTeam();
-  const { data: agents } = useAgents();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [orchestrator, setOrchestrator] = useState("");
-  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
 
   if (!open) return null;
-
-  function toggleAgent(agentName: string) {
-    setSelectedAgents((prev) =>
-      prev.includes(agentName) ? prev.filter((a) => a !== agentName) : [...prev, agentName]
-    );
-  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,8 +57,6 @@ function CreateTeamModal({ open, onClose }: { open: boolean; onClose: () => void
       {
         name: name.trim(),
         description: description.trim() || undefined,
-        orchestrator: orchestrator.trim() || undefined,
-        agents: selectedAgents.length > 0 ? selectedAgents : undefined,
       },
       { onSuccess: onClose }
     );
@@ -109,45 +97,6 @@ function CreateTeamModal({ open, onClose }: { open: boolean; onClose: () => void
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Orchestrator</label>
-            <select
-              value={orchestrator}
-              onChange={(e) => setOrchestrator(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-            >
-              <option value="">None</option>
-              {agents?.map((agent) => (
-                <option key={agent.name} value={agent.name}>
-                  {agent.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Agents</label>
-            <div className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
-              {agents && agents.length > 0 ? (
-                agents.map((agent) => (
-                  <label
-                    key={agent.name}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedAgents.includes(agent.name)}
-                      onChange={() => toggleAgent(agent.name)}
-                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800"
-                    />
-                    {agent.name}
-                  </label>
-                ))
-              ) : (
-                <p className="px-2 py-1.5 text-sm text-slate-400 dark:text-slate-600">No agents available</p>
-              )}
-            </div>
-          </div>
-
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"

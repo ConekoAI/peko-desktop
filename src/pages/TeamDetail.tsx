@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "@tanstack/react-router";
 import { useTeam, useRemoveTeam } from "../hooks/useTeams";
+import { useAgents } from "../hooks/useAgents";
 import { formatDate } from "../lib/format";
 import {
   ArrowLeft,
@@ -18,7 +19,7 @@ import ConfirmModal from "../components/modals/ConfirmModal";
 import DataTable from "../components/DataTable";
 import type { AgentSummary } from "../types";
 
-type TabKey = "overview" | "agents";
+type TabKey = "overview" | "members";
 
 function DetailItem({
   icon: Icon,
@@ -47,9 +48,17 @@ function DetailItem({
 export default function TeamDetail() {
   const { name } = useParams({ from: "/teams/$name" });
   const { data: team, isLoading } = useTeam(name);
+  const { data: allAgents } = useAgents();
   const remove = useRemoveTeam();
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [confirmRemove, setConfirmRemove] = useState(false);
+
+  const teamAgentSummaries = useMemo(() => {
+    if (!team?.members || !allAgents) return [];
+    return team.members
+      .map((name) => allAgents.find((a) => a.name === name))
+      .filter(Boolean) as AgentSummary[];
+  }, [team, allAgents]);
 
   if (isLoading) {
     return (
@@ -78,7 +87,7 @@ export default function TeamDetail() {
 
   const tabs: { id: TabKey; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: Activity },
-    { id: "agents", label: "Agents", icon: Users },
+    { id: "members", label: "Members", icon: Users },
   ];
 
   const agentColumns = [
@@ -182,8 +191,8 @@ export default function TeamDetail() {
               />
               <DetailItem
                 icon={Hash}
-                label="Agents"
-                value={team.agentCount}
+                label="Members"
+                value={teamAgentSummaries.length}
               />
               <DetailItem
                 icon={Calendar}
@@ -198,22 +207,22 @@ export default function TeamDetail() {
             </div>
           </div>
 
-          {/* Agents preview */}
+          {/* Members preview */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-3 flex items-center gap-2">
               <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                Agents
+                Members
                 <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                  {team.agents.length}
+                  {teamAgentSummaries.length}
                 </span>
               </h3>
             </div>
-            {team.agents.length === 0 ? (
-              <p className="text-sm text-slate-400 dark:text-slate-600">No agents in this team</p>
+            {teamAgentSummaries.length === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-600">No members in this team</p>
             ) : (
               <ul className="space-y-1.5">
-                {team.agents.map((agent) => (
+                {teamAgentSummaries.map((agent) => (
                   <li
                     key={agent.name}
                     className="flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300"
@@ -235,22 +244,22 @@ export default function TeamDetail() {
         </div>
       )}
 
-      {/* Agents Tab */}
-      {activeTab === "agents" && (
+      {/* Members Tab */}
+      {activeTab === "members" && (
         <div className="space-y-4">
-          {team.agents.length > 0 ? (
+          {teamAgentSummaries.length > 0 ? (
             <DataTable
               columns={agentColumns}
-              rows={team.agents}
+              rows={teamAgentSummaries}
               keyExtractor={(r) => r.name}
-              emptyText="No agents in this team"
+              emptyText="No members in this team"
               searchable
               pageSize={10}
             />
           ) : (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-12 dark:border-slate-800 dark:bg-slate-900">
               <Users className="h-8 w-8 text-slate-300 dark:text-slate-700" />
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No agents in this team</p>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No members in this team</p>
             </div>
           )}
         </div>

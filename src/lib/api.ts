@@ -54,7 +54,6 @@ export async function agentCreate(payload: {
   model: string;
   description?: string;
   systemPrompt?: string;
-  team?: string;
   config?: Record<string, unknown>;
 }): Promise<AgentDetail> {
   return invoke("agent_create", { 
@@ -70,7 +69,6 @@ export async function agentUpdate(
     model: string;
     description: string;
     systemPrompt: string;
-    team: string;
     config: Record<string, unknown>;
   }>,
 ): Promise<AgentDetail> {
@@ -106,23 +104,18 @@ export async function teamShow(name: string): Promise<TeamDetail> {
 export async function teamCreate(payload: {
   name: string;
   description?: string;
-  orchestrator?: string;
-  agents?: string[];
+  members?: string[];
   config?: Record<string, unknown>;
 }): Promise<TeamDetail> {
   return invoke("team_create", { payload });
 }
 
-export async function teamUpdate(
-  name: string,
-  payload: Partial<{
-    description: string;
-    orchestrator: string;
-    agents: string[];
-    config: Record<string, unknown>;
-  }>,
-): Promise<TeamDetail> {
-  return invoke("team_update", { name, payload });
+export async function teamJoin(team: string, agent: string): Promise<void> {
+  return invoke("team_join", { team, agent });
+}
+
+export async function teamLeave(team: string, agent: string): Promise<void> {
+  return invoke("team_leave", { team, agent });
 }
 
 export async function teamRemove(name: string): Promise<void> {
