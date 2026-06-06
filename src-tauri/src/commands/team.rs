@@ -20,7 +20,11 @@ pub struct TeamDetail {
 }
 
 fn parse_team_summary(value: &serde_json::Value) -> Option<TeamSummary> {
-    let metadata = value.get("metadata").cloned().unwrap_or(serde_json::json!({}));
+    let metadata = value
+        .get("metadata")
+        .filter(|v| !v.is_null())
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
     Some(TeamSummary {
         name: value.get("name")?.as_str()?.to_string(),
         description: metadata
@@ -32,7 +36,11 @@ fn parse_team_summary(value: &serde_json::Value) -> Option<TeamSummary> {
 }
 
 fn parse_team_detail(value: &serde_json::Value) -> Option<TeamDetail> {
-    let metadata = value.get("metadata").cloned().unwrap_or(serde_json::json!({}));
+    let metadata = value
+        .get("metadata")
+        .filter(|v| !v.is_null())
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
     let team_path = value.get("path").and_then(|v| v.as_str());
 
     // created_at is a string from metadata (e.g., "2024-01-15T10:30:00Z")
