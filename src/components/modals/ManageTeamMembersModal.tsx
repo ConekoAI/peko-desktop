@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useAgents } from "../../hooks/useAgents";
 import { useJoinTeam } from "../../hooks/useTeams";
-import { Search, X, Plus, Bot, Loader2 } from "lucide-react";
+import { Search, X, Bot, Check, Loader2 } from "lucide-react";
 
 interface ManageTeamMembersModalProps {
   open: boolean;
@@ -19,13 +19,13 @@ export default function ManageTeamMembersModal({
   const { data: allAgents, isLoading: agentsLoading } = useAgents();
   const join = useJoinTeam();
   const [search, setSearch] = useState("");
-  const [pending, setPending] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isSaving, setIsSaving] = useState(false);
 
   const memberSet = new Set(currentMembers);
 
   const availableAgents = useMemo(() => {
     if (!allAgents) return [];
-    // Only show agents that are NOT already members
     const nonMembers = allAgents.filter((a) => !memberSet.has(a.name));
     const q = search.trim().toLowerCase();
     if (!q) return nonMembers;
@@ -36,20 +36,44 @@ export default function ManageTeamMembersModal({
     );
   }, [allAgents, memberSet, search]);
 
-  async function handleAdd(agentName: string) {
-    setPending((prev) => new Set(prev).add(agentName));
-    try {
-      await join.mutateAsync({ team: teamName, agent: agentName });
-    } finally {
-      setPending((prev) => {
-        const next = new Set(prev);
+  function toggleSelection(agentName: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentName)) {
         next.delete(agentName);
-        return next;
-      });
+      } else {
+        next.add(agentName);
+      }
+      return next;
+    });
+  }
+
+  async function handleSave() {
+    if (selected.size === 0) {
+      onClose();
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const promises = Array.from(selected).map((agentName) =>
+        join.mutateAsync({ team: teamName, agent: agentName })
+      );
+      await Promise.all(promises);
+    } finally {
+      setIsSaving(false);
+      setSelected(new Set());
+      onClose();
     }
   }
 
+  function handleCancel() {
+    setSelected(new Set());
+    onClose();
+  }
+
   if (!open) return null;
+
+  const hasChanges = selected.size > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -61,11 +85,11 @@ export default function ManageTeamMembersModal({
               Add Members
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Add agents to <span className="font-medium">{teamName}</span>
+              Select agents to add to <span className="font-medium">{teamName}</span>
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCancel}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
             <X className="h-4 w-4" />
@@ -93,10 +117,16 @@ export default function ManageTeamMembersModal({
               <span className="inline-block h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" />
               {availableAgents.length} available
             </span>
+            {hasChanges && (
+              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                {selected.size} selected
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Agent list — non-members only */}
+        {/* Agent list — checkboxes */}
         <div className="flex-1 overflow-y-auto p-2">
           {agentsLoading ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12">
@@ -110,41 +140,40 @@ export default function ManageTeamMembersModal({
           ) : (
             <div className="space-y-1">
               {availableAgents.map((agent) => {
-                const isPending = pending.has(agent.name);
+                const isSelected = selected.has(agent.name);
                 return (
-                  <div
+                  <button
                     key={agent.name}
-                    className="flex items-center gap-3 rounded-lg border border-transparent bg-white px-3 py-2 transition-colors hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-900"
+                    onClick={() => toggleSelection(agent.name)}
+                    className={[
+                      "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                      isSelected
+                        ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20"
+                        : "border-transparent bg-white hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-900",
+                    ].join(" ")}
                   >
+                    <div
+                      className={[
+                        "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors",
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-500 dark:border-emerald-400 dark:bg-emerald-400"
+                          : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800",
+                      ].join(" ")}
+                    >
+                      {isSelected && <Check className="h-3 w-3 text-white" />}
+                    </div>
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
                       <Bot className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-900 dark:text-white">
-                          {agent.name}
-                        </span>
-                      </div>
+                      <span className="text-sm font-medium text-slate-900 dark:text-white">
+                        {agent.name}
+                      </span>
                       <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
                         {agent.model} · {agent.provider}
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleAdd(agent.name)}
-                      disabled={isPending}
-                      className={[
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300",
-                        isPending ? "opacity-50" : "",
-                      ].join(" ")}
-                      title="Add to team"
-                    >
-                      {isPending ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Plus className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -155,13 +184,28 @@ export default function ManageTeamMembersModal({
         <div className="flex shrink-0 items-center justify-between border-t border-slate-200 px-5 py-3 dark:border-slate-800">
           <span className="text-xs text-slate-400 dark:text-slate-500">
             {currentMembers.length} member{currentMembers.length !== 1 ? "s" : ""}
+            {hasChanges && (
+              <span className="ml-2 text-emerald-600 dark:text-emerald-400">
+                +{selected.size} to add
+              </span>
+            )}
           </span>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Done
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCancel}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving || !hasChanges}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {hasChanges ? `Add ${selected.size}` : "Done"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
