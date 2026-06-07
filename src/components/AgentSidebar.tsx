@@ -5,6 +5,7 @@ import { useTeam } from "../hooks/useTeams";
 import ConfirmModal from "./modals/ConfirmModal";
 import CreateAgentModal from "./modals/CreateAgentModal";
 import AgentProfileModal from "./modals/AgentProfileModal";
+import ManageTeamMembersModal from "./modals/ManageTeamMembersModal";
 import {
   Search,
   Plus,
@@ -13,6 +14,7 @@ import {
   Trash2,
   Settings,
   UserCircle,
+  UserPlus,
 } from "lucide-react";
 
 function AgentContextMenu({
@@ -86,6 +88,7 @@ export default function AgentSidebar() {
   const [confirmName, setConfirmName] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [profileAgent, setProfileAgent] = useState<string | null>(null);
+  const [manageMembersOpen, setManageMembersOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ agentName: string; x: number; y: number } | null>(null);
 
   const agents = useMemo(() => {
@@ -120,9 +123,20 @@ export default function AgentSidebar() {
   return (
     <div className="flex h-full w-60 flex-col border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
       <div className="border-b border-slate-200 p-3 dark:border-slate-800">
-        <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-          {isHome ? "Direct Messages" : (team?.name ?? teamName ?? "Select a team")}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+            {isHome ? "Direct Messages" : (team?.name ?? teamName ?? "Select a team")}
+          </h3>
+          {!isHome && (
+            <button
+              onClick={() => setManageMembersOpen(true)}
+              className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+              title="Add member"
+            >
+              <UserPlus className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         {isHome ? (
           <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
             All your agents
@@ -203,13 +217,15 @@ export default function AgentSidebar() {
       </div>
 
       <div className="border-t border-slate-200 p-2 dark:border-slate-800">
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-        >
-          <Plus className="h-4 w-4" />
-          New Agent
-        </button>
+        {isHome && (
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            <Plus className="h-4 w-4" />
+            New Agent
+          </button>
+        )}
         {!isHome && (
           <button
             onClick={() => teamName && navigate({ to: "/teams/$name", params: { name: teamName } })}
@@ -241,6 +257,13 @@ export default function AgentSidebar() {
         open={!!profileAgent}
         agentName={profileAgent ?? ""}
         onClose={() => setProfileAgent(null)}
+      />
+
+      <ManageTeamMembersModal
+        open={manageMembersOpen}
+        teamName={teamName}
+        currentMembers={team?.members ?? []}
+        onClose={() => setManageMembersOpen(false)}
       />
 
       {contextMenu && (
