@@ -17,6 +17,11 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Global pointer cursor for all interactive elements */
+button, [role="button"], a, input[type="submit"], input[type="button"], label[for], select, summary {
+  cursor: pointer;
+}
+
 body {
   @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100;
 }
