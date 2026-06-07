@@ -213,8 +213,8 @@ export default function AgentProfileModal({ open, agentName, onClose }: AgentPro
           </div>
         </div>
 
-        {/* Content — fixed min-height so all tabs feel consistent */}
-        <div className="min-h-[360px] flex-1 overflow-y-auto p-5">
+        {/* Content — fixed height so all tabs feel consistent */}
+        <div className="h-[420px] overflow-y-auto p-5">
           {isLoading || !agent ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12">
               <Loader2 className="h-6 w-6 animate-spin text-slate-300 dark:text-slate-700" />
