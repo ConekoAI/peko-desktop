@@ -103,13 +103,9 @@ export default function TeamDetail() {
       header: "Name",
       sortable: true,
       render: (row: AgentSummary) => (
-        <Link
-          to="/agents/$name"
-          params={{ name: row.name }}
-          className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
-        >
+        <span className="font-medium text-emerald-600 dark:text-emerald-400">
           {row.name}
-        </Link>
+        </span>
       ),
     },
     {
@@ -275,13 +271,9 @@ export default function TeamDetail() {
                     className="group flex items-center gap-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   >
                     <Bot className="h-3 w-3 shrink-0 text-slate-400" />
-                    <Link
-                      to="/agents/$name"
-                      params={{ name: agent.name }}
-                      className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
-                    >
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">
                       {agent.name}
-                    </Link>
+                    </span>
                     <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">{agent.model}</span>
                     <button
                       onClick={() => setConfirmLeaveAgent(agent.name)}

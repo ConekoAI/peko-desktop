@@ -5,6 +5,7 @@ import { useTeams } from "../hooks/useTeams";
 import { useSessions, useSessionHistory } from "../hooks/useSessions";
 import { useIpcStream } from "../hooks/useIpcStream";
 import { sessionSend } from "../lib/api";
+import CreateAgentModal from "../components/modals/CreateAgentModal";
 import {
   Send,
   Loader2,
@@ -95,6 +96,7 @@ function ChatMessage({ item }: { item: ChatItem }) {
           )}
         </div>
       </div>
+
     </div>
   );
 }
@@ -221,6 +223,7 @@ function SessionToolbar({
           )}
         </div>
       </div>
+
     </div>
   );
 }
@@ -230,6 +233,7 @@ export default function Chat() {
   const routerState = useRouterState();
   const params = useParams({ strict: false });
   const pathname = routerState.location.pathname;
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { isLoading: teamsLoading } = useTeams();
   const { data: agents, isLoading: agentsLoading } = useAgents();
@@ -447,7 +451,7 @@ export default function Chat() {
           </p>
         </div>
         <button
-          onClick={() => navigate({ to: "/agents" })}
+          onClick={() => setCreateOpen(true)}
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
           <Plus className="h-4 w-4" />
@@ -476,7 +480,7 @@ export default function Chat() {
         </div>
         {!hasAgents && (
           <button
-            onClick={() => navigate({ to: "/agents" })}
+            onClick={() => setCreateOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
           >
             <Plus className="h-4 w-4" />
@@ -553,6 +557,8 @@ export default function Chat() {
           </button>
         </form>
       </div>
+
+      <CreateAgentModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

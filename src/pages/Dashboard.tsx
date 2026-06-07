@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAgents } from "../hooks/useAgents";
 import { useTeams } from "../hooks/useTeams";
 import { useExtensions } from "../hooks/useExtensions";
 import { useDaemonStatus, useDaemonStart, useDaemonStop, useDaemonRestart } from "../hooks/useDaemon";
 import { formatDuration } from "../lib/format";
+import CreateAgentModal from "../components/modals/CreateAgentModal";
 import {
   Bot,
   Users,
@@ -64,6 +66,7 @@ export default function Dashboard() {
   const restart = useDaemonRestart();
 
   const isMutating = start.isPending || stop.isPending || restart.isPending;
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -150,7 +153,7 @@ export default function Dashboard() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard icon={Bot} label="Agents" value={agents?.length ?? 0} to="/agents" />
+        <StatCard icon={Bot} label="Agents" value={agents?.length ?? 0} />
         <StatCard icon={Users} label="Teams" value={teams?.length ?? 0} to="/teams" />
         <StatCard icon={Puzzle} label="Extensions" value={extensions?.length ?? 0} to="/extensions" />
       </div>
@@ -159,13 +162,13 @@ export default function Dashboard() {
       <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-200">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
-          <Link
-            to="/agents"
+          <button
+            onClick={() => setCreateOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
           >
             <Plus className="h-4 w-4" />
             New Agent
-          </Link>
+          </button>
           <Link
             to="/registry"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -182,6 +185,8 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+
+      <CreateAgentModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

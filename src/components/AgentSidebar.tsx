@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "@tanstack/react-router";
 import { useAgents, useRemoveAgent } from "../hooks/useAgents";
 import { useTeam } from "../hooks/useTeams";
 import ConfirmModal from "./modals/ConfirmModal";
 import CreateAgentModal from "./modals/CreateAgentModal";
+import AgentProfileModal from "./modals/AgentProfileModal";
 import {
   Search,
   Plus,
@@ -11,8 +12,62 @@ import {
   Loader2,
   Trash2,
   Settings,
-  Users,
+  UserCircle,
 } from "lucide-react";
+
+function AgentContextMenu({
+  position,
+  onClose,
+  onViewProfile,
+  onDelete,
+}: {
+  position: { x: number; y: number };
+  onClose: () => void;
+  onViewProfile: () => void;
+  onDelete: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-50 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+      style={{ left: position.x, top: position.y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        onClick={() => {
+          onViewProfile();
+          onClose();
+        }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        <UserCircle className="h-4 w-4" />
+        View Profile
+      </button>
+      <button
+        onClick={() => {
+          onDelete();
+          onClose();
+        }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+      >
+        <Trash2 className="h-4 w-4" />
+        Delete Agent
+      </button>
+    </div>
+  );
+}
 
 export default function AgentSidebar() {
   const navigate = useNavigate();
@@ -21,7 +76,6 @@ export default function AgentSidebar() {
   const teamName = (params as Record<string, string | undefined>).teamName ?? "";
   const agentName = (params as Record<string, string | undefined>).agentName ?? "";
 
-  // Home/DM mode: / or /chat or /chat/$agentName (no team)
   const isHome = location.pathname === "/" || location.pathname === "/chat" ||
     (location.pathname.startsWith("/chat/") && !location.pathname.startsWith("/chat/team/"));
 
@@ -31,15 +85,15 @@ export default function AgentSidebar() {
   const [search, setSearch] = useState("");
   const [confirmName, setConfirmName] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [profileAgent, setProfileAgent] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ agentName: string; x: number; y: number } | null>(null);
 
   const agents = useMemo(() => {
     if (!allAgents) return [];
     let filtered: typeof allAgents;
     if (isHome) {
-      // Home/DM mode: show ALL agents
       filtered = allAgents;
     } else {
-      // Team mode: show team members only
       const memberNames = team?.members ?? [];
       filtered = memberNames.length > 0
         ? allAgents.filter((a) => memberNames.includes(a.name))
@@ -80,21 +134,6 @@ export default function AgentSidebar() {
         )}
       </div>
 
-      {/* Manage Agents button — Discord Friends-style, only in home mode */}
-      {isHome && (
-        <div className="border-b border-slate-200 p-2 dark:border-slate-800">
-          <button
-            onClick={() => navigate({ to: "/agents" })}
-            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
-              <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-            </div>
-            Manage Agents
-          </button>
-        </div>
-      )}
-
       <div className="border-b border-slate-200 p-2 dark:border-slate-800">
         <div className="relative">
           <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
@@ -129,6 +168,10 @@ export default function AgentSidebar() {
               >
                 <button
                   onClick={() => handleSelectAgent(agent.name)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({ agentName: agent.name, x: e.clientX, y: e.clientY });
+                  }}
                   className={[
                     "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                     active
@@ -193,6 +236,22 @@ export default function AgentSidebar() {
       />
 
       <CreateAgentModal open={createOpen} onClose={() => setCreateOpen(false)} />
+
+      <AgentProfileModal
+        open={!!profileAgent}
+        agentName={profileAgent ?? ""}
+        onClose={() => setProfileAgent(null)}
+      />
+
+      {contextMenu && (
+        <AgentContextMenu
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+
+          onClose={() => setContextMenu(null)}
+          onViewProfile={() => setProfileAgent(contextMenu.agentName)}
+          onDelete={() => setConfirmName(contextMenu.agentName)}
+        />
+      )}
     </div>
   );
 }

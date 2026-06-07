@@ -1,8 +1,6 @@
 import { RootRoute, Route, Router } from "@tanstack/react-router";
 import App from "./App";
 import Chat from "./pages/Chat";
-import Agents from "./pages/Agents";
-import AgentDetail from "./pages/AgentDetail";
 import Teams from "./pages/Teams";
 import TeamDetail from "./pages/TeamDetail";
 import Extensions from "./pages/Extensions";
@@ -58,18 +56,6 @@ const chatTeamAgentSessionRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/chat/team/$teamName/$agentName/$sessionId",
   component: Chat,
-});
-
-const agentsRoute = new Route({
-  getParentRoute: () => rootRoute,
-  path: "/agents",
-  component: Agents,
-});
-
-const agentDetailRoute = new Route({
-  getParentRoute: () => rootRoute,
-  path: "/agents/$name",
-  component: AgentDetail,
 });
 
 const teamsRoute = new Route({
@@ -128,8 +114,6 @@ export const routeTree = rootRoute.addChildren([
   chatTeamRoute,
   chatTeamAgentRoute,
   chatTeamAgentSessionRoute,
-  agentsRoute,
-  agentDetailRoute,
   teamsRoute,
   teamDetailRoute,
   extensionsRoute,
