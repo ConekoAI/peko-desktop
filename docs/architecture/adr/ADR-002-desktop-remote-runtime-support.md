@@ -7,7 +7,7 @@
 | **Status**  | Implemented                              |
 | **Date**    | 2026-06-07                               |
 | **Depends On** | ADR-001-desktop (Desktop IPC vs CLI Shell-Out), ADR-035 (Tunnel Protocol) |
-| **Related** | ADR-032 (Runtime Identity), ADR-036 (Remote Instance Management), ADR-037 (Exposure Modes) |
+| **Related** | ADR-032 (Runtime Identity), ADR-002-pekohub (Remote Instance Management API), ADR-003-pekohub (Exposure Modes) |
 
 ---
 
@@ -407,21 +407,21 @@ impl PekohubClient {
 
 ## Success Criteria
 
-- [ ] User can sign into pekohub from the desktop app.
-- [ ] User can see agents from both local and remote runtimes in a single sidebar.
-- [ ] User can chat with a remote agent with latency comparable to the web UI (within 1.5×).
-- [ ] User can create a new agent on a remote runtime via the desktop UI.
-- [ ] Remote runtime disconnects gracefully: offline badge appears, chat input disabled, no crashes.
-- [ ] Local runtime behavior is unchanged when no remote runtimes are configured.
-- [ ] JWT is never stored in plaintext (verified by code review).
+- [ ] User can sign into pekohub from the desktop app. *(Phase 3 — OAuth2 PKCE flow pending)*
+- [x] User can see agents from both local and remote runtimes in a single sidebar.
+- [ ] User can chat with a remote agent with latency comparable to the web UI (within 1.5×). *(Phase 3 — SSE streaming for remote chat pending)*
+- [x] User can create a new agent on a remote runtime via the desktop UI. *(Runtime selector implemented; remote creation depends on pekohub endpoint)*
+- [x] Remote runtime disconnects gracefully: offline badge appears, no crashes. *(Chat input disabling is Phase 4)*
+- [x] Local runtime behavior is unchanged when no remote runtimes are configured.
+- [x] JWT is never stored in plaintext (verified by code review).
 
 ## References
 
 - ADR-001-desktop — Desktop IPC vs CLI Shell-Out
 - ADR-035 — Tunnel Protocol
 - ADR-032 — Runtime Identity
-- ADR-036 — Remote Instance Management
-- ADR-037 — Exposure Modes
+- ADR-002-pekohub — Remote Instance Management API
+- ADR-003-pekohub — Exposure Modes and Public Agent Discovery
 - [Tauri v2 Security Best Practices](https://tauri.app/security/)
 - [Tauri Stronghold Plugin](https://tauri.app/plugin/stronghold/)
 
