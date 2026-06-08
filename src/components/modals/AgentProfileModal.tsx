@@ -67,7 +67,8 @@ interface AgentProfileModalProps {
 
 export default function AgentProfileModal({ open, agentName, onClose }: AgentProfileModalProps) {
   const { data: agent, isLoading } = useAgent(agentName);
-  const { data: sessions } = useSessions(agentName);
+  const runtimeId = agent?.runtimeId;
+  const { data: sessions } = useSessions(agentName, runtimeId);
   const remove = useRemoveAgent();
   const exportAgent = useExportAgent();
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
@@ -160,7 +161,7 @@ export default function AgentProfileModal({ open, agentName, onClose }: AgentPro
                   Chat
                 </Link>
                 <button
-                  onClick={() => exportAgent.mutate(agent.name)}
+                  onClick={() => exportAgent.mutate({ name: agent.name, runtimeId })}
                   disabled={exportAgent.isPending}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
@@ -305,7 +306,7 @@ export default function AgentProfileModal({ open, agentName, onClose }: AgentPro
         variant="danger"
         confirmText="Remove"
         onConfirm={() => {
-          if (agent) remove.mutate(agent.name);
+          if (agent) remove.mutate({ name: agent.name, runtimeId });
           setConfirmRemove(false);
           onClose();
         }}

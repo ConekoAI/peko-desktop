@@ -1,9 +1,11 @@
 use tauri::Emitter;
 
+pub mod clients;
 pub mod commands;
 pub mod daemon;
 pub mod fs;
 pub mod ipc;
+pub mod state;
 pub mod tray;
 pub mod updater;
 pub mod vault;
@@ -14,6 +16,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_os::init())
+        .manage(tauri::async_runtime::block_on(state::init_state()))
         .setup(|app| {
             // Build system tray
             let _ = tray::build_tray(app.handle())?;

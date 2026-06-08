@@ -10,6 +10,7 @@ import type {
   DoctorReport,
   ExtensionSummary,
   ProviderInfo,
+  RuntimeConnection,
   SearchResult,
   SessionDetail,
   SessionMessage,
@@ -20,7 +21,33 @@ import type {
   TeamSummary,
 } from "../types";
 
-// ─── Daemon ───────────────────────────────────────────────
+// ─── Runtimes ───────────────────────────────────────────────
+
+export async function runtimeList(): Promise<RuntimeConnection[]> {
+  return invoke("runtime_list");
+}
+
+export async function runtimeAdd(
+  id: string,
+  name: string,
+  pekohubUrl?: string,
+): Promise<RuntimeConnection> {
+  return invoke("runtime_add", { id, name, pekohub_url: pekohubUrl });
+}
+
+export async function runtimeRemove(id: string): Promise<void> {
+  return invoke("runtime_remove", { id });
+}
+
+export async function runtimeReconnect(id: string): Promise<RuntimeConnection> {
+  return invoke("runtime_reconnect", { id });
+}
+
+export async function runtimeRename(id: string, name: string): Promise<RuntimeConnection> {
+  return invoke("runtime_rename", { id, name });
+}
+
+// ─── Daemon ─────────────────────────────────────────────────
 
 export async function daemonStart(): Promise<DaemonStatus> {
   return invoke("daemon_start");
@@ -38,14 +65,14 @@ export async function daemonStatus(): Promise<DaemonStatus> {
   return invoke("daemon_status");
 }
 
-// ─── Agents ───────────────────────────────────────────────
+// ─── Agents ─────────────────────────────────────────────────
 
-export async function agentList(): Promise<AgentSummary[]> {
-  return invoke("agent_list");
+export async function agentList(runtimeId?: string): Promise<AgentSummary[]> {
+  return invoke("agent_list", { runtime_id: runtimeId });
 }
 
-export async function agentShow(name: string): Promise<AgentDetail> {
-  return invoke("agent_show", { name });
+export async function agentShow(name: string, runtimeId?: string): Promise<AgentDetail> {
+  return invoke("agent_show", { name, runtime_id: runtimeId });
 }
 
 export async function agentCreate(payload: {
@@ -55,11 +82,13 @@ export async function agentCreate(payload: {
   description?: string;
   systemPrompt?: string;
   config?: Record<string, unknown>;
+  runtimeId?: string;
 }): Promise<AgentDetail> {
-  return invoke("agent_create", { 
-    name: payload.name, 
-    provider: payload.provider, 
-    model: payload.model 
+  return invoke("agent_create", {
+    name: payload.name,
+    provider: payload.provider,
+    model: payload.model,
+    runtime_id: payload.runtimeId,
   });
 }
 
@@ -75,23 +104,23 @@ export async function agentUpdate(
   return invoke("agent_update", { name, payload });
 }
 
-export async function agentRemove(name: string): Promise<void> {
-  return invoke("agent_remove", { name });
+export async function agentRemove(name: string, runtimeId?: string): Promise<void> {
+  return invoke("agent_remove", { name, runtime_id: runtimeId });
 }
 
-export async function agentExport(name: string): Promise<string> {
-  return invoke("agent_export", { name });
+export async function agentExport(name: string, runtimeId?: string): Promise<string> {
+  return invoke("agent_export", { name, runtime_id: runtimeId });
 }
 
-export async function agentImport(path: string): Promise<AgentDetail> {
-  return invoke("agent_import", { path });
+export async function agentImport(path: string, runtimeId?: string): Promise<AgentDetail> {
+  return invoke("agent_import", { path, runtime_id: runtimeId });
 }
 
-export async function providerList(): Promise<ProviderInfo[]> {
-  return invoke("provider_list");
+export async function providerList(runtimeId?: string): Promise<ProviderInfo[]> {
+  return invoke("provider_list", { runtime_id: runtimeId });
 }
 
-// ─── Teams ────────────────────────────────────────────────
+// ─── Teams ──────────────────────────────────────────────────
 
 export async function teamList(): Promise<TeamSummary[]> {
   return invoke("team_list");
@@ -126,18 +155,18 @@ export async function teamRemove(name: string): Promise<void> {
   return invoke("team_remove", { name });
 }
 
-// ─── Sessions ─────────────────────────────────────────────
+// ─── Sessions ───────────────────────────────────────────────
 
-export async function sessionList(agent?: string): Promise<SessionSummary[]> {
-  return invoke("session_list", { agent });
+export async function sessionList(agent?: string, runtimeId?: string): Promise<SessionSummary[]> {
+  return invoke("session_list", { agent, runtime_id: runtimeId });
 }
 
-export async function sessionShow(id: string): Promise<SessionDetail> {
-  return invoke("session_show", { id });
+export async function sessionShow(id: string, runtimeId?: string): Promise<SessionDetail> {
+  return invoke("session_show", { id, runtime_id: runtimeId });
 }
 
-export async function sessionHistory(id: string): Promise<SessionMessage[]> {
-  return invoke("session_history", { id });
+export async function sessionHistory(id: string, runtimeId?: string): Promise<SessionMessage[]> {
+  return invoke("session_history", { id, runtime_id: runtimeId });
 }
 
 export async function sessionCreate(payload: {
@@ -160,11 +189,16 @@ export async function sessionClose(id: string): Promise<void> {
   return invoke("session_close", { id });
 }
 
-export async function sessionSend(id: string, message: string, newSession: boolean = false): Promise<void> {
-  return invoke("session_send", { id, message, new_session: newSession });
+export async function sessionSend(
+  id: string,
+  message: string,
+  newSession: boolean = false,
+  runtimeId?: string,
+): Promise<void> {
+  return invoke("session_send", { id, message, new_session: newSession, runtime_id: runtimeId });
 }
 
-// ─── Extensions ───────────────────────────────────────────
+// ─── Extensions ─────────────────────────────────────────────
 
 export async function extensionList(): Promise<ExtensionSummary[]> {
   return invoke("extension_list");
@@ -186,7 +220,7 @@ export async function extensionUninstall(name: string): Promise<void> {
   return invoke("extension_uninstall", { name });
 }
 
-// ─── Registry ─────────────────────────────────────────────
+// ─── Registry ───────────────────────────────────────────────
 
 export async function registrySearch(
   query: string,
@@ -212,7 +246,7 @@ export async function registryLogout(): Promise<void> {
   return invoke("registry_logout");
 }
 
-// ─── Cron ─────────────────────────────────────────────────
+// ─── Cron ───────────────────────────────────────────────────
 
 export async function cronList(): Promise<CronJob[]> {
   return invoke("cron_list");
@@ -242,7 +276,7 @@ export async function cronRun(id: string): Promise<void> {
   return invoke("cron_run", { id });
 }
 
-// ─── Settings ─────────────────────────────────────────────
+// ─── Settings ───────────────────────────────────────────────
 
 export async function settingsGet(key: string): Promise<string | null> {
   return invoke("settings_get", { key });
@@ -256,7 +290,7 @@ export async function settingsList(): Promise<Setting[]> {
   return invoke("settings_list");
 }
 
-// ─── Credentials ──────────────────────────────────────────
+// ─── Credentials ────────────────────────────────────────────
 
 export async function credentialGet(provider: string): Promise<Credential | null> {
   return invoke("credential_get", { provider });
@@ -278,14 +312,14 @@ export async function credentialList(): Promise<Credential[]> {
   return invoke("credential_list");
 }
 
-// ─── System ───────────────────────────────────────────────
+// ─── System ─────────────────────────────────────────────────
 
-export async function systemStatus(): Promise<SystemStatus> {
-  return invoke("system_status");
+export async function systemStatus(runtimeId?: string): Promise<SystemStatus> {
+  return invoke("system_status", { runtime_id: runtimeId });
 }
 
-export async function systemDoctor(): Promise<DoctorReport> {
-  return invoke("system_doctor");
+export async function systemDoctor(runtimeId?: string): Promise<DoctorReport> {
+  return invoke("system_doctor", { runtime_id: runtimeId });
 }
 
 export async function systemLogs(lines?: number): Promise<string[]> {

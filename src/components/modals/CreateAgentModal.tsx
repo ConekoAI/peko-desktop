@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCreateAgent, useProviders } from "../../hooks/useAgents";
+import { useRuntimes } from "../../hooks/useRuntimes";
 import {
   Loader2,
   X,
@@ -44,13 +45,13 @@ function ProviderRow({
     >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
         <span className="text-xs font-bold uppercase text-slate-600 dark:text-slate-400">
-          {provider.display_name.slice(0, 2)}
+          {provider.displayName.slice(0, 2)}
         </span>
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-slate-900 dark:text-white">{provider.display_name}</span>
-          {provider.is_local ? (
+          <span className="text-sm font-semibold text-slate-900 dark:text-white">{provider.displayName}</span>
+          {provider.isLocal ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
               <Home className="h-2.5 w-2.5" /> Local
             </span>
@@ -61,9 +62,9 @@ function ProviderRow({
           )}
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500">
-          <span className="truncate">{provider.default_model}</span>
+          <span className="truncate">{provider.defaultModel}</span>
           <span>·</span>
-          {provider.requires_key ? (
+          {provider.requiresKey ? (
             <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
               <Key className="h-2.5 w-2.5" /> Key required
             </span>
@@ -82,6 +83,7 @@ function ProviderRow({
 export default function CreateAgentModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateAgent();
   const { data: providers, isLoading: providersLoading } = useProviders();
+  const { data: runtimes } = useRuntimes();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState("");
@@ -89,24 +91,35 @@ export default function CreateAgentModal({ open, onClose }: { open: boolean; onC
   const [selectedProvider, setSelectedProvider] = useState<ProviderInfo | null>(null);
   const [selectedModel, setSelectedModel] = useState("");
   const [providerSearch, setProviderSearch] = useState("");
+  const [selectedRuntimeId, setSelectedRuntimeId] = useState<string>("local");
 
   if (!open) return null;
 
-  const availableModels = selectedProvider ? (PROVIDER_MODELS[selectedProvider.id] || [selectedProvider.default_model]) : [];
+  const availableModels = selectedProvider ? (PROVIDER_MODELS[selectedProvider.id] || [selectedProvider.defaultModel]) : [];
+
+  // Default to local runtime if available, otherwise first connected runtime
+  const defaultRuntime = runtimes?.find((r) => r.id === "local") ?? runtimes?.[0];
+  const effectiveRuntimeId = selectedRuntimeId || defaultRuntime?.id || "local";
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !selectedProvider) return;
-    const model = selectedModel || selectedProvider.default_model;
+    const model = selectedModel || selectedProvider.defaultModel;
     create.mutate(
-      { name: name.trim(), provider: selectedProvider.id, model, description: description.trim() || undefined },
+      {
+        name: name.trim(),
+        provider: selectedProvider.id,
+        model,
+        description: description.trim() || undefined,
+        runtimeId: effectiveRuntimeId,
+      },
       { onSuccess: onClose }
     );
   }
 
   function handleProviderSelect(provider: ProviderInfo) {
     setSelectedProvider(provider);
-    setSelectedModel(provider.default_model);
+    setSelectedModel(provider.defaultModel);
     setStep(2);
   }
 
@@ -123,6 +136,7 @@ export default function CreateAgentModal({ open, onClose }: { open: boolean; onC
     setSelectedProvider(null);
     setSelectedModel("");
     setProviderSearch("");
+    setSelectedRuntimeId("local");
     onClose();
   }
 
@@ -141,7 +155,7 @@ export default function CreateAgentModal({ open, onClose }: { open: boolean; onC
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {step === 1
                 ? "Select the AI provider for your agent"
-                : `Configure your ${selectedProvider?.display_name} agent`}
+                : `Configure your ${selectedProvider?.displayName} agent`}
             </p>
           </div>
           <button
@@ -206,10 +220,10 @@ export default function CreateAgentModal({ open, onClose }: { open: boolean; onC
                   <div className="space-y-1.5">
                     {providers
                       .slice()
-                      .sort((a, b) => a.display_name.localeCompare(b.display_name))
+                      .sort((a, b) => a.displayName.localeCompare(b.displayName))
                       .filter((p) =>
                         providerSearch.trim()
-                          ? p.display_name.toLowerCase().includes(providerSearch.trim().toLowerCase()) ||
+                          ? p.displayName.toLowerCase().includes(providerSearch.trim().toLowerCase()) ||
                             p.id.toLowerCase().includes(providerSearch.trim().toLowerCase())
                           : true
                       )
@@ -232,6 +246,27 @@ export default function CreateAgentModal({ open, onClose }: { open: boolean; onC
 
           {step === 2 && selectedProvider && (
             <div className="space-y-4">
+              {/* Runtime selector */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Runtime
+                </label>
+                <select
+                  value={effectiveRuntimeId}
+                  onChange={(e) => setSelectedRuntimeId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                >
+                  {runtimes?.map((runtime) => (
+                    <option key={runtime.id} value={runtime.id}>
+                      {runtime.name} ({runtime.connectionType})
+                    </option>
+                  )) ?? <option value="local">Local Runtime</option>}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                  Choose which runtime will host this agent
+                </p>
+              </div>
+
               {/* Model selection */}
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -245,12 +280,12 @@ export default function CreateAgentModal({ open, onClose }: { open: boolean; onC
                   {availableModels.map((model) => (
                     <option key={model} value={model}>
                       {model}
-                      {model === selectedProvider.default_model ? " (default)" : ""}
+                      {model === selectedProvider.defaultModel ? " (default)" : ""}
                     </option>
                   ))}
                 </select>
                 <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  {selectedProvider.requires_key
+                  {selectedProvider.requiresKey
                     ? "Make sure your API key is configured in Settings."
                     : "This provider runs locally — no API key needed."}
                 </p>

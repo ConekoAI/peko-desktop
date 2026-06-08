@@ -8,25 +8,25 @@ import {
   sessionCompact,
 } from "../lib/api";
 
-export function useSessions(agent?: string) {
+export function useSessions(agent?: string, runtimeId?: string) {
   return useQuery({
-    queryKey: ["sessions", agent ?? "all"],
-    queryFn: () => sessionList(agent),
+    queryKey: ["sessions", runtimeId ?? "local", agent ?? "all"],
+    queryFn: () => sessionList(agent, runtimeId),
   });
 }
 
-export function useSession(id: string) {
+export function useSession(id: string, runtimeId?: string) {
   return useQuery({
-    queryKey: ["sessions", id],
-    queryFn: () => sessionShow(id),
+    queryKey: ["sessions", runtimeId ?? "local", id],
+    queryFn: () => sessionShow(id, runtimeId),
     enabled: !!id,
   });
 }
 
-export function useSessionHistory(id: string) {
+export function useSessionHistory(id: string, runtimeId?: string) {
   return useQuery({
-    queryKey: ["sessions", id, "history"],
-    queryFn: () => sessionHistory(id),
+    queryKey: ["sessions", runtimeId ?? "local", id, "history"],
+    queryFn: () => sessionHistory(id, runtimeId),
     enabled: !!id,
   });
 }

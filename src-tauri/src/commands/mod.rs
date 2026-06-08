@@ -3,6 +3,7 @@ pub mod cron;
 pub mod daemon;
 pub mod extension;
 pub mod registry;
+pub mod runtime;
 pub mod session;
 pub mod settings;
 pub mod system;
@@ -19,6 +20,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         agent::agent_list,
         agent::agent_show,
         agent::agent_create,
+        agent::agent_update,
         agent::agent_remove,
         agent::agent_export,
         agent::agent_import,
@@ -51,6 +53,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         cron::cron_run,
         settings::settings_get,
         settings::settings_set,
+        settings::settings_list,
         settings::credential_get,
         settings::credential_set,
         settings::credential_delete,
@@ -58,5 +61,10 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         system::system_status,
         system::system_doctor,
         system::system_clean,
+        runtime::runtime_list,
+        runtime::runtime_add,
+        runtime::runtime_remove,
+        runtime::runtime_reconnect,
+        runtime::runtime_rename,
     ]
 }

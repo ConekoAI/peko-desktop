@@ -73,6 +73,44 @@ pub fn settings_get(key: String) -> Result<Option<String>, String> {
     Ok(get_nested(&table, &key))
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct Setting {
+    pub key: String,
+    pub value: String,
+    pub default_value: Option<String>,
+    pub description: Option<String>,
+    pub category: String,
+}
+
+#[tauri::command]
+pub fn settings_list() -> Result<Vec<Setting>, String> {
+    let table = read_config()?;
+    let mut settings = Vec::new();
+    fn flatten_table(prefix: &str, table: &toml::Table, out: &mut Vec<Setting>) {
+        for (key, value) in table.iter() {
+            let full_key = if prefix.is_empty() {
+                key.clone()
+            } else {
+                format!("{}.{}", prefix, key)
+            };
+            match value {
+                toml::Value::Table(t) => flatten_table(&full_key, t, out),
+                _ => {
+                    out.push(Setting {
+                        key: full_key,
+                        value: value.to_string().trim_matches('"').to_string(),
+                        default_value: None,
+                        description: None,
+                        category: "general".to_string(),
+                    });
+                }
+            }
+        }
+    }
+    flatten_table("", &table, &mut settings);
+    Ok(settings)
+}
+
 #[tauri::command]
 pub fn settings_set(key: String, value: String) -> Result<(), String> {
     let mut table = read_config()?;

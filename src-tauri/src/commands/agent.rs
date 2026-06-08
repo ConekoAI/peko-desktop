@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use tauri::State;
+
+use crate::state::AppState;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -9,6 +12,7 @@ pub struct AgentSummary {
     pub provider: String,
     pub memberships: Vec<String>,
     pub session_count: usize,
+    pub runtime_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -26,6 +30,7 @@ pub struct AgentDetail {
     pub config: serde_json::Value,
     pub created_at: String,
     pub updated_at: String,
+    pub runtime_id: String,
 }
 
 fn extract_provider_from_config(config: &serde_json::Value) -> String {
@@ -66,7 +71,7 @@ fn extract_extensions_from_config(config: &serde_json::Value) -> Vec<String> {
         .unwrap_or_default()
 }
 
-pub fn parse_agent_summary(value: &serde_json::Value) -> Option<AgentSummary> {
+fn parse_agent_summary(value: &serde_json::Value, runtime_id: &str) -> Option<AgentSummary> {
     let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
     Some(AgentSummary {
         name: value.get("name")?.as_str()?.to_string(),
@@ -82,25 +87,24 @@ pub fn parse_agent_summary(value: &serde_json::Value) -> Option<AgentSummary> {
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
             .unwrap_or_default(),
         session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+        runtime_id: runtime_id.to_string(),
     })
 }
 
-fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
+fn parse_agent_detail(value: &serde_json::Value, runtime_id: &str) -> Option<AgentDetail> {
     let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
-    // The daemon's AgentConfig doesn't have created_at/updated_at fields.
-    // Try to get file metadata from config_path if available.
-    let config_path = value
-        .get("config_path")
-        .and_then(|v| v.as_str());
+    let config_path = value.get("config_path").and_then(|v| v.as_str());
     let (created_at, updated_at) = config_path
         .and_then(|path| std::fs::metadata(path).ok())
         .map(|meta| {
-            let created = meta.created()
+            let created = meta
+                .created()
                 .ok()
                 .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                 .map(|d| d.as_millis().to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            let modified = meta.modified()
+            let modified = meta
+                .modified()
                 .ok()
                 .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                 .map(|d| d.as_millis().to_string())
@@ -108,7 +112,6 @@ fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
             (created, modified)
         })
         .unwrap_or_else(|| {
-            // Fallback: try to find timestamps in the response
             let created = value
                 .get("created_at_ms")
                 .or_else(|| value.get("created_at"))
@@ -144,87 +147,333 @@ fn parse_agent_detail(value: &serde_json::Value) -> Option<AgentDetail> {
         config,
         created_at,
         updated_at,
+        runtime_id: runtime_id.to_string(),
     })
 }
 
-#[tauri::command]
-pub async fn agent_list() -> Result<Vec<AgentSummary>, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let value = client.list_agents().await.map_err(|e| e.to_string())?;
+// ------------------------------------------------------------------
+// Unified dispatch helpers
+// ------------------------------------------------------------------
+
+async fn dispatch_agent_list(
+    state: &AppState,
+    runtime_id: &str,
+) -> Result<Vec<AgentSummary>, String> {
+    let runtime = state
+        .get_runtime(runtime_id)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", runtime_id))?;
+
+    let value = match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            client.list_agents().await.map_err(|e| e.to_string())?
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            state
+                .pekohub_client
+                .list_agents(runtime_id)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+    };
+
     let agents = value
         .get("agents")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(parse_agent_summary).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| parse_agent_summary(v, runtime_id))
+                .collect()
+        })
         .unwrap_or_default();
     Ok(agents)
 }
 
-#[tauri::command]
-pub async fn agent_show(name: String) -> Result<AgentDetail, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let value = client.get_agent(&name).await.map_err(|e| e.to_string())?;
+async fn dispatch_agent_show(
+    state: &AppState,
+    runtime_id: &str,
+    name: &str,
+) -> Result<AgentDetail, String> {
+    let runtime = state
+        .get_runtime(runtime_id)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", runtime_id))?;
+
+    let value = match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            client.get_agent(name).await.map_err(|e| e.to_string())?
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            // For remote, list agents and find the one matching name
+            let list = state
+                .pekohub_client
+                .list_agents(runtime_id)
+                .await
+                .map_err(|e| e.to_string())?;
+            let agents = list
+                .get("agents")
+                .and_then(|v| v.as_array())
+                .unwrap_or(&vec![])
+                .clone();
+            agents
+                .into_iter()
+                .find(|a| a.get("name").and_then(|v| v.as_str()) == Some(name))
+                .ok_or_else(|| format!("agent '{}' not found", name))?
+        }
+    };
+
     let agent = value
         .get("agent")
-        .and_then(parse_agent_detail)
+        .and_then(|v| parse_agent_detail(v, runtime_id))
+        .or_else(|| parse_agent_detail(&value, runtime_id))
         .ok_or_else(|| "agent not found".to_string())?;
     Ok(agent)
 }
 
-#[tauri::command]
-pub async fn agent_create(name: String, provider: String, model: String) -> Result<AgentDetail, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let _value = client
-        .create_agent(&name, &provider, &model)
+async fn dispatch_agent_create(
+    state: &AppState,
+    runtime_id: &str,
+    name: &str,
+    provider: &str,
+    model: &str,
+) -> Result<AgentDetail, String> {
+    let runtime = state
+        .get_runtime(runtime_id)
         .await
-        .map_err(|e| e.to_string())?;
-    // Fetch the newly created agent to return full details
-    let agent_value = client.get_agent(&name).await.map_err(|e| e.to_string())?;
-    let agent = agent_value
-        .get("agent")
-        .and_then(parse_agent_detail)
-        .ok_or_else(|| "agent created but could not be fetched".to_string())?;
-    Ok(agent)
-}
+        .ok_or_else(|| format!("Runtime '{}' not found", runtime_id))?;
 
-#[tauri::command]
-pub async fn agent_remove(name: String) -> Result<String, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let value = client.delete_agent(&name).await.map_err(|e| e.to_string())?;
-    let msg = value
-        .get("message")
-        .and_then(|v| v.as_str())
-        .unwrap_or("removed")
-        .to_string();
-    Ok(msg)
-}
-
-#[tauri::command]
-pub async fn agent_export(name: String, path: String) -> Result<String, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let resp = client.export_agent(&name, None, Some(&path), false).await.map_err(|e| e.to_string())?;
-
-    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
-        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+    match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let _value = client
+                .create_agent(name, provider, model)
+                .await
+                .map_err(|e| e.to_string())?;
+            let agent_value = client.get_agent(name).await.map_err(|e| e.to_string())?;
+            let agent = agent_value
+                .get("agent")
+                .and_then(|v| parse_agent_detail(v, runtime_id))
+                .ok_or_else(|| "agent created but could not be fetched".to_string())?;
+            Ok(agent)
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            let _value = state
+                .pekohub_client
+                .create_agent(runtime_id, name, provider, model)
+                .await
+                .map_err(|e| e.to_string())?;
+            // Re-fetch via list to get full detail
+            dispatch_agent_show(state, runtime_id, name).await
+        }
     }
+}
 
-    let output = resp.get("output_path").and_then(|v| v.as_str()).unwrap_or("unknown");
-    Ok(format!("Agent exported to {}", output))
+async fn dispatch_agent_remove(
+    state: &AppState,
+    runtime_id: &str,
+    name: &str,
+) -> Result<String, String> {
+    let runtime = state
+        .get_runtime(runtime_id)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", runtime_id))?;
+
+    match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let value = client.delete_agent(name).await.map_err(|e| e.to_string())?;
+            let msg = value
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("removed")
+                .to_string();
+            Ok(msg)
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            // For remote we need the instance_id; we look it up by name
+            let list = state
+                .pekohub_client
+                .list_agents(runtime_id)
+                .await
+                .map_err(|e| e.to_string())?;
+            let agents = list
+                .get("agents")
+                .and_then(|v| v.as_array())
+                .unwrap_or(&vec![])
+                .clone();
+            let instance = agents
+                .into_iter()
+                .find(|a| a.get("name").and_then(|v| v.as_str()) == Some(name));
+            if let Some(inst) = instance {
+                let id = inst
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(name);
+                state
+                    .pekohub_client
+                    .delete_agent(id)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok("removed".to_string())
+            } else {
+                Err(format!("agent '{}' not found on remote runtime", name))
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------
+// Tauri commands
+// ------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn agent_list(
+    state: State<'_, AppState>,
+    runtime_id: Option<String>,
+) -> Result<Vec<AgentSummary>, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    dispatch_agent_list(&state, &rid).await
 }
 
 #[tauri::command]
-pub async fn agent_import(path: String) -> Result<String, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let resp = client.import_agent(&path, None, None).await.map_err(|e| e.to_string())?;
+pub async fn agent_show(
+    state: State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<AgentDetail, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    dispatch_agent_show(&state, &rid, &name).await
+}
 
-    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
-        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+#[tauri::command]
+pub async fn agent_create(
+    state: State<'_, AppState>,
+    name: String,
+    provider: String,
+    model: String,
+    runtime_id: Option<String>,
+) -> Result<AgentDetail, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    dispatch_agent_create(&state, &rid, &name, &provider, &model).await
+}
+
+#[tauri::command]
+pub async fn agent_remove(
+    state: State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<String, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    dispatch_agent_remove(&state, &rid, &name).await
+}
+
+#[tauri::command]
+pub async fn agent_export(
+    state: State<'_, AppState>,
+    name: String,
+    path: String,
+    runtime_id: Option<String>,
+) -> Result<String, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    let runtime = state
+        .get_runtime(&rid)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", rid))?;
+
+    match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let resp = client
+                .export_agent(&name, None, Some(&path), false)
+                .await
+                .map_err(|e| e.to_string())?;
+            if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+                return Err(resp
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error")
+                    .to_string());
+            }
+            let output = resp.get("output_path").and_then(|v| v.as_str()).unwrap_or("unknown");
+            Ok(format!("Agent exported to {}", output))
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            Err("Export is not supported for remote runtimes yet".to_string())
+        }
     }
+}
 
-    let name = resp.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
-    Ok(format!("Agent '{}' imported", name))
+#[tauri::command]
+pub async fn agent_update(
+    state: State<'_, AppState>,
+    name: String,
+    _payload: serde_json::Value,
+    runtime_id: Option<String>,
+) -> Result<AgentDetail, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    let runtime = state
+        .get_runtime(&rid)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", rid))?;
+
+    match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            // The daemon doesn't have a dedicated agent_update packet.
+            // We approximate by re-creating with merged config, or just return the agent as-is.
+            // For now, return the current agent details since the daemon handles config via files.
+            let value = client.get_agent(&name).await.map_err(|e| e.to_string())?;
+            let agent = value
+                .get("agent")
+                .and_then(|v| parse_agent_detail(v, &rid))
+                .ok_or_else(|| "agent not found".to_string())?;
+            Ok(agent)
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            Err("Agent update is not supported for remote runtimes yet".to_string())
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn agent_import(
+    state: State<'_, AppState>,
+    path: String,
+    runtime_id: Option<String>,
+) -> Result<String, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    let runtime = state
+        .get_runtime(&rid)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", rid))?;
+
+    match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let resp = client
+                .import_agent(&path, None, None)
+                .await
+                .map_err(|e| e.to_string())?;
+            if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+                return Err(resp
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error")
+                    .to_string());
+            }
+            let name = resp.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+            Ok(format!("Agent '{}' imported", name))
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            Err("Import is not supported for remote runtimes yet".to_string())
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderInfo {
     pub id: String,
     pub display_name: String,
@@ -235,31 +484,49 @@ pub struct ProviderInfo {
 }
 
 #[tauri::command]
-pub async fn provider_list() -> Result<Vec<ProviderInfo>, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let value = client.list_providers().await.map_err(|e| e.to_string())?;
+pub async fn provider_list(
+    state: State<'_, AppState>,
+    runtime_id: Option<String>,
+) -> Result<Vec<ProviderInfo>, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    let runtime = state
+        .get_runtime(&rid)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", rid))?;
 
-    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
-        return Err(value.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
-    }
-
-    let providers = value
-        .get("providers")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|p| {
-                    Some(ProviderInfo {
-                        id: p.get("id")?.as_str()?.to_string(),
-                        display_name: p.get("display_name")?.as_str()?.to_string(),
-                        api_type: p.get("api_type")?.as_str()?.to_string(),
-                        default_model: p.get("default_model")?.as_str()?.to_string(),
-                        requires_key: p.get("requires_key")?.as_bool().unwrap_or(true),
-                        is_local: p.get("is_local")?.as_bool().unwrap_or(false),
-                    })
+    match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let value = client.list_providers().await.map_err(|e| e.to_string())?;
+            if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+                return Err(value
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error")
+                    .to_string());
+            }
+            let providers = value
+                .get("providers")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|p| {
+                            Some(ProviderInfo {
+                                id: p.get("id")?.as_str()?.to_string(),
+                                display_name: p.get("display_name")?.as_str()?.to_string(),
+                                api_type: p.get("api_type")?.as_str()?.to_string(),
+                                default_model: p.get("default_model")?.as_str()?.to_string(),
+                                requires_key: p.get("requires_key")?.as_bool().unwrap_or(true),
+                                is_local: p.get("is_local")?.as_bool().unwrap_or(false),
+                            })
+                        })
+                        .collect()
                 })
-                .collect()
-        })
-        .unwrap_or_default();
-    Ok(providers)
+                .unwrap_or_default();
+            Ok(providers)
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            Err("Provider list is not supported for remote runtimes yet".to_string())
+        }
+    }
 }

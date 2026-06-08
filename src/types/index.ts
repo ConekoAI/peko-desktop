@@ -1,3 +1,12 @@
+export interface RuntimeConnection {
+  id: string;
+  name: string;
+  connectionType: "local" | "remote";
+  status: "connected" | "disconnected" | "connecting" | "error";
+  ipcPath?: string;
+  pekohubUrl?: string;
+}
+
 export interface DaemonStatus {
   running: boolean;
   pid?: number;
@@ -12,6 +21,7 @@ export interface AgentSummary {
   model: string;
   memberships?: string[];
   sessionCount: number;
+  runtimeId: string;
 }
 
 export interface AgentDetail {
@@ -27,6 +37,7 @@ export interface AgentDetail {
   config: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  runtimeId: string;
 }
 
 export interface TeamSummary {
@@ -49,6 +60,7 @@ export interface SessionSummary {
   status: string;
   createdAt: string;
   updatedAt: string;
+  runtimeId: string;
 }
 
 export interface SessionMessage {
@@ -158,11 +170,11 @@ export interface StreamEvent {
 
 export interface ProviderInfo {
   id: string;
-  display_name: string;
-  api_type: string;
-  default_model: string;
-  requires_key: boolean;
-  is_local: boolean;
+  displayName: string;
+  apiType: string;
+  defaultModel: string;
+  requiresKey: boolean;
+  isLocal: boolean;
 }
 
 export interface Setting {

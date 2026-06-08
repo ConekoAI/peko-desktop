@@ -8,6 +8,7 @@ import {
   useTestCredential,
 } from "../hooks/useSettings";
 import { useDaemonStatus, useDaemonStart, useDaemonStop, useDaemonRestart } from "../hooks/useDaemon";
+import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime } from "../hooks/useRuntimes";
 import { getTheme, setTheme } from "../lib/theme";
 import {
   Save,
@@ -25,10 +26,16 @@ import {
   Moon,
   Monitor,
   FolderOpen,
+  Globe,
+  Monitor as MonitorIcon,
+  Plus,
+  X,
+  RefreshCw,
+  Edit3,
 } from "lucide-react";
-import type { Credential } from "../types";
+import type { Credential, RuntimeConnection } from "../types";
 
-type Tab = "general" | "daemon" | "credentials" | "about";
+type Tab = "general" | "daemon" | "credentials" | "runtimes" | "about";
 
 function GeneralTab() {
   const { data: settings } = useSettings();
@@ -352,6 +359,239 @@ function CredentialsTab() {
   );
 }
 
+function RuntimesTab() {
+  const { data: runtimes, isLoading } = useRuntimes();
+  const addRuntime = useAddRuntime();
+  const removeRuntime = useRemoveRuntime();
+  const reconnectRuntime = useReconnectRuntime();
+  const renameRuntime = useRenameRuntime();
+  const [showAdd, setShowAdd] = useState(false);
+  const [newRuntimeId, setNewRuntimeId] = useState("");
+  const [newRuntimeName, setNewRuntimeName] = useState("");
+  const [newRuntimeUrl, setNewRuntimeUrl] = useState("");
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [editNameValue, setEditNameValue] = useState("");
+
+  function handleAdd() {
+    if (!newRuntimeId.trim() || !newRuntimeName.trim()) return;
+    addRuntime.mutate(
+      {
+        id: newRuntimeId.trim(),
+        name: newRuntimeName.trim(),
+        pekohubUrl: newRuntimeUrl.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setShowAdd(false);
+          setNewRuntimeId("");
+          setNewRuntimeName("");
+          setNewRuntimeUrl("");
+        },
+      }
+    );
+  }
+
+  function startRename(runtime: RuntimeConnection) {
+    setEditingName(runtime.id);
+    setEditNameValue(runtime.name);
+  }
+
+  function commitRename(id: string) {
+    if (editNameValue.trim()) {
+      renameRuntime.mutate({ id, name: editNameValue.trim() });
+    }
+    setEditingName(null);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Connected Runtimes</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Manage local and remote runtimes
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+        >
+          <Plus className="h-4 w-4" />
+          Add Remote
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Add Remote Runtime</h4>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Runtime ID</label>
+              <input
+                type="text"
+                value={newRuntimeId}
+                onChange={(e) => setNewRuntimeId(e.target.value)}
+                placeholder="e.g. did:key:z6Mk..."
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Display Name</label>
+              <input
+                type="text"
+                value={newRuntimeName}
+                onChange={(e) => setNewRuntimeName(e.target.value)}
+                placeholder="e.g. Home Server"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                PekoHub URL (optional)
+              </label>
+              <input
+                type="text"
+                value={newRuntimeUrl}
+                onChange={(e) => setNewRuntimeUrl(e.target.value)}
+                placeholder="https://pekohub.org/api"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleAdd}
+                disabled={addRuntime.isPending || !newRuntimeId.trim() || !newRuntimeName.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {addRuntime.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Add
+              </button>
+              <button
+                onClick={() => setShowAdd(false)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-4 text-sm text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading runtimes...
+          </div>
+        ) : runtimes && runtimes.length > 0 ? (
+          runtimes.map((runtime) => (
+            <div
+              key={runtime.id}
+              className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={[
+                    "flex h-8 w-8 items-center justify-center rounded-lg",
+                    runtime.connectionType === "local"
+                      ? "bg-slate-100 dark:bg-slate-800"
+                      : "bg-indigo-50 dark:bg-indigo-950/30",
+                  ].join(" ")}
+                >
+                  {runtime.connectionType === "local" ? (
+                    <MonitorIcon className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                  ) : (
+                    <Globe className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                </div>
+                <div>
+                  {editingName === runtime.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editNameValue}
+                        onChange={(e) => setEditNameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitRename(runtime.id);
+                          if (e.key === "Escape") setEditingName(null);
+                        }}
+                        autoFocus
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      />
+                      <button
+                        onClick={() => commitRename(runtime.id)}
+                        className="rounded p-1 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-900 dark:text-white">
+                        {runtime.name}
+                      </span>
+                      <button
+                        onClick={() => startRename(runtime)}
+                        className="rounded p-0.5 text-slate-400 opacity-0 transition-opacity hover:text-slate-600 group-hover:opacity-100 dark:hover:text-slate-300"
+                        title="Rename"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="capitalize">{runtime.connectionType}</span>
+                    <span>·</span>
+                    <span
+                      className={[
+                        runtime.status === "connected"
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : runtime.status === "error"
+                            ? "text-red-600 dark:text-red-400"
+                            : runtime.status === "connecting"
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-slate-400 dark:text-slate-500",
+                      ].join(" ")}
+                    >
+                      {runtime.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => reconnectRuntime.mutate(runtime.id)}
+                  disabled={reconnectRuntime.isPending}
+                  className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                  title="Reconnect"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+                {runtime.id !== "local" && (
+                  <button
+                    onClick={() => removeRuntime.mutate(runtime.id)}
+                    disabled={removeRuntime.isPending}
+                    className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                    title="Remove"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="py-8 text-center text-sm text-slate-400 dark:text-slate-600">
+            No runtimes configured
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AboutTab() {
   return (
     <div className="space-y-4">
@@ -404,6 +644,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "general", label: "General", icon: FileJson },
   { id: "daemon", label: "Daemon", icon: FileJson },
   { id: "credentials", label: "Credentials", icon: Key },
+  { id: "runtimes", label: "Runtimes", icon: Globe },
   { id: "about", label: "About", icon: Info },
 ];
 
@@ -441,6 +682,7 @@ export default function Settings() {
       {active === "general" && <GeneralTab />}
       {active === "daemon" && <DaemonTab />}
       {active === "credentials" && <CredentialsTab />}
+      {active === "runtimes" && <RuntimesTab />}
       {active === "about" && <AboutTab />}
     </div>
   );

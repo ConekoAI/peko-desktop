@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "@tanstack/react-router";
 import { useAgents, useRemoveAgent } from "../hooks/useAgents";
 import { useTeam, useLeaveTeam } from "../hooks/useTeams";
+import { useRuntimes } from "../hooks/useRuntimes";
 import ConfirmModal from "./modals/ConfirmModal";
 import CreateAgentModal from "./modals/CreateAgentModal";
 import AgentProfileModal from "./modals/AgentProfileModal";
@@ -16,6 +17,8 @@ import {
   UserCircle,
   UserPlus,
   Minus,
+  Monitor,
+  Globe,
 } from "lucide-react";
 
 function AgentContextMenu({
@@ -90,6 +93,17 @@ function AgentContextMenu({
   );
 }
 
+function RuntimeIndicator({ type, status }: { type: "local" | "remote"; status: string }) {
+  const color =
+    status === "connected"
+      ? "text-emerald-500"
+      : status === "connecting"
+        ? "text-amber-500"
+        : "text-slate-400";
+  const Icon = type === "local" ? Monitor : Globe;
+  return <Icon className={`h-3 w-3 shrink-0 ${color}`} aria-label={`${type} — ${status}`} />;
+}
+
 export default function AgentSidebar() {
   const navigate = useNavigate();
   const params = useParams({ strict: false });
@@ -102,6 +116,7 @@ export default function AgentSidebar() {
 
   const { data: team, isLoading: teamLoading } = useTeam(teamName);
   const { data: allAgents, isLoading: agentsLoading } = useAgents();
+  const { data: runtimes } = useRuntimes();
   const remove = useRemoveAgent();
   const leave = useLeaveTeam();
   const [search, setSearch] = useState("");
@@ -128,13 +143,14 @@ export default function AgentSidebar() {
     return filtered.filter((a) => a.name.toLowerCase().includes(q));
   }, [allAgents, team, teamName, search, isHome]);
 
-  function handleSelectAgent(name: string) {
+  function handleSelectAgent(name: string, runtimeId: string) {
     if (isHome) {
-      navigate({ to: "/chat/$agentName", params: { agentName: name } });
+      navigate({ to: "/chat/$agentName", params: { agentName: name }, search: { runtimeId } });
     } else {
       navigate({
         to: "/chat/team/$teamName/$agentName",
         params: { teamName, agentName: name },
+        search: { runtimeId },
       });
     }
   }
@@ -191,9 +207,10 @@ export default function AgentSidebar() {
         ) : agents.length > 0 ? (
           agents.map((agent) => {
             const active = agent.name === agentName;
+            const runtime = runtimes?.find((r) => r.id === agent.runtimeId);
             return (
               <div
-                key={agent.name}
+                key={`${agent.runtimeId}-${agent.name}`}
                 className={[
                   "group flex items-center gap-1 rounded-lg pr-1",
                   active
@@ -202,7 +219,7 @@ export default function AgentSidebar() {
                 ].join(" ")}
               >
                 <button
-                  onClick={() => handleSelectAgent(agent.name)}
+                  onClick={() => handleSelectAgent(agent.name, agent.runtimeId)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setContextMenu({ agentName: agent.name, x: e.clientX, y: e.clientY });
@@ -216,6 +233,12 @@ export default function AgentSidebar() {
                 >
                   <Bot className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
                   <span className="min-w-0 flex-1 truncate font-medium">{agent.name}</span>
+                  {runtime && (
+                    <RuntimeIndicator
+                      type={runtime.connectionType}
+                      status={runtime.status}
+                    />
+                  )}
                   {active && (
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                   )}
@@ -270,7 +293,10 @@ export default function AgentSidebar() {
         variant="danger"
         confirmText="Remove"
         onConfirm={() => {
-          if (confirmName) remove.mutate(confirmName);
+          if (confirmName) {
+            const agent = allAgents?.find((a) => a.name === confirmName);
+            remove.mutate({ name: confirmName, runtimeId: agent?.runtimeId });
+          }
           setConfirmName(null);
         }}
         onCancel={() => setConfirmName(null)}

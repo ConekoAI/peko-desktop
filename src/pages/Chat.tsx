@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
+import { useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router";
 import { useAgents } from "../hooks/useAgents";
 import { useTeams } from "../hooks/useTeams";
 import { useSessions, useSessionHistory } from "../hooks/useSessions";
@@ -232,19 +232,16 @@ export default function Chat() {
   const navigate = useNavigate();
   const routerState = useRouterState();
   const params = useParams({ strict: false });
+  const search = useSearch({ strict: false }) as Record<string, string | undefined>;
   const pathname = routerState.location.pathname;
   const [createOpen, setCreateOpen] = useState(false);
+
+  const runtimeId = search.runtimeId ?? "local";
 
   const { isLoading: teamsLoading } = useTeams();
   const { data: agents, isLoading: agentsLoading } = useAgents();
 
   // Parse route to determine mode: personal (home) vs team
-  // / or /chat → home (personal)
-  // /chat/$agentName → personal chat
-  // /chat/$agentName/$sessionId → personal chat with session
-  // /chat/team/$teamName → team view
-  // /chat/team/$teamName/$agentName → team chat
-  // /chat/team/$teamName/$agentName/$sessionId → team chat with session
   const pathParts = pathname.split("/").filter(Boolean);
 
   let isPersonal = true;
@@ -254,13 +251,11 @@ export default function Chat() {
 
   if (pathParts[0] === "chat") {
     if (pathParts[1] === "team") {
-      // Team mode: /chat/team/$teamName/...
       isPersonal = false;
       teamName = pathParts[2];
       agentName = pathParts[3];
       sessionId = pathParts[4];
     } else if (pathParts.length >= 2) {
-      // Personal mode: /chat/$agentName/...
       agentName = pathParts[1];
       sessionId = pathParts[2];
     }
@@ -286,11 +281,11 @@ export default function Chat() {
   // Redirect / to /chat if no agent selected, or to personal chat if agents exist
   useEffect(() => {
     if (pathname === "/" && selectedAgent) {
-      navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
+      navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent }, search: { runtimeId } });
     }
-  }, [pathname, selectedAgent, navigate]);
+  }, [pathname, selectedAgent, navigate, runtimeId]);
 
-  const { data: sessions, refetch: refetchSessions } = useSessions(selectedAgent || undefined);
+  const { data: sessions, refetch: refetchSessions } = useSessions(selectedAgent || undefined, runtimeId);
 
   const [input, setInput] = useState("");
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
@@ -302,7 +297,7 @@ export default function Chat() {
     : (sessionId ?? activeSessionId ?? sessions?.[0]?.id);
 
   const historyId = currentSessionId ? `${selectedAgent}/${currentSessionId}` : "";
-  const { data: sessionHistory } = useSessionHistory(historyId);
+  const { data: sessionHistory } = useSessionHistory(historyId, runtimeId);
   const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({
     channel: "peko-stream",
   });
@@ -370,26 +365,29 @@ export default function Chat() {
           navigate({
             to: "/chat/$agentName/$sessionId",
             params: { agentName: selectedAgent, sessionId: newActiveSession.id },
+            search: { runtimeId },
           });
         } else if (teamName) {
           navigate({
             to: "/chat/team/$teamName/$agentName/$sessionId",
             params: { teamName, agentName: selectedAgent, sessionId: newActiveSession.id },
+            search: { runtimeId },
           });
         }
       }
       setPendingNewSession(false);
     });
-  }, [isStreaming, pendingNewSession, messages.length, selectedAgent, teamName, isPersonal, navigate, refetchSessions]);
+  }, [isStreaming, pendingNewSession, messages.length, selectedAgent, teamName, isPersonal, navigate, refetchSessions, runtimeId]);
 
   function handleNewSession() {
     if (!selectedAgent) return;
     if (isPersonal) {
-      navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent } });
+      navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent }, search: { runtimeId } });
     } else if (teamName) {
       navigate({
         to: "/chat/team/$teamName/$agentName",
         params: { teamName, agentName: selectedAgent },
+        search: { runtimeId },
       });
     }
     setChatItems([]);
@@ -403,11 +401,13 @@ export default function Chat() {
       navigate({
         to: "/chat/$agentName/$sessionId",
         params: { agentName: selectedAgent, sessionId: id },
+        search: { runtimeId },
       });
     } else if (teamName) {
       navigate({
         to: "/chat/team/$teamName/$agentName/$sessionId",
         params: { teamName, agentName: selectedAgent, sessionId: id },
+        search: { runtimeId },
       });
     }
   }
@@ -427,7 +427,7 @@ export default function Chat() {
     setChatItems((prev) => [...prev, { event: userEvent, isUser: true }]);
 
     const sid = currentSessionId ? `${selectedAgent}/${currentSessionId}` : `chat-${selectedAgent}`;
-    await sendMessage(() => sessionSend(sid, message, pendingNewSession));
+    await sendMessage(() => sessionSend(sid, message, pendingNewSession, runtimeId));
   }
 
   const displayItems = useMemo(() => mergeAssistantChunks(chatItems), [chatItems]);

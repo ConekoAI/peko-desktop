@@ -4,7 +4,7 @@
 |-------------|------------------------------------------|
 | **Number**  | ADR-002                                  |
 | **Title**   | Desktop Remote Runtime Support           |
-| **Status**  | Proposed                                 |
+| **Status**  | Implemented                              |
 | **Date**    | 2026-06-07                               |
 | **Depends On** | ADR-001-desktop (Desktop IPC vs CLI Shell-Out), ADR-035 (Tunnel Protocol) |
 | **Related** | ADR-032 (Runtime Identity), ADR-036 (Remote Instance Management), ADR-037 (Exposure Modes) |
@@ -424,3 +424,43 @@ impl PekohubClient {
 - ADR-037 — Exposure Modes
 - [Tauri v2 Security Best Practices](https://tauri.app/security/)
 - [Tauri Stronghold Plugin](https://tauri.app/plugin/stronghold/)
+
+---
+
+## Implementation Progress
+
+### Completed (as of 2026-06-08)
+
+| Component | Status | Notes |
+|---|---|---|
+| `RuntimeConnection` model + `AppState` | ✅ | `src/state/mod.rs` — thread-safe registry with local auto-connect |
+| `PekohubClient` HTTP client | ✅ | `src/clients/pekohub.rs` — reqwest-based, JWT from OS keyring |
+| Unified command surface (`runtime_id` dispatch) | ✅ | `agent.rs`, `session.rs`, `system.rs` — all accept optional `runtime_id` |
+| Runtime management commands | ✅ | `runtime_list`, `runtime_add`, `runtime_remove`, `runtime_reconnect`, `runtime_rename` |
+| Frontend `runtimeId` plumbing | ✅ | Hooks, API layer, types updated; `runtimeId` passed via URL search params |
+| Runtime indicator in sidebar | ✅ | `AgentSidebar.tsx` — Monitor/Globe icons with color-coded status |
+| Runtime selector in agent creation | ✅ | `CreateAgentModal.tsx` — dropdown in step 2, defaults to local |
+| Settings → Runtimes page | ✅ | `Settings.tsx` — add/remove/reconnect/rename with inline editing |
+| Backward compatibility | ✅ | All commands default to `"local"` when `runtime_id` is omitted |
+| `settings_list` command | ✅ | `commands/settings.rs` — flattens TOML config into `Setting` structs |
+| `agent_update` command | ✅ | `commands/agent.rs` — local-only stub (daemon handles config via files) |
+
+### Known Limitations
+
+| # | Limitation | Impact | Planned Resolution |
+|---|---|---|---|
+| 1 | **Remote chat is non-streaming** | Remote `session_send` returns a single text response instead of SSE chunks. The UX feels less responsive compared to local IPC streaming. | Phase 3 — implement SSE consumption in `PekohubClient` and emit `StreamEvent::Chunk` for each SSE chunk. |
+| 2 | **No OAuth2 PKCE sign-in flow** | Users must manually add remote runtimes by entering a runtime ID. No automatic pekohub account linking or runtime discovery. | Phase 3 — add OAuth2 PKCE flow and `GET /v1/runtimes` auto-population. |
+| 3 | **Remote agent update not implemented** | `agent_update` returns current agent details without applying changes for remote runtimes. | Phase 3 — wire to pekohub `PATCH /v1/instances/:id` endpoint. |
+| 4 | **Team/extension/cron commands are local-only** | `team_*`, `extension_*`, `cron_*` commands do not accept `runtime_id` and always talk to the local daemon. | Phase 3 — extend dispatch pattern to these commands. |
+| 5 | **No offline chat input disabling** | The chat input is not disabled when a remote runtime is disconnected. The user can type and will get an error on send. | Phase 4 — add runtime status check before enabling input; show "Runtime offline" tooltip. |
+| 6 | **No local caching of agent lists** | If a remote runtime is offline, its agents disappear from the sidebar instead of showing stale data with an offline badge. | Phase 4 — cache last-known agent list in `localStorage` or SQLite. |
+| 7 | **Remote `session_branch` / `session_compact` not supported** | Returns "not supported for remote runtimes yet" error. | Phase 3 — map to pekohub endpoints once available. |
+| 8 | **Provider list is local-only** | `provider_list` only works for the local runtime. Remote runtimes cannot expose their provider list. | Phase 3 — add `GET /v1/runtimes/:id/providers` pekohub endpoint. |
+
+## Code Review Notes
+
+- **JWT storage**: Verified — `PekohubClient::token()` reads from `crate::vault::get_credential("peko", "pekohub")`, which uses the OS keyring via `keyring-core`. No plaintext fallback.
+- **Serialization consistency**: `ProviderInfo` Rust struct uses `#[serde(rename_all = "camelCase")]`; TypeScript interface uses camelCase fields. Prevents runtime `undefined` issues.
+- **Error handling**: Remote `session_send` emits `StreamEvent::Error` via Tauri events on failure, ensuring the frontend `useIpcStream` hook displays the error correctly.
+- **Command registration audit**: All invoked commands (`agent_update`, `settings_list`, etc.) are registered in `commands/mod.rs`.

@@ -9,17 +9,17 @@ import {
   providerList,
 } from "../lib/api";
 
-export function useAgents() {
+export function useAgents(runtimeId?: string) {
   return useQuery({
-    queryKey: ["agents"],
-    queryFn: agentList,
+    queryKey: ["agents", runtimeId ?? "local"],
+    queryFn: () => agentList(runtimeId),
   });
 }
 
-export function useAgent(name: string) {
+export function useAgent(name: string, runtimeId?: string) {
   return useQuery({
-    queryKey: ["agents", name],
-    queryFn: () => agentShow(name),
+    queryKey: ["agents", runtimeId ?? "local", name],
+    queryFn: () => agentShow(name, runtimeId),
     enabled: !!name,
   });
 }
@@ -28,35 +28,44 @@ export function useCreateAgent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Parameters<typeof agentCreate>[0]) => agentCreate(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local"] });
+    },
   });
 }
 
 export function useRemoveAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => agentRemove(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+    mutationFn: ({ name, runtimeId }: { name: string; runtimeId?: string }) =>
+      agentRemove(name, runtimeId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local"] });
+    },
   });
 }
 
 export function useExportAgent() {
   return useMutation({
-    mutationFn: (name: string) => agentExport(name),
+    mutationFn: ({ name, runtimeId }: { name: string; runtimeId?: string }) =>
+      agentExport(name, runtimeId),
   });
 }
 
 export function useImportAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (path: string) => agentImport(path),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents"] }),
+    mutationFn: ({ path, runtimeId }: { path: string; runtimeId?: string }) =>
+      agentImport(path, runtimeId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local"] });
+    },
   });
 }
 
-export function useProviders() {
+export function useProviders(runtimeId?: string) {
   return useQuery({
-    queryKey: ["providers"],
-    queryFn: providerList,
+    queryKey: ["providers", runtimeId ?? "local"],
+    queryFn: () => providerList(runtimeId),
   });
 }
