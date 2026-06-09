@@ -78,13 +78,17 @@ impl PekohubClient {
 
     /// Send a chat message to an agent on a remote runtime.
     /// Returns the HTTP response body as text (usually SSE or JSON).
-    pub async fn chat(&self, instance_id: &str, message: &str) -> Result<String, String> {
+    pub async fn chat(&self, instance_id: &str, message: &str, session_id: Option<&str>) -> Result<String, String> {
         let url = format!("{}/v1/instances/{}/chat", self.base_url, instance_id);
+        let mut body = json!({ "message": message });
+        if let Some(sid) = session_id {
+            body["session_id"] = json!(sid);
+        }
         let mut req = self
             .http
             .post(&url)
             .header(CONTENT_TYPE, "application/json")
-            .json(&json!({ "message": message }));
+            .json(&body);
         if let Some((k, v)) = Self::auth_header() {
             req = req.header(&k, v);
         }
@@ -100,17 +104,22 @@ impl PekohubClient {
         &self,
         instance_id: &str,
         message: &str,
+        session_id: Option<&str>,
         mut on_event: F,
     ) -> Result<(), String>
     where
         F: FnMut(crate::ipc::StreamEvent) + Send,
     {
         let url = format!("{}/v1/instances/{}/chat", self.base_url, instance_id);
+        let mut body = json!({ "message": message });
+        if let Some(sid) = session_id {
+            body["session_id"] = json!(sid);
+        }
         let mut req = self
             .http
             .post(&url)
             .header(CONTENT_TYPE, "application/json")
-            .json(&json!({ "message": message }));
+            .json(&body);
         if let Some((k, v)) = Self::auth_header() {
             req = req.header(&k, v);
         }

@@ -552,9 +552,10 @@ pub async fn session_send(
 
             // Stream via SSE
             let app_handle = app.clone();
+            let session_id_ref = session_id.as_deref();
             state
                 .pekohub_client
-                .chat_streaming(&instance_id, &message, move |event| {
+                .chat_streaming(&instance_id, &message, session_id_ref, move |event| {
                     let _ = app_handle.emit("peko-stream", &event);
                 })
                 .await
