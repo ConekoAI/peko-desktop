@@ -532,60 +532,33 @@ pub async fn session_send(
                 .map_err(|e| e.to_string())
         }
         crate::state::RuntimeConnectionType::Remote => {
-            // For remote, we use the pekohub chat endpoint.
-            // The response is returned as a single string for now.
-            // TODO: Implement SSE streaming for remote chat.
-            let result = async {
-                let list = state
-                    .pekohub_client
-                    .list_agents(&rid)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                let agents = list
-                    .get("agents")
-                    .and_then(|v| v.as_array())
-                    .unwrap_or(&vec![])
-                    .clone();
-                let instance = agents
-                    .into_iter()
-                    .find(|a| a.get("name").and_then(|v| v.as_str()) == Some(&agent));
-                let instance_id = instance
-                    .and_then(|a| a.get("id").and_then(|v| v.as_str().map(|s| s.to_string())))
-                    .ok_or_else(|| format!("agent '{}' not found on remote runtime", agent))?;
+            // Resolve agent to instance_id
+            let list = state
+                .pekohub_client
+                .list_agents(&rid)
+                .await
+                .map_err(|e| e.to_string())?;
+            let agents = list
+                .get("agents")
+                .and_then(|v| v.as_array())
+                .unwrap_or(&vec![])
+                .clone();
+            let instance = agents
+                .into_iter()
+                .find(|a| a.get("name").and_then(|v| v.as_str()) == Some(&agent));
+            let instance_id = instance
+                .and_then(|a| a.get("id").and_then(|v| v.as_str().map(|s| s.to_string())))
+                .ok_or_else(|| format!("agent '{}' not found on remote runtime", agent))?;
 
-                state
-                    .pekohub_client
-                    .chat(&instance_id, &message)
-                    .await
-                    .map_err(|e| e.to_string())
-            }
-            .await;
-
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis()
-                .to_string();
-
-            match result {
-                Ok(response_text) => {
-                    let chunk_event = crate::ipc::StreamEvent::Chunk {
-                        content: response_text,
-                        timestamp: timestamp.clone(),
-                    };
-                    let _ = app.emit("peko-stream", &chunk_event);
-
-                    let done_event = crate::ipc::StreamEvent::Done { timestamp };
-                    let _ = app.emit("peko-stream", &done_event);
-                }
-                Err(err_msg) => {
-                    let error_event = crate::ipc::StreamEvent::Error {
-                        message: err_msg,
-                        timestamp,
-                    };
-                    let _ = app.emit("peko-stream", &error_event);
-                }
-            }
+            // Stream via SSE
+            let app_handle = app.clone();
+            state
+                .pekohub_client
+                .chat_streaming(&instance_id, &message, move |event| {
+                    let _ = app_handle.emit("peko-stream", &event);
+                })
+                .await
+                .map_err(|e| e.to_string())?;
 
             Ok(())
         }
