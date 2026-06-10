@@ -108,8 +108,8 @@ export async function agentRemove(name: string, runtimeId?: string): Promise<voi
   return invoke("agent_remove", { name, runtime_id: runtimeId });
 }
 
-export async function agentExport(name: string, runtimeId?: string): Promise<string> {
-  return invoke("agent_export", { name, runtime_id: runtimeId });
+export async function agentExport(name: string, runtimeId?: string, withExtensions?: boolean): Promise<string> {
+  return invoke("agent_export", { name, runtime_id: runtimeId, with_extensions: withExtensions });
 }
 
 export async function agentImport(path: string, runtimeId?: string): Promise<AgentDetail> {

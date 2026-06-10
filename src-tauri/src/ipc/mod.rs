@@ -237,7 +237,7 @@ impl IpcClient {
     }
 
     /// Export an agent
-    pub async fn export_agent(&self, name: &str, team: Option<&str>, output: Option<&str>, include_sessions: bool) -> Result<serde_json::Value> {
+    pub async fn export_agent(&self, name: &str, team: Option<&str>, output: Option<&str>, include_sessions: bool, with_extensions: bool) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "agent_export",
@@ -247,6 +247,7 @@ impl IpcClient {
             "team": team,
             "output": output,
             "include_sessions": include_sessions,
+            "with_extensions": with_extensions,
         });
         self.request_response(req).await
     }

@@ -375,6 +375,7 @@ pub async fn agent_export(
     name: String,
     path: String,
     runtime_id: Option<String>,
+    with_extensions: Option<bool>,
 ) -> Result<String, String> {
     let rid = runtime_id.unwrap_or_else(|| "local".to_string());
     let runtime = state
@@ -386,7 +387,7 @@ pub async fn agent_export(
         crate::state::RuntimeConnectionType::Local => {
             let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
             let resp = client
-                .export_agent(&name, None, Some(&path), false)
+                .export_agent(&name, None, Some(&path), false, with_extensions.unwrap_or(false))
                 .await
                 .map_err(|e| e.to_string())?;
             if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
