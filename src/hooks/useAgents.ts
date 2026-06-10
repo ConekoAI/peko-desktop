@@ -3,6 +3,7 @@ import {
   agentList,
   agentShow,
   agentCreate,
+  agentUpdate,
   agentRemove,
   agentExport,
   agentImport,
@@ -30,6 +31,25 @@ export function useCreateAgent() {
     mutationFn: (payload: Parameters<typeof agentCreate>[0]) => agentCreate(payload),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local"] });
+    },
+  });
+}
+
+export function useUpdateAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      name,
+      runtimeId,
+      payload,
+    }: {
+      name: string;
+      runtimeId?: string;
+      payload: Parameters<typeof agentUpdate>[2];
+    }) => agentUpdate(name, runtimeId, payload),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local"] });
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local", variables.name] });
     },
   });
 }

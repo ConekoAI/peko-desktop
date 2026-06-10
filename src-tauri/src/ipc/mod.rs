@@ -236,6 +236,29 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    pub async fn update_agent(
+        &self,
+        name: &str,
+        model: Option<&str>,
+        description: Option<&str>,
+        system_prompt: Option<&str>,
+        config: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "agent_update",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "team": null,
+            "model": model,
+            "description": description,
+            "system_prompt": system_prompt,
+            "config": config,
+        });
+        self.request_response(req).await
+    }
+
     /// Export an agent
     pub async fn export_agent(&self, name: &str, team: Option<&str>, output: Option<&str>, include_sessions: bool, with_extensions: bool) -> Result<serde_json::Value> {
         ensure_daemon().await?;

@@ -51,11 +51,30 @@ fn extract_model_from_config(config: &serde_json::Value) -> String {
         .to_string()
 }
 
-fn extract_system_prompt_from_config(config: &serde_json::Value) -> Option<String> {
-    config
+fn extract_system_prompt(value: &serde_json::Value, config: &serde_json::Value) -> Option<String> {
+    // The daemon now resolves the system prompt file content into a top-level
+    // `system_prompt` field on `AgentInfo`. Fall back to the legacy config key
+    // or the `prompt.system.files` array for older daemon versions.
+    value
         .get("system_prompt")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
+        .or_else(|| {
+            config
+                .get("system_prompt")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .or_else(|| {
+            config
+                .get("prompt")
+                .and_then(|p| p.get("system"))
+                .and_then(|s| s.get("files"))
+                .and_then(|f| f.as_array())
+                .and_then(|arr| arr.first())
+                .and_then(|v| v.as_str())
+                .map(|s| format!("<{}>", s))
+        })
 }
 
 fn extract_extensions_from_config(config: &serde_json::Value) -> Vec<String> {
@@ -141,7 +160,7 @@ fn parse_agent_detail(value: &serde_json::Value, runtime_id: &str) -> Option<Age
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
             .unwrap_or_default(),
         session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
-        system_prompt: extract_system_prompt_from_config(&config),
+        system_prompt: extract_system_prompt(value, &config),
         tools: extensions.clone(),
         extensions,
         config,
@@ -410,7 +429,7 @@ pub async fn agent_export(
 pub async fn agent_update(
     state: State<'_, AppState>,
     name: String,
-    _payload: serde_json::Value,
+    payload: serde_json::Value,
     runtime_id: Option<String>,
 ) -> Result<AgentDetail, String> {
     let rid = runtime_id.unwrap_or_else(|| "local".to_string());
@@ -422,9 +441,39 @@ pub async fn agent_update(
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
             let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-            // The daemon doesn't have a dedicated agent_update packet.
-            // We approximate by re-creating with merged config, or just return the agent as-is.
-            // For now, return the current agent details since the daemon handles config via files.
+
+            let model = payload
+                .get("model")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty());
+            let description = payload
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let system_prompt = payload
+                .get("systemPrompt")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let config = payload.get("config").cloned();
+
+            let update_resp = client
+                .update_agent(
+                    &name,
+                    model,
+                    description.as_deref(),
+                    system_prompt.as_deref(),
+                    config,
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+            if update_resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+                return Err(update_resp
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error")
+                    .to_string());
+            }
+
             let value = client.get_agent(&name).await.map_err(|e| e.to_string())?;
             let agent = value
                 .get("agent")

@@ -94,6 +94,7 @@ export async function agentCreate(payload: {
 
 export async function agentUpdate(
   name: string,
+  runtimeId: string | undefined,
   payload: Partial<{
     model: string;
     description: string;
@@ -101,7 +102,7 @@ export async function agentUpdate(
     config: Record<string, unknown>;
   }>,
 ): Promise<AgentDetail> {
-  return invoke("agent_update", { name, payload });
+  return invoke("agent_update", { name, runtime_id: runtimeId, payload });
 }
 
 export async function agentRemove(name: string, runtimeId?: string): Promise<void> {
