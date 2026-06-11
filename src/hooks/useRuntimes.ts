@@ -5,7 +5,21 @@ import {
   runtimeRemove,
   runtimeReconnect,
   runtimeRename,
+  oauthTokenExchange,
+  oauthTokenRefresh,
+  pekohubListRuntimes,
+  credentialSetRaw,
+  credentialGetRaw,
+  type StoredTokenBundle,
+  type OAuthTokenResponse,
 } from "../lib/api";
+import {
+  generateCodeVerifier,
+  generateCodeChallenge,
+  generateState,
+  buildAuthorizeUrl,
+} from "../lib/oauth";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export function useRuntimes() {
   return useQuery({
@@ -46,5 +60,208 @@ export function useRenameRuntime() {
     mutationFn: (payload: { id: string; name: string }) =>
       runtimeRename(payload.id, payload.name),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["runtimes"] }),
+  });
+}
+
+// ─── OAuth2 PKCE Flow ───────────────────────────────────────
+
+/** In-memory storage for the current OAuth flow (verifier + state). */
+let activeOAuthFlow: {
+  verifier: string;
+  state: string;
+  redirectUri: string;
+  baseUrl: string;
+} | null = null;
+
+export interface OAuthConnectInput {
+  /** PekoHub base URL (e.g. https://pekohub.org) */
+  baseUrl: string;
+  /** OAuth client ID (default: peko-desktop) */
+  clientId?: string;
+  /** Redirect URI shown to the user (e.g. http://localhost:0/callback) */
+  redirectUri?: string;
+  /** Optional scopes */
+  scope?: string;
+}
+
+export interface OAuthConnectResult {
+  added: number;
+  runtimes: { id: string; name: string }[];
+}
+
+/**
+ * Initiate the OAuth2 PKCE flow by opening the system browser.
+ * Returns the authorize URL and stores the verifier/state locally.
+ * The caller is responsible for collecting the authorization code
+ * (via manual paste, local HTTP server, or custom protocol) and
+ * passing it to `exchangeOAuthCode`.
+ */
+export async function startOAuthConnect(
+  input: OAuthConnectInput,
+): Promise<string> {
+  const baseUrl = input.baseUrl.replace(/\/+$/, "");
+  const clientId = input.clientId ?? "peko-desktop";
+  const redirectUri = input.redirectUri ?? "http://localhost:0/callback";
+
+  const verifier = generateCodeVerifier();
+  const state = generateState();
+  const challenge = await generateCodeChallenge(verifier);
+
+  activeOAuthFlow = { verifier, state, redirectUri, baseUrl };
+
+  const authorizeUrl = buildAuthorizeUrl({
+    baseUrl,
+    clientId,
+    redirectUri,
+    codeChallenge: challenge,
+    state,
+    scope: input.scope,
+  });
+
+  await openUrl(authorizeUrl);
+  return authorizeUrl;
+}
+
+/**
+ * Build a token bundle for storage, computing expiry if expires_in is provided.
+ */
+function buildTokenBundle(resp: OAuthTokenResponse): StoredTokenBundle {
+  const bundle: StoredTokenBundle = {
+    access_token: resp.access_token,
+  };
+  if (resp.refresh_token) {
+    bundle.refresh_token = resp.refresh_token;
+  }
+  if (resp.expires_in) {
+    const expiresAt = new Date(Date.now() + resp.expires_in * 1000);
+    bundle.expires_at = expiresAt.toISOString();
+  }
+  return bundle;
+}
+
+/**
+ * Store the OAuth token bundle in the OS keychain as JSON.
+ */
+async function storeOAuthBundle(bundle: StoredTokenBundle): Promise<void> {
+  await credentialSetRaw("pekohub", JSON.stringify(bundle));
+}
+
+/**
+ * Load the OAuth token bundle from the OS keychain.
+ * Returns null if no credential is stored or parsing fails.
+ */
+export async function loadOAuthBundle(): Promise<StoredTokenBundle | null> {
+  const raw = await credentialGetRaw("pekohub");
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as StoredTokenBundle;
+    if (!parsed.access_token) return null;
+    return parsed;
+  } catch {
+    // Legacy: raw token stored before bundle format
+    return { access_token: raw };
+  }
+}
+
+/**
+ * Check if the stored access token is expired (with 60s clock skew buffer).
+ */
+export function isTokenExpired(bundle: StoredTokenBundle): boolean {
+  if (!bundle.expires_at) return false;
+  const expiry = new Date(bundle.expires_at).getTime();
+  return Date.now() >= expiry - 60_000;
+}
+
+/**
+ * Refresh the stored access token if a refresh_token is available.
+ * Updates the stored bundle on success.
+ */
+export async function refreshStoredToken(
+  baseUrl: string,
+  clientId = "peko-desktop",
+): Promise<StoredTokenBundle | null> {
+  const bundle = await loadOAuthBundle();
+  if (!bundle?.refresh_token) return null;
+
+  const resp = await oauthTokenRefresh({
+    baseUrl,
+    clientId,
+    refreshToken: bundle.refresh_token,
+  });
+
+  const newBundle = buildTokenBundle(resp);
+  await storeOAuthBundle(newBundle);
+  return newBundle;
+}
+
+/**
+ * Exchange an authorization code for tokens, store the token bundle
+ * securely, discover runtimes on PekoHub, and add them locally.
+ */
+export async function exchangeOAuthCode(
+  code: string,
+  returnedState: string,
+  clientId = "peko-desktop",
+): Promise<OAuthConnectResult> {
+  if (!activeOAuthFlow) {
+    throw new Error("No active OAuth flow. Start the flow first.");
+  }
+  const { verifier, state, redirectUri, baseUrl } = activeOAuthFlow;
+
+  if (returnedState !== state) {
+    throw new Error("OAuth state mismatch. Possible CSRF attack.");
+  }
+
+  const tokenResp = await oauthTokenExchange({
+    baseUrl,
+    clientId,
+    code,
+    redirectUri,
+    codeVerifier: verifier,
+  });
+
+  const accessToken = tokenResp.access_token;
+  if (!accessToken) {
+    throw new Error("No access_token received from token endpoint");
+  }
+
+  // Store full token bundle (access + refresh + expiry) in OS keychain
+  const bundle = buildTokenBundle(tokenResp);
+  await storeOAuthBundle(bundle);
+
+  // Discover runtimes
+  const runtimes = await pekohubListRuntimes(baseUrl, accessToken);
+
+  // Add each discovered runtime
+  const added: { id: string; name: string }[] = [];
+  for (const rt of runtimes) {
+    if (!rt.id || !rt.name) continue;
+    try {
+      await runtimeAdd(rt.id, rt.name, rt.url ?? baseUrl);
+      added.push({ id: rt.id, name: rt.name });
+    } catch {
+      // Skip runtimes that fail to add (e.g. already exists)
+    }
+  }
+
+  activeOAuthFlow = null;
+  return { added: added.length, runtimes: added };
+}
+
+/** TanStack Query mutation wrapper for the full OAuth exchange. */
+export function useOAuthConnect() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      code,
+      state,
+    }: {
+      code: string;
+      state: string;
+    }) => exchangeOAuthCode(code, state),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["runtimes"] });
+      qc.invalidateQueries({ queryKey: ["credentials", "pekohub"] });
+    },
   });
 }

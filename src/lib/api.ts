@@ -307,7 +307,12 @@ export async function credentialGet(provider: string): Promise<Credential | null
 }
 
 export async function credentialSet(payload: Credential): Promise<void> {
-  return invoke("credential_set", { payload });
+  // The Tauri credential_set command expects (provider: String, key: String).
+  // Pass the token field as key to match the Rust signature.
+  return invoke("credential_set", {
+    provider: payload.provider,
+    key: payload.token ?? "",
+  });
 }
 
 export async function credentialDelete(provider: string): Promise<void> {
@@ -344,4 +349,125 @@ export async function systemEvents(): Promise<{ events: Array<Record<string, unk
 
 export async function sharedInstancesList(): Promise<SharedInstance[]> {
   return invoke("shared_instances_list");
+}
+
+// ─── OAuth / PekoHub ────────────────────────────────────────
+
+export interface OAuthTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  token_type?: string;
+  expires_in?: number;
+}
+
+/** Stored token bundle in the OS keychain (JSON-serialized). */
+export interface StoredTokenBundle {
+  access_token: string;
+  refresh_token?: string;
+  /** ISO 8601 expiry timestamp */
+  expires_at?: string;
+}
+
+export interface PekohubRuntime {
+  id: string;
+  name: string;
+  url?: string;
+}
+
+/**
+ * Exchange an OAuth authorization code for tokens.
+ * This calls the PekoHub token endpoint directly from the frontend.
+ */
+export async function oauthTokenExchange(params: {
+  baseUrl: string;
+  clientId: string;
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+}): Promise<OAuthTokenResponse> {
+  const url = new URL("/oauth/token", params.baseUrl);
+  const resp = await fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "authorization_code",
+      client_id: params.clientId,
+      code: params.code,
+      redirect_uri: params.redirectUri,
+      code_verifier: params.codeVerifier,
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "Unknown error");
+    throw new Error(`Token exchange failed (${resp.status}): ${text}`);
+  }
+  return resp.json();
+}
+
+/**
+ * Refresh an OAuth access token using a refresh token.
+ */
+export async function oauthTokenRefresh(params: {
+  baseUrl: string;
+  clientId: string;
+  refreshToken: string;
+}): Promise<OAuthTokenResponse> {
+  const url = new URL("/oauth/token", params.baseUrl);
+  const resp = await fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      grant_type: "refresh_token",
+      client_id: params.clientId,
+      refresh_token: params.refreshToken,
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "Unknown error");
+    throw new Error(`Token refresh failed (${resp.status}): ${text}`);
+  }
+  return resp.json();
+}
+
+/**
+ * List runtimes registered to the authenticated user on PekoHub.
+ */
+export async function pekohubListRuntimes(
+  baseUrl: string,
+  accessToken: string,
+): Promise<PekohubRuntime[]> {
+  const url = new URL("/v1/runtimes", baseUrl);
+  const resp = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "Unknown error");
+    throw new Error(`Failed to list runtimes (${resp.status}): ${text}`);
+  }
+  const data = await resp.json();
+  // The endpoint may return { runtimes: [...] } or just [...]
+  const arr = Array.isArray(data) ? data : data.runtimes;
+  if (!Array.isArray(arr)) {
+    throw new Error("Unexpected response format from PekoHub");
+  }
+  return arr.map((r: Record<string, unknown>) => ({
+    id: String(r.id ?? r.runtime_id ?? ""),
+    name: String(r.name ?? r.display_name ?? r.id ?? ""),
+    url: r.url ? String(r.url) : undefined,
+  }));
+}
+
+/**
+ * Store a raw credential string in the OS keychain.
+ * The Tauri `credential_set` command expects `(provider, key)`.
+ */
+export async function credentialSetRaw(provider: string, key: string): Promise<void> {
+  return invoke("credential_set", { provider, key });
+}
+
+/**
+ * Retrieve a raw credential string from the OS keychain.
+ */
+export async function credentialGetRaw(provider: string): Promise<string | null> {
+  return invoke("credential_get", { provider });
 }

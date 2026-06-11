@@ -8,7 +8,7 @@ import {
   useTestCredential,
 } from "../hooks/useSettings";
 import { useDaemonStatus, useDaemonStart, useDaemonStop, useDaemonRestart } from "../hooks/useDaemon";
-import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime } from "../hooks/useRuntimes";
+import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime, useOAuthConnect, startOAuthConnect } from "../hooks/useRuntimes";
 import { getTheme, setTheme } from "../lib/theme";
 import {
   Save,
@@ -32,6 +32,8 @@ import {
   X,
   RefreshCw,
   Edit3,
+  LogIn,
+  ExternalLink,
 } from "lucide-react";
 import type { Credential, RuntimeConnection } from "../types";
 
@@ -360,17 +362,33 @@ function CredentialsTab() {
 }
 
 function RuntimesTab() {
+  const { data: settings } = useSettings();
   const { data: runtimes, isLoading } = useRuntimes();
   const addRuntime = useAddRuntime();
   const removeRuntime = useRemoveRuntime();
   const reconnectRuntime = useReconnectRuntime();
   const renameRuntime = useRenameRuntime();
+  const oauthConnect = useOAuthConnect();
+
   const [showAdd, setShowAdd] = useState(false);
   const [newRuntimeId, setNewRuntimeId] = useState("");
   const [newRuntimeName, setNewRuntimeName] = useState("");
   const [newRuntimeUrl, setNewRuntimeUrl] = useState("");
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
+
+  // OAuth flow state
+  const [showOAuth, setShowOAuth] = useState(false);
+  const [oauthCode, setOauthCode] = useState("");
+  const [oauthState, setOauthState] = useState("");
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  const pekohubBaseUrl =
+    settings?.find((s) => s.key === "pekohub.base_url")?.value ?? "https://pekohub.org";
+  const oauthRedirectUri =
+    settings?.find((s) => s.key === "pekohub.oauth_redirect_uri")?.value ?? "http://localhost:0/callback";
+  const oauthScope =
+    settings?.find((s) => s.key === "pekohub.oauth_scope")?.value ?? "runtimes:read";
 
   function handleAdd() {
     if (!newRuntimeId.trim() || !newRuntimeName.trim()) return;
@@ -403,6 +421,43 @@ function RuntimesTab() {
     setEditingName(null);
   }
 
+  async function handleStartOAuth() {
+    setOauthError(null);
+    setOauthCode("");
+    setOauthState("");
+    try {
+      await startOAuthConnect({
+        baseUrl: pekohubBaseUrl,
+        redirectUri: oauthRedirectUri,
+        scope: oauthScope,
+      });
+      setShowOAuth(true);
+    } catch (err) {
+      setOauthError(err instanceof Error ? err.message : "Failed to start OAuth flow");
+    }
+  }
+
+  function handleExchangeCode() {
+    setOauthError(null);
+    if (!oauthCode.trim() || !oauthState.trim()) return;
+    oauthConnect.mutate(
+      { code: oauthCode.trim(), state: oauthState.trim() },
+      {
+        onSuccess: (result) => {
+          setShowOAuth(false);
+          setOauthCode("");
+          setOauthState("");
+          if (result.added === 0) {
+            setOauthError("No runtimes found for this account.");
+          }
+        },
+        onError: (err) => {
+          setOauthError(err instanceof Error ? err.message : "OAuth exchange failed");
+        },
+      }
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -412,15 +467,98 @@ function RuntimesTab() {
             Manage local and remote runtimes
           </p>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-        >
-          <Plus className="h-4 w-4" />
-          Add Remote
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleStartOAuth}
+            disabled={oauthConnect.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {oauthConnect.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogIn className="h-4 w-4" />
+            )}
+            Sign in with PekoHub
+          </button>
+          <button
+            onClick={() => setShowAdd(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+          >
+            <Plus className="h-4 w-4" />
+            Add Remote
+          </button>
+        </div>
       </div>
 
+      {/* OAuth flow panel */}
+      {showOAuth && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
+          <h4 className="mb-2 text-sm font-semibold text-indigo-800 dark:text-indigo-200">
+            Complete Sign-In
+          </h4>
+          <p className="mb-3 text-xs text-indigo-700 dark:text-indigo-300">
+            Your browser was opened. After authorizing, copy the authorization code from the
+            redirect URL and paste it below.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                Authorization Code
+              </label>
+              <input
+                type="text"
+                value={oauthCode}
+                onChange={(e) => setOauthCode(e.target.value)}
+                placeholder="Paste code here..."
+                className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-indigo-800 dark:bg-slate-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-indigo-700 dark:text-indigo-300">
+                State
+              </label>
+              <input
+                type="text"
+                value={oauthState}
+                onChange={(e) => setOauthState(e.target.value)}
+                placeholder="Paste state parameter..."
+                className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-indigo-800 dark:bg-slate-900 dark:text-white"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleExchangeCode}
+                disabled={oauthConnect.isPending || !oauthCode.trim() || !oauthState.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {oauthConnect.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-4 w-4" />
+                )}
+                Exchange & Connect
+              </button>
+              <button
+                onClick={() => {
+                  setShowOAuth(false);
+                  setOauthCode("");
+                  setOauthState("");
+                  setOauthError(null);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-300"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </button>
+            </div>
+            {oauthError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{oauthError}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Manual add form */}
       {showAdd && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <h4 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Add Remote Runtime</h4>
