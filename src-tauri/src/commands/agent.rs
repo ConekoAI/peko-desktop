@@ -175,6 +175,164 @@ fn parse_agent_detail(value: &serde_json::Value, runtime_id: &str) -> Option<Age
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_agent_json() -> serde_json::Value {
+        serde_json::json!({
+            "name": "test-agent",
+            "config": {
+                "provider": {
+                    "provider_type": "openai",
+                    "default_model": "gpt-4"
+                },
+                "description": "A test agent",
+                "extensions": {
+                    "enabled": ["ext1", "ext2"]
+                },
+                "system_prompt": "legacy prompt"
+            },
+            "memberships": ["default", "alpha"],
+            "session_count": 3,
+            "system_prompt": "resolved prompt",
+            "created_at_ms": 1700000000000u64,
+            "updated_at_ms": 1700000001000u64,
+            "status": "online"
+        })
+    }
+
+    #[test]
+    fn test_extract_provider_from_config() {
+        let config = sample_agent_json()["config"].clone();
+        assert_eq!(extract_provider_from_config(&config), "openai");
+    }
+
+    #[test]
+    fn test_extract_provider_defaults_unknown() {
+        let config = serde_json::json!({});
+        assert_eq!(extract_provider_from_config(&config), "unknown");
+    }
+
+    #[test]
+    fn test_extract_model_from_config() {
+        let config = sample_agent_json()["config"].clone();
+        assert_eq!(extract_model_from_config(&config), "gpt-4");
+    }
+
+    #[test]
+    fn test_extract_model_defaults_default() {
+        let config = serde_json::json!({});
+        assert_eq!(extract_model_from_config(&config), "default");
+    }
+
+    #[test]
+    fn test_extract_system_prompt_prefers_top_level() {
+        let value = sample_agent_json();
+        let config = value["config"].clone();
+        assert_eq!(
+            extract_system_prompt(&value, &config),
+            Some("resolved prompt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_system_prompt_falls_back_to_legacy_config() {
+        let mut value = sample_agent_json();
+        value.as_object_mut().unwrap().remove("system_prompt");
+        let config = value["config"].clone();
+        assert_eq!(
+            extract_system_prompt(&value, &config),
+            Some("legacy prompt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_system_prompt_falls_back_to_prompt_files() {
+        let value = serde_json::json!({
+            "config": {
+                "prompt": {
+                    "system": {
+                        "files": ["prompts/system.md"]
+                    }
+                }
+            }
+        });
+        let config = value["config"].clone();
+        assert_eq!(
+            extract_system_prompt(&value, &config),
+            Some("<prompts/system.md>".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_system_prompt_returns_none_when_missing() {
+        let value = serde_json::json!({ "config": {} });
+        assert_eq!(extract_system_prompt(&value, &value["config"]), None);
+    }
+
+    #[test]
+    fn test_extract_extensions_from_config() {
+        let config = sample_agent_json()["config"].clone();
+        let exts = extract_extensions_from_config(&config);
+        assert_eq!(exts, vec!["ext1", "ext2"]);
+    }
+
+    #[test]
+    fn test_extract_extensions_defaults_empty() {
+        let config = serde_json::json!({});
+        assert!(extract_extensions_from_config(&config).is_empty());
+    }
+
+    #[test]
+    fn test_parse_agent_summary() {
+        let value = sample_agent_json();
+        let summary = parse_agent_summary(&value, "local").unwrap();
+        assert_eq!(summary.name, "test-agent");
+        assert_eq!(summary.provider, "openai");
+        assert_eq!(summary.model, "gpt-4");
+        assert_eq!(summary.description, Some("A test agent".to_string()));
+        assert_eq!(summary.memberships, vec!["default", "alpha"]);
+        assert_eq!(summary.session_count, 3);
+        assert_eq!(summary.runtime_id, "local");
+    }
+
+    #[test]
+    fn test_parse_agent_summary_defaults_missing_fields() {
+        let value = serde_json::json!({ "name": "minimal" });
+        let summary = parse_agent_summary(&value, "remote").unwrap();
+        assert_eq!(summary.name, "minimal");
+        assert_eq!(summary.provider, "unknown");
+        assert_eq!(summary.model, "default");
+        assert_eq!(summary.session_count, 0);
+        assert!(summary.memberships.is_empty());
+    }
+
+    #[test]
+    fn test_parse_agent_detail() {
+        let value = sample_agent_json();
+        let detail = parse_agent_detail(&value, "local").unwrap();
+        assert_eq!(detail.name, "test-agent");
+        assert_eq!(detail.provider, "openai");
+        assert_eq!(detail.model, "gpt-4");
+        assert_eq!(detail.system_prompt, Some("resolved prompt".to_string()));
+        assert_eq!(detail.extensions, vec!["ext1", "ext2"]);
+        assert_eq!(detail.tools, vec!["ext1", "ext2"]);
+        assert_eq!(detail.status, Some("online".to_string()));
+        assert_eq!(detail.runtime_id, "local");
+        assert_eq!(detail.created_at, "1700000000000");
+        assert_eq!(detail.updated_at, "1700000001000");
+    }
+
+    #[test]
+    fn test_parse_agent_detail_without_timestamps() {
+        let value = serde_json::json!({ "name": "minimal", "config": {} });
+        let detail = parse_agent_detail(&value, "local").unwrap();
+        assert_eq!(detail.created_at, "unknown");
+        assert_eq!(detail.updated_at, "unknown");
+    }
+}
+
 // ------------------------------------------------------------------
 // Unified dispatch helpers
 // ------------------------------------------------------------------

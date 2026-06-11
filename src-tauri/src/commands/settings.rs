@@ -67,6 +67,105 @@ fn set_nested(table: &mut toml::Table, key: &str, value: &str) {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_nested_flat_key() {
+        let mut table = toml::Table::new();
+        table.insert("name".to_string(), toml::Value::String("peko".to_string()));
+        assert_eq!(get_nested(&table, "name"), Some("peko".to_string()));
+    }
+
+    #[test]
+    fn test_get_nested_dotted_key() {
+        let mut table = toml::Table::new();
+        let mut inner = toml::Table::new();
+        inner.insert("key".to_string(), toml::Value::String("secret".to_string()));
+        table.insert("provider".to_string(), toml::Value::Table(inner));
+        assert_eq!(get_nested(&table, "provider.key"), Some("secret".to_string()));
+    }
+
+    #[test]
+    fn test_get_nested_missing_returns_none() {
+        let table = toml::Table::new();
+        assert_eq!(get_nested(&table, "missing"), None);
+    }
+
+    #[test]
+    fn test_get_nested_non_string_value() {
+        let mut table = toml::Table::new();
+        table.insert("count".to_string(), toml::Value::Integer(42));
+        assert_eq!(get_nested(&table, "count"), Some("42".to_string()));
+    }
+
+    #[test]
+    fn test_set_nested_creates_intermediate_tables() {
+        let mut table = toml::Table::new();
+        set_nested(&mut table, "a.b.c", "value");
+        assert_eq!(get_nested(&table, "a.b.c"), Some("value".to_string()));
+    }
+
+    #[test]
+    fn test_set_nested_overwrites_existing() {
+        let mut table = toml::Table::new();
+        set_nested(&mut table, "x", "old");
+        set_nested(&mut table, "x", "new");
+        assert_eq!(get_nested(&table, "x"), Some("new".to_string()));
+    }
+
+    #[test]
+    fn test_settings_list_flattens_nested_table() {
+        let mut table = toml::Table::new();
+        let mut inner = toml::Table::new();
+        inner.insert("host".to_string(), toml::Value::String("localhost".to_string()));
+        inner.insert("port".to_string(), toml::Value::Integer(8080));
+        table.insert("server".to_string(), toml::Value::Table(inner));
+        table.insert("debug".to_string(), toml::Value::Boolean(true));
+
+        // We can't easily call settings_list() because it reads from disk,
+        // so test the flatten logic directly by mirroring its behaviour.
+        let mut settings = Vec::new();
+        fn flatten_table(prefix: &str, table: &toml::Table, out: &mut Vec<Setting>) {
+            for (key, value) in table.iter() {
+                let full_key = if prefix.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{}.{}", prefix, key)
+                };
+                match value {
+                    toml::Value::Table(t) => flatten_table(&full_key, t, out),
+                    _ => {
+                        out.push(Setting {
+                            key: full_key,
+                            value: value.to_string().trim_matches('"').to_string(),
+                            default_value: None,
+                            description: None,
+                            category: "general".to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        flatten_table("", &table, &mut settings);
+
+        assert_eq!(settings.len(), 3);
+        let keys: Vec<String> = settings.iter().map(|s| s.key.clone()).collect();
+        assert!(keys.contains(&"server.host".to_string()));
+        assert!(keys.contains(&"server.port".to_string()));
+        assert!(keys.contains(&"debug".to_string()));
+
+        let debug = settings.iter().find(|s| s.key == "debug").unwrap();
+        assert_eq!(debug.value, "true");
+    }
+
+    #[test]
+    fn test_credential_test_returns_true() {
+        assert_eq!(credential_test("openai".to_string()), Ok(true));
+    }
+}
+
 #[tauri::command]
 pub fn settings_get(key: String) -> Result<Option<String>, String> {
     let table = read_config()?;

@@ -68,6 +68,75 @@ fn parse_team_detail(value: &serde_json::Value) -> Option<TeamDetail> {
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_team_summary_reads_metadata() {
+        let value = serde_json::json!({
+            "name": "alpha",
+            "metadata": {
+                "description": "Alpha team"
+            },
+            "agent_count": 3
+        });
+        let summary = parse_team_summary(&value).unwrap();
+        assert_eq!(summary.name, "alpha");
+        assert_eq!(summary.description, Some("Alpha team".to_string()));
+        assert_eq!(summary.agent_count, 3);
+    }
+
+    #[test]
+    fn test_parse_team_summary_defaults_missing_fields() {
+        let value = serde_json::json!({ "name": "beta" });
+        let summary = parse_team_summary(&value).unwrap();
+        assert_eq!(summary.name, "beta");
+        assert_eq!(summary.description, None);
+        assert_eq!(summary.agent_count, 0);
+    }
+
+    #[test]
+    fn test_parse_team_detail_with_members() {
+        let value = serde_json::json!({
+            "name": "gamma",
+            "metadata": {
+                "description": "Gamma team",
+                "created_at": "2024-01-15T10:30:00Z"
+            },
+            "members": ["agent1", "agent2"],
+            "agent_count": 2,
+            "path": "/tmp/nonexistent"
+        });
+        let detail = parse_team_detail(&value).unwrap();
+        assert_eq!(detail.name, "gamma");
+        assert_eq!(detail.description, Some("Gamma team".to_string()));
+        assert_eq!(detail.members, vec!["agent1", "agent2"]);
+        assert_eq!(detail.agent_count, 2);
+        assert_eq!(detail.created_at, "2024-01-15T10:30:00Z");
+        // path doesn't exist, so updated_at should be unknown
+        assert_eq!(detail.updated_at, "unknown");
+    }
+
+    #[test]
+    fn test_parse_team_detail_defaults_when_missing() {
+        let value = serde_json::json!({ "name": "delta" });
+        let detail = parse_team_detail(&value).unwrap();
+        assert_eq!(detail.name, "delta");
+        assert_eq!(detail.description, None);
+        assert!(detail.members.is_empty());
+        assert_eq!(detail.agent_count, 0);
+        assert_eq!(detail.created_at, "unknown");
+        assert_eq!(detail.updated_at, "unknown");
+    }
+
+    #[test]
+    fn test_parse_team_detail_name_missing_returns_none() {
+        let value = serde_json::json!({ "members": [] });
+        assert!(parse_team_detail(&value).is_none());
+    }
+}
+
 #[tauri::command]
 pub async fn team_list() -> Result<Vec<TeamSummary>, String> {
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;

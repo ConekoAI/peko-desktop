@@ -31,6 +31,73 @@ fn parse_cron_job(value: &serde_json::Value) -> Option<CronJob> {
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_cron_job_standard() {
+        let value = serde_json::json!({
+            "id": "job-1",
+            "name": "daily-backup",
+            "schedule": "0 0 * * *",
+            "message": "run backup",
+            "enabled": true
+        });
+        let job = parse_cron_job(&value).unwrap();
+        assert_eq!(job.id, "job-1");
+        assert_eq!(job.name, "daily-backup");
+        assert_eq!(job.schedule, "0 0 * * *");
+        assert_eq!(job.message, "run backup");
+        assert!(job.enabled);
+    }
+
+    #[test]
+    fn test_parse_cron_job_ms_schedule() {
+        let value = serde_json::json!({
+            "id": "job-2",
+            "name": "tick",
+            "schedule": {
+                "Every": { "every_ms": 5000 }
+            },
+            "message": "tick",
+            "enabled": false
+        });
+        let job = parse_cron_job(&value).unwrap();
+        assert_eq!(job.schedule, "5000ms");
+        assert!(!job.enabled);
+    }
+
+    #[test]
+    fn test_parse_cron_job_defaults_enabled() {
+        let value = serde_json::json!({
+            "id": "job-3",
+            "name": "minimal",
+            "schedule": "* * * * *",
+            "message": "x",
+            "enabled": null
+        });
+        let job = parse_cron_job(&value).unwrap();
+        assert!(job.enabled);
+    }
+
+    #[test]
+    fn test_parse_cron_job_missing_id_returns_none() {
+        let value = serde_json::json!({ "name": "bad" });
+        assert!(parse_cron_job(&value).is_none());
+    }
+
+    #[test]
+    fn test_parse_cron_job_missing_schedule_returns_none() {
+        let value = serde_json::json!({
+            "id": "job-4",
+            "name": "no-schedule",
+            "message": "x"
+        });
+        assert!(parse_cron_job(&value).is_none());
+    }
+}
+
 #[tauri::command]
 pub async fn cron_list() -> Result<Vec<CronJob>, String> {
     let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;

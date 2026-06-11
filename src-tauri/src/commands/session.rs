@@ -131,6 +131,129 @@ fn parse_session_detail(value: &serde_json::Value, runtime_id: &str) -> Option<S
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_session_json() -> serde_json::Value {
+        serde_json::json!({
+            "session_id": "sess-123",
+            "agent_name": "test-agent",
+            "title": "Test Session",
+            "message_count": 5,
+            "created_at": 1700000000u64,
+            "updated_at": 1700000100u64
+        })
+    }
+
+    #[test]
+    fn test_format_timestamp_zero_returns_unknown() {
+        assert_eq!(format_timestamp(0), "unknown");
+    }
+
+    #[test]
+    fn test_format_timestamp_nonzero() {
+        assert_eq!(format_timestamp(1700000000), "1700000000");
+    }
+
+    #[test]
+    fn test_parse_session_summary_active() {
+        let value = sample_session_json();
+        let summary = parse_session_summary(&value, Some("sess-123"), "local").unwrap();
+        assert_eq!(summary.id, "sess-123");
+        assert_eq!(summary.agent, "test-agent");
+        assert_eq!(summary.title, Some("Test Session".to_string()));
+        assert_eq!(summary.message_count, 5);
+        assert_eq!(summary.status, "active");
+        assert_eq!(summary.created_at, "1700000000");
+        assert_eq!(summary.updated_at, "1700000100");
+        assert_eq!(summary.runtime_id, "local");
+    }
+
+    #[test]
+    fn test_parse_session_summary_inactive() {
+        let value = sample_session_json();
+        let summary = parse_session_summary(&value, Some("other"), "local").unwrap();
+        assert_eq!(summary.status, "inactive");
+    }
+
+    #[test]
+    fn test_parse_session_summary_unknown_status_when_no_active() {
+        let value = sample_session_json();
+        let summary = parse_session_summary(&value, None, "local").unwrap();
+        assert_eq!(summary.status, "unknown");
+    }
+
+    #[test]
+    fn test_parse_session_summary_uses_id_fallback() {
+        let value = serde_json::json!({
+            "id": "sess-456",
+            "agent_name": "agent-2"
+        });
+        let summary = parse_session_summary(&value, None, "remote").unwrap();
+        assert_eq!(summary.id, "sess-456");
+    }
+
+    #[test]
+    fn test_parse_session_summary_missing_name_returns_none() {
+        let value = serde_json::json!({ "session_id": "x" });
+        assert!(parse_session_summary(&value, None, "local").is_none());
+    }
+
+    #[test]
+    fn test_parse_session_detail_from_info_wrapper() {
+        let value = serde_json::json!({
+            "info": {
+                "session_id": "sess-789",
+                "agent_name": "agent-3",
+                "title": "Wrapped",
+                "message_count": 2,
+                "is_active": true,
+                "created_at": 1600000000u64,
+                "updated_at": 1600000100u64,
+                "parent_session_id": "parent-1"
+            }
+        });
+        let detail = parse_session_detail(&value, "local").unwrap();
+        assert_eq!(detail.id, "sess-789");
+        assert_eq!(detail.agent, "agent-3");
+        assert_eq!(detail.title, Some("Wrapped".to_string()));
+        assert_eq!(detail.message_count, 2);
+        assert_eq!(detail.status, "active");
+        assert_eq!(detail.parent_id, Some("parent-1".to_string()));
+        assert_eq!(detail.created_at, "1600000000");
+        assert_eq!(detail.updated_at, "1600000100");
+        assert!(detail.messages.is_empty());
+        assert!(detail.branches.is_empty());
+    }
+
+    #[test]
+    fn test_parse_session_detail_from_flat_value() {
+        let value = serde_json::json!({
+            "session_id": "sess-flat",
+            "agent_name": "agent-flat",
+            "is_active": false,
+            "created_at": 1500000000u64,
+            "updated_at": 1500000100u64
+        });
+        let detail = parse_session_detail(&value, "remote").unwrap();
+        assert_eq!(detail.id, "sess-flat");
+        assert_eq!(detail.status, "inactive");
+        assert_eq!(detail.runtime_id, "remote");
+    }
+
+    #[test]
+    fn test_parse_session_detail_defaults_unknown_timestamps() {
+        let value = serde_json::json!({
+            "session_id": "x",
+            "agent_name": "a"
+        });
+        let detail = parse_session_detail(&value, "local").unwrap();
+        assert_eq!(detail.created_at, "unknown");
+        assert_eq!(detail.updated_at, "unknown");
+    }
+}
+
 // ------------------------------------------------------------------
 // Unified dispatch
 // ------------------------------------------------------------------
