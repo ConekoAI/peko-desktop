@@ -38,6 +38,7 @@ export interface AgentDetail {
   createdAt: string;
   updatedAt: string;
   runtimeId: string;
+  status?: string;
 }
 
 export interface TeamSummary {
@@ -77,6 +78,8 @@ export interface SessionDetail extends SessionSummary {
   parentId?: string;
   metadata: Record<string, unknown>;
 }
+
+
 
 export interface ExtensionSummary {
   id: string;
@@ -190,4 +193,27 @@ export interface Credential {
   username?: string;
   token?: string;
   expiresAt?: string;
+}
+
+export interface SharedInstance {
+  id: string;
+  ownerId: number;
+  ownerName: string;
+  agentName: string;
+  publicName?: string;
+  status: "online" | "offline" | "busy" | "error";
+  runtimeId?: string;
+  runtimeDisplayName?: string;
+  description?: string;
+  exposure?: "unexposed" | "private" | "public";
+  capabilities?: string[];
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AgentPublishState {
+  exposure: "unexposed" | "private" | "public";
+  status: "online" | "offline" | "busy" | "error";
+  instanceId?: string;
 }

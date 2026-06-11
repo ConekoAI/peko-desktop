@@ -31,6 +31,7 @@ pub struct AgentDetail {
     pub created_at: String,
     pub updated_at: String,
     pub runtime_id: String,
+    pub status: Option<String>,
 }
 
 fn extract_provider_from_config(config: &serde_json::Value) -> String {
@@ -167,6 +168,10 @@ fn parse_agent_detail(value: &serde_json::Value, runtime_id: &str) -> Option<Age
         created_at,
         updated_at,
         runtime_id: runtime_id.to_string(),
+        status: value
+            .get("status")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
     })
 }
 
@@ -531,6 +536,90 @@ pub struct ProviderInfo {
     pub default_model: String,
     pub requires_key: bool,
     pub is_local: bool,
+}
+
+#[tauri::command]
+pub async fn agent_set_status(
+    state: State<'_, AppState>,
+    name: String,
+    status: String,
+    runtime_id: Option<String>,
+) -> Result<String, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    let runtime = state
+        .get_runtime(&rid)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", rid))?;
+
+    match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let resp = client
+                .set_instance_status(&name, &status)
+                .await
+                .map_err(|e| e.to_string())?;
+            if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+                return Err(resp
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error")
+                    .to_string());
+            }
+            Ok(format!("Agent '{}' status set to {}", name, status))
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            let client = crate::clients::pekohub::PekohubClient::new()
+                .with_base_url(runtime.pekohub_url.clone().unwrap_or_default());
+            let instance_id = format!("{}:{}", runtime.id, name);
+            client
+                .update_instance_status(&instance_id, &status)
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(format!("Agent '{}' status set to {}", name, status))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn agent_set_exposure(
+    state: State<'_, AppState>,
+    name: String,
+    exposure: String,
+    runtime_id: Option<String>,
+) -> Result<String, String> {
+    let rid = runtime_id.unwrap_or_else(|| "local".to_string());
+    let runtime = state
+        .get_runtime(&rid)
+        .await
+        .ok_or_else(|| format!("Runtime '{}' not found", rid))?;
+
+    match runtime.connection_type {
+        crate::state::RuntimeConnectionType::Local => {
+            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let resp = client
+                .set_instance_exposure(&name, &exposure)
+                .await
+                .map_err(|e| e.to_string())?;
+            if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
+                return Err(resp
+                    .get("message")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("Unknown error")
+                    .to_string());
+            }
+            Ok(format!("Agent '{}' exposure set to {}", name, exposure))
+        }
+        crate::state::RuntimeConnectionType::Remote => {
+            let client = crate::clients::pekohub::PekohubClient::new()
+                .with_base_url(runtime.pekohub_url.clone().unwrap_or_default());
+            let instance_id = format!("{}:{}", runtime.id, name);
+            client
+                .update_instance_exposure(&instance_id, &exposure, None)
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(format!("Agent '{}' exposure set to {}", name, exposure))
+        }
+    }
 }
 
 #[tauri::command]

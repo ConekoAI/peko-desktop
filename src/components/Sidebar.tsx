@@ -9,11 +9,13 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
+  Users,
 } from "lucide-react";
 
 const navItems = [
   { to: "/extensions", label: "Extensions", icon: Puzzle },
   { to: "/registry", label: "Registry", icon: Globe },
+  { to: "/shared", label: "Shared", icon: Users },
   { to: "/cron", label: "Cron", icon: Clock },
   { to: "/event-bus", label: "Event Bus", icon: Radio },
   { to: "/logs", label: "Logs", icon: FileText },

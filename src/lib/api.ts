@@ -16,6 +16,7 @@ import type {
   SessionMessage,
   SessionSummary,
   Setting,
+  SharedInstance,
   SystemStatus,
   TeamDetail,
   TeamSummary,
@@ -115,6 +116,14 @@ export async function agentExport(name: string, runtimeId?: string, withExtensio
 
 export async function agentImport(path: string, runtimeId?: string): Promise<AgentDetail> {
   return invoke("agent_import", { path, runtime_id: runtimeId });
+}
+
+export async function agentSetStatus(name: string, status: string, runtimeId?: string): Promise<string> {
+  return invoke("agent_set_status", { name, status, runtime_id: runtimeId });
+}
+
+export async function agentSetExposure(name: string, exposure: string, runtimeId?: string): Promise<string> {
+  return invoke("agent_set_exposure", { name, exposure, runtime_id: runtimeId });
 }
 
 export async function providerList(runtimeId?: string): Promise<ProviderInfo[]> {
@@ -329,4 +338,10 @@ export async function systemLogs(lines?: number): Promise<string[]> {
 
 export async function systemEvents(): Promise<{ events: Array<Record<string, unknown>> }> {
   return invoke("system_events");
+}
+
+// ─── Shared Instances ───────────────────────────────────────
+
+export async function sharedInstancesList(): Promise<SharedInstance[]> {
+  return invoke("shared_instances_list");
 }

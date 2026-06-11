@@ -7,6 +7,8 @@ import {
   agentRemove,
   agentExport,
   agentImport,
+  agentSetStatus,
+  agentSetExposure,
   providerList,
 } from "../lib/api";
 
@@ -79,6 +81,44 @@ export function useImportAgent() {
       agentImport(path, runtimeId),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local"] });
+    },
+  });
+}
+
+export function useSetAgentStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      name,
+      status,
+      runtimeId,
+    }: {
+      name: string;
+      status: string;
+      runtimeId?: string;
+    }) => agentSetStatus(name, status, runtimeId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local"] });
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local", variables.name] });
+    },
+  });
+}
+
+export function useSetAgentExposure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      name,
+      exposure,
+      runtimeId,
+    }: {
+      name: string;
+      exposure: string;
+      runtimeId?: string;
+    }) => agentSetExposure(name, exposure, runtimeId),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local"] });
+      qc.invalidateQueries({ queryKey: ["agents", variables.runtimeId ?? "local", variables.name] });
     },
   });
 }

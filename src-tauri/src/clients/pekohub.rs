@@ -271,6 +271,69 @@ impl PekohubClient {
         }
         resp.json().await.map_err(|e| e.to_string())
     }
+
+    /// List instances shared with the authenticated user.
+    pub async fn list_shared_instances(&self) -> Result<serde_json::Value, String> {
+        let url = format!("{}/v1/me/shared-instances", self.base_url);
+        let mut req = self.http.get(&url);
+        if let Some((k, v)) = Self::auth_header() {
+            req = req.header(&k, v);
+        }
+        let resp = req.send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Err(format!("pekohub error: {}", resp.status()));
+        }
+        resp.json().await.map_err(|e| e.to_string())
+    }
+
+    /// Update instance exposure (private/public/unexposed).
+    pub async fn update_instance_exposure(
+        &self,
+        instance_id: &str,
+        exposure: &str,
+        allowed_users: Option<Vec<String>>,
+    ) -> Result<serde_json::Value, String> {
+        let url = format!("{}/v1/instances/{}/exposure", self.base_url, instance_id);
+        let mut body = serde_json::json!({ "exposure": exposure });
+        if let Some(users) = allowed_users {
+            body["allowed_users"] = serde_json::json!(users);
+        }
+        let mut req = self
+            .http
+            .patch(&url)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .json(&body);
+        if let Some((k, v)) = Self::auth_header() {
+            req = req.header(&k, v);
+        }
+        let resp = req.send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Err(format!("pekohub error: {}", resp.status()));
+        }
+        resp.json().await.map_err(|e| e.to_string())
+    }
+
+    /// Update instance status (online/offline/busy/error).
+    pub async fn update_instance_status(
+        &self,
+        instance_id: &str,
+        status: &str,
+    ) -> Result<serde_json::Value, String> {
+        let url = format!("{}/v1/instances/{}/status", self.base_url, instance_id);
+        let mut req = self
+            .http
+            .patch(&url)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .json(&serde_json::json!({ "status": status }));
+        if let Some((k, v)) = Self::auth_header() {
+            req = req.header(&k, v);
+        }
+        let resp = req.send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Err(format!("pekohub error: {}", resp.status()));
+        }
+        resp.json().await.map_err(|e| e.to_string())
+    }
 }
 
 impl Default for PekohubClient {

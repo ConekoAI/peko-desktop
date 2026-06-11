@@ -641,6 +641,32 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Set instance status (online/offline) for tunnel-published agents
+    pub async fn set_instance_status(&self, agent_name: &str, status: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "instance_set_status",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "agent_name": agent_name,
+            "status": status,
+        });
+        self.request_response(req).await
+    }
+
+    /// Set instance exposure (unexposed/private/public) for tunnel-published agents
+    pub async fn set_instance_exposure(&self, agent_name: &str, exposure: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "instance_set_exposure",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "agent_name": agent_name,
+            "exposure": exposure,
+        });
+        self.request_response(req).await
+    }
+
     /// Send an execute request and emit stream events via the Tauri app handle.
     ///
     /// The daemon returns ResponsePacket shapes (Text { chunk }, Done { success }, Error { message })

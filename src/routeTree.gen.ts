@@ -9,6 +9,7 @@ import Cron from "./pages/Cron";
 import EventBus from "./pages/EventBus";
 import Logs from "./pages/Logs";
 import Settings from "./pages/Settings";
+import Shared from "./pages/Shared";
 
 const rootRoute = new RootRoute({
   component: App,
@@ -106,6 +107,12 @@ const settingsRoute = new Route({
   component: Settings,
 });
 
+const sharedRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/shared",
+  component: Shared,
+});
+
 export const routeTree = rootRoute.addChildren([
   chatRoute,
   chatHomeRoute,
@@ -118,6 +125,7 @@ export const routeTree = rootRoute.addChildren([
   teamDetailRoute,
   extensionsRoute,
   registryRoute,
+  sharedRoute,
   cronRoute,
   eventBusRoute,
   logsRoute,

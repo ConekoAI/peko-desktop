@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import { useAgent, useUpdateAgent, useRemoveAgent, useExportAgent } from "../../hooks/useAgents";
+import { useAgent, useUpdateAgent, useRemoveAgent, useExportAgent, useSetAgentStatus, useSetAgentExposure } from "../../hooks/useAgents";
 import { useSessions } from "../../hooks/useSessions";
 import { useExtensions, useEnableExtension, useDisableExtension } from "../../hooks/useExtensions";
 import { formatDate } from "../../lib/format";
@@ -173,6 +173,8 @@ export default function AgentProfileModal({ open, agentName, onClose }: AgentPro
   const remove = useRemoveAgent();
   const exportAgent = useExportAgent();
   const updateAgent = useUpdateAgent();
+  const setStatus = useSetAgentStatus();
+  const agentSetExposure = useSetAgentExposure();
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [editingField, setEditingField] = useState<EditField | null>(null);
@@ -403,6 +405,73 @@ export default function AgentProfileModal({ open, agentName, onClose }: AgentPro
                     <DetailItem icon={Hash} label="Sessions" value={agent.sessionCount} />
                     <DetailItem icon={Calendar} label="Created" value={formatDate(agent.createdAt)} />
                     <DetailItem icon={Clock} label="Updated" value={formatDate(agent.updatedAt)} />
+                  </div>
+
+                  {/* Publish Controls */}
+                  <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                    <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Publish Controls</h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {/* Exposure */}
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">Exposure</p>
+                        <div className="flex items-center gap-2">
+                          <select
+                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                            defaultValue={agent.status ?? "unexposed"}
+                            onChange={(e) => {
+                              const exposure = e.target.value;
+                              agentSetExposure.mutate({
+                                name: agent.name,
+                                runtimeId,
+                                exposure,
+                              });
+                            }}
+                          >
+                            <option value="unexposed">Unexposed</option>
+                            <option value="private">Private</option>
+                            <option value="public">Public</option>
+                          </select>
+                          <span className="text-xs text-slate-400 dark:text-slate-500">
+                            Who can reach this agent
+                          </span>
+                        </div>
+                      </div>
+                      {/* Status */}
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">Status</p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const next = setStatus.isPending ? undefined :
+                                agent.status === "offline" ? "online" : "offline";
+                              if (next) setStatus.mutate({ name: agent.name, status: next, runtimeId });
+                            }}
+                            disabled={setStatus.isPending}
+                            className={[
+                              "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+                              agent.status === "offline"
+                                ? "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-400 dark:hover:bg-emerald-950/50",
+                            ].join(" ")}
+                          >
+                            {setStatus.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : agent.status === "offline" ? (
+                              <PowerOff className="h-3 w-3" />
+                            ) : (
+                              <Power className="h-3 w-3" />
+                            )}
+                            {agent.status === "offline" ? "Offline" : "Online"}
+                          </button>
+                          <span className="text-xs text-slate-400 dark:text-slate-500">
+                            Whether agent accepts chats
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                      Exposure controls who can discover this agent. Status controls whether it currently accepts chats.
+                    </p>
                   </div>
 
                   {editingField === "systemPrompt" ? (
