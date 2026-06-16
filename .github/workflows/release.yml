@@ -1,0 +1,64 @@
+name: Release
+
+# Tag-triggered release build. Produces a draft GitHub release with
+# native bundles (deb, AppImage, rpm) attached.
+#
+# Pushed by tagging: git tag v0.1.0 && git push origin v0.1.0
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  # tauri-action creates a draft release and uploads assets; needs write.
+  contents: write
+
+concurrency:
+  # Never cancel an in-flight release build for the same tag.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-linux:
+    name: Build Tauri (Linux, release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: tauri-release-linux
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # Builds release-mode Tauri app and publishes a draft GitHub
+      # release with the resulting .deb / .AppImage / .rpm attached.
+      # For signed auto-updater artifacts, set TAURI_SIGNING_PRIVATE_KEY
+      # and TAURI_SIGNING_PRIVATE_KEY_PASSWORD as repo secrets.
+      - name: Build Tauri app (release) and publish draft
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: .
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Peko Desktop ${{ github.ref_name }}'
+          releaseDraft: true
+          releaseBody: 'See the assets below to download and install.'
