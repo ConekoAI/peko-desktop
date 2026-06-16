@@ -4,11 +4,20 @@ name: Release
 # native bundles (deb, AppImage, rpm) attached.
 #
 # Pushed by tagging: git tag v0.1.0 && git push origin v0.1.0
+# Manual re-run for an existing tag: Actions -> Release -> Run workflow,
+#   optionally supplying a different tag (e.g. to re-build v0.1.0 after
+#   fixing a release-only issue on a hotfix branch).
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v0.1.0). Leave empty to use the trigger ref.'
+        required: false
+        default: ''
 
 permissions:
   # tauri-action creates a draft release and uploads assets; needs write.
@@ -26,6 +35,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          # When triggered by `workflow_dispatch` with a tag input, check
+          # out that tag explicitly (default would be the viewing branch).
+          ref: ${{ inputs.tag || github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -58,7 +71,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Peko Desktop ${{ github.ref_name }}'
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: 'Peko Desktop ${{ inputs.tag || github.ref_name }}'
           releaseDraft: true
           releaseBody: 'See the assets below to download and install.'
