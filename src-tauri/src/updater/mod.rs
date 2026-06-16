@@ -12,6 +12,12 @@ pub type Result<T> = std::result::Result<T, UpdaterError>;
 
 pub struct Updater;
 
+impl Default for Updater {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl Updater {
     pub fn new() -> Self {
         Self
