@@ -16,6 +16,13 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: short
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # ─────────────────────────────────────────────────────────────────
   # 1. Frontend — TypeScript type check, lint, build, unit tests
@@ -140,6 +147,7 @@ jobs:
     name: Tauri Build (Linux)
     runs-on: ubuntu-latest
     needs: [frontend, rust-linux]
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: peko-desktop
@@ -168,7 +176,7 @@ jobs:
         run: npm ci
 
       - name: Build Tauri app (debug)
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         with:
           projectPath: peko-desktop
           args: --debug
@@ -179,6 +187,7 @@ jobs:
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: peko-desktop/src-tauri
@@ -194,7 +203,7 @@ jobs:
         run: cargo audit
 
       - name: Audit npm dependencies
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: peko-desktop
@@ -213,9 +222,9 @@ jobs:
           fetch-depth: 0
 
       - name: Detect secrets
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@d411fff7b8879a62509f3fa98c07f247ac089a51 # v3.95.5
         with:
           path: ./peko-desktop
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
-          extra_args: --debug --only-verified
+          extra_args: --only-verified
