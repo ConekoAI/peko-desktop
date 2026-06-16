@@ -109,12 +109,10 @@ impl IpcClient {
 
     #[cfg(unix)]
     pub async fn new() -> Result<Self> {
-        use std::path::PathBuf;
         let tmp =
             std::env::temp_dir().join(format!("peko_desktop_ipc_{}.sock", std::process::id()));
         let _ = tokio::fs::remove_file(&tmp).await;
         let socket = tokio::net::UnixDatagram::bind(&tmp)
-            .await
             .map_err(|e| IpcError::ConnectionFailed(e.to_string()))?;
         Ok(Self {
             socket,
