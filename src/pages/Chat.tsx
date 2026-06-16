@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 import type { StreamEvent, SessionSummary } from "../types";
 
 interface ChatItem {
@@ -89,7 +90,7 @@ function ChatMessage({ item }: { item: ChatItem }) {
             <p className="whitespace-pre-wrap break-all text-red-600 dark:text-red-400">{event.content ?? ""}</p>
           ) : (
             <div className="prose prose-sm dark:prose-invert max-w-none break-all">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                 {event.content ?? ""}
               </ReactMarkdown>
             </div>
