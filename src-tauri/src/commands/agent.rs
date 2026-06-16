@@ -92,7 +92,10 @@ fn extract_extensions_from_config(config: &serde_json::Value) -> Vec<String> {
 }
 
 fn parse_agent_summary(value: &serde_json::Value, runtime_id: &str) -> Option<AgentSummary> {
-    let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
+    let config = value
+        .get("config")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
     Some(AgentSummary {
         name: value.get("name")?.as_str()?.to_string(),
         description: config
@@ -104,15 +107,25 @@ fn parse_agent_summary(value: &serde_json::Value, runtime_id: &str) -> Option<Ag
         memberships: value
             .get("memberships")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
             .unwrap_or_default(),
-        session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+        session_count: value
+            .get("session_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize,
         runtime_id: runtime_id.to_string(),
     })
 }
 
 fn parse_agent_detail(value: &serde_json::Value, runtime_id: &str) -> Option<AgentDetail> {
-    let config = value.get("config").cloned().unwrap_or(serde_json::json!({}));
+    let config = value
+        .get("config")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
     let config_path = value.get("config_path").and_then(|v| v.as_str());
     let (created_at, updated_at) = config_path
         .and_then(|path| std::fs::metadata(path).ok())
@@ -158,9 +171,16 @@ fn parse_agent_detail(value: &serde_json::Value, runtime_id: &str) -> Option<Age
         memberships: value
             .get("memberships")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
             .unwrap_or_default(),
-        session_count: value.get("session_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize,
+        session_count: value
+            .get("session_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize,
         system_prompt: extract_system_prompt(value, &config),
         tools: extensions.clone(),
         extensions,
@@ -348,16 +368,16 @@ async fn dispatch_agent_list(
 
     let value = match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             client.list_agents().await.map_err(|e| e.to_string())?
         }
-        crate::state::RuntimeConnectionType::Remote => {
-            state
-                .pekohub_client
-                .list_agents(runtime_id)
-                .await
-                .map_err(|e| e.to_string())?
-        }
+        crate::state::RuntimeConnectionType::Remote => state
+            .pekohub_client
+            .list_agents(runtime_id)
+            .await
+            .map_err(|e| e.to_string())?,
     };
 
     let agents = value
@@ -384,7 +404,9 @@ async fn dispatch_agent_show(
 
     let value = match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             client.get_agent(name).await.map_err(|e| e.to_string())?
         }
         crate::state::RuntimeConnectionType::Remote => {
@@ -428,7 +450,9 @@ async fn dispatch_agent_create(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let _value = client
                 .create_agent(name, provider, model)
                 .await
@@ -464,7 +488,9 @@ async fn dispatch_agent_remove(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let value = client.delete_agent(name).await.map_err(|e| e.to_string())?;
             let msg = value
                 .get("message")
@@ -489,10 +515,7 @@ async fn dispatch_agent_remove(
                 .into_iter()
                 .find(|a| a.get("name").and_then(|v| v.as_str()) == Some(name));
             if let Some(inst) = instance {
-                let id = inst
-                    .get("id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or(name);
+                let id = inst.get("id").and_then(|v| v.as_str()).unwrap_or(name);
                 state
                     .pekohub_client
                     .delete_agent(id)
@@ -567,9 +590,17 @@ pub async fn agent_export(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let resp = client
-                .export_agent(&name, None, Some(&path), false, with_extensions.unwrap_or(false))
+                .export_agent(
+                    &name,
+                    None,
+                    Some(&path),
+                    false,
+                    with_extensions.unwrap_or(false),
+                )
                 .await
                 .map_err(|e| e.to_string())?;
             if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
@@ -579,7 +610,10 @@ pub async fn agent_export(
                     .unwrap_or("Unknown error")
                     .to_string());
             }
-            let output = resp.get("output_path").and_then(|v| v.as_str()).unwrap_or("unknown");
+            let output = resp
+                .get("output_path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
             Ok(format!("Agent exported to {}", output))
         }
         crate::state::RuntimeConnectionType::Remote => {
@@ -603,7 +637,9 @@ pub async fn agent_update(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
 
             let model = payload
                 .get("model")
@@ -664,7 +700,9 @@ pub async fn agent_import(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let resp = client
                 .import_agent(&path, None, None)
                 .await
@@ -676,7 +714,10 @@ pub async fn agent_import(
                     .unwrap_or("Unknown error")
                     .to_string());
             }
-            let name = resp.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
+            let name = resp
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
             Ok(format!("Agent '{}' imported", name))
         }
         crate::state::RuntimeConnectionType::Remote => {
@@ -711,7 +752,9 @@ pub async fn agent_set_status(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let resp = client
                 .set_instance_status(&name, &status)
                 .await
@@ -753,7 +796,9 @@ pub async fn agent_set_exposure(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let resp = client
                 .set_instance_exposure(&name, &exposure)
                 .await
@@ -793,7 +838,9 @@ pub async fn provider_list(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let value = client.list_providers().await.map_err(|e| e.to_string())?;
             if value.get("type").and_then(|v| v.as_str()) == Some("error") {
                 return Err(value

@@ -73,7 +73,10 @@ mod tests {
             assert_eq!(after_delete, None);
         } else {
             // Keyring may not be available in CI, so just verify the error is handled
-            println!("Keyring not available in test environment: {:?}", set_result);
+            println!(
+                "Keyring not available in test environment: {:?}",
+                set_result
+            );
         }
     }
 }

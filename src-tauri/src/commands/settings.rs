@@ -11,8 +11,8 @@ fn read_config() -> Result<toml::Table, String> {
     if !path.exists() {
         return Ok(toml::Table::new());
     }
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("failed to read config: {}", e))?;
+    let content =
+        std::fs::read_to_string(&path).map_err(|e| format!("failed to read config: {}", e))?;
     content
         .parse::<toml::Table>()
         .map_err(|e| format!("failed to parse config: {}", e))
@@ -24,10 +24,9 @@ fn write_config(table: &toml::Table) -> Result<(), String> {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("failed to create config directory: {}", e))?;
     }
-    let content = toml::to_string_pretty(table)
-        .map_err(|e| format!("failed to serialize config: {}", e))?;
-    std::fs::write(&path, content)
-        .map_err(|e| format!("failed to write config: {}", e))
+    let content =
+        toml::to_string_pretty(table).map_err(|e| format!("failed to serialize config: {}", e))?;
+    std::fs::write(&path, content).map_err(|e| format!("failed to write config: {}", e))
 }
 
 fn get_nested(table: &toml::Table, key: &str) -> Option<String> {
@@ -84,7 +83,10 @@ mod tests {
         let mut inner = toml::Table::new();
         inner.insert("key".to_string(), toml::Value::String("secret".to_string()));
         table.insert("provider".to_string(), toml::Value::Table(inner));
-        assert_eq!(get_nested(&table, "provider.key"), Some("secret".to_string()));
+        assert_eq!(
+            get_nested(&table, "provider.key"),
+            Some("secret".to_string())
+        );
     }
 
     #[test]
@@ -119,7 +121,10 @@ mod tests {
     fn test_settings_list_flattens_nested_table() {
         let mut table = toml::Table::new();
         let mut inner = toml::Table::new();
-        inner.insert("host".to_string(), toml::Value::String("localhost".to_string()));
+        inner.insert(
+            "host".to_string(),
+            toml::Value::String("localhost".to_string()),
+        );
         inner.insert("port".to_string(), toml::Value::Integer(8080));
         table.insert("server".to_string(), toml::Value::Table(inner));
         table.insert("debug".to_string(), toml::Value::Boolean(true));
@@ -219,20 +224,17 @@ pub fn settings_set(key: String, value: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn credential_get(provider: String) -> Result<Option<String>, String> {
-    crate::vault::get_credential("peko", &provider)
-        .map_err(|e| e.to_string())
+    crate::vault::get_credential("peko", &provider).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn credential_set(provider: String, key: String) -> Result<(), String> {
-    crate::vault::set_credential("peko", &provider, &key)
-        .map_err(|e| e.to_string())
+    crate::vault::set_credential("peko", &provider, &key).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn credential_delete(provider: String) -> Result<(), String> {
-    crate::vault::delete_credential("peko", &provider)
-        .map_err(|e| e.to_string())
+    crate::vault::delete_credential("peko", &provider).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

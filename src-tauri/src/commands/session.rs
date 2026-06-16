@@ -69,7 +69,13 @@ fn parse_session_summary(
         .as_str()?
         .to_string();
     let status = active_session_id
-        .map(|active| if active == session_id { "active" } else { "inactive" })
+        .map(|active| {
+            if active == session_id {
+                "active"
+            } else {
+                "inactive"
+            }
+        })
         .unwrap_or("unknown")
         .to_string();
 
@@ -270,8 +276,13 @@ async fn dispatch_session_list(
 
     let value = match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-            client.list_sessions(agent).await.map_err(|e| e.to_string())?
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
+            client
+                .list_sessions(agent)
+                .await
+                .map_err(|e| e.to_string())?
         }
         crate::state::RuntimeConnectionType::Remote => {
             // For remote, we need the instance_id for the agent
@@ -331,7 +342,9 @@ async fn dispatch_session_show(
 
     let value = match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             client
                 .show_session(&agent, None, &session_id, false)
                 .await
@@ -396,7 +409,9 @@ async fn dispatch_session_history(
 
     let value = match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             client
                 .show_session(&agent, None, &session_id, true)
                 .await
@@ -445,7 +460,10 @@ async fn dispatch_session_history(
                     if event_type != "Message" {
                         return None;
                     }
-                    let role = event.get("role").and_then(|v| v.as_str()).unwrap_or("unknown");
+                    let role = event
+                        .get("role")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown");
                     if role == "system" {
                         return None;
                     }
@@ -538,7 +556,9 @@ pub async fn session_branch(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let (agent, session_id) = if id.contains('/') {
                 let parts: Vec<&str> = id.splitn(2, '/').collect();
                 (parts[0].to_string(), parts[1].to_string())
@@ -582,7 +602,9 @@ pub async fn session_compact(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let (agent, session_id) = if id.contains('/') {
                 let parts: Vec<&str> = id.splitn(2, '/').collect();
                 (parts[0].to_string(), parts[1].to_string())
@@ -600,7 +622,10 @@ pub async fn session_compact(
                     .unwrap_or("Unknown error")
                     .to_string());
             }
-            let saved = resp.get("tokens_saved").and_then(|v| v.as_u64()).unwrap_or(0);
+            let saved = resp
+                .get("tokens_saved")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
             Ok(format!("Session compacted, saved {} tokens", saved))
         }
         crate::state::RuntimeConnectionType::Remote => {
@@ -648,7 +673,9 @@ pub async fn session_send(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             client
                 .execute(&app, agent, message, session_id)
                 .await

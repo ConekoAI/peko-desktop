@@ -20,7 +20,7 @@ pub fn run() {
         .setup(|app| {
             // Build system tray
             let _ = tray::build_tray(app.handle())?;
-            
+
             // Auto-start daemon on app launch (non-blocking)
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -33,7 +33,7 @@ pub fn run() {
                     }
                 }
             });
-            
+
             Ok(())
         })
         .invoke_handler(commands::register_commands())

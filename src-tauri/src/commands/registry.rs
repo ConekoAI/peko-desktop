@@ -52,15 +52,30 @@ pub async fn registry_pull(ref_str: String) -> Result<String, String> {
         .ok()
         .flatten();
 
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let resp = client.registry_pull(&ref_str, None, false, token.as_deref(), None).await.map_err(|e| e.to_string())?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .registry_pull(&ref_str, None, false, token.as_deref(), None)
+        .await
+        .map_err(|e| e.to_string())?;
 
     if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
-        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+        return Err(resp
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown error")
+            .to_string());
     }
 
-    let name = resp.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
-    let version = resp.get("version").and_then(|v| v.as_str()).unwrap_or("unknown");
+    let name = resp
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let version = resp
+        .get("version")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
     Ok(format!("Pulled {}:{}", name, version))
 }
 
@@ -93,7 +108,11 @@ pub struct SharedInstanceItem {
 pub async fn shared_instances_list(
     state: tauri::State<'_, crate::state::AppState>,
 ) -> Result<Vec<SharedInstanceItem>, String> {
-    let result = state.pekohub_client.list_shared_instances().await.map_err(|e| e.to_string())?;
+    let result = state
+        .pekohub_client
+        .list_shared_instances()
+        .await
+        .map_err(|e| e.to_string())?;
     let instances = result
         .get("instances")
         .and_then(|v| v.as_array())
@@ -105,7 +124,10 @@ pub async fn shared_instances_list(
                         owner_id: v.get("ownerId")?.as_i64()?,
                         owner_name: v.get("ownerName")?.as_str()?.to_string(),
                         agent_name: v.get("agentName")?.as_str()?.to_string(),
-                        public_name: v.get("publicName").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                        public_name: v
+                            .get("publicName")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string()),
                         status: v.get("status")?.as_str()?.to_string(),
                     })
                 })

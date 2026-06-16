@@ -40,7 +40,9 @@ pub async fn system_status(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let value = client.system_status().await.map_err(|e| e.to_string())?;
             Ok(SystemStatus {
                 version: value
@@ -118,7 +120,9 @@ pub async fn system_doctor(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let value = client.system_doctor().await.map_err(|e| e.to_string())?;
             let checks: Vec<CheckResult> = value
                 .get("checks")
@@ -157,7 +161,9 @@ pub async fn system_clean(
 
     match runtime.connection_type {
         crate::state::RuntimeConnectionType::Local => {
-            let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| e.to_string())?;
             let resp = client
                 .system_clean(Some("all"))
                 .await
@@ -174,7 +180,10 @@ pub async fn system_clean(
                 .and_then(|v| v.as_array())
                 .map(|arr| arr.len())
                 .unwrap_or(0);
-            let bytes = resp.get("bytes_freed").and_then(|v| v.as_u64()).unwrap_or(0);
+            let bytes = resp
+                .get("bytes_freed")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
             Ok(format!("Cleaned {} items, freed {} bytes", cleaned, bytes))
         }
         crate::state::RuntimeConnectionType::Remote => {
