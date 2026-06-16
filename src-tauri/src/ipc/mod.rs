@@ -53,7 +53,11 @@ pub enum StreamEvent {
     Chunk { content: String, timestamp: String },
     /// Tool call started
     #[serde(rename = "tool_call")]
-    ToolCall { name: String, arguments: String, timestamp: String },
+    ToolCall {
+        name: String,
+        arguments: String,
+        timestamp: String,
+    },
     /// Tool execution result
     #[serde(rename = "tool_result")]
     ToolResult { output: String, timestamp: String },
@@ -69,7 +73,9 @@ pub enum StreamEvent {
 /// Returns true if the daemon rejected the request due to version.
 pub fn is_version_mismatch(response: &serde_json::Value) -> bool {
     response.get("type").and_then(|v| v.as_str()) == Some("error")
-        && response.get("message").and_then(|v| v.as_str())
+        && response
+            .get("message")
+            .and_then(|v| v.as_str())
             .map(|m| m.contains("protocol version") || m.contains("unsupported"))
             .unwrap_or(false)
 }
@@ -103,14 +109,10 @@ impl IpcClient {
 
     #[cfg(unix)]
     pub async fn new() -> Result<Self> {
-        use std::path::PathBuf;
-        let tmp = std::env::temp_dir().join(format!(
-            "peko_desktop_ipc_{}.sock",
-            std::process::id()
-        ));
+        let tmp =
+            std::env::temp_dir().join(format!("peko_desktop_ipc_{}.sock", std::process::id()));
         let _ = tokio::fs::remove_file(&tmp).await;
         let socket = tokio::net::UnixDatagram::bind(&tmp)
-            .await
             .map_err(|e| IpcError::ConnectionFailed(e.to_string()))?;
         Ok(Self {
             socket,
@@ -120,8 +122,8 @@ impl IpcClient {
 
     /// Send a request and wait for a single response (non-streaming).
     async fn request_response(&self, request: serde_json::Value) -> Result<serde_json::Value> {
-        let bytes = serde_json::to_vec(&request)
-            .map_err(|e| IpcError::Serialization(e.to_string()))?;
+        let bytes =
+            serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
         let mut buf = vec![0u8; 65536];
 
         #[cfg(windows)]
@@ -260,7 +262,14 @@ impl IpcClient {
     }
 
     /// Export an agent
-    pub async fn export_agent(&self, name: &str, team: Option<&str>, output: Option<&str>, include_sessions: bool, with_extensions: bool) -> Result<serde_json::Value> {
+    pub async fn export_agent(
+        &self,
+        name: &str,
+        team: Option<&str>,
+        output: Option<&str>,
+        include_sessions: bool,
+        with_extensions: bool,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "agent_export",
@@ -276,7 +285,12 @@ impl IpcClient {
     }
 
     /// Import an agent
-    pub async fn import_agent(&self, file_path: &str, name: Option<&str>, team: Option<&str>) -> Result<serde_json::Value> {
+    pub async fn import_agent(
+        &self,
+        file_path: &str,
+        name: Option<&str>,
+        team: Option<&str>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "agent_import",
@@ -313,7 +327,12 @@ impl IpcClient {
     }
 
     /// Export a team
-    pub async fn export_team(&self, name: &str, output: Option<&str>, include_sessions: bool) -> Result<serde_json::Value> {
+    pub async fn export_team(
+        &self,
+        name: &str,
+        output: Option<&str>,
+        include_sessions: bool,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "team_export",
@@ -327,7 +346,12 @@ impl IpcClient {
     }
 
     /// Import a team
-    pub async fn import_team(&self, file_path: &str, name: Option<&str>, force: bool) -> Result<serde_json::Value> {
+    pub async fn import_team(
+        &self,
+        file_path: &str,
+        name: Option<&str>,
+        force: bool,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "team_import",
@@ -340,7 +364,12 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    pub async fn create_team(&self, name: &str, description: Option<&str>, members: Option<Vec<String>>) -> Result<serde_json::Value> {
+    pub async fn create_team(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        members: Option<Vec<String>>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "team_create",
@@ -425,7 +454,13 @@ impl IpcClient {
 
     /// Show session details with optional history.
     /// `agent` and `session_id` are required. `team` defaults to "default".
-    pub async fn show_session(&self, agent: &str, team: Option<&str>, session_id: &str, history: bool) -> Result<serde_json::Value> {
+    pub async fn show_session(
+        &self,
+        agent: &str,
+        team: Option<&str>,
+        session_id: &str,
+        history: bool,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "session_show",
@@ -504,7 +539,11 @@ impl IpcClient {
     // ── Extension ─────────────────────────────────────────────────
 
     /// List extensions from daemon
-    pub async fn list_extensions(&self, enabled_only: bool, ext_type: Option<&str>) -> Result<serde_json::Value> {
+    pub async fn list_extensions(
+        &self,
+        enabled_only: bool,
+        ext_type: Option<&str>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "extension_list",
@@ -517,7 +556,11 @@ impl IpcClient {
     }
 
     /// Enable an extension
-    pub async fn enable_extension(&self, id: &str, target: Option<&str>) -> Result<serde_json::Value> {
+    pub async fn enable_extension(
+        &self,
+        id: &str,
+        target: Option<&str>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "extension_enable",
@@ -530,7 +573,11 @@ impl IpcClient {
     }
 
     /// Disable an extension
-    pub async fn disable_extension(&self, id: &str, target: Option<&str>) -> Result<serde_json::Value> {
+    pub async fn disable_extension(
+        &self,
+        id: &str,
+        target: Option<&str>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "extension_disable",
@@ -581,7 +628,12 @@ impl IpcClient {
     }
 
     /// Add a cron job (simplified)
-    pub async fn cron_add_simple(&self, name: &str, schedule: &str, message: &str) -> Result<serde_json::Value> {
+    pub async fn cron_add_simple(
+        &self,
+        name: &str,
+        schedule: &str,
+        message: &str,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "cron_add_simple",
@@ -595,7 +647,13 @@ impl IpcClient {
     }
 
     /// Branch a session
-    pub async fn branch_session(&self, agent: &str, team: Option<&str>, session_id: &str, label: Option<&str>) -> Result<serde_json::Value> {
+    pub async fn branch_session(
+        &self,
+        agent: &str,
+        team: Option<&str>,
+        session_id: &str,
+        label: Option<&str>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "session_branch",
@@ -610,7 +668,14 @@ impl IpcClient {
     }
 
     /// Compact a session
-    pub async fn compact_session(&self, agent: &str, team: Option<&str>, session_id: &str, dry_run: bool, instruction: Option<&str>) -> Result<serde_json::Value> {
+    pub async fn compact_session(
+        &self,
+        agent: &str,
+        team: Option<&str>,
+        session_id: &str,
+        dry_run: bool,
+        instruction: Option<&str>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "session_compact",
@@ -626,7 +691,14 @@ impl IpcClient {
     }
 
     /// Pull an agent from registry
-    pub async fn registry_pull(&self, registry_ref: &str, team: Option<&str>, force: bool, token: Option<&str>, host: Option<&str>) -> Result<serde_json::Value> {
+    pub async fn registry_pull(
+        &self,
+        registry_ref: &str,
+        team: Option<&str>,
+        force: bool,
+        token: Option<&str>,
+        host: Option<&str>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "registry_pull",
@@ -642,7 +714,11 @@ impl IpcClient {
     }
 
     /// Set instance status (online/offline) for tunnel-published agents
-    pub async fn set_instance_status(&self, agent_name: &str, status: &str) -> Result<serde_json::Value> {
+    pub async fn set_instance_status(
+        &self,
+        agent_name: &str,
+        status: &str,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "instance_set_status",
@@ -655,7 +731,11 @@ impl IpcClient {
     }
 
     /// Set instance exposure (unexposed/private/public) for tunnel-published agents
-    pub async fn set_instance_exposure(&self, agent_name: &str, exposure: &str) -> Result<serde_json::Value> {
+    pub async fn set_instance_exposure(
+        &self,
+        agent_name: &str,
+        exposure: &str,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "instance_set_exposure",
@@ -693,8 +773,8 @@ impl IpcClient {
             "user": "desktop",
         });
 
-        let bytes = serde_json::to_vec(&request)
-            .map_err(|e| IpcError::Serialization(e.to_string()))?;
+        let bytes =
+            serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
         let mut buf = vec![0u8; 65536];
 
         #[cfg(windows)]
@@ -715,7 +795,12 @@ impl IpcClient {
 
         // Read streaming responses until Done or Error
         loop {
-            let len = match tokio::time::timeout(Duration::from_secs(30), self.socket.recv_from(&mut buf)).await {
+            let len = match tokio::time::timeout(
+                Duration::from_secs(30),
+                self.socket.recv_from(&mut buf),
+            )
+            .await
+            {
                 Ok(Ok((len, _))) => len,
                 Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
                 Err(_) => return Err(IpcError::Timeout),
@@ -736,20 +821,38 @@ impl IpcClient {
 
             let event = match packet_type {
                 "text" => {
-                    let chunk = raw.get("chunk").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    StreamEvent::Chunk { content: chunk, timestamp }
+                    let chunk = raw
+                        .get("chunk")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    StreamEvent::Chunk {
+                        content: chunk,
+                        timestamp,
+                    }
                 }
                 "done" => {
                     let success = raw.get("success").and_then(|v| v.as_bool()).unwrap_or(true);
                     if !success {
-                        let error_msg = raw.get("error").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string();
-                        StreamEvent::Error { message: error_msg, timestamp }
+                        let error_msg = raw
+                            .get("error")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("Unknown error")
+                            .to_string();
+                        StreamEvent::Error {
+                            message: error_msg,
+                            timestamp,
+                        }
                     } else {
                         StreamEvent::Done { timestamp }
                     }
                 }
                 "error" => {
-                    let message = raw.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string();
+                    let message = raw
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unknown error")
+                        .to_string();
                     StreamEvent::Error { message, timestamp }
                 }
                 "heartbeat" => {
@@ -780,7 +883,11 @@ impl IpcClient {
 fn default_socket_path() -> std::path::PathBuf {
     dirs::home_dir()
         .map(|d| d.join(".peko").join("run").join("daemon.sock"))
-        .unwrap_or_else(|| std::path::PathBuf::from(".peko").join("run").join("daemon.sock"))
+        .unwrap_or_else(|| {
+            std::path::PathBuf::from(".peko")
+                .join("run")
+                .join("daemon.sock")
+        })
 }
 
 #[cfg(test)]
@@ -789,11 +896,14 @@ mod tests {
 
     #[test]
     fn test_stream_event_serialization() {
-        let event = StreamEvent::Chunk { content: "hello".to_string(), timestamp: "0d 12:00:00 UTC".to_string() };
+        let event = StreamEvent::Chunk {
+            content: "hello".to_string(),
+            timestamp: "0d 12:00:00 UTC".to_string(),
+        };
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("hello"));
         assert!(json.contains("chunk"));
-        
+
         let deserialized: StreamEvent = serde_json::from_str(&json).unwrap();
         match deserialized {
             StreamEvent::Chunk { content, .. } => assert_eq!(content, "hello"),

@@ -100,7 +100,9 @@ mod tests {
 
 #[tauri::command]
 pub async fn cron_list() -> Result<Vec<CronJob>, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
     let value = client.cron_list().await.map_err(|e| e.to_string())?;
     let jobs = value
         .get("jobs")
@@ -112,20 +114,34 @@ pub async fn cron_list() -> Result<Vec<CronJob>, String> {
 
 #[tauri::command]
 pub async fn cron_add(name: String, schedule: String, message: String) -> Result<String, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
-    let resp = client.cron_add_simple(&name, &schedule, &message).await.map_err(|e| e.to_string())?;
-    
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .cron_add_simple(&name, &schedule, &message)
+        .await
+        .map_err(|e| e.to_string())?;
+
     if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
-        return Err(resp.get("message").and_then(|v| v.as_str()).unwrap_or("Unknown error").to_string());
+        return Err(resp
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown error")
+            .to_string());
     }
-    
-    let job_id = resp.get("job_id").and_then(|v| v.as_str()).unwrap_or("unknown");
+
+    let job_id = resp
+        .get("job_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
     Ok(format!("Cron job {} added", job_id))
 }
 
 #[tauri::command]
 pub async fn cron_remove(id: String) -> Result<String, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
     let value = client.cron_remove(&id).await.map_err(|e| e.to_string())?;
     if value.get("type").and_then(|v| v.as_str()) == Some("error") {
         return Err(value
@@ -139,7 +155,9 @@ pub async fn cron_remove(id: String) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn cron_run(id: String) -> Result<String, String> {
-    let client = crate::ipc::IpcClient::new().await.map_err(|e| e.to_string())?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
     let value = client.cron_run(&id).await.map_err(|e| e.to_string())?;
     if value.get("type").and_then(|v| v.as_str()) == Some("error") {
         return Err(value

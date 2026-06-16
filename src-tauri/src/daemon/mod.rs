@@ -85,7 +85,9 @@ pub fn is_running() -> bool {
 
 /// Start the daemon process
 pub fn start() -> Result<u32> {
-    let mut guard = DAEMON_CHILD.lock().map_err(|e| DaemonError::StartFailed(e.to_string()))?;
+    let mut guard = DAEMON_CHILD
+        .lock()
+        .map_err(|e| DaemonError::StartFailed(e.to_string()))?;
 
     if is_running() {
         return Err(DaemonError::AlreadyRunning);
@@ -113,7 +115,9 @@ pub fn start() -> Result<u32> {
 
 /// Stop the daemon gracefully via IPC shutdown packet, then kill if needed
 pub fn stop() -> Result<()> {
-    let mut guard = DAEMON_CHILD.lock().map_err(|e| DaemonError::StopFailed(e.to_string()))?;
+    let mut guard = DAEMON_CHILD
+        .lock()
+        .map_err(|e| DaemonError::StopFailed(e.to_string()))?;
 
     if !is_running() {
         *guard = None;
@@ -177,10 +181,10 @@ pub fn ensure_running() -> Result<u32> {
             }
         }
     }
-    
+
     // Not running — start it
     start()?;
-    
+
     // Wait for PID file with retry
     let pid_path = default_pid_path();
     for _ in 0..20 {
@@ -193,9 +197,9 @@ pub fn ensure_running() -> Result<u32> {
             }
         }
     }
-    
+
     Err(DaemonError::StartFailed(
-        "daemon started but did not write PID file within 10 seconds".to_string()
+        "daemon started but did not write PID file within 10 seconds".to_string(),
     ))
 }
 
@@ -297,36 +301,50 @@ fn try_ping_ipc() -> Result<PongResponse> {
     #[cfg(windows)]
     {
         use std::net::UdpSocket;
-        let socket = UdpSocket::bind("127.0.0.1:0")
+        let socket =
+            UdpSocket::bind("127.0.0.1:0").map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
+        socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
             .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
-        socket.set_read_timeout(Some(Duration::from_secs(2)))
+        socket
+            .send_to(&bytes, "127.0.0.1:11435")
             .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
-        socket.send_to(&bytes, "127.0.0.1:11435")
-            .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
-        let (len, _) = socket.recv_from(&mut buf)
+        let (len, _) = socket
+            .recv_from(&mut buf)
             .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
 
         let response: serde_json::Value = serde_json::from_slice(&buf[..len])
             .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
 
         Ok(PongResponse {
-            version: response.get("version").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
-            uptime_secs: response.get("uptime_secs").and_then(|v| v.as_u64()).unwrap_or(0),
+            version: response
+                .get("version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            uptime_secs: response
+                .get("uptime_secs")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0),
         })
     }
     #[cfg(unix)]
     {
         use std::os::unix::net::UnixDatagram;
         let sock_path = default_socket_path();
-        let tmp = std::env::temp_dir().join(format!("peko_desktop_ping_{}.sock", std::process::id()));
+        let tmp =
+            std::env::temp_dir().join(format!("peko_desktop_ping_{}.sock", std::process::id()));
         let _ = std::fs::remove_file(&tmp);
-        let socket = UnixDatagram::bind(&tmp)
+        let socket =
+            UnixDatagram::bind(&tmp).map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
+        socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
             .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
-        socket.set_read_timeout(Some(Duration::from_secs(2)))
+        socket
+            .send_to(&bytes, &sock_path)
             .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
-        socket.send_to(&bytes, &sock_path)
-            .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
-        let (len, _) = socket.recv_from(&mut buf)
+        let (len, _) = socket
+            .recv_from(&mut buf)
             .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
         let _ = std::fs::remove_file(&tmp);
 
@@ -334,8 +352,15 @@ fn try_ping_ipc() -> Result<PongResponse> {
             .map_err(|e| DaemonError::StatusFailed(e.to_string()))?;
 
         Ok(PongResponse {
-            version: response.get("version").and_then(|v| v.as_str()).unwrap_or("unknown").to_string(),
-            uptime_secs: response.get("uptime_secs").and_then(|v| v.as_u64()).unwrap_or(0),
+            version: response
+                .get("version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            uptime_secs: response
+                .get("uptime_secs")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0),
         })
     }
 }

@@ -78,7 +78,12 @@ impl PekohubClient {
 
     /// Send a chat message to an agent on a remote runtime.
     /// Returns the HTTP response body as text (usually SSE or JSON).
-    pub async fn chat(&self, instance_id: &str, message: &str, session_id: Option<&str>) -> Result<String, String> {
+    pub async fn chat(
+        &self,
+        instance_id: &str,
+        message: &str,
+        session_id: Option<&str>,
+    ) -> Result<String, String> {
         let url = format!("{}/v1/instances/{}/chat", self.base_url, instance_id);
         let mut body = json!({ "message": message });
         if let Some(sid) = session_id {
@@ -158,7 +163,9 @@ impl PekohubClient {
                                 });
                             }
                             if json.get("done").and_then(|v| v.as_bool()) == Some(true) {
-                                on_event(crate::ipc::StreamEvent::Done { timestamp: timestamp.clone() });
+                                on_event(crate::ipc::StreamEvent::Done {
+                                    timestamp: timestamp.clone(),
+                                });
                             }
                             if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
                                 on_event(crate::ipc::StreamEvent::Error {

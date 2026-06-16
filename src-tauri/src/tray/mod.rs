@@ -22,18 +22,21 @@ pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
     let stop_daemon_i = MenuItem::with_id(app, "stop_daemon", "Stop Daemon", true, None::<&str>)
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
-    let separator = PredefinedMenuItem::separator(app)
-        .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
+    let separator =
+        PredefinedMenuItem::separator(app).map_err(|e| TrayError::BuildFailed(e.to_string()))?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
 
-    let menu = Menu::with_items(app, &[
-        &open_i,
-        &start_daemon_i,
-        &stop_daemon_i,
-        &separator,
-        &quit_i,
-    ])
+    let menu = Menu::with_items(
+        app,
+        &[
+            &open_i,
+            &start_daemon_i,
+            &stop_daemon_i,
+            &separator,
+            &quit_i,
+        ],
+    )
     .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
 
     let tray = TrayIconBuilder::new()

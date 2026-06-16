@@ -67,7 +67,10 @@ pub async fn runtime_add(
             let mut updated = conn;
             updated.status = RuntimeStatus::Error;
             state.set_runtime(updated.clone()).await;
-            Err(format!("Failed to connect to remote runtime '{}': {}", id, e))
+            Err(format!(
+                "Failed to connect to remote runtime '{}': {}",
+                id, e
+            ))
         }
     }
 }
@@ -100,13 +103,11 @@ pub async fn runtime_reconnect(
         RuntimeConnectionType::Local => {
             state.check_local_runtime().await.map_err(|e| e.to_string())
         }
-        RuntimeConnectionType::Remote => {
-            state
-                .pekohub_client
-                .system_status(&conn.id)
-                .await
-                .map(|_| ())
-        }
+        RuntimeConnectionType::Remote => state
+            .pekohub_client
+            .system_status(&conn.id)
+            .await
+            .map(|_| ()),
     };
 
     match result {
@@ -209,9 +210,13 @@ mod tests {
             })
             .await;
 
-        let summary = runtime_rename(fake_state(&state), "local".to_string(), "New Name".to_string())
-            .await
-            .unwrap();
+        let summary = runtime_rename(
+            fake_state(&state),
+            "local".to_string(),
+            "New Name".to_string(),
+        )
+        .await
+        .unwrap();
         assert_eq!(summary.name, "New Name");
         let fetched = state.get_runtime("local").await.unwrap();
         assert_eq!(fetched.name, "New Name");
@@ -220,7 +225,8 @@ mod tests {
     #[tokio::test]
     async fn test_runtime_rename_not_found() {
         let state = test_state();
-        let result = runtime_rename(fake_state(&state), "missing".to_string(), "X".to_string()).await;
+        let result =
+            runtime_rename(fake_state(&state), "missing".to_string(), "X".to_string()).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
     }
