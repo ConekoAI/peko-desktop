@@ -9,6 +9,7 @@ import {
 } from "../hooks/useSettings";
 import { useDaemonStatus, useDaemonStart, useDaemonStop, useDaemonRestart } from "../hooks/useDaemon";
 import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime, useOAuthConnect, startOAuthConnect } from "../hooks/useRuntimes";
+import { useProviders } from "../hooks/useAgents";
 import { getTheme, setTheme } from "../lib/theme";
 import {
   Save,
@@ -38,6 +39,66 @@ import {
 import type { Credential, RuntimeConnection } from "../types";
 
 type Tab = "general" | "daemon" | "credentials" | "runtimes" | "about";
+
+// Canonical provider list — used only as a fallback when the runtime hasn't
+// returned a `provider_list` yet (e.g. daemon not running, cold start). Kept
+// in sync with the runtime manifest as best we can.
+export const FALLBACK_PROVIDER_IDS = [
+  "openai",
+  "anthropic",
+  "kimi",
+  "ollama",
+  "azure",
+  "google",
+] as const;
+
+export interface ProviderItem {
+  id: string;
+  displayName: string;
+}
+
+/**
+ * Resolve the credential-tab provider list.
+ * - When the runtime returns providers, use them (with their `displayName`).
+ * - While loading and nothing has returned yet, render nothing (avoid flicker).
+ * - When loading finished with an empty list, fall back to the canonical list
+ *   so the UI never becomes unusable.
+ */
+export function resolveProviderItems(
+  providers: ReadonlyArray<{ id: string; displayName?: string }> | undefined,
+  isLoading: boolean,
+): ProviderItem[] {
+  if (providers && providers.length > 0) {
+    return providers.map((p) => ({
+      id: p.id,
+      displayName: p.displayName || p.id,
+    }));
+  }
+  if (isLoading) return [];
+  return FALLBACK_PROVIDER_IDS.map((id) => ({ id, displayName: id }));
+}
+
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
+export const LOG_LEVELS: readonly LogLevel[] = [
+  "trace",
+  "debug",
+  "info",
+  "warn",
+  "error",
+] as const;
+
+/**
+ * Pick the current log level from a flat settings list, defaulting to "info"
+ * if the key isn't set yet.
+ */
+export function resolveLogLevel(
+  settings: ReadonlyArray<{ key: string; value: string }> | undefined,
+): LogLevel {
+  const raw = settings?.find((s) => s.key === "daemon.log_level")?.value;
+  return (LOG_LEVELS as readonly string[]).includes(raw ?? "")
+    ? (raw as LogLevel)
+    : "info";
+}
 
 function GeneralTab() {
   const { data: settings } = useSettings();
@@ -161,10 +222,18 @@ function GeneralTab() {
 
 function DaemonTab() {
   const { data: daemon, isLoading } = useDaemonStatus();
+  const { data: settings } = useSettings();
+  const setSetting = useSetSetting();
   const start = useDaemonStart();
   const stop = useDaemonStop();
   const restart = useDaemonRestart();
   const isMutating = start.isPending || stop.isPending || restart.isPending;
+  const currentLogLevel = resolveLogLevel(settings);
+
+  function handleLogLevelChange(level: LogLevel) {
+    if (level === currentLogLevel) return;
+    setSetting.mutate({ key: "daemon.log_level", value: level });
+  }
 
   return (
     <div className="space-y-6">
@@ -222,14 +291,25 @@ function DaemonTab() {
       <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-200">Log Level</h3>
         <div className="flex gap-2">
-          {(["trace", "debug", "info", "warn", "error"] as const).map((level) => (
-            <button
-              key={level}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              {level}
-            </button>
-          ))}
+          {LOG_LEVELS.map((level) => {
+            const isActive = level === currentLogLevel;
+            return (
+              <button
+                key={level}
+                onClick={() => handleLogLevelChange(level)}
+                disabled={setSetting.isPending}
+                aria-pressed={isActive}
+                className={[
+                  "rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors disabled:opacity-50",
+                  isActive
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
+                ].join(" ")}
+              >
+                {level}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -237,11 +317,17 @@ function DaemonTab() {
 }
 
 function CredentialsTab() {
-  const providers = ["openai", "anthropic", "kimi", "ollama", "azure", "google"];
-  const [selected, setSelected] = useState(providers[0]);
+  const { data: providers, isLoading: providersLoading } = useProviders();
+  const providerItems = resolveProviderItems(providers, providersLoading);
+  const [selected, setSelected] = useState<string | null>(null);
+  useEffect(() => {
+    if (selected === null && providerItems.length > 0) {
+      setSelected(providerItems[0].id);
+    }
+  }, [providerItems, selected]);
   const [username, setUsername] = useState("");
   const [token, setToken] = useState("");
-  const { data: credential } = useCredential(selected);
+  const { data: credential } = useCredential(selected ?? "");
   const setCred = useSetCredential();
   const deleteCred = useDeleteCredential();
   const testCred = useTestCredential();
@@ -264,18 +350,18 @@ function CredentialsTab() {
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Provider Credentials</h3>
         <div className="mb-4 flex flex-wrap gap-2">
-          {providers.map((p) => (
+          {providerItems.map((p) => (
             <button
-              key={p}
-              onClick={() => setSelected(p)}
+              key={p.id}
+              onClick={() => setSelected(p.id)}
               className={[
                 "rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
-                selected === p
+                selected === p.id
                   ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
               ].join(" ")}
             >
-              {p}
+              {p.displayName}
             </button>
           ))}
         </div>
@@ -312,7 +398,7 @@ function CredentialsTab() {
               <Save className="h-3.5 w-3.5" />
               Save
             </button>
-            {credential && (
+            {credential && selected && (
               <>
                 <button
                   onClick={() => testCred.mutate(selected)}
