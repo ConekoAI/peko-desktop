@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import { useSession, useCompactSession, useBranchSession } from "../hooks/useSessions";
 import SessionTimeline from "../components/SessionTimeline";
 import ConfirmModal from "../components/modals/ConfirmModal";
@@ -19,7 +19,7 @@ import {
 type TabKey = "chat" | "info" | "branches";
 
 export default function SessionDetail() {
-  const id = ""; // page no longer routed
+  const { id = "" } = useParams({ strict: false }) as { id?: string };
   const { data: session, isLoading } = useSession(id);
   const compact = useCompactSession();
   const branch = useBranchSession();
@@ -57,7 +57,7 @@ export default function SessionDetail() {
         <MessageSquare className="h-10 w-10 text-slate-300 dark:text-slate-700" />
         <p className="mt-3 text-sm font-medium text-slate-600 dark:text-slate-400">Session not found</p>
         <Link
-          to="/"
+          to="/sessions"
           className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -79,7 +79,7 @@ export default function SessionDetail() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Link
-            to="/"
+            to="/sessions"
             className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             <ArrowLeft className="h-4 w-4" />
