@@ -4,7 +4,7 @@ import {
   LOG_LEVELS,
   resolveLogLevel,
   resolveProviderItems,
-} from "../pages/Settings";
+} from "../lib/settings-helpers";
 
 /**
  * Regression tests for peko-desktop#5 — covers the two Settings.tsx helpers

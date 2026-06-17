@@ -1,13 +1,26 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    // MUST come before react() — rewrites src/routeTree.gen.ts before React's HMR boundary runs.
+    TanStackRouterVite({
+      target: "react",
+      autoCodeSplitting: false,
+      routesDirectory: "./src/routes",
+      generatedRouteTree: "./src/routeTree.gen.ts",
+      routeFileIgnorePrefix: "-",
+      quoteStyle: "single",
+    }),
+    react(),
+    tailwindcss(),
+  ],
   test: {
     globals: true,
     environment: "jsdom",
