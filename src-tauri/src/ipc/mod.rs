@@ -452,6 +452,57 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Get a stored credential from the runtime's OS-keychain-backed
+    /// secret store. As of v3 the runtime owns the keychain; the
+    /// desktop no longer maintains its own copy.
+    pub async fn credential_get(&self, provider: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "credential_get",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "provider": provider,
+        });
+        self.request_response(req).await
+    }
+
+    /// Set a credential via the runtime. The desktop should *not* hold
+    /// the secret beyond the IPC call.
+    pub async fn credential_set(&self, provider: &str, api_key: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "credential_set",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "provider": provider,
+            "api_key": api_key,
+        });
+        self.request_response(req).await
+    }
+
+    /// Delete a credential via the runtime.
+    pub async fn credential_delete(&self, provider: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "credential_delete",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "provider": provider,
+        });
+        self.request_response(req).await
+    }
+
+    /// List providers with stored credentials (via the runtime).
+    pub async fn credential_list(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "credential_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
     /// Show session details with optional history.
     /// `agent` and `session_id` are required. `team` defaults to "default".
     pub async fn show_session(
