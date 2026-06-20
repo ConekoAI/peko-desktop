@@ -468,11 +468,7 @@ impl IpcClient {
 
     /// Set a credential via the runtime. The desktop should *not* hold
     /// the secret beyond the IPC call.
-    pub async fn credential_set(
-        &self,
-        provider: &str,
-        api_key: &str,
-    ) -> Result<serde_json::Value> {
+    pub async fn credential_set(&self, provider: &str, api_key: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "credential_set",
