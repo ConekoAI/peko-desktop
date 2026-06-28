@@ -2,6 +2,7 @@ pub mod agent;
 pub mod cron;
 pub mod daemon;
 pub mod extension;
+pub mod principal;
 pub mod registry;
 pub mod runtime;
 pub mod session;
@@ -28,6 +29,9 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         agent::agent_set_status,
         agent::agent_set_exposure,
         agent::provider_list,
+        principal::principal_list,
+        principal::principal_send,
+        principal::principal_send_stream,
         team::team_list,
         team::team_show,
         team::team_create,
