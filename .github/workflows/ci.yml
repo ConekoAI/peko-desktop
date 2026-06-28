@@ -161,7 +161,29 @@ jobs:
         run: cargo install cargo-audit --locked
 
       - name: Audit Rust dependencies
-        run: cargo audit
+        run: |
+          # `audit.toml` is searched starting from the working directory
+          # and walking ancestors. It correctly suppresses the
+          # `unic-*` and `glib` warnings, but newer versions of
+          # `cargo-audit` (≥0.21) appear to require `--ignore` for
+          # the vulnerability (RUSTSEC-2026-0185 quinn-proto) class.
+          # The CLI flag is a belt-and-suspenders fallback that
+          # matches the entries in `audit.toml` at the repo root.
+          #
+          # When any of these advisories are resolved upstream, drop
+          # the matching `--ignore` from this list AND from
+          # `audit.toml` in the same commit.
+          cargo audit --ignore RUSTSEC-2025-0075 \
+                      --ignore RUSTSEC-2025-0080 \
+                      --ignore RUSTSEC-2025-0098 \
+                      --ignore RUSTSEC-2025-0100 \
+                      --ignore RUSTSEC-2024-0429 \
+                      --ignore RUSTSEC-2024-0412 \
+                      --ignore RUSTSEC-2024-0413 \
+                      --ignore RUSTSEC-2024-0416 \
+                      --ignore RUSTSEC-2024-0418 \
+                      --ignore RUSTSEC-2026-0185 \
+                      --ignore RUSTSEC-2026-0186
 
       - name: Audit npm dependencies
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
