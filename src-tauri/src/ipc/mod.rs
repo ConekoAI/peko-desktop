@@ -928,6 +928,193 @@ impl IpcClient {
 
         Ok(())
     }
+
+    // ── Principal operations (ADR-041) ───────────────────────────────
+
+    /// Send a Principal message via the streaming IPC path. The
+    /// daemon emits `principal_sent_chunk` deltas followed by a
+    /// `principal_sent_done` packet carrying the full final answer.
+    /// Each delta is forwarded through the supplied `on_chunk`
+    /// closure; the `on_done` closure receives the final `content`
+    /// string once the supervisor has settled.
+    pub async fn principal_send_stream<F, G>(
+        &self,
+        app: &tauri::AppHandle,
+        name: String,
+        message: String,
+        on_chunk: F,
+        on_done: G,
+    ) -> Result<()>
+    where
+        F: Fn(String) + Send + Sync + 'static,
+        G: FnOnce(String) + Send + 'static,
+    {
+        ensure_daemon().await?;
+
+        let request = serde_json::json!({
+            "type": "principal_send_stream",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "message": message,
+            "user": "desktop",
+        });
+
+        let bytes =
+            serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
+
+        #[cfg(windows)]
+        {
+            self.socket
+                .send_to(&bytes, "127.0.0.1:11435")
+                .await
+                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
+        }
+        #[cfg(unix)]
+        {
+            let sock_path = default_socket_path();
+            self.socket
+                .send_to(&bytes, &sock_path)
+                .await
+                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
+        }
+
+        let mut buf = vec![0u8; 65536];
+        loop {
+            let len = match tokio::time::timeout(
+                Duration::from_secs(120),
+                self.socket.recv_from(&mut buf),
+            )
+            .await
+            {
+                Ok(Ok((len, _))) => len,
+                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
+                Err(_) => return Err(IpcError::Timeout),
+            };
+
+            let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
+                .map_err(|e| IpcError::Serialization(e.to_string()))?;
+
+            let packet_type = raw.get("type").and_then(|v| v.as_str()).unwrap_or("");
+
+            // Emit the chunks via Tauri events so the legacy
+            // `peko-stream` channel listeners still see the live
+            // tokens during the migration window.
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+                .to_string();
+
+            match packet_type {
+                "principal_sent_chunk" => {
+                    let delta = raw
+                        .get("delta")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    on_chunk(delta.clone());
+                    let _ = app.emit(
+                        "peko-stream",
+                        &StreamEvent::Chunk {
+                            content: delta,
+                            timestamp,
+                        },
+                    );
+                }
+                "principal_sent_done" => {
+                    let content = raw
+                        .get("content")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    on_done(content.clone());
+                    let _ = app.emit("peko-stream", &StreamEvent::Done { timestamp });
+                    return Ok(());
+                }
+                "done" => return Ok(()),
+                "error" => {
+                    let message = raw
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unknown error")
+                        .to_string();
+                    let _ = app.emit(
+                        "peko-stream",
+                        &StreamEvent::Error {
+                            message: message.clone(),
+                            timestamp,
+                        },
+                    );
+                    return Err(IpcError::ReceiveFailed(message));
+                }
+                "heartbeat" => continue,
+                other => {
+                    eprintln!("[peko-desktop] Unknown IPC response packet type: {other}");
+                    continue;
+                }
+            }
+        }
+    }
+
+    /// Send a Principal message via the non-streaming IPC path. The
+    /// daemon returns a single `principal_sent` packet with the full
+    /// final answer. Used by code paths that don't need live tokens
+    /// (e.g. CLI-style bulk operations).
+    pub async fn principal_send(&self, name: String, message: String) -> Result<String> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_send",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "message": message,
+            "user": "desktop",
+        });
+        let value = self.request_response(req).await?;
+        // The daemon may return either a `principal_sent` packet or
+        // a generic `Done` envelope; unwrap both shapes.
+        if let Some(content) = value.get("content").and_then(|v| v.as_str()) {
+            return Ok(content.to_string());
+        }
+        // Fallback: assume the value is the full payload.
+        Ok(value.to_string())
+    }
+
+    /// List all known Principals.
+    pub async fn principal_list(&self) -> Result<serde_json::Value> {
+        // The runtime does not yet expose a `principal_list` IPC
+        // variant; fall back to file-system discovery of the
+        // workspace's `principals/` directory. The IPC variant
+        // will be added in a follow-up.
+        let path = dirs::home_dir()
+            .map(|d| d.join(".peko").join("workspace").join("principals"))
+            .unwrap_or_else(|| std::path::PathBuf::from(".peko/workspace/principals"));
+        let read = tokio::fs::read_dir(&path).await.ok();
+        let mut out: Vec<serde_json::Value> = Vec::new();
+        if let Some(mut rd) = read {
+            while let Ok(Some(entry)) = rd.next_entry().await {
+                if let Ok(name) = entry.file_name().into_string() {
+                    if let Ok(s) =
+                        tokio::fs::read_to_string(entry.path().join("principal.toml")).await
+                    {
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
+                            out.push(serde_json::json!({
+                                "name": v.get("name").cloned().unwrap_or_else(|| name.clone().into()),
+                                "exposure": v.get("exposure").cloned().unwrap_or_else(|| "unexposed".into()),
+                                "status": v.get("status").cloned().unwrap_or_else(|| "offline".into()),
+                                "description": v.get("identity")
+                                    .and_then(|i| i.get("display_name"))
+                                    .cloned()
+                                    .unwrap_or(serde_json::Value::Null),
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(serde_json::json!({ "principals": out }))
+    }
 }
 
 #[cfg(unix)]

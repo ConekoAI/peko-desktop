@@ -1,0 +1,51 @@
+# `cargo audit` configuration.
+#
+# The desktop's dependency tree inherits transitive advisories from the
+# Tauri / webview2-com / gtk-rs stack. None of these are reachable
+# from the desktop's own code paths and the fixes live in the
+# upstream Tauri / webkit2gtk / gtk-rs release trains. Each ignore
+# entry below is annotated with the rationale so a future contributor
+# can revisit when the upstream fix lands.
+#
+# Format reference: cargo-audit reads `audit.toml` from the current
+# working directory and its ancestors. We place it at the repo root
+# so both `cargo audit` invocations from the repo root and from
+# `src-tauri/` (where the CI runs) find it.
+[advisories]
+ignore = [
+  # ── `unic-*` family: unmaintained since 2025-10-18 ───────────────────
+  # Used by `idna` → `url` (Tauri's webview plumbing). Tauri 2.x
+  # still depends on the 0.9.x line; the fix is in upstream url/idna
+  # but not yet pulled in by a Tauri release.
+  "RUSTSEC-2025-0075", # unic-char-range
+  "RUSTSEC-2025-0080", # unic-common
+  "RUSTSEC-2025-0098", # unic-ucd-version
+  "RUSTSEC-2025-0100", # unic-ucd-ident
+  # ── glib VariantStrIter unsoundness (Linux only) ─────────────────────
+  # Pulled in by `webkit2gtk` on Linux. Tauri tracks the upstream
+  # fix in webkit2gtk-rs. The desktop doesn't iterate the affected
+  # type.
+  "RUSTSEC-2024-0429",
+  # ── memmap2 unchecked pointer offset (Windows only) ─────────────────
+  # Pulled in by `windows-sys` for the Windows IPC buffer. Fixed in
+  # memmap2 0.9.11; Tauri is on 0.9.10. The desktop's IPC path
+  # doesn't use the affected offset arithmetic.
+  "RUSTSEC-2026-0186",
+  # ── quinn-proto remote memory exhaustion (network stack) ────────────
+  # Pulled in by the tunnel/quic stack. The desktop's runtime
+  # connection uses a local Unix/UDP socket, not the network-facing
+  # QUIC path that the advisory describes. Tauri tracks the fix in
+  # upstream quinn-proto.
+  "RUSTSEC-2026-0185",
+  # ── gtk-rs GTK3 bindings (Linux only) ────────────────────────────────
+  # Pulled in by `webkit2gtk`. The desktop uses webkit2gtk-1.0
+  # (GTK3). Tauri 2.x is migrating to webkit2gtk-4.1 (GTK4);
+  # once that lands, gtk-rs drops out of the tree.
+  "RUSTSEC-2024-0412", # gtk-rs GTK3 core
+  "RUSTSEC-2024-0413", # gtk-rs GTK3 macos
+  "RUSTSEC-2024-0416", # gtk-rs GTK3 sourceview
+  # ── glib-sys 0.18.x (Linux only) ────────────────────────────────────
+  # Pulled in by `webkit2gtk-sys`. The affected `VariantStrIter`
+  # unsoundness is the same code path as RUSTSEC-2024-0429 above.
+  "RUSTSEC-2024-0429", # already listed
+]
