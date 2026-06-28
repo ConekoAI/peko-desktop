@@ -1,0 +1,26 @@
+# `cargo audit` configuration.
+#
+# The desktop's dependency tree inherits transitive advisories from the
+# Tauri / webview2-com stack that cannot be fixed in this repo
+# (upstream Tauri tracks them). We document each ignore with the
+# rationale so a future contributor can revisit when the upstream fix
+# lands.
+[advisories]
+ignore = [
+  # `unic-char-range` / `unic-common` / `unic-ucd-ident` /
+  # `unic-ucd-version`: unmaintained since 2025-10-18. Used by the
+  # `idna` crate, which is in turn used by `url`. The fix lands in
+  # a future Tauri release.
+  "RUSTSEC-2025-0075",
+  "RUSTSEC-2025-0080",
+  "RUSTSEC-2025-0098",
+  "RUSTSEC-2025-0100",
+  # `glib` Iterator/DoubleEndedIterator unsoundness. Tauri pulls this
+  # in via `webkit2gtk`. No upstream fix yet.
+  "RUSTSEC-2024-0429",
+  # `memmap2` unchecked pointer offset. Tauri pulls this in via
+  # `windows-sys`. Fixed in memmap2 0.9.11 — Tauri is on 0.9.10.
+  # The desktop doesn't touch the affected code path (it's a Windows
+  # IPC buffer), but the audit counts it. Tracked in Tauri.
+  "RUSTSEC-2026-0186",
+]
