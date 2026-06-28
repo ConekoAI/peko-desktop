@@ -25,9 +25,7 @@ pub struct PrincipalSummary {
 }
 
 #[tauri::command]
-pub async fn principal_list(
-    state: State<'_, AppState>,
-) -> Result<Vec<PrincipalSummary>, String> {
+pub async fn principal_list(state: State<'_, AppState>) -> Result<Vec<PrincipalSummary>, String> {
     // Pull the local default runtime. The runtime_id field on the
     // returned summary is the runtime that owns the principal, so the
     // multi-runtime UI can route messages correctly.
@@ -45,11 +43,18 @@ pub async fn principal_list(
         .map_err(|e| format!("principal_list failed: {e}"))?;
 
     let empty = Vec::new();
-    let items = value.get("principals").and_then(|v| v.as_array()).unwrap_or(&empty);
+    let items = value
+        .get("principals")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
     let mut out: Vec<PrincipalSummary> = Vec::with_capacity(items.len());
     for v in items {
         out.push(PrincipalSummary {
-            name: v.get("name").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+            name: v
+                .get("name")
+                .and_then(|s| s.as_str())
+                .unwrap_or("")
+                .to_string(),
             exposure: v
                 .get("exposure")
                 .and_then(|s| s.as_str())
@@ -72,10 +77,7 @@ pub async fn principal_list(
 
 /// Send a non-streaming principal message and return the final content.
 #[tauri::command]
-pub async fn principal_send(
-    name: String,
-    message: String,
-) -> Result<String, String> {
+pub async fn principal_send(name: String, message: String) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -122,5 +124,3 @@ pub async fn principal_send_stream(
         .map_err(|e| format!("principal_send_stream failed: {e}"))?;
     rx.await.map_err(|e| format!("supervisor task died: {e}"))
 }
-
-

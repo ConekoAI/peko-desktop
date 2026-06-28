@@ -960,8 +960,8 @@ impl IpcClient {
             "user": "desktop",
         });
 
-        let bytes = serde_json::to_vec(&request)
-            .map_err(|e| IpcError::Serialization(e.to_string()))?;
+        let bytes =
+            serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
 
         #[cfg(windows)]
         {
@@ -1061,11 +1061,7 @@ impl IpcClient {
     /// daemon returns a single `principal_sent` packet with the full
     /// final answer. Used by code paths that don't need live tokens
     /// (e.g. CLI-style bulk operations).
-    pub async fn principal_send(
-        &self,
-        name: String,
-        message: String,
-    ) -> Result<String> {
+    pub async fn principal_send(&self, name: String, message: String) -> Result<String> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "principal_send",
