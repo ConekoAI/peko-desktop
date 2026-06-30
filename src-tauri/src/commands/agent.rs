@@ -571,12 +571,7 @@ pub async fn agent_export(
                 .await
                 .map_err(|e| e.to_string())?;
             let resp = client
-                .export_agent(
-                    &name,
-                    Some(&path),
-                    false,
-                    with_extensions.unwrap_or(false),
-                )
+                .export_agent(&name, Some(&path), false, with_extensions.unwrap_or(false))
                 .await
                 .map_err(|e| e.to_string())?;
             if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
