@@ -10,7 +10,6 @@ pub struct AgentSummary {
     pub description: Option<String>,
     pub model: String,
     pub provider: String,
-    pub memberships: Vec<String>,
     pub session_count: usize,
     pub runtime_id: String,
 }
@@ -22,7 +21,6 @@ pub struct AgentDetail {
     pub description: Option<String>,
     pub model: String,
     pub provider: String,
-    pub memberships: Vec<String>,
     pub session_count: usize,
     pub system_prompt: Option<String>,
     pub tools: Vec<String>,
@@ -104,15 +102,6 @@ fn parse_agent_summary(value: &serde_json::Value, runtime_id: &str) -> Option<Ag
             .map(|s| s.to_string()),
         model: extract_model_from_config(&config),
         provider: extract_provider_from_config(&config),
-        memberships: value
-            .get("memberships")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                    .collect()
-            })
-            .unwrap_or_default(),
         session_count: value
             .get("session_count")
             .and_then(|v| v.as_u64())
@@ -168,15 +157,6 @@ fn parse_agent_detail(value: &serde_json::Value, runtime_id: &str) -> Option<Age
             .map(|s| s.to_string()),
         model: extract_model_from_config(&config),
         provider: extract_provider_from_config(&config),
-        memberships: value
-            .get("memberships")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                    .collect()
-            })
-            .unwrap_or_default(),
         session_count: value
             .get("session_count")
             .and_then(|v| v.as_u64())
@@ -213,7 +193,6 @@ mod tests {
                 },
                 "system_prompt": "legacy prompt"
             },
-            "memberships": ["default", "alpha"],
             "session_count": 3,
             "system_prompt": "resolved prompt",
             "created_at_ms": 1700000000000u64,
@@ -312,7 +291,6 @@ mod tests {
         assert_eq!(summary.provider, "openai");
         assert_eq!(summary.model, "gpt-4");
         assert_eq!(summary.description, Some("A test agent".to_string()));
-        assert_eq!(summary.memberships, vec!["default", "alpha"]);
         assert_eq!(summary.session_count, 3);
         assert_eq!(summary.runtime_id, "local");
     }
@@ -325,7 +303,6 @@ mod tests {
         assert_eq!(summary.provider, "unknown");
         assert_eq!(summary.model, "default");
         assert_eq!(summary.session_count, 0);
-        assert!(summary.memberships.is_empty());
     }
 
     #[test]
@@ -596,7 +573,6 @@ pub async fn agent_export(
             let resp = client
                 .export_agent(
                     &name,
-                    None,
                     Some(&path),
                     false,
                     with_extensions.unwrap_or(false),
@@ -704,7 +680,7 @@ pub async fn agent_import(
                 .await
                 .map_err(|e| e.to_string())?;
             let resp = client
-                .import_agent(&path, None, None)
+                .import_agent(&path, None)
                 .await
                 .map_err(|e| e.to_string())?;
             if resp.get("type").and_then(|v| v.as_str()) == Some("error") {

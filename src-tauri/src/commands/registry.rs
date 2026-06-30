@@ -56,7 +56,7 @@ pub async fn registry_pull(ref_str: String) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())?;
     let resp = client
-        .registry_pull(&ref_str, None, false, token.as_deref(), None)
+        .registry_pull(&ref_str, false, token.as_deref(), None)
         .await
         .map_err(|e| e.to_string())?;
 

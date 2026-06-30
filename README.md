@@ -4,7 +4,7 @@
 
 Pekobot Desktop is the desktop client for the Pekobot ecosystem. It connects to a
 running `peko-runtime` daemon (local or, soon, remote via PekoHub) and gives you
-a graphical interface for browsing agents and teams, chatting with sessions,
+a graphical interface for browsing agents, chatting with sessions,
 managing cron jobs, and inspecting runtime status.
 
 ---

@@ -18,8 +18,6 @@ import type {
   Setting,
   SharedInstance,
   SystemStatus,
-  TeamDetail,
-  TeamSummary,
 } from "../types";
 
 // ─── Runtimes ───────────────────────────────────────────────
@@ -131,39 +129,7 @@ export async function providerList(runtimeId?: string): Promise<ProviderInfo[]> 
 }
 
 // ─── Teams ──────────────────────────────────────────────────
-
-export async function teamList(): Promise<TeamSummary[]> {
-  return invoke("team_list");
-}
-
-export async function teamShow(name: string): Promise<TeamDetail> {
-  return invoke("team_show", { name });
-}
-
-export async function teamCreate(payload: {
-  name: string;
-  description?: string;
-  members?: string[];
-  config?: Record<string, unknown>;
-}): Promise<TeamDetail> {
-  return invoke("team_create", {
-    name: payload.name,
-    description: payload.description,
-    members: payload.members,
-  });
-}
-
-export async function teamJoin(team: string, agent: string): Promise<void> {
-  return invoke("team_join", { team, agent });
-}
-
-export async function teamLeave(team: string, agent: string): Promise<void> {
-  return invoke("team_leave", { team, agent });
-}
-
-export async function teamRemove(name: string): Promise<void> {
-  return invoke("team_remove", { name });
-}
+// Removed: the runtime no longer has a team scope (peko-runtime #92).
 
 // ─── Sessions ───────────────────────────────────────────────
 

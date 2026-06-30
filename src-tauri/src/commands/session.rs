@@ -346,7 +346,7 @@ async fn dispatch_session_show(
                 .await
                 .map_err(|e| e.to_string())?;
             client
-                .show_session(&agent, None, &session_id, false)
+                .show_session(&agent, &session_id, false)
                 .await
                 .map_err(|e| e.to_string())?
         }
@@ -413,7 +413,7 @@ async fn dispatch_session_history(
                 .await
                 .map_err(|e| e.to_string())?;
             client
-                .show_session(&agent, None, &session_id, true)
+                .show_session(&agent, &session_id, true)
                 .await
                 .map_err(|e| e.to_string())?
         }
@@ -566,7 +566,7 @@ pub async fn session_branch(
                 ("default".to_string(), id)
             };
             let resp = client
-                .branch_session(&agent, None, &session_id, Some(&name))
+                .branch_session(&agent, &session_id, Some(&name))
                 .await
                 .map_err(|e| e.to_string())?;
             if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
@@ -612,7 +612,7 @@ pub async fn session_compact(
                 ("default".to_string(), id)
             };
             let resp = client
-                .compact_session(&agent, None, &session_id, false, None)
+                .compact_session(&agent, &session_id, false, None)
                 .await
                 .map_err(|e| e.to_string())?;
             if resp.get("type").and_then(|v| v.as_str()) == Some("error") {

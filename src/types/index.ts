@@ -19,7 +19,6 @@ export interface AgentSummary {
   description?: string;
   provider: string;
   model: string;
-  memberships?: string[];
   sessionCount: number;
   runtimeId: string;
 }
@@ -29,7 +28,6 @@ export interface AgentDetail {
   description?: string;
   provider: string;
   model: string;
-  memberships?: string[];
   sessionCount: number;
   systemPrompt?: string;
   tools: string[];
@@ -39,18 +37,6 @@ export interface AgentDetail {
   updatedAt: string;
   runtimeId: string;
   status?: string;
-}
-
-export interface TeamSummary {
-  name: string;
-  description?: string;
-  agentCount: number;
-}
-
-export interface TeamDetail extends TeamSummary {
-  members?: string[];
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface SessionSummary {

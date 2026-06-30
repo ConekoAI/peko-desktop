@@ -19,7 +19,6 @@ import {
   Clock,
   Hash,
   Sparkles,
-  Cloud,
   Power,
   PowerOff,
   FileCode,
@@ -396,11 +395,6 @@ export default function AgentProfileModal({ open, agentName, onClose }: AgentPro
                         );
                       }}
                       isSaving={updateAgent.isPending}
-                    />
-                    <DetailItem
-                      icon={Cloud}
-                      label="Teams"
-                      value={agent.memberships?.length ? agent.memberships.join(", ") : "Standalone"}
                     />
                     <DetailItem icon={Hash} label="Sessions" value={agent.sessionCount} />
                     <DetailItem icon={Calendar} label="Created" value={formatDate(agent.createdAt)} />
