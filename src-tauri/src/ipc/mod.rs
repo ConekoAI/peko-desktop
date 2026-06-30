@@ -2,7 +2,7 @@
 //!
 //! Protocol version: 1
 //! - Version 1: Initial protocol with Ping, Execute, AsyncSpawn, AsyncCancel
-//! - Future versions will add CRUD packets for agents, teams, sessions, etc.
+//! - Future versions will add CRUD packets for agents, sessions, etc.
 
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -190,7 +190,6 @@ impl IpcClient {
             "type": "agent_list",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "team_filter": null,
         });
         self.request_response(req).await
     }
@@ -202,7 +201,6 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
-            "team": null,
         });
         self.request_response(req).await
     }
@@ -252,7 +250,6 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
-            "team": null,
             "model": model,
             "description": description,
             "system_prompt": system_prompt,
@@ -265,7 +262,6 @@ impl IpcClient {
     pub async fn export_agent(
         &self,
         name: &str,
-        team: Option<&str>,
         output: Option<&str>,
         include_sessions: bool,
         with_extensions: bool,
@@ -276,7 +272,6 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
-            "team": team,
             "output": output,
             "include_sessions": include_sessions,
             "with_extensions": with_extensions,
@@ -289,7 +284,6 @@ impl IpcClient {
         &self,
         file_path: &str,
         name: Option<&str>,
-        team: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -298,122 +292,6 @@ impl IpcClient {
             "request_id": 1u64,
             "file_path": file_path,
             "name": name,
-            "team": team,
-        });
-        self.request_response(req).await
-    }
-
-    // ── Team CRUD ─────────────────────────────────────────────────
-
-    pub async fn list_teams(&self) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "team_list",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn get_team(&self, name: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "team_get",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-        });
-        self.request_response(req).await
-    }
-
-    /// Export a team
-    pub async fn export_team(
-        &self,
-        name: &str,
-        output: Option<&str>,
-        include_sessions: bool,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "team_export",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-            "output": output,
-            "include_sessions": include_sessions,
-        });
-        self.request_response(req).await
-    }
-
-    /// Import a team
-    pub async fn import_team(
-        &self,
-        file_path: &str,
-        name: Option<&str>,
-        force: bool,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "team_import",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "file_path": file_path,
-            "name": name,
-            "force": force,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn create_team(
-        &self,
-        name: &str,
-        description: Option<&str>,
-        members: Option<Vec<String>>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "team_create",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-            "description": description,
-            "members": members,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn delete_team(&self, name: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "team_delete",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-            "force": false,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn join_team(&self, team: &str, agent: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "team_join",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "team": team,
-            "agent": agent,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn leave_team(&self, team: &str, agent: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "team_leave",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "team": team,
-            "agent": agent,
         });
         self.request_response(req).await
     }
@@ -504,11 +382,10 @@ impl IpcClient {
     }
 
     /// Show session details with optional history.
-    /// `agent` and `session_id` are required. `team` defaults to "default".
+    /// `agent` and `session_id` are required.
     pub async fn show_session(
         &self,
         agent: &str,
-        team: Option<&str>,
         session_id: &str,
         history: bool,
     ) -> Result<serde_json::Value> {
@@ -518,7 +395,6 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "agent": agent,
-            "team": team,
             "session_id": session_id,
             "history": history,
         });
@@ -701,7 +577,6 @@ impl IpcClient {
     pub async fn branch_session(
         &self,
         agent: &str,
-        team: Option<&str>,
         session_id: &str,
         label: Option<&str>,
     ) -> Result<serde_json::Value> {
@@ -711,7 +586,6 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "agent": agent,
-            "team": team,
             "session_id": session_id,
             "label": label,
         });
@@ -722,7 +596,6 @@ impl IpcClient {
     pub async fn compact_session(
         &self,
         agent: &str,
-        team: Option<&str>,
         session_id: &str,
         dry_run: bool,
         instruction: Option<&str>,
@@ -733,7 +606,6 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "agent": agent,
-            "team": team,
             "session_id": session_id,
             "dry_run": dry_run,
             "instruction": instruction,
@@ -745,7 +617,6 @@ impl IpcClient {
     pub async fn registry_pull(
         &self,
         registry_ref: &str,
-        team: Option<&str>,
         force: bool,
         token: Option<&str>,
         host: Option<&str>,
@@ -756,7 +627,6 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "registry_ref": registry_ref,
-            "team": team,
             "force": force,
             "registry_token": token,
             "registry_host": host,
@@ -816,7 +686,6 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "agent": agent,
-            "team": "default",
             "message": message,
             "session_id": session_id,
             "new_session": session_id.is_none(),

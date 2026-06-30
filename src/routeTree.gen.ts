@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TeamsRouteImport } from './routes/teams'
 import { Route as SharedRouteImport } from './routes/shared'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SessionsRouteImport } from './routes/sessions'
@@ -21,20 +20,10 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CronRouteImport } from './routes/cron'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TeamsNameRouteImport } from './routes/teams.$name'
 import { Route as SessionsIdRouteImport } from './routes/sessions.$id'
-import { Route as ChatTeamRouteImport } from './routes/chat.team'
 import { Route as ChatAgentNameRouteImport } from './routes/chat.$agentName'
-import { Route as ChatTeamTeamNameRouteImport } from './routes/chat.team.$teamName'
 import { Route as ChatAgentNameSessionIdRouteImport } from './routes/chat.$agentName.$sessionId'
-import { Route as ChatTeamTeamNameAgentNameRouteImport } from './routes/chat.team.$teamName.$agentName'
-import { Route as ChatTeamTeamNameAgentNameSessionIdRouteImport } from './routes/chat.team.$teamName.$agentName.$sessionId'
 
-const TeamsRoute = TeamsRouteImport.update({
-  id: '/teams',
-  path: '/teams',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SharedRoute = SharedRouteImport.update({
   id: '/shared',
   path: '/shared',
@@ -90,48 +79,21 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TeamsNameRoute = TeamsNameRouteImport.update({
-  id: '/$name',
-  path: '/$name',
-  getParentRoute: () => TeamsRoute,
-} as any)
 const SessionsIdRoute = SessionsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => SessionsRoute,
-} as any)
-const ChatTeamRoute = ChatTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => ChatRoute,
 } as any)
 const ChatAgentNameRoute = ChatAgentNameRouteImport.update({
   id: '/$agentName',
   path: '/$agentName',
   getParentRoute: () => ChatRoute,
 } as any)
-const ChatTeamTeamNameRoute = ChatTeamTeamNameRouteImport.update({
-  id: '/$teamName',
-  path: '/$teamName',
-  getParentRoute: () => ChatTeamRoute,
-} as any)
 const ChatAgentNameSessionIdRoute = ChatAgentNameSessionIdRouteImport.update({
   id: '/$sessionId',
   path: '/$sessionId',
   getParentRoute: () => ChatAgentNameRoute,
 } as any)
-const ChatTeamTeamNameAgentNameRoute =
-  ChatTeamTeamNameAgentNameRouteImport.update({
-    id: '/$agentName',
-    path: '/$agentName',
-    getParentRoute: () => ChatTeamTeamNameRoute,
-  } as any)
-const ChatTeamTeamNameAgentNameSessionIdRoute =
-  ChatTeamTeamNameAgentNameSessionIdRouteImport.update({
-    id: '/$sessionId',
-    path: '/$sessionId',
-    getParentRoute: () => ChatTeamTeamNameAgentNameRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -145,15 +107,9 @@ export interface FileRoutesByFullPath {
   '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/shared': typeof SharedRoute
-  '/teams': typeof TeamsRouteWithChildren
   '/chat/$agentName': typeof ChatAgentNameRouteWithChildren
-  '/chat/team': typeof ChatTeamRouteWithChildren
   '/sessions/$id': typeof SessionsIdRoute
-  '/teams/$name': typeof TeamsNameRoute
   '/chat/$agentName/$sessionId': typeof ChatAgentNameSessionIdRoute
-  '/chat/team/$teamName': typeof ChatTeamTeamNameRouteWithChildren
-  '/chat/team/$teamName/$agentName': typeof ChatTeamTeamNameAgentNameRouteWithChildren
-  '/chat/team/$teamName/$agentName/$sessionId': typeof ChatTeamTeamNameAgentNameSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -167,15 +123,9 @@ export interface FileRoutesByTo {
   '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/shared': typeof SharedRoute
-  '/teams': typeof TeamsRouteWithChildren
   '/chat/$agentName': typeof ChatAgentNameRouteWithChildren
-  '/chat/team': typeof ChatTeamRouteWithChildren
   '/sessions/$id': typeof SessionsIdRoute
-  '/teams/$name': typeof TeamsNameRoute
   '/chat/$agentName/$sessionId': typeof ChatAgentNameSessionIdRoute
-  '/chat/team/$teamName': typeof ChatTeamTeamNameRouteWithChildren
-  '/chat/team/$teamName/$agentName': typeof ChatTeamTeamNameAgentNameRouteWithChildren
-  '/chat/team/$teamName/$agentName/$sessionId': typeof ChatTeamTeamNameAgentNameSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -190,15 +140,9 @@ export interface FileRoutesById {
   '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/shared': typeof SharedRoute
-  '/teams': typeof TeamsRouteWithChildren
   '/chat/$agentName': typeof ChatAgentNameRouteWithChildren
-  '/chat/team': typeof ChatTeamRouteWithChildren
   '/sessions/$id': typeof SessionsIdRoute
-  '/teams/$name': typeof TeamsNameRoute
   '/chat/$agentName/$sessionId': typeof ChatAgentNameSessionIdRoute
-  '/chat/team/$teamName': typeof ChatTeamTeamNameRouteWithChildren
-  '/chat/team/$teamName/$agentName': typeof ChatTeamTeamNameAgentNameRouteWithChildren
-  '/chat/team/$teamName/$agentName/$sessionId': typeof ChatTeamTeamNameAgentNameSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -214,15 +158,9 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/shared'
-    | '/teams'
     | '/chat/$agentName'
-    | '/chat/team'
     | '/sessions/$id'
-    | '/teams/$name'
     | '/chat/$agentName/$sessionId'
-    | '/chat/team/$teamName'
-    | '/chat/team/$teamName/$agentName'
-    | '/chat/team/$teamName/$agentName/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -236,15 +174,9 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/shared'
-    | '/teams'
     | '/chat/$agentName'
-    | '/chat/team'
     | '/sessions/$id'
-    | '/teams/$name'
     | '/chat/$agentName/$sessionId'
-    | '/chat/team/$teamName'
-    | '/chat/team/$teamName/$agentName'
-    | '/chat/team/$teamName/$agentName/$sessionId'
   id:
     | '__root__'
     | '/'
@@ -258,15 +190,9 @@ export interface FileRouteTypes {
     | '/sessions'
     | '/settings'
     | '/shared'
-    | '/teams'
     | '/chat/$agentName'
-    | '/chat/team'
     | '/sessions/$id'
-    | '/teams/$name'
     | '/chat/$agentName/$sessionId'
-    | '/chat/team/$teamName'
-    | '/chat/team/$teamName/$agentName'
-    | '/chat/team/$teamName/$agentName/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -281,18 +207,10 @@ export interface RootRouteChildren {
   SessionsRoute: typeof SessionsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   SharedRoute: typeof SharedRoute
-  TeamsRoute: typeof TeamsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/teams': {
-      id: '/teams'
-      path: '/teams'
-      fullPath: '/teams'
-      preLoaderRoute: typeof TeamsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/shared': {
       id: '/shared'
       path: '/shared'
@@ -370,26 +288,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/teams/$name': {
-      id: '/teams/$name'
-      path: '/$name'
-      fullPath: '/teams/$name'
-      preLoaderRoute: typeof TeamsNameRouteImport
-      parentRoute: typeof TeamsRoute
-    }
     '/sessions/$id': {
       id: '/sessions/$id'
       path: '/$id'
       fullPath: '/sessions/$id'
       preLoaderRoute: typeof SessionsIdRouteImport
       parentRoute: typeof SessionsRoute
-    }
-    '/chat/team': {
-      id: '/chat/team'
-      path: '/team'
-      fullPath: '/chat/team'
-      preLoaderRoute: typeof ChatTeamRouteImport
-      parentRoute: typeof ChatRoute
     }
     '/chat/$agentName': {
       id: '/chat/$agentName'
@@ -398,33 +302,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatAgentNameRouteImport
       parentRoute: typeof ChatRoute
     }
-    '/chat/team/$teamName': {
-      id: '/chat/team/$teamName'
-      path: '/$teamName'
-      fullPath: '/chat/team/$teamName'
-      preLoaderRoute: typeof ChatTeamTeamNameRouteImport
-      parentRoute: typeof ChatTeamRoute
-    }
     '/chat/$agentName/$sessionId': {
       id: '/chat/$agentName/$sessionId'
       path: '/$sessionId'
       fullPath: '/chat/$agentName/$sessionId'
       preLoaderRoute: typeof ChatAgentNameSessionIdRouteImport
       parentRoute: typeof ChatAgentNameRoute
-    }
-    '/chat/team/$teamName/$agentName': {
-      id: '/chat/team/$teamName/$agentName'
-      path: '/$agentName'
-      fullPath: '/chat/team/$teamName/$agentName'
-      preLoaderRoute: typeof ChatTeamTeamNameAgentNameRouteImport
-      parentRoute: typeof ChatTeamTeamNameRoute
-    }
-    '/chat/team/$teamName/$agentName/$sessionId': {
-      id: '/chat/team/$teamName/$agentName/$sessionId'
-      path: '/$sessionId'
-      fullPath: '/chat/team/$teamName/$agentName/$sessionId'
-      preLoaderRoute: typeof ChatTeamTeamNameAgentNameSessionIdRouteImport
-      parentRoute: typeof ChatTeamTeamNameAgentNameRoute
     }
   }
 }
@@ -441,52 +324,12 @@ const ChatAgentNameRouteWithChildren = ChatAgentNameRoute._addFileChildren(
   ChatAgentNameRouteChildren,
 )
 
-interface ChatTeamTeamNameAgentNameRouteChildren {
-  ChatTeamTeamNameAgentNameSessionIdRoute: typeof ChatTeamTeamNameAgentNameSessionIdRoute
-}
-
-const ChatTeamTeamNameAgentNameRouteChildren: ChatTeamTeamNameAgentNameRouteChildren =
-  {
-    ChatTeamTeamNameAgentNameSessionIdRoute:
-      ChatTeamTeamNameAgentNameSessionIdRoute,
-  }
-
-const ChatTeamTeamNameAgentNameRouteWithChildren =
-  ChatTeamTeamNameAgentNameRoute._addFileChildren(
-    ChatTeamTeamNameAgentNameRouteChildren,
-  )
-
-interface ChatTeamTeamNameRouteChildren {
-  ChatTeamTeamNameAgentNameRoute: typeof ChatTeamTeamNameAgentNameRouteWithChildren
-}
-
-const ChatTeamTeamNameRouteChildren: ChatTeamTeamNameRouteChildren = {
-  ChatTeamTeamNameAgentNameRoute: ChatTeamTeamNameAgentNameRouteWithChildren,
-}
-
-const ChatTeamTeamNameRouteWithChildren =
-  ChatTeamTeamNameRoute._addFileChildren(ChatTeamTeamNameRouteChildren)
-
-interface ChatTeamRouteChildren {
-  ChatTeamTeamNameRoute: typeof ChatTeamTeamNameRouteWithChildren
-}
-
-const ChatTeamRouteChildren: ChatTeamRouteChildren = {
-  ChatTeamTeamNameRoute: ChatTeamTeamNameRouteWithChildren,
-}
-
-const ChatTeamRouteWithChildren = ChatTeamRoute._addFileChildren(
-  ChatTeamRouteChildren,
-)
-
 interface ChatRouteChildren {
   ChatAgentNameRoute: typeof ChatAgentNameRouteWithChildren
-  ChatTeamRoute: typeof ChatTeamRouteWithChildren
 }
 
 const ChatRouteChildren: ChatRouteChildren = {
   ChatAgentNameRoute: ChatAgentNameRouteWithChildren,
-  ChatTeamRoute: ChatTeamRouteWithChildren,
 }
 
 const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
@@ -503,16 +346,6 @@ const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
   SessionsRouteChildren,
 )
 
-interface TeamsRouteChildren {
-  TeamsNameRoute: typeof TeamsNameRoute
-}
-
-const TeamsRouteChildren: TeamsRouteChildren = {
-  TeamsNameRoute: TeamsNameRoute,
-}
-
-const TeamsRouteWithChildren = TeamsRoute._addFileChildren(TeamsRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRouteWithChildren,
@@ -525,7 +358,6 @@ const rootRouteChildren: RootRouteChildren = {
   SessionsRoute: SessionsRouteWithChildren,
   SettingsRoute: SettingsRoute,
   SharedRoute: SharedRoute,
-  TeamsRoute: TeamsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

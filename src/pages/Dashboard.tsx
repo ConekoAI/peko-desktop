@@ -1,14 +1,12 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAgents } from "../hooks/useAgents";
-import { useTeams } from "../hooks/useTeams";
 import { useExtensions } from "../hooks/useExtensions";
 import { useDaemonStatus, useDaemonStart, useDaemonStop, useDaemonRestart } from "../hooks/useDaemon";
 import { formatDuration } from "../lib/format";
 import CreateAgentModal from "../components/modals/CreateAgentModal";
 import {
   Bot,
-  Users,
   Puzzle,
   Activity,
   Play,
@@ -58,7 +56,6 @@ function StatCard({
 
 export default function Dashboard() {
   const { data: agents } = useAgents();
-  const { data: teams } = useTeams();
   const { data: extensions } = useExtensions();
   const { data: daemon, isLoading: daemonLoading } = useDaemonStatus();
   const start = useDaemonStart();
@@ -154,7 +151,6 @@ export default function Dashboard() {
       {/* Quick Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard icon={Bot} label="Agents" value={agents?.length ?? 0} />
-        <StatCard icon={Users} label="Teams" value={teams?.length ?? 0} to="/teams" />
         <StatCard icon={Puzzle} label="Extensions" value={extensions?.length ?? 0} to="/extensions" />
       </div>
 

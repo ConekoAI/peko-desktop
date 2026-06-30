@@ -8,7 +8,6 @@ pub mod runtime;
 pub mod session;
 pub mod settings;
 pub mod system;
-pub mod team;
 pub mod util;
 
 pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static
@@ -32,14 +31,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_list,
         principal::principal_send,
         principal::principal_send_stream,
-        team::team_list,
-        team::team_show,
-        team::team_create,
-        team::team_remove,
-        team::team_join,
-        team::team_leave,
-        team::team_export,
-        team::team_import,
         session::session_list,
         session::session_show,
         session::session_history,
