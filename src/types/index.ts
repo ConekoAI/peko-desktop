@@ -181,11 +181,11 @@ export interface Credential {
   expiresAt?: string;
 }
 
-export interface SharedInstance {
+export interface AccessiblePrincipal {
   id: string;
   ownerId: number;
   ownerName: string;
-  agentName: string;
+  principalName: string;
   publicName?: string;
   status: "online" | "offline" | "busy" | "error";
   runtimeId?: string;

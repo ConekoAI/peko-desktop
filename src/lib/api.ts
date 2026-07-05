@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AccessiblePrincipal,
   AgentDetail,
   AgentSummary,
   AuthStatus,
@@ -16,7 +17,6 @@ import type {
   SessionMessage,
   SessionSummary,
   Setting,
-  SharedInstance,
   SystemStatus,
 } from "../types";
 
@@ -311,10 +311,10 @@ export async function systemEvents(): Promise<{ events: Array<Record<string, unk
   return invoke("system_events");
 }
 
-// ─── Shared Instances ───────────────────────────────────────
+// ─── Accessible Principals ──────────────────────────────────
 
-export async function sharedInstancesList(): Promise<SharedInstance[]> {
-  return invoke("shared_instances_list");
+export async function accessiblePrincipalsList(): Promise<AccessiblePrincipal[]> {
+  return invoke("accessible_principals_list");
 }
 
 // ─── OAuth / PekoHub ────────────────────────────────────────

@@ -45,7 +45,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         registry::registry_search,
         registry::registry_pull,
         registry::registry_auth_status,
-        registry::shared_instances_list,
+        registry::accessible_principals_list,
         cron::cron_list,
         cron::cron_add,
         cron::cron_remove,

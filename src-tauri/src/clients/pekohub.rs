@@ -82,13 +82,9 @@ impl PekohubClient {
         &self,
         instance_id: &str,
         message: &str,
-        session_id: Option<&str>,
     ) -> Result<String, String> {
         let url = format!("{}/v1/instances/{}/chat", self.base_url, instance_id);
-        let mut body = json!({ "message": message });
-        if let Some(sid) = session_id {
-            body["session_id"] = json!(sid);
-        }
+        let body = json!({ "message": message });
         let mut req = self
             .http
             .post(&url)
@@ -109,17 +105,13 @@ impl PekohubClient {
         &self,
         instance_id: &str,
         message: &str,
-        session_id: Option<&str>,
         mut on_event: F,
     ) -> Result<(), String>
     where
         F: FnMut(crate::ipc::StreamEvent) + Send,
     {
         let url = format!("{}/v1/instances/{}/chat", self.base_url, instance_id);
-        let mut body = json!({ "message": message });
-        if let Some(sid) = session_id {
-            body["session_id"] = json!(sid);
-        }
+        let body = json!({ "message": message });
         let mut req = self
             .http
             .post(&url)
@@ -279,9 +271,10 @@ impl PekohubClient {
         resp.json().await.map_err(|e| e.to_string())
     }
 
-    /// List instances shared with the authenticated user.
-    pub async fn list_shared_instances(&self) -> Result<serde_json::Value, String> {
-        let url = format!("{}/v1/me/shared-instances", self.base_url);
+    /// List principals the authenticated user has access to
+    /// (caller-owned + caller-allowed).
+    pub async fn list_accessible_principals(&self) -> Result<serde_json::Value, String> {
+        let url = format!("{}/v1/me/accessible-principals", self.base_url);
         let mut req = self.http.get(&url);
         if let Some((k, v)) = Self::auth_header() {
             req = req.header(&k, v);
