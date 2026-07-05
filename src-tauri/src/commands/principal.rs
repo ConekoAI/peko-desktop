@@ -28,7 +28,9 @@ pub struct PrincipalSummary {
 }
 
 #[tauri::command]
-pub async fn principal_list(state: tauri::State<'_, AppState>) -> Result<Vec<PrincipalSummary>, String> {
+pub async fn principal_list(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<PrincipalSummary>, String> {
     // Pull the local default runtime. The runtime_id field on the
     // returned summary is the runtime that owns the principal, so the
     // multi-runtime UI can route messages correctly.
