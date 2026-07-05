@@ -78,11 +78,7 @@ impl PekohubClient {
 
     /// Send a chat message to an agent on a remote runtime.
     /// Returns the HTTP response body as text (usually SSE or JSON).
-    pub async fn chat(
-        &self,
-        instance_id: &str,
-        message: &str,
-    ) -> Result<String, String> {
+    pub async fn chat(&self, instance_id: &str, message: &str) -> Result<String, String> {
         let url = format!("{}/v1/instances/{}/chat", self.base_url, instance_id);
         let body = json!({ "message": message });
         let mut req = self
