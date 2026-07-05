@@ -48,4 +48,14 @@ ignore = [
   # Pulled in by `webkit2gtk-sys`. The affected `VariantStrIter`
   # unsoundness is the same code path as RUSTSEC-2024-0429 above.
   "RUSTSEC-2024-0429", # already listed
+  # ── quick-xml 0.39 (transitive via plist → tauri) ───────────────────
+  # Pulled in by `plist 1.9.0` → `tauri 2.11.2`. The vulnerable code
+  # paths (start-tag attribute dedup quadratic time, NsReader
+  # namespace-declaration unbounded allocation) are only reachable
+  # when parsing untrusted XML; the desktop only feeds plist::Value
+  # to/from Tauri config which never touches attacker-controlled XML.
+  # Fix lands when `plist` ships a release that depends on quick-xml
+  # ≥0.41 and Tauri's pin picks it up.
+  "RUSTSEC-2026-0194", # quadratic start-tag attribute dedup
+  "RUSTSEC-2026-0195", # NsReader namespace-decl allocation
 ]
