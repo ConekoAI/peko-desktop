@@ -95,35 +95,35 @@ pub fn registry_auth_status() -> Result<AuthStatus, String> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SharedInstanceItem {
+pub struct AccessiblePrincipalItem {
     pub id: String,
     pub owner_id: i64,
     pub owner_name: String,
-    pub agent_name: String,
+    pub principal_name: String,
     pub public_name: Option<String>,
     pub status: String,
 }
 
 #[tauri::command]
-pub async fn shared_instances_list(
+pub async fn accessible_principals_list(
     state: tauri::State<'_, crate::state::AppState>,
-) -> Result<Vec<SharedInstanceItem>, String> {
+) -> Result<Vec<AccessiblePrincipalItem>, String> {
     let result = state
         .pekohub_client
-        .list_shared_instances()
+        .list_accessible_principals()
         .await
         .map_err(|e| e.to_string())?;
-    let instances = result
-        .get("instances")
+    let principals = result
+        .get("principals")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
                 .filter_map(|v| {
-                    Some(SharedInstanceItem {
+                    Some(AccessiblePrincipalItem {
                         id: v.get("id")?.as_str()?.to_string(),
                         owner_id: v.get("ownerId")?.as_i64()?,
                         owner_name: v.get("ownerName")?.as_str()?.to_string(),
-                        agent_name: v.get("agentName")?.as_str()?.to_string(),
+                        principal_name: v.get("principalName")?.as_str()?.to_string(),
                         public_name: v
                             .get("publicName")
                             .and_then(|v| v.as_str())
@@ -134,5 +134,5 @@ pub async fn shared_instances_list(
                 .collect()
         })
         .unwrap_or_default();
-    Ok(instances)
+    Ok(principals)
 }

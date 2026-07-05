@@ -48,4 +48,13 @@ ignore = [
   # Pulled in by `webkit2gtk-sys`. The affected `VariantStrIter`
   # unsoundness is the same code path as RUSTSEC-2024-0429 above.
   "RUSTSEC-2024-0429", # already listed
+  # ── quick-xml namespace-decl & duplicate-attribute DoS (transitive) ──
+  # Pulled in by `plist` → `tauri` / `tauri-utils`. The desktop
+  # only parses plist XML from local bundle metadata (build-time
+  # Info.plist reads and macOS launch-services queries), never
+  # untrusted XML. Both advisories require attacker-controlled XML;
+  # neither is reachable in our usage. Revisit when quick-xml ≥0.40
+  # or plist ≥1.10 lands upstream.
+  "RUSTSEC-2026-0194", # quick-xml duplicate-attribute quadratic
+  "RUSTSEC-2026-0195", # quick-xml NsReader unbounded allocation
 ]
