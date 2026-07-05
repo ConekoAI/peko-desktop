@@ -3,7 +3,12 @@ import { useSystemLogs } from "../hooks/useSystemLogs";
 import Terminal from "../components/Terminal";
 import { RefreshCw } from "lucide-react";
 
-export default function Logs() {
+/**
+ * Daemon log surface (operator-only). Distinct from `peko log
+ * <PRINCIPAL>`, which is the per-principal activity feed surfaced at
+ * `/log/$principalName`.
+ */
+export default function DaemonLogs() {
   const [lines, setLines] = useState(200);
   const { data: logs, isLoading, refetch } = useSystemLogs(lines);
 
@@ -11,9 +16,9 @@ export default function Logs() {
     <div className="flex h-full flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Logs</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Daemon Log</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Daemon log output
+            Operator-level daemon log output
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -39,7 +44,7 @@ export default function Logs() {
 
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center text-sm text-slate-400 dark:text-slate-600">
-          Loading logs...
+          Loading daemon log...
         </div>
       ) : (
         <Terminal lines={logs ?? []} className="flex-1" />

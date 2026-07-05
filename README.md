@@ -4,8 +4,10 @@
 
 Pekobot Desktop is the desktop client for the Pekobot ecosystem. It connects to a
 running `peko-runtime` daemon (local or, soon, remote via PekoHub) and gives you
-a graphical interface for browsing agents, chatting with sessions,
-managing cron jobs, and inspecting runtime status.
+a graphical interface for browsing **Principals** (ADR-041), chatting
+via `peko send`, reading activity via `peko log <PRINCIPAL>`
+(ADR-042), managing cron jobs and extensions, and inspecting runtime
+status.
 
 ---
 
@@ -16,12 +18,23 @@ managing cron jobs, and inspecting runtime status.
 | **Rust**     | 1.74+ stable   | Tauri 2 backend ([`src-tauri/`](src-tauri/))         |
 | **Node.js**  | 20+            | Vite + React frontend ([`src/`](src/))               |
 | **pnpm**     | 9+ (or npm 10+)| Install JS dependencies                              |
-| **peko CLI** | latest         | Desktop shells out to the CLI for one-shot commands  |
+| **peko CLI** | latest         | Desktop talks to the daemon over direct IPC; one-shot lifecycle and file operations (e.g. `peko principal new`) still use the CLI  |
 
 > The `peko` binary is **not** installed by this repo — install it from
 > [`peko-runtime`](https://github.com/ConekoAI/peko-runtime). The desktop app
 > will fail to start most views if the daemon isn't running; start it with
 > `peko daemon start` before launching the UI.
+>
+> Principal creation happens through the runtime's CLI
+> (`peko principal new <name>`), which materializes
+> `<workspace>/agents/<name>.md`. Refresh the sidebar to see new
+> principals. Principal *listing*, *chat*, and *activity* are
+> IPC-driven — see
+> [`docs/architecture/adr/ADR-041`](docs/architecture/adr/ADR-002-desktop-remote-runtime-support.md#principal-surface-adr-041/042) for the
+> architectural model, plus the runtime-side
+> [ADR-041](../../../peko-runtime/docs/architecture/adr/ADR-041-principal-as-container.md)
+> and
+> [ADR-042](../../../peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md).
 
 ## Quick start
 
@@ -86,14 +99,19 @@ The desktop app is intentionally thin: all real work happens in
 [`peko-runtime`](https://github.com/ConekoAI/peko-runtime). It speaks to the
 runtime over two transports — see the ADRs for the rationale.
 
-- **[ADR-001 — Desktop GUI Communication (CLI shell-out vs direct IPC)](docs/architecture/adr/ADR-001-desktop-ipc-vs-cli-shellout.md)** —
-  one-shot commands go through the `peko` CLI; streaming `execute` (chat) uses
-  the daemon's UDP / Unix-socket IPC protocol directly.
 - **[ADR-002 — Desktop Remote Runtime Support](docs/architecture/adr/ADR-002-desktop-remote-runtime-support.md)** —
   multi-runtime model (local + remote) fronted by a `RuntimeConnection`
-  abstraction, with PekoHub as the broker for remote instances.
+  abstraction, with PekoHub as the broker for remote principals.
+- **[ADR-001 — Desktop GUI Communication (CLI shell-out vs direct IPC)](docs/architecture/adr/ADR-001-desktop-ipc-vs-cli-shellout.md)** —
+  *Superseded 2026-07-05 by ADR-041/042.* Kept for historical context.
+- **[Post-migration checklist](docs/phase3/Pre_Migration_Checklist.md)** —
+  current source of truth for the desktop's v0 launch surface.
 
-Additional historical context lives under [`docs/phase3/`](docs/phase3/).
+For the Principal-as-container model and the `peko log` privacy
+contract, see the runtime-side
+[ADR-041](../../../peko-runtime/docs/architecture/adr/ADR-041-principal-as-container.md)
+and
+[ADR-042](../../../peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md).
 
 ## Security
 

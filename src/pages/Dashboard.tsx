@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useAgents } from "../hooks/useAgents";
+import { usePrincipals } from "../hooks/usePrincipals";
 import { useExtensions } from "../hooks/useExtensions";
 import { useDaemonStatus, useDaemonStart, useDaemonStop, useDaemonRestart } from "../hooks/useDaemon";
 import { formatDuration } from "../lib/format";
-import CreateAgentModal from "../components/modals/CreateAgentModal";
+import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import {
   Bot,
   Puzzle,
@@ -55,7 +55,7 @@ function StatCard({
 }
 
 export default function Dashboard() {
-  const { data: agents } = useAgents();
+  const { data: principals } = usePrincipals();
   const { data: extensions } = useExtensions();
   const { data: daemon, isLoading: daemonLoading } = useDaemonStatus();
   const start = useDaemonStart();
@@ -104,7 +104,7 @@ export default function Dashboard() {
                   ? "Checking status..."
                   : daemon?.running
                     ? `Version ${daemon.version}${daemon.uptime ? ` · Uptime ${formatDuration(daemon.uptime)}` : ""}`
-                    : "Start the daemon to enable agents and sessions"}
+                    : "Start the daemon to enable principals and chat"}
               </p>
             </div>
           </div>
@@ -150,7 +150,12 @@ export default function Dashboard() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard icon={Bot} label="Agents" value={agents?.length ?? 0} />
+        <StatCard
+          icon={Bot}
+          label="Principals"
+          value={principals?.length ?? 0}
+          sub="top-level runtime actors"
+        />
         <StatCard icon={Puzzle} label="Extensions" value={extensions?.length ?? 0} to="/extensions" />
       </div>
 
@@ -163,7 +168,7 @@ export default function Dashboard() {
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
           >
             <Plus className="h-4 w-4" />
-            New Agent
+            New Principal
           </button>
           <Link
             to="/registry"
@@ -173,16 +178,16 @@ export default function Dashboard() {
             Browse Registry
           </Link>
           <Link
-            to="/logs"
+            to="/daemon-logs"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <FileText className="h-4 w-4" />
-            View Logs
+            Daemon Log
           </Link>
         </div>
       </div>
 
-      <CreateAgentModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

@@ -11,18 +11,16 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SharedRouteImport } from './routes/shared'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as RegistryRouteImport } from './routes/registry'
-import { Route as LogsRouteImport } from './routes/logs'
 import { Route as ExtensionsRouteImport } from './routes/extensions'
 import { Route as EventBusRouteImport } from './routes/event-bus'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DaemonLogsRouteImport } from './routes/daemon-logs'
 import { Route as CronRouteImport } from './routes/cron'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SessionsIdRouteImport } from './routes/sessions.$id'
-import { Route as ChatAgentNameRouteImport } from './routes/chat.$agentName'
-import { Route as ChatAgentNameSessionIdRouteImport } from './routes/chat.$agentName.$sessionId'
+import { Route as LogPrincipalNameRouteImport } from './routes/log.$principalName'
+import { Route as ChatPrincipalNameRouteImport } from './routes/chat.$principalName'
 
 const SharedRoute = SharedRouteImport.update({
   id: '/shared',
@@ -34,19 +32,9 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SessionsRoute = SessionsRouteImport.update({
-  id: '/sessions',
-  path: '/sessions',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RegistryRoute = RegistryRouteImport.update({
   id: '/registry',
   path: '/registry',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LogsRoute = LogsRouteImport.update({
-  id: '/logs',
-  path: '/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExtensionsRoute = ExtensionsRouteImport.update({
@@ -64,6 +52,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DaemonLogsRoute = DaemonLogsRouteImport.update({
+  id: '/daemon-logs',
+  path: '/daemon-logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CronRoute = CronRouteImport.update({
   id: '/cron',
   path: '/cron',
@@ -79,70 +72,59 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SessionsIdRoute = SessionsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => SessionsRoute,
+const LogPrincipalNameRoute = LogPrincipalNameRouteImport.update({
+  id: '/log/$principalName',
+  path: '/log/$principalName',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const ChatAgentNameRoute = ChatAgentNameRouteImport.update({
-  id: '/$agentName',
-  path: '/$agentName',
+const ChatPrincipalNameRoute = ChatPrincipalNameRouteImport.update({
+  id: '/$principalName',
+  path: '/$principalName',
   getParentRoute: () => ChatRoute,
-} as any)
-const ChatAgentNameSessionIdRoute = ChatAgentNameSessionIdRouteImport.update({
-  id: '/$sessionId',
-  path: '/$sessionId',
-  getParentRoute: () => ChatAgentNameRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
+  '/daemon-logs': typeof DaemonLogsRoute
   '/dashboard': typeof DashboardRoute
   '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
-  '/logs': typeof LogsRoute
   '/registry': typeof RegistryRoute
-  '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/shared': typeof SharedRoute
-  '/chat/$agentName': typeof ChatAgentNameRouteWithChildren
-  '/sessions/$id': typeof SessionsIdRoute
-  '/chat/$agentName/$sessionId': typeof ChatAgentNameSessionIdRoute
+  '/chat/$principalName': typeof ChatPrincipalNameRoute
+  '/log/$principalName': typeof LogPrincipalNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
+  '/daemon-logs': typeof DaemonLogsRoute
   '/dashboard': typeof DashboardRoute
   '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
-  '/logs': typeof LogsRoute
   '/registry': typeof RegistryRoute
-  '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/shared': typeof SharedRoute
-  '/chat/$agentName': typeof ChatAgentNameRouteWithChildren
-  '/sessions/$id': typeof SessionsIdRoute
-  '/chat/$agentName/$sessionId': typeof ChatAgentNameSessionIdRoute
+  '/chat/$principalName': typeof ChatPrincipalNameRoute
+  '/log/$principalName': typeof LogPrincipalNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
+  '/daemon-logs': typeof DaemonLogsRoute
   '/dashboard': typeof DashboardRoute
   '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
-  '/logs': typeof LogsRoute
   '/registry': typeof RegistryRoute
-  '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/shared': typeof SharedRoute
-  '/chat/$agentName': typeof ChatAgentNameRouteWithChildren
-  '/sessions/$id': typeof SessionsIdRoute
-  '/chat/$agentName/$sessionId': typeof ChatAgentNameSessionIdRoute
+  '/chat/$principalName': typeof ChatPrincipalNameRoute
+  '/log/$principalName': typeof LogPrincipalNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -150,63 +132,57 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/cron'
+    | '/daemon-logs'
     | '/dashboard'
     | '/event-bus'
     | '/extensions'
-    | '/logs'
     | '/registry'
-    | '/sessions'
     | '/settings'
     | '/shared'
-    | '/chat/$agentName'
-    | '/sessions/$id'
-    | '/chat/$agentName/$sessionId'
+    | '/chat/$principalName'
+    | '/log/$principalName'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/chat'
     | '/cron'
+    | '/daemon-logs'
     | '/dashboard'
     | '/event-bus'
     | '/extensions'
-    | '/logs'
     | '/registry'
-    | '/sessions'
     | '/settings'
     | '/shared'
-    | '/chat/$agentName'
-    | '/sessions/$id'
-    | '/chat/$agentName/$sessionId'
+    | '/chat/$principalName'
+    | '/log/$principalName'
   id:
     | '__root__'
     | '/'
     | '/chat'
     | '/cron'
+    | '/daemon-logs'
     | '/dashboard'
     | '/event-bus'
     | '/extensions'
-    | '/logs'
     | '/registry'
-    | '/sessions'
     | '/settings'
     | '/shared'
-    | '/chat/$agentName'
-    | '/sessions/$id'
-    | '/chat/$agentName/$sessionId'
+    | '/chat/$principalName'
+    | '/log/$principalName'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRouteWithChildren
   CronRoute: typeof CronRoute
+  DaemonLogsRoute: typeof DaemonLogsRoute
   DashboardRoute: typeof DashboardRoute
   EventBusRoute: typeof EventBusRoute
   ExtensionsRoute: typeof ExtensionsRoute
-  LogsRoute: typeof LogsRoute
   RegistryRoute: typeof RegistryRoute
-  SessionsRoute: typeof SessionsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   SharedRoute: typeof SharedRoute
+  LogPrincipalNameRoute: typeof LogPrincipalNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -225,25 +201,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sessions': {
-      id: '/sessions'
-      path: '/sessions'
-      fullPath: '/sessions'
-      preLoaderRoute: typeof SessionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/registry': {
       id: '/registry'
       path: '/registry'
       fullPath: '/registry'
       preLoaderRoute: typeof RegistryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logs': {
-      id: '/logs'
-      path: '/logs'
-      fullPath: '/logs'
-      preLoaderRoute: typeof LogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/extensions': {
@@ -267,6 +229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/daemon-logs': {
+      id: '/daemon-logs'
+      path: '/daemon-logs'
+      fullPath: '/daemon-logs'
+      preLoaderRoute: typeof DaemonLogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cron': {
       id: '/cron'
       path: '/cron'
@@ -288,76 +257,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sessions/$id': {
-      id: '/sessions/$id'
-      path: '/$id'
-      fullPath: '/sessions/$id'
-      preLoaderRoute: typeof SessionsIdRouteImport
-      parentRoute: typeof SessionsRoute
+    '/log/$principalName': {
+      id: '/log/$principalName'
+      path: '/log/$principalName'
+      fullPath: '/log/$principalName'
+      preLoaderRoute: typeof LogPrincipalNameRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/chat/$agentName': {
-      id: '/chat/$agentName'
-      path: '/$agentName'
-      fullPath: '/chat/$agentName'
-      preLoaderRoute: typeof ChatAgentNameRouteImport
+    '/chat/$principalName': {
+      id: '/chat/$principalName'
+      path: '/$principalName'
+      fullPath: '/chat/$principalName'
+      preLoaderRoute: typeof ChatPrincipalNameRouteImport
       parentRoute: typeof ChatRoute
-    }
-    '/chat/$agentName/$sessionId': {
-      id: '/chat/$agentName/$sessionId'
-      path: '/$sessionId'
-      fullPath: '/chat/$agentName/$sessionId'
-      preLoaderRoute: typeof ChatAgentNameSessionIdRouteImport
-      parentRoute: typeof ChatAgentNameRoute
     }
   }
 }
 
-interface ChatAgentNameRouteChildren {
-  ChatAgentNameSessionIdRoute: typeof ChatAgentNameSessionIdRoute
-}
-
-const ChatAgentNameRouteChildren: ChatAgentNameRouteChildren = {
-  ChatAgentNameSessionIdRoute: ChatAgentNameSessionIdRoute,
-}
-
-const ChatAgentNameRouteWithChildren = ChatAgentNameRoute._addFileChildren(
-  ChatAgentNameRouteChildren,
-)
-
 interface ChatRouteChildren {
-  ChatAgentNameRoute: typeof ChatAgentNameRouteWithChildren
+  ChatPrincipalNameRoute: typeof ChatPrincipalNameRoute
 }
 
 const ChatRouteChildren: ChatRouteChildren = {
-  ChatAgentNameRoute: ChatAgentNameRouteWithChildren,
+  ChatPrincipalNameRoute: ChatPrincipalNameRoute,
 }
 
 const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
-
-interface SessionsRouteChildren {
-  SessionsIdRoute: typeof SessionsIdRoute
-}
-
-const SessionsRouteChildren: SessionsRouteChildren = {
-  SessionsIdRoute: SessionsIdRoute,
-}
-
-const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
-  SessionsRouteChildren,
-)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRouteWithChildren,
   CronRoute: CronRoute,
+  DaemonLogsRoute: DaemonLogsRoute,
   DashboardRoute: DashboardRoute,
   EventBusRoute: EventBusRoute,
   ExtensionsRoute: ExtensionsRoute,
-  LogsRoute: LogsRoute,
   RegistryRoute: RegistryRoute,
-  SessionsRoute: SessionsRouteWithChildren,
   SettingsRoute: SettingsRoute,
   SharedRoute: SharedRoute,
+  LogPrincipalNameRoute: LogPrincipalNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

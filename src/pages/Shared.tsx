@@ -31,21 +31,22 @@ export default function Shared() {
       <div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Shared with Me</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Agents that others have privately shared with you
+          Principals (ADR-041) that other runtimes have privately shared with
+          you. Selection requires a runtime that hosts the shared principal.
         </p>
       </div>
 
       {isLoading && (
         <div className="flex items-center gap-2 py-8 text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Loading shared agents...</span>
+          <span className="text-sm">Loading shared principals...</span>
         </div>
       )}
 
       {isError && (
         <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
           <AlertCircle className="h-4 w-4" />
-          <span className="text-sm">{error?.message ?? "Failed to load shared agents"}</span>
+          <span className="text-sm">{error?.message ?? "Failed to load shared principals"}</span>
         </div>
       )}
 
@@ -53,10 +54,10 @@ export default function Shared() {
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-8 text-center dark:border-slate-800 dark:bg-slate-900">
           <User className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            No agents have been shared with you yet.
+            No principals have been shared with you yet.
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            When someone shares a private agent with you, it will appear here.
+            When someone shares a private principal with you, it will appear here.
           </p>
         </div>
       )}
@@ -74,10 +75,10 @@ export default function Shared() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-900 dark:text-white">
-                    {inst.publicName ?? inst.agentName}
+                    {inst.publicName ?? inst.principalName}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    by {inst.ownerName} · {inst.agentName}
+                    by {inst.ownerName} · {inst.principalName}
                   </p>
                 </div>
               </div>

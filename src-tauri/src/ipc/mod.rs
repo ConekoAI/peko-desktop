@@ -1,8 +1,13 @@
 //! IPC client for communicating with the peko daemon.
 //!
 //! Protocol version: 1
-//! - Version 1: Initial protocol with Ping, Execute, AsyncSpawn, AsyncCancel
-//! - Future versions will add CRUD packets for agents, sessions, etc.
+//! - Version 1: Initial protocol with Ping, Principal* packets.
+//!
+//! The legacy `agent_*` and `session_*` IPC variants were retired in
+//! peko-runtime PR #125 (ADR-042, 2026-07-05). The desktop now talks
+//! to the daemon exclusively through the `principal_*` surface plus
+//! the small handful of orthogonal IPC calls (extension, cron, system,
+//! registry, credential, settings).
 
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -182,225 +187,6 @@ impl IpcClient {
         })
     }
 
-    // ── Agent CRUD ────────────────────────────────────────────────
-
-    pub async fn list_agents(&self) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "agent_list",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn get_agent(&self, name: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "agent_get",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn create_agent(
-        &self,
-        name: &str,
-        provider: &str,
-        model: &str,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "agent_create",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "request": {
-                "name": name,
-                "provider": provider,
-                "model": model,
-            },
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn delete_agent(&self, name: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "agent_delete",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn update_agent(
-        &self,
-        name: &str,
-        model: Option<&str>,
-        description: Option<&str>,
-        system_prompt: Option<&str>,
-        config: Option<serde_json::Value>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "agent_update",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-            "model": model,
-            "description": description,
-            "system_prompt": system_prompt,
-            "config": config,
-        });
-        self.request_response(req).await
-    }
-
-    /// Export an agent
-    pub async fn export_agent(
-        &self,
-        name: &str,
-        output: Option<&str>,
-        include_sessions: bool,
-        with_extensions: bool,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "agent_export",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-            "output": output,
-            "include_sessions": include_sessions,
-            "with_extensions": with_extensions,
-        });
-        self.request_response(req).await
-    }
-
-    /// Import an agent
-    pub async fn import_agent(
-        &self,
-        file_path: &str,
-        name: Option<&str>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "agent_import",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "file_path": file_path,
-            "name": name,
-        });
-        self.request_response(req).await
-    }
-
-    // ── Session CRUD ──────────────────────────────────────────────
-
-    pub async fn list_sessions(&self, agent: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "session_list",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "agent": agent,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn get_session(&self, id: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "session_get",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "id": id,
-        });
-        self.request_response(req).await
-    }
-
-    pub async fn list_providers(&self) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "provider_list",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-        });
-        self.request_response(req).await
-    }
-
-    /// Get a stored credential from the runtime's OS-keychain-backed
-    /// secret store. As of v3 the runtime owns the keychain; the
-    /// desktop no longer maintains its own copy.
-    pub async fn credential_get(&self, provider: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "credential_get",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "provider": provider,
-        });
-        self.request_response(req).await
-    }
-
-    /// Set a credential via the runtime. The desktop should *not* hold
-    /// the secret beyond the IPC call.
-    pub async fn credential_set(&self, provider: &str, api_key: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "credential_set",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "provider": provider,
-            "api_key": api_key,
-        });
-        self.request_response(req).await
-    }
-
-    /// Delete a credential via the runtime.
-    pub async fn credential_delete(&self, provider: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "credential_delete",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "provider": provider,
-        });
-        self.request_response(req).await
-    }
-
-    /// List providers with stored credentials (via the runtime).
-    pub async fn credential_list(&self) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "credential_list",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-        });
-        self.request_response(req).await
-    }
-
-    /// Show session details with optional history.
-    /// `agent` and `session_id` are required.
-    pub async fn show_session(
-        &self,
-        agent: &str,
-        session_id: &str,
-        history: bool,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "session_show",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "agent": agent,
-            "session_id": session_id,
-            "history": history,
-        });
-        self.request_response(req).await
-    }
-
     // ── System ────────────────────────────────────────────────────
 
     /// Get system status from daemon
@@ -421,6 +207,18 @@ impl IpcClient {
             "type": "system_doctor",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Clean system cache
+    pub async fn system_clean(&self, scope: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "system_clean",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "scope": scope,
         });
         self.request_response(req).await
     }
@@ -459,6 +257,25 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "job_id": id,
+        });
+        self.request_response(req).await
+    }
+
+    /// Add a cron job (simplified)
+    pub async fn cron_add_simple(
+        &self,
+        name: &str,
+        schedule: &str,
+        message: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "cron_add_simple",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "schedule": schedule,
+            "message": message,
         });
         self.request_response(req).await
     }
@@ -516,20 +333,6 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    // ── System ────────────────────────────────────────────────────
-
-    /// Clean system cache
-    pub async fn system_clean(&self, scope: Option<&str>) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "system_clean",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "scope": scope,
-        });
-        self.request_response(req).await
-    }
-
     /// Install an extension from a path
     pub async fn install_extension(&self, path: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
@@ -554,64 +357,7 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// Add a cron job (simplified)
-    pub async fn cron_add_simple(
-        &self,
-        name: &str,
-        schedule: &str,
-        message: &str,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "cron_add_simple",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "name": name,
-            "schedule": schedule,
-            "message": message,
-        });
-        self.request_response(req).await
-    }
-
-    /// Branch a session
-    pub async fn branch_session(
-        &self,
-        agent: &str,
-        session_id: &str,
-        label: Option<&str>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "session_branch",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "agent": agent,
-            "session_id": session_id,
-            "label": label,
-        });
-        self.request_response(req).await
-    }
-
-    /// Compact a session
-    pub async fn compact_session(
-        &self,
-        agent: &str,
-        session_id: &str,
-        dry_run: bool,
-        instruction: Option<&str>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "session_compact",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "agent": agent,
-            "session_id": session_id,
-            "dry_run": dry_run,
-            "instruction": instruction,
-        });
-        self.request_response(req).await
-    }
+    // ── Registry ──────────────────────────────────────────────────
 
     /// Pull an agent from registry
     pub async fn registry_pull(
@@ -634,168 +380,68 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// Set instance status (online/offline) for tunnel-published agents
-    pub async fn set_instance_status(
-        &self,
-        agent_name: &str,
-        status: &str,
-    ) -> Result<serde_json::Value> {
+    // ── Credential (keychain) ─────────────────────────────────────
+
+    /// Get a stored credential from the runtime's OS-keychain-backed
+    /// secret store. As of v3 the runtime owns the keychain; the
+    /// desktop no longer maintains its own copy.
+    pub async fn credential_get(&self, provider: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "instance_set_status",
+            "type": "credential_get",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "agent_name": agent_name,
-            "status": status,
+            "provider": provider,
         });
         self.request_response(req).await
     }
 
-    /// Set instance exposure (unexposed/private/public) for tunnel-published agents
-    pub async fn set_instance_exposure(
-        &self,
-        agent_name: &str,
-        exposure: &str,
-    ) -> Result<serde_json::Value> {
+    /// Set a credential via the runtime. The desktop should *not* hold
+    /// the secret beyond the IPC call.
+    pub async fn credential_set(&self, provider: &str, api_key: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "instance_set_exposure",
+            "type": "credential_set",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "agent_name": agent_name,
-            "exposure": exposure,
+            "provider": provider,
+            "api_key": api_key,
         });
         self.request_response(req).await
     }
 
-    /// Send an execute request and emit stream events via the Tauri app handle.
-    ///
-    /// The daemon returns ResponsePacket shapes (Text { chunk }, Done { success }, Error { message })
-    /// which we map into our frontend-facing StreamEvent enum.
-    pub async fn execute(
-        &self,
-        app: &tauri::AppHandle,
-        agent: String,
-        message: String,
-        session_id: Option<String>,
-    ) -> Result<()> {
+    /// Delete a credential via the runtime.
+    pub async fn credential_delete(&self, provider: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
-
-        let request = serde_json::json!({
-            "type": "execute",
+        let req = serde_json::json!({
+            "type": "credential_delete",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "agent": agent,
-            "message": message,
-            "session_id": session_id,
-            "new_session": session_id.is_none(),
-            "stream": true,
-            "user": "desktop",
+            "provider": provider,
         });
+        self.request_response(req).await
+    }
 
-        let bytes =
-            serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
-        let mut buf = vec![0u8; 65536];
+    /// List providers with stored credentials (via the runtime).
+    pub async fn credential_list(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "credential_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
 
-        #[cfg(windows)]
-        {
-            self.socket
-                .send_to(&bytes, "127.0.0.1:11435")
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
-        #[cfg(unix)]
-        {
-            let sock_path = default_socket_path();
-            self.socket
-                .send_to(&bytes, &sock_path)
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
-
-        // Read streaming responses until Done or Error
-        loop {
-            let len = match tokio::time::timeout(
-                Duration::from_secs(30),
-                self.socket.recv_from(&mut buf),
-            )
-            .await
-            {
-                Ok(Ok((len, _))) => len,
-                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
-                Err(_) => return Err(IpcError::Timeout),
-            };
-
-            let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
-                .map_err(|e| IpcError::Serialization(e.to_string()))?;
-
-            let packet_type = raw.get("type").and_then(|v| v.as_str()).unwrap_or("");
-
-            // Emit milliseconds since epoch — JavaScript's Date constructor
-            // handles this natively: new Date("1717421234567") works.
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis()
-                .to_string();
-
-            let event = match packet_type {
-                "text" => {
-                    let chunk = raw
-                        .get("chunk")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    StreamEvent::Chunk {
-                        content: chunk,
-                        timestamp,
-                    }
-                }
-                "done" => {
-                    let success = raw.get("success").and_then(|v| v.as_bool()).unwrap_or(true);
-                    if !success {
-                        let error_msg = raw
-                            .get("error")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("Unknown error")
-                            .to_string();
-                        StreamEvent::Error {
-                            message: error_msg,
-                            timestamp,
-                        }
-                    } else {
-                        StreamEvent::Done { timestamp }
-                    }
-                }
-                "error" => {
-                    let message = raw
-                        .get("message")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("Unknown error")
-                        .to_string();
-                    StreamEvent::Error { message, timestamp }
-                }
-                "heartbeat" => {
-                    // Daemon keepalive — ignore
-                    continue;
-                }
-                other => {
-                    // Unknown packet type — skip or log
-                    eprintln!("[peko-desktop] Unknown IPC response packet type: {}", other);
-                    continue;
-                }
-            };
-
-            let is_done = matches!(event, StreamEvent::Done { .. } | StreamEvent::Error { .. });
-
-            let _ = app.emit("peko-stream", &event);
-
-            if is_done {
-                break;
-            }
-        }
-
-        Ok(())
+    /// List the runtime's provider catalog.
+    pub async fn list_providers(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "provider_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
     }
 
     // ── Principal operations (ADR-041) ───────────────────────────────
@@ -948,6 +594,34 @@ impl IpcClient {
         }
         // Fallback: assume the value is the full payload.
         Ok(value.to_string())
+    }
+
+    /// Read a peer's conversation thread with a Principal.
+    ///
+    /// Mirror of `RequestPacket::PrincipalLog` (PR #124). The privacy
+    /// contract (`caller == peer || caller == principal.owner` plus
+    /// the principal's `Chat` grant) is enforced by the daemon. The
+    /// desktop passes through `peer` as the Subject parse result
+    /// (`user:alice`, `principal:<did>`, or `public`) — or `None` for
+    /// the owner-root default view.
+    pub async fn principal_log(
+        &self,
+        name: &str,
+        peer: Option<&str>,
+        limit: Option<usize>,
+        since_secs: Option<u64>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_log",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "peer": peer,
+            "limit": limit,
+            "since_secs": since_secs,
+        });
+        self.request_response(req).await
     }
 
     /// List all known Principals.
