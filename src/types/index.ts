@@ -14,58 +14,50 @@ export interface DaemonStatus {
   version: string;
 }
 
-export interface AgentSummary {
+// ─── Principal (ADR-041) ────────────────────────────────────────
+//
+// Principal is the only top-level runtime actor. Agent is a thin
+// markdown prompt file inside a Principal and is not a top-level
+// entity; sessions are internal storage and are not surfaced.
+
+export interface PrincipalSummary {
   name: string;
   description?: string;
-  provider: string;
-  model: string;
-  sessionCount: number;
+  status: string;
+  exposure: string;
+  /** Subject string ("user:alice", "principal:<did>", or "public"). */
+  owner: string;
   runtimeId: string;
 }
 
-export interface AgentDetail {
-  name: string;
-  description?: string;
-  provider: string;
-  model: string;
-  sessionCount: number;
-  systemPrompt?: string;
-  tools: string[];
-  extensions: string[];
+export interface PrincipalDetail extends PrincipalSummary {
+  agentPrompts: { name: string; path: string }[];
+  permissions: { subject: string; permission: string }[];
   config: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
-  runtimeId: string;
-  status?: string;
 }
 
-export interface SessionSummary {
-  id: string;
-  agent: string;
-  title?: string;
-  messageCount: number;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  runtimeId: string;
+// ─── peko log / HistoryEvent (ADR-042) ──────────────────────────
+
+export type HistoryEvent =
+  | { kind: "session"; sessionId: string; startedAt: string }
+  | { kind: "message"; role: string; content: string; timestamp: string }
+  | { kind: "tool_call"; toolName: string; args: string; toolCallId: string; timestamp: string }
+  | { kind: "tool_result"; toolCallId: string; output: string; error?: string; timestamp: string }
+  | { kind: "thinking"; content: string; timestamp: string }
+  | { kind: "compaction"; timestamp: string }
+  | { kind: "custom"; customType: string; timestamp: string };
+
+export interface LogResponse {
+  sessionId: string | null;
+  events: HistoryEvent[];
+  truncated: boolean;
+  /** Subject string the response was scoped to (owner-root or peer). */
+  peer: string;
 }
 
-export interface SessionMessage {
-  id: string;
-  role: "user" | "assistant" | "system" | "tool";
-  content: string;
-  timestamp: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface SessionDetail extends SessionSummary {
-  messages: SessionMessage[];
-  branches?: string[];
-  parentId?: string;
-  metadata: Record<string, unknown>;
-}
-
-
+// ─── Extension / Registry / Cron / System ────────────────────────
 
 export interface ExtensionSummary {
   id: string;
@@ -174,11 +166,17 @@ export interface Setting {
   category: string;
 }
 
+// ─── Credential (keychain-only) ─────────────────────────────────
+//
+// Credentials are owned by the runtime's OS keychain (`peko credential
+// set/list/test/delete`). The desktop never holds the secret beyond
+// the IPC call. The shape here mirrors what `credential_test` and
+// `credential_list` return over IPC.
+
 export interface Credential {
   provider: string;
-  username?: string;
-  token?: string;
-  expiresAt?: string;
+  hasKey: boolean;
+  lastTested?: string;
 }
 
 export interface AccessiblePrincipal {
@@ -196,10 +194,4 @@ export interface AccessiblePrincipal {
   metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
-}
-
-export interface AgentPublishState {
-  exposure: "unexposed" | "private" | "public";
-  status: "online" | "offline" | "busy" | "error";
-  instanceId?: string;
 }

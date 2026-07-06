@@ -18,7 +18,7 @@ const navItems = [
   { to: "/shared", label: "Shared", icon: Users },
   { to: "/cron", label: "Cron", icon: Clock },
   { to: "/event-bus", label: "Event Bus", icon: Radio },
-  { to: "/logs", label: "Logs", icon: FileText },
+  { to: "/daemon-logs", label: "Daemon Log", icon: FileText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

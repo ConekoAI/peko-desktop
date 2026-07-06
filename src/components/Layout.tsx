@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "@tanstack/react-router";
 import Sidebar from "./Sidebar";
-import TeamRail from "./TeamRail";
-import AgentSidebar from "./AgentSidebar";
+import AppRail from "./AppRail";
+import PrincipalSidebar from "./PrincipalSidebar";
 import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
 import { useDaemonStatus } from "../hooks/useDaemon";
@@ -36,11 +36,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <TitleBar />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Far left: team rail (always visible) */}
-        <TeamRail />
+        {/* Far left: app rail (always visible) */}
+        <AppRail />
 
-        {/* Context sidebar: agent list on chat, tools on other pages */}
-        {isChatRoute ? <AgentSidebar /> : <Sidebar />}
+        {/* Context sidebar: principal list on chat routes, tools elsewhere */}
+        {isChatRoute ? <PrincipalSidebar /> : <Sidebar />}
 
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">

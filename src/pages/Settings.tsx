@@ -42,7 +42,7 @@ import {
   LogIn,
   ExternalLink,
 } from "lucide-react";
-import type { Credential, RuntimeConnection } from "../types";
+import type { RuntimeConnection } from "../types";
 
 type Tab = "general" | "daemon" | "credentials" | "runtimes" | "about";
 
@@ -271,30 +271,34 @@ function CredentialsTab() {
       setSelected(providerItems[0].id);
     }
   }, [providerItems, selected]);
-  const [username, setUsername] = useState("");
-  const [token, setToken] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const { data: credential } = useCredential(selected ?? "");
   const setCred = useSetCredential();
   const deleteCred = useDeleteCredential();
   const testCred = useTestCredential();
 
   useEffect(() => {
-    setUsername(credential?.username ?? "");
-    setToken(credential?.token ?? "");
-  }, [credential]);
+    // The Credential shape is `{ provider, hasKey, lastTested? }` —
+    // we never see the raw key, only whether one is set. Clear the
+    // input when the user switches providers.
+    setApiKey("");
+  }, [selected]);
 
   function handleSave() {
-    if (!selected) return;
-    const payload: Credential = { provider: selected };
-    if (username) payload.username = username;
-    if (token) payload.token = token;
-    setCred.mutate(payload);
+    if (!selected || !apiKey) return;
+    setCred.mutate({ provider: selected, apiKey });
+    setApiKey("");
   }
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Provider Credentials</h3>
+        <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+          Keys are stored in the OS keychain by the runtime
+          (<code>peko credential set &lt;provider&gt; &lt;key&gt;</code>).
+          The desktop never holds the secret beyond the save call.
+        </p>
         <div className="mb-4 flex flex-wrap gap-2">
           {providerItems.map((p) => (
             <button
@@ -313,38 +317,48 @@ function CredentialsTab() {
         </div>
 
         <div className="space-y-3">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Status
+            </span>
+            {credential?.hasKey ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                Key set
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                No key
+              </span>
+            )}
+            {credential?.lastTested && (
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                Last tested: {new Date(credential.lastTested).toLocaleString()}
+              </span>
+            )}
+          </div>
+
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
               API Key / Token
             </label>
             <input
               type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="sk-..."
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-              Username / Key ID (optional)
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={credential?.hasKey ? "•••••••• (leave blank to keep)" : "sk-..."}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
             />
           </div>
           <div className="flex gap-2 pt-1">
             <button
               onClick={handleSave}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+              disabled={!apiKey}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
               <Save className="h-3.5 w-3.5" />
               Save
             </button>
-            {credential && selected && (
+            {credential?.hasKey && selected && (
               <>
                 <button
                   onClick={() => testCred.mutate(selected)}

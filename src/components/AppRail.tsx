@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { Settings, MessageCircle } from "lucide-react";
 
-export default function TeamRail() {
+export default function AppRail() {
   const navigate = useNavigate();
   const location = useLocation();
 

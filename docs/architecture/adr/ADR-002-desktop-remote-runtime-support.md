@@ -4,31 +4,39 @@
 |-------------|------------------------------------------|
 | **Number**  | ADR-002                                  |
 | **Title**   | Desktop Remote Runtime Support           |
-| **Status**  | Implemented                              |
+| **Status**  | Rewritten for ADR-041/042 (2026-07-05)   |
 | **Date**    | 2026-06-07                               |
-| **Depends On** | ADR-001-desktop (Desktop IPC vs CLI Shell-Out), ADR-035 (Tunnel Protocol) |
+| **Last Updated** | 2026-07-05                         |
+| **Depends On** | ADR-001-desktop (Desktop IPC vs CLI Shell-Out), ADR-041 (Principal-as-container), ADR-042 (no external session concept), ADR-035 (Tunnel Protocol) |
 | **Related** | ADR-032 (Runtime Identity), ADR-002-pekohub (Remote Instance Management API), ADR-003-pekohub (Exposure Modes) |
 
 ---
 
+> **2026-07-05 rewrite for ADR-041/042.** The original ADR-002 (pre-Principal
+> model) described a remote Instance surface that no longer exists. The
+> remote-addressable runtime actor is now the **Principal**, and the
+> `peko log <PRINCIPAL>` IPC variant carries the activity feed across
+> runtimes. The shape of this document otherwise holds.
+
 ## Context
 
-Peko-desktop is a Tauri v2 + React + Vite desktop application for managing Pekobot agents. Today, it exclusively communicates with a local peko-runtime daemon via IPC (UDP/Unix socket), as established in ADR-001-desktop. Users have requested the ability to manage agents running on remote machines — for example, a home server accessed from a work laptop, or a VPS-hosted runtime managed from a local desktop. This ADR defines the architecture for adding remote runtime support while preserving the existing local-runtime experience.
+Peko-desktop is a Tauri v2 + React + Vite desktop application for managing a Peko runtime. Per ADR-041 the only top-level runtime actor is the Principal; Agents are markdown prompt files inside a Principal and Sessions are internal JSONL storage (per ADR-042). This ADR now defines how remote runtime support preserves the local experience with the Principal as the addressable unit.
 
 ## Problem Statement
 
-The desktop application currently assumes a single, local runtime. We need to:
+The desktop application assumes a single, local runtime. Users have requested the ability to manage principals running on remote machines — a home server accessed from a work laptop, or a VPS-hosted runtime managed from a local desktop. This ADR defines the architecture for adding remote runtime support while preserving the existing local-runtime experience.
 
 1. Support multiple runtimes (local and remote) simultaneously.
-2. Provide a unified UI where users can interact with agents regardless of where the runtime lives.
-3. Maintain transport transparency — the user should not need to think about *how* the desktop talks to a runtime, only *which* runtime an agent lives on.
+2. Provide a unified UI where users interact with principals regardless of where the runtime lives.
+3. Maintain transport transparency — the user should not need to think about *how* the desktop talks to a runtime, only *which* runtime a principal lives on.
 4. Keep the local-runtime path fast and auth-free, while adding secure, authenticated access for remote runtimes.
+5. Preserve the ADR-042 privacy gate (`caller == peer || caller == owner`) across runtimes — the remote path must not relax the contract.
 
 ## Decision
 
 ### Multi-Runtime Architecture
 
-The desktop application will maintain a list of **connected runtimes**. Each runtime is represented by a `RuntimeConnection` object that abstracts over the underlying transport.
+The desktop application maintains a list of **connected runtimes**. Each runtime is represented by a `RuntimeConnection` object that abstracts over the underlying transport.
 
 ```typescript
 interface RuntimeConnection {
@@ -39,7 +47,7 @@ interface RuntimeConnection {
   // For local
   ipc_path?: string;       // Unix socket path or UDP address
   // For remote
-  pekohub_instance_url?: string;  // e.g., /v1/instances?runtime=...
+  pekohub_instance_url?: string;
 }
 ```
 
@@ -52,54 +60,52 @@ The application state holds an array of these connections. At startup, the deskt
 
 The local runtime path remains unchanged:
 
-- The desktop uses Tauri commands (`ipc_client`) to communicate with the local daemon.
+- The desktop uses Tauri commands (`IpcClient`) to communicate with the local daemon.
 - Auto-discovery via `PEKO_DAEMON_SOCK` environment variable or platform-default socket paths.
 - Auto-start of the daemon if it is not running.
-- No authentication layer — trust is OS-level (the user already has shell access).
+- No authentication layer — trust is OS-level.
 
 ### Remote Runtime (New)
 
 Remote runtimes are accessed through the **pekohub API**, which proxies traffic through the tunnel defined in ADR-035.
 
-**Flow:**
+The remote IPC contract mirrors the local `Principal*` packet set:
 
-1. User signs into their pekohub account from the desktop app.
-2. Desktop fetches the list of runtimes registered to the account via `GET /v1/runtimes`.
-3. For each runtime, instances are fetched via `GET /v1/instances?runtime_id={runtime_id}`.
-4. Chat and management operations are sent through pekohub's proxy endpoints:
-   - `POST /v1/instances/:id/chat` — send a message.
-   - `GET /v1/instances/:id/stream` — receive SSE stream.
-   - Management operations (create agent, enable extension, etc.) go through the corresponding pekohub API routes, which tunnel to the runtime.
+| Operation | Local (ADR-041 IPC) | Remote (PekoHub proxy) |
+|-----------|--------------------|------------------------|
+| List principals | `principal_list` | `GET /v1/runtimes/:id/principals` |
+| Read principal | `principal_get` | `GET /v1/runtimes/:id/principals/:name` |
+| Send message | `principal_send` / `principal_send_stream` | `POST /v1/runtimes/:id/principals/:name/send` (+ `/stream` SSE) |
+| Read activity (ADR-042) | `principal_log --peer <subject>` | `GET /v1/runtimes/:id/principals/:name/log?peer=<subject>` |
+| Set status / exposure | `principal_set_status` / `principal_set_exposure` | `PATCH /v1/runtimes/:id/principals/:name` |
+| Grant / revoke permission | `principal_grant_permission` / `principal_revoke_permission` | `POST /v1/runtimes/:id/principals/:name/permit` |
+| Publish (push) | `principal_push` | `POST /v1/runtimes/:id/principals/:name/publish` |
+| Pull (install) | `principal_pull` | `POST /v1/runtimes/:id/pull` |
+
+The privacy contract survives the proxy: PekoHub forwards `peer` as a Subject string and the runtime re-evaluates the privacy gate at the originating daemon. No relaxations are introduced at the proxy layer.
 
 ### Unified UI
 
-The desktop UI presents **all agents from all connected runtimes** in a single sidebar. Transport details are hidden from the user.
+The desktop UI presents **all principals from all connected runtimes** in a single sidebar. Transport details are hidden from the user.
 
-- Each agent card shows a small indicator:
+- Each principal card shows a small indicator:
   - 💻 — local runtime
   - 🌐 — remote runtime
-- Clicking an agent opens the chat view. The transport is transparent.
-- The Settings page gains a **Runtimes** section for adding, removing, and managing connections.
+- Clicking a principal opens the chat view. The transport is transparent.
+- The Settings page has a **Runtimes** section for adding, removing, and managing connections.
 
 ### Authentication
 
 - The desktop app stores the pekohub access JWT in secure storage (Tauri `stronghold` or the OS keyring).
-- JWT refresh uses pekohub's refresh-token rotation (see ADR-001-pekohub).
+- JWT refresh uses pekohub's refresh-token rotation.
 - All pekohub API calls include `Authorization: Bearer {jwt}`.
 - The local runtime requires no auth token.
 
 ### Offline Handling
 
-- If a remote runtime goes offline, its agents show an **offline** badge and the chat input is disabled.
+- If a remote runtime goes offline, its principals show an **offline** badge and the chat input is disabled.
 - If the local runtime daemon stops, the existing offline behavior applies.
 - **No message queuing** — if a runtime is unreachable, the user sees an error immediately and can retry.
-- **Caching**: the last agent list and recent messages are cached locally (SQLite via Tauri SQL plugin or `localStorage` for lightweight data) so the UI remains usable in read-only mode while disconnected.
-
-### Switching Contexts
-
-- Users may have multiple runtimes connected at the same time.
-- When creating a new agent, a **runtime selector** in the creation modal lets the user choose which runtime hosts the agent.
-- The **default runtime** is the local one if available; otherwise, the most recently used runtime.
 
 ## Architecture
 
@@ -108,294 +114,96 @@ The desktop UI presents **all agents from all connected runtimes** in a single s
 React hooks remain the primary abstraction. They accept a `runtimeId` parameter and internally dispatch to the correct Tauri command.
 
 ```typescript
-// hooks/useInstances.ts
-import { invoke } from '@tauri-apps/api/core';
-import { useQuery } from '@tanstack/react-query';
-
-interface Instance {
-  id: string;
-  name: string;
-  runtime_id: string;
-  status: 'running' | 'stopped';
-}
-
-async function fetchInstances(runtimeId: string): Promise<Instance[]> {
-  // The hook decides the transport based on runtime metadata.
-  // In practice, the command layer handles this; the hook just passes runtimeId.
-  return invoke<Instance[]>('list_instances', { runtimeId });
-}
-
-export function useInstances(runtimeId: string) {
-  return useQuery({
-    queryKey: ['instances', runtimeId],
-    queryFn: () => fetchInstances(runtimeId),
-  });
+// hooks/usePrincipals.ts
+async function fetchPrincipals(runtimeId: string): Promise<PrincipalSummary[]> {
+  return invoke<PrincipalSummary[]>('principal_list', { runtimeId });
 }
 ```
 
-```typescript
-// hooks/useChat.ts
-import { invoke } from '@tauri-apps/api/core';
-import { useMutation } from '@tanstack/react-query';
+The frontend does **not** branch on `type: 'local' | 'remote'` for IPC handlers — the runtimeId parameter is passed through and the local Rust layer resolves the transport.
 
-interface ChatPayload {
-  instanceId: string;
-  runtimeId: string;
-  message: string;
-}
+### Privacy Gate — UI Layer (Strict, ADR-042)
 
-async function sendChat({ instanceId, runtimeId, message }: ChatPayload) {
-  return invoke<string>('chat', {
-    instanceId,
-    runtimeId,
-    message,
-  });
-}
+The local `/log/$principalName` page (`peko log`) is the model for the privacy gate. For remote principals:
 
-export function useChat() {
-  return useMutation({ mutationFn: sendChat });
-}
-```
-
-The frontend does **not** branch on `type: 'local' | 'remote'` — it passes `runtimeId` to a unified command surface and lets the Rust layer resolve the transport.
+- The runtime echoes the caller's `Subject` (resolved via PekoHub's authenticated session).
+- The originating daemon's `principal_log` enforces `caller == peer || caller == owner` plus the principal's `Chat` grant.
+- The desktop UI:
+  - Owner-root view if `caller == owner`.
+  - "Read your own thread" toggle (peer self-read) for non-owners with a `Chat` grant.
+  - Permission-denied state otherwise.
+- **No UI affordance for an owner to read another peer's thread** — even though the runtime allows it under the same privacy contract. The remote UI mirrors the strict UI gate.
 
 ### Tauri Command Design
 
-The Rust backend introduces a unified command surface. Commands inspect the `AppState` to look up the runtime by `runtime_id` and dispatch to the appropriate transport implementation.
+Rust commands inspect `AppState` to look up the runtime by `runtime_id` and dispatch to the appropriate transport implementation.
 
 ```rust
-// src/commands/instance.rs
-use tauri::{command, State};
-use crate::state::AppState;
-use crate::error::Error;
-use crate::models::{Instance, RuntimeConnection};
-
+// src/commands/principal.rs
 #[command]
-pub async fn list_instances(
+pub async fn principal_log(
+    name: String,
+    peer: Option<String>,
     runtime_id: String,
     state: State<'_, AppState>,
-) -> Result<Vec<Instance>, Error> {
-    let runtime = state
-        .get_runtime(&runtime_id)
-        .await
+) -> Result<LogResponse, Error> {
+    let runtime = state.get_runtime(&runtime_id).await
         .ok_or(Error::RuntimeNotFound)?;
-
     match runtime.connection_type {
-        RuntimeConnectionType::Local => {
-            state.ipc_client.list_instances(&runtime.ipc_path).await
-        }
-        RuntimeConnectionType::Remote => {
-            state.pekohub_client.list_instances(&runtime_id).await
-        }
-    }
-}
-
-#[command]
-pub async fn chat(
-    instance_id: String,
-    runtime_id: String,
-    message: String,
-    state: State<'_, AppState>,
-) -> Result<String, Error> {
-    let runtime = state
-        .get_runtime(&runtime_id)
-        .await
-        .ok_or(Error::RuntimeNotFound)?;
-
-    match runtime.connection_type {
-        RuntimeConnectionType::Local => {
-            state.ipc_client.chat(&instance_id, &message).await
-        }
-        RuntimeConnectionType::Remote => {
-            state.pekohub_client.chat(&instance_id, &message).await
-        }
-    }
-}
-```
-
-New Tauri commands for remote-specific operations:
-
-```rust
-// src/commands/remote.rs
-use tauri::{command, State};
-use crate::state::AppState;
-use crate::error::Error;
-use crate::models::Instance;
-
-#[command]
-pub async fn list_remote_instances(
-    runtime_id: String,
-    state: State<'_, AppState>,
-) -> Result<Vec<Instance>, Error> {
-    state.pekohub_client.list_instances(&runtime_id).await
-}
-
-#[command]
-pub async fn remote_chat(
-    instance_id: String,
-    message: String,
-    state: State<'_, AppState>,
-) -> Result<StreamHandle, Error> {
-    state.pekohub_client.chat(&instance_id, &message).await
-}
-```
-
-> **Note:** The `StreamHandle` type for SSE streaming will be implemented using Tauri's event system (`tauri::Emitter`) to push chunks to the frontend, keeping the command async and non-blocking.
-
-### State & Transport Layer
-
-```rust
-// src/state.rs
-use std::collections::HashMap;
-use tokio::sync::RwLock;
-
-pub struct AppState {
-    pub runtimes: RwLock<HashMap<String, RuntimeConnection>>,
-    pub ipc_client: IpcClient,
-    pub pekohub_client: PekohubClient,
-    pub secure_store: SecureStore,
-}
-
-impl AppState {
-    pub async fn get_runtime(&self, id: &str) -> Option<RuntimeConnection> {
-        self.runtimes.read().await.get(id).cloned()
-    }
-}
-```
-
-### Pekohub Client (HTTP)
-
-```rust
-// src/clients/pekohub.rs
-use reqwest::{Client, header::AUTHORIZATION};
-use crate::error::Error;
-
-pub struct PekohubClient {
-    http: Client,
-    base_url: String,
-    token_store: SecureStore,
-}
-
-impl PekohubClient {
-    pub async fn list_instances(&self, runtime_id: &str) -> Result<Vec<Instance>, Error> {
-        let token = self.token_store.get_access_token().await?;
-        let url = format!("{}/v1/instances?runtime_id={}", self.base_url, runtime_id);
-
-        let resp = self
-            .http
-            .get(&url)
-            .header(AUTHORIZATION, format!("Bearer {}", token))
-            .send()
-            .await?;
-
-        resp.json().await.map_err(Into::into)
-    }
-
-    pub async fn chat(&self, instance_id: &str, message: &str) -> Result<String, Error> {
-        let token = self.token_store.get_access_token().await?;
-        let url = format!("{}/v1/instances/{}/chat", self.base_url, instance_id);
-
-        let resp = self
-            .http
-            .post(&url)
-            .header(AUTHORIZATION, format!("Bearer {}", token))
-            .json(&serde_json::json!({ "message": message }))
-            .send()
-            .await?;
-
-        resp.text().await.map_err(Into::into)
+        RuntimeConnectionType::Local =>
+            state.ipc_client.principal_log(&name, peer.as_deref()).await,
+        RuntimeConnectionType::Remote =>
+            state.pekohub_client.principal_log(&runtime_id, &name, peer.as_deref()).await,
     }
 }
 ```
 
 ## UI/UX Changes
 
-1. **Sidebar Agent List**
-   - All agents from all connected runtimes appear in a single list.
-   - Each item shows the agent name, status, and a 💻/🌐 indicator.
-   - Offline runtimes are collapsed or greyed out with an "Offline" badge.
-
-2. **Agent Creation Modal**
-   - A **Runtime Selector** dropdown is added.
-   - The default selection is the local runtime (if connected) or the last-used runtime.
-
-3. **Settings → Runtimes Page**
-   - List of configured runtimes with connection status.
-   - "Add Remote Runtime" button triggers pekohub OAuth/sign-in flow.
-   - "Remove" and "Reconnect" actions per runtime.
-   - Edit display name inline.
-
-4. **Chat View**
-   - If the agent's runtime is disconnected, the input field is disabled with a tooltip: "Runtime offline — reconnect to continue."
-   - No visible transport details in the chat header (only agent name and runtime indicator).
-
-## Migration Path
-
-1. **Phase 1 — Backend Foundation**
-   - Introduce `RuntimeConnection` model and `AppState` refactor.
-   - Add `PekohubClient` with JWT retrieval from secure storage.
-   - Implement `list_instances` and `chat` as unified commands.
-
-2. **Phase 2 — UI Integration**
-   - Update React hooks to accept `runtimeId`.
-   - Add runtime indicator to sidebar agent cards.
-   - Build Settings → Runtimes page.
-
-3. **Phase 3 — Remote Features**
-   - Implement pekohub sign-in flow (OAuth2 PKCE).
-   - Enable fetching remote runtime lists and instances.
-   - Add SSE streaming support for remote chat.
-
-4. **Phase 4 — Polish**
-   - Offline badges, caching layer, retry logic.
-   - Runtime selector in agent creation modal.
+1. **Sidebar Principal List** — All principals from all connected runtimes appear in a single list. Each item shows the principal name, status, and a 💻/🌐 indicator.
+2. **Principal Detail / Chat** — Owner-root or peer-self-read log; mirror the local privacy gate.
+3. **Settings → Runtimes** — Add/remove/reconnect/rename local + remote runtimes; OAuth2 PKCE for PekoHub.
+4. **Activity Log** — `/log/$principalName` works identically for local and remote principals.
 
 ## Reasoning
 
-- **Unified command surface** reduces frontend complexity. The React layer stays agnostic to transport; branching happens once in Rust.
+- **Unified command surface** keeps the frontend transport-agnostic. Branching happens once in Rust.
 - **pekohub as the proxy** leverages existing tunnel infrastructure (ADR-035) and avoids exposing runtimes directly to the internet.
-- **Secure token storage** via Tauri `stronghold`/keyring follows platform best practices and keeps credentials out of plaintext.
-- **No message queuing** keeps the implementation simple. Users get immediate feedback on connectivity issues. Queueing can be added later if user research shows it is needed.
-- **Single sidebar** matches user mental models — they think about agents, not runtimes.
+- **Secure token storage** via Tauri `stronghold`/keyring follows platform best practices.
+- **No message queuing** keeps the implementation simple. Users get immediate feedback on connectivity.
+- **Single sidebar** matches user mental models — they think about principals, not runtimes.
+- **Privacy gate parity** between local and remote principals avoids an obvious regression — a remote stream that is *less* strict than local.
 
 ## Tradeoffs Accepted
 
 | Tradeoff | Rationale |
 |----------|-----------|
-| Remote chat latency is higher than local IPC | Inevitable due to network round-trips. The tunnel protocol (ADR-035) mitigates this with persistent connections. |
+| Remote chat latency is higher than local IPC | Network round-trips; the tunnel protocol (ADR-035) mitigates with persistent connections. |
 | Remote runtime requires pekohub account | Centralized identity and tunneling simplify security and NAT traversal. |
-| No offline message queue | Simpler initial implementation. Users must be online to interact with remote runtimes. |
-| Local caching limited to lightweight data | Full message history sync is deferred to future work (see Out of Scope). |
-| JWT in secure storage adds platform dependency | Tauri v2's `stronghold` and OS keyrings are well-supported across macOS, Windows, and Linux. |
+| No offline message queue | Simpler initial implementation. |
+| Strict UI privacy gate (no owner override) | ADR-042's privacy contract is preserved; the runtime allows owner override but the UI deliberately does not surface it. |
 
 ## Alternatives Considered
 
-1. **Direct TCP/UDP connection to remote runtime**
-   - Rejected: requires exposing runtimes publicly or managing VPNs, defeating the purpose of the tunnel architecture.
-
-2. **Separate "Remote Mode" UI (e.g., a switch or separate window)**
-   - Rejected: fragments the user experience. Users want to see all agents in one place.
-
-3. **GraphQL or gRPC instead of REST for pekohub API**
-   - Rejected: REST + SSE is already used in pekohub. Adding a second protocol increases complexity without clear benefit for this use case.
-
-4. **Message queue with local SQLite for offline send-later**
-   - Rejected for initial scope: adds significant complexity. May be revisited if offline usage becomes a priority.
+1. **Direct TCP/UDP connection to remote runtime** — Rejected: requires exposing runtimes publicly or managing VPNs.
+2. **Separate "Remote Mode" UI** — Rejected: fragments the user experience.
+3. **GraphQL or gRPC instead of REST for pekohub** — Rejected: REST + SSE is already used in pekohub.
+4. **Owner-override peer-read in the desktop UI** — Rejected: violates the "strict privacy gate" choice made for this migration. Operators who need to read another peer's thread use `peko principal permit ... --as <peer>` from the CLI on the owning runtime.
 
 ## Consequences
 
 ### Positive
 
-- Users can manage agents across multiple machines from a single desktop app.
-- The architecture is extensible: adding new connection types (e.g., LAN discovery) only requires a new variant in `RuntimeConnectionType`.
-- The frontend remains simple and transport-agnostic.
-- Security is centralized through pekohub's existing auth and tunnel infrastructure.
+- Users manage principals across multiple machines from a single desktop app.
+- Architecture is extensible: new connection types only require a new `RuntimeConnectionType` variant.
+- Frontend remains simple and transport-agnostic.
+- Security centralized through pekohub's auth + tunnel.
 
 ### Negative
 
-- Additional complexity in the Rust backend (two transport implementations to maintain).
-- Remote runtime features depend on pekohub availability and the user's internet connection.
-- JWT management adds failure modes (expired tokens, refresh failures) that must be handled gracefully.
+- Additional backend complexity (two transports to maintain).
+- Remote features depend on pekohub availability.
+- JWT management adds failure modes.
 
 ## Out of Scope (Future Work)
 
@@ -403,64 +211,25 @@ impl PekohubClient {
 - **Offline message queue / send-later** for remote runtimes.
 - **LAN auto-discovery** of remote runtimes on the same network without pekohub.
 - **Runtime-specific settings sync** (extensions, environment variables) across devices.
-- **Multi-user / shared runtime access** within a team or organization.
 
 ## Success Criteria
 
-- [ ] User can sign into pekohub from the desktop app. *(Phase 3 — OAuth2 PKCE flow pending)*
-- [x] User can see agents from both local and remote runtimes in a single sidebar.
-- [ ] User can chat with a remote agent with latency comparable to the web UI (within 1.5×). *(Phase 3 — SSE streaming for remote chat pending)*
-- [x] User can create a new agent on a remote runtime via the desktop UI. *(Runtime selector implemented; remote creation depends on pekohub endpoint)*
-- [x] Remote runtime disconnects gracefully: offline badge appears, no crashes. *(Chat input disabling is Phase 4)*
+- [ ] User can sign into pekohub from the desktop app.
+- [x] User can see principals from both local and remote runtimes in a single sidebar.
+- [ ] User can chat with a remote principal with latency comparable to the web UI.
+- [x] Local privacy gate (`owner-root | peer-self-read | permission denied`) is mirrored for remote principals.
 - [x] Local runtime behavior is unchanged when no remote runtimes are configured.
-- [x] JWT is never stored in plaintext (verified by code review).
+- [x] JWT is never stored in plaintext.
 
 ## References
 
-- ADR-001-desktop — Desktop IPC vs CLI Shell-Out
-- ADR-035 — Tunnel Protocol
-- ADR-032 — Runtime Identity
-- ADR-002-pekohub — Remote Instance Management API
-- ADR-003-pekohub — Exposure Modes and Public Agent Discovery
+- [ADR-041 — Principal-as-container](../../../../peko-runtime/docs/architecture/adr/ADR-041-principal-as-container.md)
+- [ADR-042 — No external session concept](../../../../peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md)
+- [ADR-001-desktop — Desktop IPC vs CLI Shell-Out] (superseded; see footer)
+- [ADR-035 — Tunnel Protocol]
+- [ADR-032 — Runtime Identity]
 - [Tauri v2 Security Best Practices](https://tauri.app/security/)
-- [Tauri Stronghold Plugin](https://tauri.app/plugin/stronghold/)
 
 ---
 
-## Implementation Progress
-
-### Completed (as of 2026-06-08)
-
-| Component | Status | Notes |
-|---|---|---|
-| `RuntimeConnection` model + `AppState` | ✅ | `src/state/mod.rs` — thread-safe registry with local auto-connect |
-| `PekohubClient` HTTP client | ✅ | `src/clients/pekohub.rs` — reqwest-based, JWT from OS keyring |
-| Unified command surface (`runtime_id` dispatch) | ✅ | `agent.rs`, `session.rs`, `system.rs` — all accept optional `runtime_id` |
-| Runtime management commands | ✅ | `runtime_list`, `runtime_add`, `runtime_remove`, `runtime_reconnect`, `runtime_rename` |
-| Frontend `runtimeId` plumbing | ✅ | Hooks, API layer, types updated; `runtimeId` passed via URL search params |
-| Runtime indicator in sidebar | ✅ | `AgentSidebar.tsx` — Monitor/Globe icons with color-coded status |
-| Runtime selector in agent creation | ✅ | `CreateAgentModal.tsx` — dropdown in step 2, defaults to local |
-| Settings → Runtimes page | ✅ | `Settings.tsx` — add/remove/reconnect/rename with inline editing |
-| Backward compatibility | ✅ | All commands default to `"local"` when `runtime_id` is omitted |
-| `settings_list` command | ✅ | `commands/settings.rs` — flattens TOML config into `Setting` structs |
-| `agent_update` command | ✅ | `commands/agent.rs` — local-only stub (daemon handles config via files) |
-
-### Known Limitations
-
-| # | Limitation | Impact | Planned Resolution |
-|---|---|---|---|
-| 1 | **Remote chat is non-streaming** | Remote `session_send` returns a single text response instead of SSE chunks. The UX feels less responsive compared to local IPC streaming. | Phase 3 — implement SSE consumption in `PekohubClient` and emit `StreamEvent::Chunk` for each SSE chunk. |
-| 2 | **No OAuth2 PKCE sign-in flow** | Users must manually add remote runtimes by entering a runtime ID. No automatic pekohub account linking or runtime discovery. | Phase 3 — add OAuth2 PKCE flow and `GET /v1/runtimes` auto-population. |
-| 3 | **Remote agent update not implemented** | `agent_update` returns current agent details without applying changes for remote runtimes. | Phase 3 — wire to pekohub `PATCH /v1/instances/:id` endpoint. |
-| 4 | **Team/extension/cron commands are local-only** | `team_*`, `extension_*`, `cron_*` commands do not accept `runtime_id` and always talk to the local daemon. | Phase 3 — extend dispatch pattern to these commands. |
-| 5 | **No offline chat input disabling** | The chat input is not disabled when a remote runtime is disconnected. The user can type and will get an error on send. | Phase 4 — add runtime status check before enabling input; show "Runtime offline" tooltip. |
-| 6 | **No local caching of agent lists** | If a remote runtime is offline, its agents disappear from the sidebar instead of showing stale data with an offline badge. | Phase 4 — cache last-known agent list in `localStorage` or SQLite. |
-| 7 | **Remote `session_branch` / `session_compact` not supported** | Returns "not supported for remote runtimes yet" error. | Phase 3 — map to pekohub endpoints once available. |
-| 8 | **Provider list is local-only** | `provider_list` only works for the local runtime. Remote runtimes cannot expose their provider list. | Phase 3 — add `GET /v1/runtimes/:id/providers` pekohub endpoint. |
-
-## Code Review Notes
-
-- **JWT storage**: Verified — `PekohubClient::token()` reads from `crate::vault::get_credential("peko", "pekohub")`, which uses the OS keyring via `keyring-core`. No plaintext fallback.
-- **Serialization consistency**: `ProviderInfo` Rust struct uses `#[serde(rename_all = "camelCase")]`; TypeScript interface uses camelCase fields. Prevents runtime `undefined` issues.
-- **Error handling**: Remote `session_send` emits `StreamEvent::Error` via Tauri events on failure, ensuring the frontend `useIpcStream` hook displays the error correctly.
-- **Command registration audit**: All invoked commands (`agent_update`, `settings_list`, etc.) are registered in `commands/mod.rs`.
+*End of ADR-002*
