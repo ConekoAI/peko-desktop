@@ -262,12 +262,6 @@ export async function systemLogs(lines?: number): Promise<string[]> {
   return invoke("system_logs", { lines });
 }
 
-export async function systemEvents(): Promise<{
-  events: Array<Record<string, unknown>>;
-}> {
-  return invoke("system_events");
-}
-
 // ─── Accessible Principals ──────────────────────────────────
 
 export async function accessiblePrincipalsList(): Promise<AccessiblePrincipal[]> {
