@@ -283,3 +283,52 @@ pub async fn credential_test(provider: String) -> Result<bool, String> {
         .map_err(|e| e.to_string())?;
     Ok(resp.get("key").and_then(|v| v.as_str()).is_some())
 }
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct CredentialRow {
+    pub provider: String,
+    pub has_key: bool,
+    pub last_tested: Option<String>,
+}
+
+/// List providers that have a stored credential. Proxies the
+/// `credential_list` IPC method, which the runtime returns as a JSON
+/// object `{ providers: [{ name, hasKey, lastTested? }] }`. The
+/// desktop normalizes the key-shape from the runtime's `name` to
+/// `provider` to match the `Credential` type in the TS layer
+/// (`src/types/index.ts`).
+#[tauri::command]
+pub async fn credential_list() -> Result<Vec<CredentialRow>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client.credential_list().await.map_err(|e| e.to_string())?;
+    let providers = resp
+        .get("providers")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| {
+                    Some(CredentialRow {
+                        provider: v
+                            .get("name")
+                            .or_else(|| v.get("provider"))
+                            .and_then(|p| p.as_str())?
+                            .to_string(),
+                        has_key: v
+                            .get("hasKey")
+                            .or_else(|| v.get("has_key"))
+                            .and_then(|h| h.as_bool())
+                            .unwrap_or(false),
+                        last_tested: v
+                            .get("lastTested")
+                            .or_else(|| v.get("last_tested"))
+                            .and_then(|t| t.as_str())
+                            .map(|s| s.to_string()),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(providers)
+}

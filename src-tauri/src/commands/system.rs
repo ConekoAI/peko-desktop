@@ -3,6 +3,20 @@ use tauri::State;
 
 use crate::state::AppState;
 
+/// Resolve the peko data directory, mirroring the runtime's
+/// `default_data_dir()` convention (`PEKO_HOME` env var override,
+/// otherwise the platform-appropriate `dirs::data_dir()/peko`).
+/// Lives here rather than as a dependency on the runtime crate so
+/// the desktop stays a thin shell around the runtime.
+fn peko_data_dir() -> std::path::PathBuf {
+    if let Ok(home) = std::env::var("PEKO_HOME") {
+        return std::path::PathBuf::from(home);
+    }
+    dirs::data_dir()
+        .map(|d| d.join("peko"))
+        .unwrap_or_else(|| std::path::PathBuf::from(".peko"))
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SystemStatus {
     pub version: String,
@@ -190,4 +204,31 @@ pub async fn system_clean(
             Err("System clean is not supported for remote runtimes yet".to_string())
         }
     }
+}
+
+/// Return the last N lines of the local daemon's log file, if any.
+///
+/// The peko daemon writes to `<data_dir>/daemon.log` when file-based
+/// logging is enabled (default off; flip the env knob on the runtime
+/// to enable). The desktop reads it directly from disk because the
+/// runtime does not currently surface log reads over IPC.
+///
+/// Returns an empty `Vec` (not an error) when the file does not
+/// exist — the DaemonLogs page renders "No log output" gracefully in
+/// that case. Operators who need log access can either enable
+/// file-logging on the runtime or read the file directly from
+/// `<data_dir>/daemon.log`.
+#[tauri::command]
+pub async fn system_logs(lines: Option<usize>) -> Result<Vec<String>, String> {
+    let n = lines.unwrap_or(200);
+    let log_path = peko_data_dir().join("daemon.log");
+    if !log_path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = std::fs::read_to_string(&log_path)
+        .map_err(|e| format!("failed to read {}: {}", log_path.display(), e))?;
+    let buf: Vec<&str> = content.lines().rev().take(n).collect();
+    let mut out: Vec<String> = buf.into_iter().map(|s| s.to_string()).collect();
+    out.reverse();
+    Ok(out)
 }

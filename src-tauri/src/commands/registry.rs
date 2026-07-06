@@ -82,14 +82,46 @@ pub async fn registry_pull(ref_str: String) -> Result<String, String> {
 #[tauri::command]
 pub fn registry_auth_status() -> Result<AuthStatus, String> {
     match crate::vault::get_credential("peko", "pekohub") {
-        Ok(Some(_)) => Ok(AuthStatus {
-            authenticated: true,
-            username: None,
-        }),
+        Ok(Some(stored)) => {
+            // Stored as `username:token` so login can preserve the
+            // username. Status callers only care about whether auth is
+            // set up, not the token itself.
+            let username = stored.split(':').next().map(|s| s.to_string());
+            Ok(AuthStatus {
+                authenticated: true,
+                username,
+            })
+        }
         Ok(None) => Ok(AuthStatus {
             authenticated: false,
             username: None,
         }),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Persist PekoHub auth credentials. The token is stored in the OS
+/// keychain under `("peko", "pekohub")` as `username:token` so the
+/// existing `registry_auth_status` can recover the username on
+/// subsequent reads.
+#[tauri::command]
+pub fn registry_login(username: String, token: String) -> Result<AuthStatus, String> {
+    let stored = format!("{username}:{token}");
+    crate::vault::set_credential("peko", "pekohub", &stored)
+        .map_err(|e| format!("failed to store PekoHub credentials: {e}"))?;
+    Ok(AuthStatus {
+        authenticated: true,
+        username: Some(username),
+    })
+}
+
+/// Forget PekoHub auth credentials. Idempotent — succeeds whether or
+/// not a credential was previously stored.
+#[tauri::command]
+pub fn registry_logout() -> Result<(), String> {
+    match crate::vault::delete_credential("peko", "pekohub") {
+        Ok(()) => Ok(()),
+        Err(crate::vault::VaultError::Keyring(keyring_core::error::Error::NoEntry)) => Ok(()),
         Err(e) => Err(e.to_string()),
     }
 }
