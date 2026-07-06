@@ -9,7 +9,7 @@ import {
 } from "../hooks/useSettings";
 import { useDaemonStatus, useDaemonStart, useDaemonStop, useDaemonRestart } from "../hooks/useDaemon";
 import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime, useOAuthConnect, startOAuthConnect } from "../hooks/useRuntimes";
-import { useProviders } from "../hooks/useAgents";
+import { useProviders } from "../hooks/useProviders";
 import { getTheme, setTheme } from "../lib/theme";
 import {
   resolveLogLevel,

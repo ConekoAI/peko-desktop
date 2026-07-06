@@ -44,10 +44,7 @@ ignore = [
   "RUSTSEC-2024-0412", # gtk-rs GTK3 core
   "RUSTSEC-2024-0413", # gtk-rs GTK3 macos
   "RUSTSEC-2024-0416", # gtk-rs GTK3 sourceview
-  # ── glib-sys 0.18.x (Linux only) ────────────────────────────────────
-  # Pulled in by `webkit2gtk-sys`. The affected `VariantStrIter`
-  # unsoundness is the same code path as RUSTSEC-2024-0429 above.
-  "RUSTSEC-2024-0429", # already listed
+  "RUSTSEC-2024-0418", # gtk-rs GTK3 (umbrella — no longer maintained)
   # ── quick-xml namespace-decl & duplicate-attribute DoS (transitive) ──
   # Pulled in by `plist` → `tauri` / `tauri-utils`. The desktop
   # only parses plist XML from local bundle metadata (build-time
