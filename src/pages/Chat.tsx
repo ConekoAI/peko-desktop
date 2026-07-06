@@ -1,10 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router";
-import { useAgents } from "../hooks/useAgents";
-import { useSessions, useSessionHistory } from "../hooks/useSessions";
-import { useIpcStream } from "../hooks/useIpcStream";
-import { sessionSend } from "../lib/api";
-import CreateAgentModal from "../components/modals/CreateAgentModal";
+import { usePrincipals, usePrincipalSend } from "../hooks/usePrincipals";
+import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import {
   Send,
   Loader2,
@@ -13,13 +10,12 @@ import {
   User,
   Bot as BotIcon,
   Plus,
-  ChevronDown,
-  Clock,
+  Activity,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
-import type { StreamEvent, SessionSummary } from "../types";
+import type { StreamEvent } from "../types";
 
 interface ChatItem {
   event: StreamEvent;
@@ -35,23 +31,6 @@ function formatTime(ts?: string) {
   const d = new Date(ts);
   if (isNaN(d.getTime())) return ts;
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatRelativeTime(ts?: string) {
-  if (!ts) return "";
-  const ms = Number(ts);
-  const date = !isNaN(ms) && ms > 1000000000000 ? new Date(ms) : new Date(ts);
-  if (isNaN(date.getTime())) return "";
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 function ChatMessage({ item }: { item: ChatItem }) {
@@ -80,13 +59,17 @@ function ChatMessage({ item }: { item: ChatItem }) {
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             {isUser ? "You" : isError ? "Error" : "Assistant"}
           </span>
-          <span className="text-[11px] text-slate-400 dark:text-slate-500">{formatTime(event.timestamp)}</span>
+          <span className="text-[11px] text-slate-400 dark:text-slate-500">
+            {formatTime(event.timestamp)}
+          </span>
         </div>
         <div className="mt-0.5 text-sm text-slate-800 dark:text-slate-200">
           {isUser ? (
             <p className="whitespace-pre-wrap break-all">{event.content ?? ""}</p>
           ) : isError ? (
-            <p className="whitespace-pre-wrap break-all text-red-600 dark:text-red-400">{event.content ?? ""}</p>
+            <p className="whitespace-pre-wrap break-all text-red-600 dark:text-red-400">
+              {event.content ?? ""}
+            </p>
           ) : (
             <div className="prose prose-sm dark:prose-invert max-w-none break-all">
               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
@@ -96,7 +79,6 @@ function ChatMessage({ item }: { item: ChatItem }) {
           )}
         </div>
       </div>
-
     </div>
   );
 }
@@ -123,36 +105,8 @@ function mergeAssistantChunks(items: ChatItem[]): ChatItem[] {
   return merged;
 }
 
-function SessionToolbar({
-  agentName,
-  sessions,
-  currentSessionId,
-  onNewSession,
-  onSwitchSession,
-}: {
-  agentName: string;
-  sessions: SessionSummary[] | undefined;
-  currentSessionId: string | undefined;
-  onNewSession: () => void;
-  onSwitchSession: (sessionId: string) => void;
-}) {
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setHistoryOpen(false);
-      }
-    }
-    if (historyOpen) {
-      document.addEventListener("mousedown", handleClick);
-      return () => document.removeEventListener("mousedown", handleClick);
-    }
-  }, [historyOpen]);
-
-  const currentSession = sessions?.find((s) => s.id === currentSessionId);
-
+function PrincipalToolbar({ principalName }: { principalName: string }) {
+  const navigate = useNavigate();
   return (
     <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
       <div className="flex items-center gap-3">
@@ -160,74 +114,36 @@ function SessionToolbar({
           <BotIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{agentName}</h3>
-          {currentSession && (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {currentSession.title ?? `Session ${currentSession.id.slice(0, 8)}`} ·{" "}
-              {currentSession.messageCount} messages
-            </p>
-          )}
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+            {principalName}
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            ADR-041 · conversation is a private stream
+          </p>
         </div>
       </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onNewSession}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          New Session
-        </button>
-
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setHistoryOpen((o) => !o)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          >
-            <Clock className="h-3.5 w-3.5" />
-            History
-            <ChevronDown className="h-3 w-3" />
-          </button>
-
-          {historyOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-              {sessions && sessions.length > 0 ? (
-                sessions.map((session) => (
-                  <button
-                    key={session.id}
-                    onClick={() => {
-                      onSwitchSession(session.id);
-                      setHistoryOpen(false);
-                    }}
-                    className={[
-                      "flex w-full flex-col px-3 py-2 text-left text-sm transition-colors",
-                      session.id === currentSessionId
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-                        : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800",
-                    ].join(" ")}
-                  >
-                    <span className="font-medium">
-                      {session.title ?? `Session ${session.id.slice(0, 8)}`}
-                    </span>
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                      {session.messageCount} messages · {formatRelativeTime(session.updatedAt)}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-slate-600">
-                  No session history
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
+      <button
+        onClick={() =>
+          navigate({ to: "/log/$principalName", params: { principalName } })
+        }
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+      >
+        <Activity className="h-3.5 w-3.5" />
+        Activity
+      </button>
     </div>
   );
 }
 
+/**
+ * Principal chat surface.
+ *
+ * The principal sends through `principal_send_stream` IPC. There is no
+ * external session concept (ADR-042): the runtime allocates a session
+ * id per principal on first send and persists the streamed exchange
+ * as a single thread. The `history` route (`peko log <PRINCIPAL>`)
+ * reads it back via `principal_log` with the privacy gate.
+ */
 export default function Chat() {
   const navigate = useNavigate();
   const routerState = useRouterState();
@@ -238,94 +154,41 @@ export default function Chat() {
 
   const runtimeId = search.runtimeId ?? "local";
 
-  const { data: agents, isLoading: agentsLoading } = useAgents();
+  const { data: principals, isLoading } = usePrincipals();
+  const sendMut = usePrincipalSend();
 
-  // Parse the personal chat route: /chat/$agentName/$sessionId
-  const pathParts = pathname.split("/").filter(Boolean);
-
-  let agentName: string | undefined;
-  let sessionId: string | undefined;
-
-  if (pathParts[0] === "chat" && pathParts.length >= 2) {
-    agentName = pathParts[1];
-    sessionId = pathParts[2];
+  let principalName: string | undefined;
+  if (pathname === "/" || pathname === "/chat") {
+    principalName = undefined;
+  } else if (pathname.startsWith("/chat/")) {
+    const parts = pathname.split("/").filter(Boolean);
+    principalName = parts[1];
   }
+  const paramName = (params as Record<string, string | undefined>).principalName;
+  if (paramName) principalName = paramName;
 
-  const paramAgent = (params as Record<string, string | undefined>).agentName;
-  const paramSession = (params as Record<string, string | undefined>).sessionId;
-  if (paramAgent) agentName = paramAgent;
-  if (paramSession) sessionId = paramSession;
+  const selectedPrincipal = principalName ?? principals?.[0]?.name ?? "";
 
-  const selectedAgent = agentName ?? agents?.[0]?.name ?? "";
-
-  // Redirect / to /chat if no agent selected, or to personal chat if agents exist
   useEffect(() => {
-    if (pathname === "/" && selectedAgent) {
-      navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent }, search: { runtimeId } });
+    if ((pathname === "/" || pathname === "/chat") && selectedPrincipal) {
+      navigate({
+        to: "/chat/$principalName",
+        params: { principalName: selectedPrincipal },
+        search: { runtimeId },
+      });
     }
-  }, [pathname, selectedAgent, navigate, runtimeId]);
-
-  const { data: sessions, refetch: refetchSessions } = useSessions(selectedAgent || undefined, runtimeId);
+  }, [pathname, selectedPrincipal, navigate, runtimeId]);
 
   const [input, setInput] = useState("");
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
-  const [pendingNewSession, setPendingNewSession] = useState(false);
-
-  const activeSessionId = sessions?.find((s) => s.status === "active")?.id;
-  const currentSessionId = pendingNewSession
-    ? sessionId
-    : (sessionId ?? activeSessionId ?? sessions?.[0]?.id);
-
-  const historyId = currentSessionId ? `${selectedAgent}/${currentSessionId}` : "";
-  const { data: sessionHistory } = useSessionHistory(historyId, runtimeId);
-  const { messages, isStreaming, error, sendMessage, clearMessages } = useIpcStream({
-    channel: "peko-stream",
-  });
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const mergedCountRef = useRef(0);
 
   useEffect(() => {
     setChatItems([]);
-    mergedCountRef.current = 0;
-    clearMessages();
-  }, [currentSessionId, clearMessages]);
-
-  useEffect(() => {
-    if (pendingNewSession) {
-      clearMessages();
-    }
-  }, [pendingNewSession, clearMessages]);
-
-  useEffect(() => {
-    if (sessionHistory && sessionHistory.length > 0) {
-      const historyItems: ChatItem[] = sessionHistory.map((msg) => ({
-        event: {
-          type: "chunk",
-          content: msg.content,
-          timestamp: msg.timestamp,
-        } as StreamEvent,
-        isUser: msg.role === "user",
-      }));
-      setChatItems(historyItems);
-    }
-  }, [sessionHistory]);
-
-  useEffect(() => {
-    if (messages.length === 0) {
-      mergedCountRef.current = 0;
-      return;
-    }
-    const newCount = messages.length - mergedCountRef.current;
-    if (newCount <= 0) return;
-
-    const newMessages = messages.slice(mergedCountRef.current);
-    mergedCountRef.current = messages.length;
-
-    setChatItems((prev) => {
-      const newItems: ChatItem[] = newMessages.map((event) => ({ event, isUser: false }));
-      return [...prev, ...newItems];
-    });
-  }, [messages]);
+    setError(null);
+  }, [selectedPrincipal]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -333,46 +196,11 @@ export default function Chat() {
     }
   }, [chatItems, isStreaming]);
 
-  useEffect(() => {
-    if (!pendingNewSession) return;
-    if (isStreaming) return;
-    if (messages.length === 0) return;
-
-    refetchSessions().then((result) => {
-      const newActiveSession = result.data?.find((s) => s.status === "active");
-      if (newActiveSession && selectedAgent) {
-        navigate({
-          to: "/chat/$agentName/$sessionId",
-          params: { agentName: selectedAgent, sessionId: newActiveSession.id },
-          search: { runtimeId },
-        });
-      }
-      setPendingNewSession(false);
-    });
-  }, [isStreaming, pendingNewSession, messages.length, selectedAgent, navigate, refetchSessions, runtimeId]);
-
-  function handleNewSession() {
-    if (!selectedAgent) return;
-    navigate({ to: "/chat/$agentName", params: { agentName: selectedAgent }, search: { runtimeId } });
-    setChatItems([]);
-    setPendingNewSession(true);
-  }
-
-  function handleSwitchSession(id: string) {
-    if (!selectedAgent) return;
-    setPendingNewSession(false);
-    navigate({
-      to: "/chat/$agentName/$sessionId",
-      params: { agentName: selectedAgent, sessionId: id },
-      search: { runtimeId },
-    });
-  }
-
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isStreaming || !selectedAgent) return;
-
+    if (!input.trim() || isStreaming || !selectedPrincipal) return;
     const message = input.trim();
+    setError(null);
     setInput("");
 
     const userEvent: StreamEvent = {
@@ -382,13 +210,54 @@ export default function Chat() {
     };
     setChatItems((prev) => [...prev, { event: userEvent, isUser: true }]);
 
-    const sid = currentSessionId ? `${selectedAgent}/${currentSessionId}` : `chat-${selectedAgent}`;
-    await sendMessage(() => sessionSend(sid, message, pendingNewSession, runtimeId));
+    setIsStreaming(true);
+    try {
+      await sendMut.mutateAsync({
+        name: selectedPrincipal,
+        message,
+        onChunk: (delta) => {
+          setChatItems((prev) => {
+            const last = prev[prev.length - 1];
+            if (
+              last &&
+              !last.isUser &&
+              last.event.type === "chunk" &&
+              (last.event as { toolCallId?: string }).toolCallId === undefined
+            ) {
+              const updated = [...prev];
+              updated[updated.length - 1] = {
+                event: {
+                  ...last.event,
+                  content: (last.event.content ?? "") + delta,
+                },
+                isUser: false,
+              };
+              return updated;
+            }
+            return [
+              ...prev,
+              {
+                event: {
+                  type: "chunk",
+                  content: delta,
+                  timestamp: Date.now().toString(),
+                } as StreamEvent,
+                isUser: false,
+              },
+            ];
+          });
+        },
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsStreaming(false);
+    }
   }
 
   const displayItems = useMemo(() => mergeAssistantChunks(chatItems), [chatItems]);
 
-  if (agentsLoading) {
+  if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-slate-300 dark:text-slate-700" />
@@ -396,14 +265,19 @@ export default function Chat() {
     );
   }
 
-  if (!agents || agents.length === 0) {
+  if (!principals || principals.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
         <div className="text-center">
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No agents yet</p>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+            No principals yet
+          </p>
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            Create an agent to start chatting
+            Create one with{" "}
+            <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">
+              peko principal new &lt;name&gt;
+            </code>
           </p>
         </div>
         <button
@@ -411,60 +285,33 @@ export default function Chat() {
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
           <Plus className="h-4 w-4" />
-          Create Agent
+          How to create a principal
         </button>
+        <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
       </div>
     );
   }
 
-  if (!selectedAgent) {
-    const hasAgents = agents && agents.length > 0;
+  if (!selectedPrincipal) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
-        <div className="text-center">
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            {hasAgents ? "Select an agent to start chatting" : "No agents yet"}
-          </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">
-            {hasAgents ? "Choose from the sidebar" : "Create an agent to start chatting"}
-          </p>
-        </div>
-        {!hasAgents && (
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-          >
-            <Plus className="h-4 w-4" />
-            Create Agent
-          </button>
-        )}
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Select a principal from the sidebar
+        </p>
       </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <SessionToolbar
-        agentName={selectedAgent}
-        sessions={sessions}
-        currentSessionId={currentSessionId}
-        onNewSession={handleNewSession}
-        onSwitchSession={handleSwitchSession}
-      />
+      <PrincipalToolbar principalName={selectedPrincipal} />
 
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto bg-white p-4 dark:bg-slate-950"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-white p-4 dark:bg-slate-950">
         {displayItems.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-slate-400 dark:text-slate-600">
             <MessageCircle className="h-10 w-10" />
-            <p className="mt-2 text-sm">
-              {currentSessionId
-                ? "Start the conversation..."
-                : "Start a new session to begin chatting"}
-            </p>
+            <p className="mt-2 text-sm">Send a message to begin...</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -496,12 +343,12 @@ export default function Chat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type a message..."
-            disabled={isStreaming || !selectedAgent}
+            disabled={isStreaming}
             className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
           />
           <button
             type="submit"
-            disabled={isStreaming || !input.trim() || !selectedAgent}
+            disabled={isStreaming || !input.trim()}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
             {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -509,8 +356,6 @@ export default function Chat() {
           </button>
         </form>
       </div>
-
-      <CreateAgentModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

@@ -7,7 +7,6 @@ import {
   credentialDelete,
   credentialTest,
 } from "../lib/api";
-import type { Credential } from "../types";
 
 export function useSettings() {
   return useQuery({
@@ -32,12 +31,14 @@ export function useCredential(provider: string) {
   });
 }
 
+/** Save a raw key for a provider. The runtime stores it in the OS keychain. */
 export function useSetCredential() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Credential) => credentialSet(payload),
-    onSuccess: (_data, payload) => {
-      qc.invalidateQueries({ queryKey: ["credentials", payload.provider] });
+    mutationFn: ({ provider, apiKey }: { provider: string; apiKey: string }) =>
+      credentialSet(provider, apiKey),
+    onSuccess: (_data, { provider }) => {
+      qc.invalidateQueries({ queryKey: ["credentials", provider] });
     },
   });
 }

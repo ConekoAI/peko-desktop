@@ -1,12 +1,24 @@
 # ADR-001: Desktop GUI Communication — CLI Shell-Out (Phase 1) vs Direct IPC (Phase 2)
 
-**Status**: Accepted / Complete  
+**Status**: Superseded by [ADR-041](../../../../peko-runtime/docs/architecture/adr/ADR-041-principal-as-container.md) and [ADR-042](../../../../peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md) (2026-07-05)  
 **Date**: 2026-05-31  
-**Last Updated**: 2026-05-31  
+**Last Updated**: 2026-07-05  
 **Author**: Kimi Code CLI  
 **Deciders**: Core team  
 **Depends On**: ADR-021 (Daemon as Central Runtime — peko-runtime)  
 **Related**: ADR-020 (Daemon-Based Async Execution), ADR-028 (Top-Level Config CLI)  
+
+> **Superseded (2026-07-05).** The IPC packet tables and migration order
+> in this ADR described the pre-Principal model (`Agent*`, `Team*`,
+> `Session*` packets). Those packets were never fully implemented in
+> the runtime; the runtime shipped `Principal*` packets instead (see
+> ADR-041, ADR-042). The current IPC bridge is documented in
+> `src-tauri/src/ipc/mod.rs` and `src-tauri/src/commands/principal.rs`.
+> The body of this ADR is preserved for historical context; the
+> migration order and IPC packet tables below no longer apply.
+>
+> Peers migrating from this ADR should read ADR-041 (Principal-as-container)
+> and ADR-042 (no external session concept).  
 
 ---
 

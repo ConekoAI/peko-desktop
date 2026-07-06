@@ -1,8 +1,19 @@
+//! Peko-desktop Tauri IPC client.
+//!
+//! The desktop talks to the local daemon over Tauri's IPC. The
+//! daemon-side surface is documented in
+//! `peko-runtime/docs/architecture/adr/ADR-041-principal-as-container.md`
+//! (Principal-as-container) and
+//! `ADR-042-no-external-session-concept.md` (no external session surface).
+//!
+//! The pre-#125 `agent_*` and `session_*` IPC variants are gone; this
+//! file is the canonical entry point and is kept in lockstep with the
+//! runtime's `RequestPacket`/`ResponsePacket` enums.
+
 import { invoke } from "@tauri-apps/api/core";
+
 import type {
   AccessiblePrincipal,
-  AgentDetail,
-  AgentSummary,
   AuthStatus,
   BundleItem,
   CronJob,
@@ -10,17 +21,15 @@ import type {
   DaemonStatus,
   DoctorReport,
   ExtensionSummary,
+  LogResponse,
   ProviderInfo,
   RuntimeConnection,
   SearchResult,
-  SessionDetail,
-  SessionMessage,
-  SessionSummary,
   Setting,
   SystemStatus,
 } from "../types";
 
-// ─── Runtimes ───────────────────────────────────────────────
+// ─── Runtimes ───────────────────────────────────────────────────
 
 export async function runtimeList(): Promise<RuntimeConnection[]> {
   return invoke("runtime_list");
@@ -42,11 +51,14 @@ export async function runtimeReconnect(id: string): Promise<RuntimeConnection> {
   return invoke("runtime_reconnect", { id });
 }
 
-export async function runtimeRename(id: string, name: string): Promise<RuntimeConnection> {
+export async function runtimeRename(
+  id: string,
+  name: string,
+): Promise<RuntimeConnection> {
   return invoke("runtime_rename", { id, name });
 }
 
-// ─── Daemon ─────────────────────────────────────────────────
+// ─── Daemon ─────────────────────────────────────────────────────
 
 export async function daemonStart(): Promise<DaemonStatus> {
   return invoke("daemon_start");
@@ -64,117 +76,40 @@ export async function daemonStatus(): Promise<DaemonStatus> {
   return invoke("daemon_status");
 }
 
-// ─── Agents ─────────────────────────────────────────────────
+// ─── Principal (ADR-041) ─────────────────────────────────────────
 
-export async function agentList(runtimeId?: string): Promise<AgentSummary[]> {
-  return invoke("agent_list", { runtime_id: runtimeId });
-}
-
-export async function agentShow(name: string, runtimeId?: string): Promise<AgentDetail> {
-  return invoke("agent_show", { name, runtime_id: runtimeId });
-}
-
-export async function agentCreate(payload: {
+/**
+ * Read a peer's conversation thread with a Principal (ADR-042).
+ *
+ * `peer` is the Subject string (`user:alice`, `principal:<did>`). Pass
+ * `undefined` to read the principal's owner-root view. The runtime
+ * enforces the privacy contract — see
+ * `peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md`.
+ */
+export async function principalLog(params: {
   name: string;
-  provider: string;
-  model: string;
-  description?: string;
-  systemPrompt?: string;
-  config?: Record<string, unknown>;
-  runtimeId?: string;
-}): Promise<AgentDetail> {
-  return invoke("agent_create", {
-    name: payload.name,
-    provider: payload.provider,
-    model: payload.model,
-    runtime_id: payload.runtimeId,
+  peer?: string;
+  limit?: number;
+  sinceSecs?: number;
+}): Promise<LogResponse> {
+  return invoke("principal_log", {
+    name: params.name,
+    peer: params.peer ?? null,
+    limit: params.limit ?? null,
+    since_secs: params.sinceSecs ?? null,
   });
 }
 
-export async function agentUpdate(
-  name: string,
-  runtimeId: string | undefined,
-  payload: Partial<{
-    model: string;
-    description: string;
-    systemPrompt: string;
-    config: Record<string, unknown>;
-  }>,
-): Promise<AgentDetail> {
-  return invoke("agent_update", { name, runtime_id: runtimeId, payload });
+/**
+ * List the runtime's provider catalog. The catalog is referenced by
+ * id from `principal.toml`'s `preferred_provider_id` soft hint; the
+ * catalog + keychain own all provider wiring.
+ */
+export async function principalProviderList(): Promise<ProviderInfo[]> {
+  return invoke("principal_provider_list");
 }
 
-export async function agentRemove(name: string, runtimeId?: string): Promise<void> {
-  return invoke("agent_remove", { name, runtime_id: runtimeId });
-}
-
-export async function agentExport(name: string, runtimeId?: string, withExtensions?: boolean): Promise<string> {
-  return invoke("agent_export", { name, runtime_id: runtimeId, with_extensions: withExtensions });
-}
-
-export async function agentImport(path: string, runtimeId?: string): Promise<AgentDetail> {
-  return invoke("agent_import", { path, runtime_id: runtimeId });
-}
-
-export async function agentSetStatus(name: string, status: string, runtimeId?: string): Promise<string> {
-  return invoke("agent_set_status", { name, status, runtime_id: runtimeId });
-}
-
-export async function agentSetExposure(name: string, exposure: string, runtimeId?: string): Promise<string> {
-  return invoke("agent_set_exposure", { name, exposure, runtime_id: runtimeId });
-}
-
-export async function providerList(runtimeId?: string): Promise<ProviderInfo[]> {
-  return invoke("provider_list", { runtime_id: runtimeId });
-}
-
-// ─── Teams ──────────────────────────────────────────────────
-// Removed: the runtime no longer has a team scope (peko-runtime #92).
-
-// ─── Sessions ───────────────────────────────────────────────
-
-export async function sessionList(agent?: string, runtimeId?: string): Promise<SessionSummary[]> {
-  return invoke("session_list", { agent, runtime_id: runtimeId });
-}
-
-export async function sessionShow(id: string, runtimeId?: string): Promise<SessionDetail> {
-  return invoke("session_show", { id, runtime_id: runtimeId });
-}
-
-export async function sessionHistory(id: string, runtimeId?: string): Promise<SessionMessage[]> {
-  return invoke("session_history", { id, runtime_id: runtimeId });
-}
-
-export async function sessionCreate(payload: {
-  agent: string;
-  title?: string;
-  parentId?: string;
-}): Promise<SessionDetail> {
-  return invoke("session_create", { payload });
-}
-
-export async function sessionBranch(sessionId: string, messageId: string): Promise<SessionDetail> {
-  return invoke("session_branch", { sessionId, messageId });
-}
-
-export async function sessionCompact(sessionId: string): Promise<SessionDetail> {
-  return invoke("session_compact", { sessionId });
-}
-
-export async function sessionClose(id: string): Promise<void> {
-  return invoke("session_close", { id });
-}
-
-export async function sessionSend(
-  id: string,
-  message: string,
-  newSession: boolean = false,
-  runtimeId?: string,
-): Promise<void> {
-  return invoke("session_send", { id, message, new_session: newSession, runtime_id: runtimeId });
-}
-
-// ─── Extensions ─────────────────────────────────────────────
+// ─── Extensions ─────────────────────────────────────────────────
 
 export async function extensionList(): Promise<ExtensionSummary[]> {
   return invoke("extension_list");
@@ -184,11 +119,17 @@ export async function extensionInstall(path: string): Promise<ExtensionSummary> 
   return invoke("extension_install", { path });
 }
 
-export async function extensionEnable(name: string, target?: string): Promise<ExtensionSummary> {
+export async function extensionEnable(
+  name: string,
+  target?: string,
+): Promise<ExtensionSummary> {
   return invoke("extension_enable", { id: name, target });
 }
 
-export async function extensionDisable(name: string, target?: string): Promise<ExtensionSummary> {
+export async function extensionDisable(
+  name: string,
+  target?: string,
+): Promise<ExtensionSummary> {
   return invoke("extension_disable", { id: name, target });
 }
 
@@ -196,7 +137,7 @@ export async function extensionUninstall(name: string): Promise<void> {
   return invoke("extension_uninstall", { name });
 }
 
-// ─── Registry ───────────────────────────────────────────────
+// ─── Registry ───────────────────────────────────────────────────
 
 export async function registrySearch(
   query: string,
@@ -214,7 +155,10 @@ export async function registryAuthStatus(): Promise<AuthStatus> {
   return invoke("registry_auth_status");
 }
 
-export async function registryLogin(username: string, token: string): Promise<AuthStatus> {
+export async function registryLogin(
+  username: string,
+  token: string,
+): Promise<AuthStatus> {
   return invoke("registry_login", { username, token });
 }
 
@@ -222,7 +166,7 @@ export async function registryLogout(): Promise<void> {
   return invoke("registry_logout");
 }
 
-// ─── Cron ───────────────────────────────────────────────────
+// ─── Cron ───────────────────────────────────────────────────────
 
 export async function cronList(): Promise<CronJob[]> {
   return invoke("cron_list");
@@ -237,13 +181,6 @@ export async function cronAdd(payload: {
   return invoke("cron_add", { payload });
 }
 
-export async function cronUpdate(
-  id: string,
-  payload: Partial<{ name: string; schedule: string; command: string; enabled: boolean }>,
-): Promise<CronJob> {
-  return invoke("cron_update", { id, payload });
-}
-
 export async function cronRemove(id: string): Promise<void> {
   return invoke("cron_remove", { id });
 }
@@ -252,7 +189,7 @@ export async function cronRun(id: string): Promise<void> {
   return invoke("cron_run", { id });
 }
 
-// ─── Settings ───────────────────────────────────────────────
+// ─── Settings ───────────────────────────────────────────────────
 
 export async function settingsGet(key: string): Promise<string | null> {
   return invoke("settings_get", { key });
@@ -266,26 +203,44 @@ export async function settingsList(): Promise<Setting[]> {
   return invoke("settings_list");
 }
 
-// ─── Credentials ────────────────────────────────────────────
+// ─── Credentials (keychain) ─────────────────────────────────────
 
 export async function credentialGet(provider: string): Promise<Credential | null> {
   return invoke("credential_get", { provider });
 }
 
-export async function credentialSet(payload: Credential): Promise<void> {
-  // The Tauri credential_set command expects (provider: String, key: String).
-  // Pass the token field as key to match the Rust signature.
-  return invoke("credential_set", {
-    provider: payload.provider,
-    key: payload.token ?? "",
-  });
+export async function credentialSet(
+  provider: string,
+  apiKey: string,
+): Promise<void> {
+  return invoke("credential_set", { provider, api_key: apiKey });
+}
+
+/**
+ * Raw-string credential accessors used by the OAuth2 PKCE flow
+ * (`useRuntimes.ts`) to store/retrieve the JSON-serialized token
+ * bundle. They bypass the typed `Credential` shape used by Settings
+ * (which never holds the secret).
+ */
+export async function credentialSetRaw(
+  provider: string,
+  rawValue: string,
+): Promise<void> {
+  return invoke("credential_set", { provider, api_key: rawValue });
+}
+
+export async function credentialGetRaw(provider: string): Promise<string | null> {
+  return invoke<string | null>("credential_get", { provider });
 }
 
 export async function credentialDelete(provider: string): Promise<void> {
   return invoke("credential_delete", { provider });
 }
 
-export async function credentialTest(provider: string): Promise<{ success: boolean; message?: string }> {
+export async function credentialTest(provider: string): Promise<{
+  success: boolean;
+  message?: string;
+}> {
   return invoke("credential_test", { provider });
 }
 
@@ -293,7 +248,7 @@ export async function credentialList(): Promise<Credential[]> {
   return invoke("credential_list");
 }
 
-// ─── System ─────────────────────────────────────────────────
+// ─── System ─────────────────────────────────────────────────────
 
 export async function systemStatus(runtimeId?: string): Promise<SystemStatus> {
   return invoke("system_status", { runtime_id: runtimeId });
@@ -307,7 +262,9 @@ export async function systemLogs(lines?: number): Promise<string[]> {
   return invoke("system_logs", { lines });
 }
 
-export async function systemEvents(): Promise<{ events: Array<Record<string, unknown>> }> {
+export async function systemEvents(): Promise<{
+  events: Array<Record<string, unknown>>;
+}> {
   return invoke("system_events");
 }
 
@@ -317,7 +274,7 @@ export async function accessiblePrincipalsList(): Promise<AccessiblePrincipal[]>
   return invoke("accessible_principals_list");
 }
 
-// ─── OAuth / PekoHub ────────────────────────────────────────
+// ─── OAuth / PekoHub (frontend-side) ────────────────────────────
 
 export interface OAuthTokenResponse {
   access_token: string;
@@ -421,19 +378,4 @@ export async function pekohubListRuntimes(
     name: String(r.name ?? r.display_name ?? r.id ?? ""),
     url: r.url ? String(r.url) : undefined,
   }));
-}
-
-/**
- * Store a raw credential string in the OS keychain.
- * The Tauri `credential_set` command expects `(provider, key)`.
- */
-export async function credentialSetRaw(provider: string, key: string): Promise<void> {
-  return invoke("credential_set", { provider, key });
-}
-
-/**
- * Retrieve a raw credential string from the OS keychain.
- */
-export async function credentialGetRaw(provider: string): Promise<string | null> {
-  return invoke("credential_get", { provider });
 }

@@ -31,7 +31,8 @@ export default function Shared() {
       <div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Accessible Principals</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Principals you own or that have been privately shared with you
+          Principals (ADR-041) that other runtimes have privately shared with
+          you. Selection requires a runtime that hosts the shared principal.
         </p>
       </div>
 
