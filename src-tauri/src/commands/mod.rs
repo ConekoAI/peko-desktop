@@ -23,8 +23,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_provider_list,
         extension::extension_list,
         extension::extension_install,
-        extension::extension_enable,
-        extension::extension_disable,
         extension::extension_uninstall,
         registry::registry_search,
         registry::registry_pull,

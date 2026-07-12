@@ -155,58 +155,6 @@ pub async fn extension_install(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn extension_enable(id: String, target: Option<String>) -> Result<String, String> {
-    let client = crate::ipc::IpcClient::new()
-        .await
-        .map_err(|e| e.to_string())?;
-    let target_ref = target.as_deref();
-    let resp = client
-        .enable_extension(&id, target_ref)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
-        return Err(resp
-            .get("message")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Unknown error")
-            .to_string());
-    }
-
-    let msg = resp
-        .get("message")
-        .and_then(|v| v.as_str())
-        .unwrap_or("Extension enabled");
-    Ok(msg.to_string())
-}
-
-#[tauri::command]
-pub async fn extension_disable(id: String, target: Option<String>) -> Result<String, String> {
-    let client = crate::ipc::IpcClient::new()
-        .await
-        .map_err(|e| e.to_string())?;
-    let target_ref = target.as_deref();
-    let resp = client
-        .disable_extension(&id, target_ref)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
-        return Err(resp
-            .get("message")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Unknown error")
-            .to_string());
-    }
-
-    let msg = resp
-        .get("message")
-        .and_then(|v| v.as_str())
-        .unwrap_or("Extension disabled");
-    Ok(msg.to_string())
-}
-
-#[tauri::command]
 pub async fn extension_uninstall(id: String) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new()
         .await

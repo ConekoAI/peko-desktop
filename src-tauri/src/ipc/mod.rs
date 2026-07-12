@@ -261,21 +261,17 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// Add a cron job (simplified)
-    pub async fn cron_add_simple(
-        &self,
-        name: &str,
-        schedule: &str,
-        message: &str,
-    ) -> Result<serde_json::Value> {
+    /// Add a cron job (full CronJob struct as required by runtime's
+    /// `RequestPacket::CronAdd`). The runtime owns id generation,
+    /// timestamps, and run counters; the desktop only supplies the
+    /// user-facing fields (name, schedule, principal, action).
+    pub async fn cron_add(&self, job: serde_json::Value) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "cron_add_simple",
+            "type": "cron_add",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "name": name,
-            "schedule": schedule,
-            "message": message,
+            "job": job,
         });
         self.request_response(req).await
     }
@@ -295,40 +291,6 @@ impl IpcClient {
             "request_id": 1u64,
             "enabled_only": enabled_only,
             "ext_type": ext_type,
-        });
-        self.request_response(req).await
-    }
-
-    /// Enable an extension
-    pub async fn enable_extension(
-        &self,
-        id: &str,
-        target: Option<&str>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "extension_enable",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "id": id,
-            "target": target,
-        });
-        self.request_response(req).await
-    }
-
-    /// Disable an extension
-    pub async fn disable_extension(
-        &self,
-        id: &str,
-        target: Option<&str>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "extension_disable",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "id": id,
-            "target": target,
         });
         self.request_response(req).await
     }
@@ -359,23 +321,33 @@ impl IpcClient {
 
     // ── Registry ──────────────────────────────────────────────────
 
-    /// Pull an agent from registry
-    pub async fn registry_pull(
+    /// Pull a Principal bundle from a registry. Maps to runtime's
+    /// `RequestPacket::PrincipalPull` (the legacy `registry_pull`
+    /// packet was retired with ADR-041; the runtime's surface is
+    /// `principal_pull`). Desktop pre-confirms because the user has
+    /// already accepted the preview in the registry search UI.
+    pub async fn principal_pull(
         &self,
         registry_ref: &str,
+        name: Option<&str>,
         force: bool,
-        token: Option<&str>,
-        host: Option<&str>,
+        allow_unsigned: bool,
+        registry_token: Option<&str>,
+        registry_host: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "registry_pull",
+            "type": "principal_pull",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "registry_ref": registry_ref,
+            "name": name,
             "force": force,
-            "registry_token": token,
-            "registry_host": host,
+            "confirmed": true,
+            "selected_capabilities": [],
+            "allow_unsigned": allow_unsigned,
+            "registry_token": registry_token,
+            "registry_host": registry_host,
         });
         self.request_response(req).await
     }
@@ -624,39 +596,18 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// List all known Principals.
+    /// List all known Principals via the runtime's `principal_list`
+    /// IPC variant. The legacy filesystem-discovery fallback was
+    /// removed: the runtime is the single source of truth for
+    /// Principal inventory (ADR-041).
     pub async fn principal_list(&self) -> Result<serde_json::Value> {
-        // The runtime does not yet expose a `principal_list` IPC
-        // variant; fall back to file-system discovery of the
-        // workspace's `principals/` directory. The IPC variant
-        // will be added in a follow-up.
-        let path = dirs::home_dir()
-            .map(|d| d.join(".peko").join("workspace").join("principals"))
-            .unwrap_or_else(|| std::path::PathBuf::from(".peko/workspace/principals"));
-        let read = tokio::fs::read_dir(&path).await.ok();
-        let mut out: Vec<serde_json::Value> = Vec::new();
-        if let Some(mut rd) = read {
-            while let Ok(Some(entry)) = rd.next_entry().await {
-                if let Ok(name) = entry.file_name().into_string() {
-                    if let Ok(s) =
-                        tokio::fs::read_to_string(entry.path().join("principal.toml")).await
-                    {
-                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
-                            out.push(serde_json::json!({
-                                "name": v.get("name").cloned().unwrap_or_else(|| name.clone().into()),
-                                "exposure": v.get("exposure").cloned().unwrap_or_else(|| "unexposed".into()),
-                                "status": v.get("status").cloned().unwrap_or_else(|| "offline".into()),
-                                "description": v.get("identity")
-                                    .and_then(|i| i.get("display_name"))
-                                    .cloned()
-                                    .unwrap_or(serde_json::Value::Null),
-                            }));
-                        }
-                    }
-                }
-            }
-        }
-        Ok(serde_json::json!({ "principals": out }))
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
     }
 }
 

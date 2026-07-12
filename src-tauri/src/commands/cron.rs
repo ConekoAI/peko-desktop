@@ -1,5 +1,10 @@
 use serde::{Deserialize, Serialize};
 
+/// Desktop-side view of a cron job. The runtime's `CronJob` carries
+/// more fields (created_at, next_run, last_run, last_status,
+/// run_count, principal_name, delivery, delete_after_run, action)
+/// which the runtime owns. We deserialize only the user-facing
+/// fields here; the rest are passed through on `cron_add`.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CronJob {
     pub id: String,
@@ -28,6 +33,33 @@ fn parse_cron_job(value: &serde_json::Value) -> Option<CronJob> {
             .unwrap_or_default(),
         message: value.get("message")?.as_str()?.to_string(),
         enabled: value.get("enabled")?.as_bool().unwrap_or(true),
+    })
+}
+
+/// Build the runtime `CronJob` envelope from the desktop-side fields.
+/// Defaults: principal_name = "default", delivery = None,
+/// delete_after_run = false. The runtime fills in id (auto-uuid),
+/// created_at, next_run, last_run, last_status, run_count.
+fn build_runtime_cron_job(
+    name: &str,
+    schedule: &str,
+    message: &str,
+    principal_name: &str,
+) -> serde_json::Value {
+    serde_json::json!({
+        "id": "",
+        "name": name,
+        "schedule": schedule,
+        "principal_name": principal_name,
+        "action": { "Send": { "message": message } },
+        "delivery": "None",
+        "delete_after_run": false,
+        "enabled": true,
+        "created_at": null,
+        "next_run": null,
+        "last_run": null,
+        "last_status": null,
+        "run_count": 0,
     })
 }
 
@@ -96,6 +128,19 @@ mod tests {
         });
         assert!(parse_cron_job(&value).is_none());
     }
+
+    #[test]
+    fn test_build_runtime_cron_job_shape() {
+        let job = build_runtime_cron_job("daily", "0 0 * * *", "ping", "default");
+        assert_eq!(job["name"], "daily");
+        assert_eq!(job["schedule"], "0 0 * * *");
+        assert_eq!(job["action"]["Send"]["message"], "ping");
+        assert_eq!(job["principal_name"], "default");
+        assert_eq!(job["delivery"], "None");
+        assert!(!job["delete_after_run"].as_bool().unwrap());
+        assert!(job["enabled"].as_bool().unwrap());
+        assert_eq!(job["run_count"], 0);
+    }
 }
 
 #[tauri::command]
@@ -117,10 +162,12 @@ pub async fn cron_add(name: String, schedule: String, message: String) -> Result
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    let resp = client
-        .cron_add_simple(&name, &schedule, &message)
-        .await
-        .map_err(|e| e.to_string())?;
+    // The runtime's `CronJob` requires fields the desktop doesn't
+    // expose (principal_name, delivery, delete_after_run, etc.). We
+    // build the envelope locally with safe defaults so the user-
+    // facing 3-arg API is unchanged.
+    let job = build_runtime_cron_job(&name, &schedule, &message, "default");
+    let resp = client.cron_add(job).await.map_err(|e| e.to_string())?;
 
     if resp.get("type").and_then(|v| v.as_str()) == Some("error") {
         return Err(resp

@@ -55,8 +55,12 @@ pub async fn registry_pull(ref_str: String) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
+    // The legacy `registry_pull` IPC packet was retired with
+    // ADR-041. The runtime's surface is `principal_pull`; the
+    // desktop pre-confirms because the user has already accepted
+    // the preview in the registry search UI.
     let resp = client
-        .registry_pull(&ref_str, false, token.as_deref(), None)
+        .principal_pull(&ref_str, None, false, false, token.as_deref(), None)
         .await
         .map_err(|e| e.to_string())?;
 

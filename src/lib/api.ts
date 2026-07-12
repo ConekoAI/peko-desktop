@@ -119,20 +119,6 @@ export async function extensionInstall(path: string): Promise<ExtensionSummary> 
   return invoke("extension_install", { path });
 }
 
-export async function extensionEnable(
-  name: string,
-  target?: string,
-): Promise<ExtensionSummary> {
-  return invoke("extension_enable", { id: name, target });
-}
-
-export async function extensionDisable(
-  name: string,
-  target?: string,
-): Promise<ExtensionSummary> {
-  return invoke("extension_disable", { id: name, target });
-}
-
 export async function extensionUninstall(name: string): Promise<void> {
   return invoke("extension_uninstall", { name });
 }

@@ -54,4 +54,18 @@ ignore = [
   # or plist ≥1.10 lands upstream.
   "RUSTSEC-2026-0194", # quick-xml duplicate-attribute quadratic
   "RUSTSEC-2026-0195", # quick-xml NsReader unbounded allocation
+  # ── anyhow Error::downcast_mut unsoundness (transitive) ──────────
+  # Pulled in by `tauri` / `tokio` / `anyhow` 1.0.102. The desktop
+  # never calls `Error::downcast_mut` (only `bail!` / `?` for
+  # error propagation); the affected API is unreachable in our
+  # usage. The fix lives upstream in anyhow ≥1.0.103; Tauri
+  # tracks the bump.
+  "RUSTSEC-2026-0190", # anyhow Error::downcast_mut unsoundness
+  # ── arc fmt::Pointer unsoundness for invalid Atomic/Shared ───────
+  # Pulled in by `gtk` / `gtk-rs` on Linux. The unsoundness is in
+  # the `{:p}` Debug impl when the underlying pointer is invalid;
+  # the desktop never formats these types via `{:p}`, so the
+  # affected code path is unreachable. The fix lives upstream in
+  # `arc`; Tauri / gtk-rs tracks the bump.
+  "RUSTSEC-2026-0204", # arc fmt::Pointer unsoundness
 ]
