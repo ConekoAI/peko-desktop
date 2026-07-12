@@ -118,12 +118,16 @@ function EventRow({ event }: { event: HistoryEvent }) {
         </div>
       );
     case "session":
+      // Per ADR-042 the `(principal, peer)`-keyed memory thread is an
+      // internal storage noun — `sessionId` is the runtime's JSONL
+      // boundary marker, not a user-actionable handle. We render a
+      // human label and a timestamp; the id stays on the wire only.
       return (
         <div className="flex items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30">
           <Clock className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
           <div className="flex-1">
             <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400">
-              session {event.sessionId.slice(0, 8)} started
+              thread memory resumed
             </span>
           </div>
           <EventTime ts={event.startedAt} />

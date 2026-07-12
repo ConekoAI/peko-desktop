@@ -4,7 +4,11 @@
 //! daemon-side surface is documented in
 //! `peko-runtime/docs/architecture/adr/ADR-041-principal-as-container.md`
 //! (Principal-as-container) and
-//! `ADR-042-no-external-session-concept.md` (no external session surface).
+//! `ADR-042-no-external-session-concept.md` (no external session surface,
+//! §5 terminology map). All IPC and wire-type additions in this file must
+//! align with the ADR-042 terminology map: `principal_*` is the public
+//! actor surface; `session` is internal storage only and must not appear
+//! as a user-facing noun.
 //!
 //! The pre-#125 `agent_*` and `session_*` IPC variants are gone; this
 //! file is the canonical entry point and is kept in lockstep with the
