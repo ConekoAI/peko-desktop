@@ -1,23 +1,22 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { invoke, Channel } from "@tauri-apps/api/core";
 
-import { principalLog } from "../lib/api";
+import {
+  principalGet,
+  principalList,
+  principalLog,
+  principalSend,
+  principalSendStream,
+  type PrincipalSummary,
+} from "../lib/api";
+
+export type { PrincipalSummary };
 
 // ─── Principal list / detail ─────────────────────────────────────
-
-export interface PrincipalSummary {
-  name: string;
-  exposure: string;
-  status: string;
-  description?: string;
-  owner: string;
-  runtimeId: string;
-}
 
 export function usePrincipals() {
   return useQuery({
     queryKey: ["principals", "local"],
-    queryFn: () => invoke<PrincipalSummary[]>("principal_list"),
+    queryFn: principalList,
   });
 }
 
@@ -26,12 +25,7 @@ export function usePrincipal(name: string | undefined) {
     queryKey: ["principals", "local", name],
     queryFn: () => {
       if (!name) throw new Error("principal name required");
-      // Principal detail is a subset of the list today; fetch the list
-      // and filter. A dedicated `principal_show` IPC variant will be
-      // added in a follow-up PR.
-      return invoke<PrincipalSummary[]>("principal_list").then((all) =>
-        all.find((p) => p.name === name) ?? null,
-      );
+      return principalGet(name);
     },
     enabled: !!name,
   });
@@ -80,19 +74,9 @@ export function usePrincipalSend() {
       onChunk?: (delta: string) => void;
     }): Promise<string> => {
       if (!vars.onChunk) {
-        return invoke<string>("principal_send", {
-          name: vars.name,
-          message: vars.message,
-        });
+        return principalSend(vars.name, vars.message);
       }
-      const channel = new Channel<string>();
-      channel.onmessage = vars.onChunk;
-      return invoke<string>("principal_send_stream", {
-        app: undefined,
-        name: vars.name,
-        message: vars.message,
-        onChunk: channel,
-      });
+      return principalSendStream(vars.name, vars.message, vars.onChunk);
     },
   });
 }

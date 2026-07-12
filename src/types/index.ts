@@ -19,24 +19,12 @@ export interface DaemonStatus {
 // Principal is the only top-level runtime actor. Agent is a thin
 // markdown prompt file inside a Principal and is not a top-level
 // entity; sessions are internal storage and are not surfaced.
-
-export interface PrincipalSummary {
-  name: string;
-  description?: string;
-  status: string;
-  exposure: string;
-  /** Subject string ("user:alice", "principal:<did>", or "public"). */
-  owner: string;
-  runtimeId: string;
-}
-
-export interface PrincipalDetail extends PrincipalSummary {
-  agentPrompts: { name: string; path: string }[];
-  permissions: { subject: string; permission: string }[];
-  config: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-}
+//
+// The `PrincipalSummary` interface lives in `lib/api.ts` next to
+// the IPC wrappers that produce it. A richer `PrincipalDetail`
+// projection was retired alongside the agent→principal migration
+// (ADR-041) — the runtime does not currently expose per-principal
+// agent-prompt lists or config snapshots over IPC.
 
 // ─── peko log / HistoryEvent (ADR-042) ──────────────────────────
 

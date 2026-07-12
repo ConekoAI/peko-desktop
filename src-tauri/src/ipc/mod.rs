@@ -609,6 +609,21 @@ impl IpcClient {
         });
         self.request_response(req).await
     }
+
+    /// Look up a single Principal by name. Mirror of
+    /// `RequestPacket::PrincipalGet`. The response envelope is
+    /// `{"type": "principal_get", "principal": {...} | null}` — the
+    /// daemon returns `null` for a miss, never an error.
+    pub async fn principal_get(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_get",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
 }
 
 #[cfg(unix)]

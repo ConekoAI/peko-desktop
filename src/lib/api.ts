@@ -10,7 +10,7 @@
 //! file is the canonical entry point and is kept in lockstep with the
 //! runtime's `RequestPacket`/`ResponsePacket` enums.
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 
 import type {
   AccessiblePrincipal,
@@ -77,6 +77,68 @@ export async function daemonStatus(): Promise<DaemonStatus> {
 }
 
 // ─── Principal (ADR-041) ─────────────────────────────────────────
+
+/**
+ * Lightweight summary row for the principal list / sidebar.
+ *
+ * Mirrors the desktop's `PrincipalSummary` struct in
+ * `src-tauri/src/commands/principal.rs` (the desktop projects the
+ * runtime's full `PrincipalSummary` down to this six-field shape).
+ */
+export interface PrincipalSummary {
+  name: string;
+  exposure: string;
+  status: string;
+  description?: string;
+  owner: string;
+  runtimeId: string;
+}
+
+export async function principalList(): Promise<PrincipalSummary[]> {
+  return invoke<PrincipalSummary[]>("principal_list");
+}
+
+/**
+ * Look up a single Principal by name. Returns `null` on a miss —
+ * the runtime surfaces misses as `{principal: null}` envelopes,
+ * never as errors.
+ */
+export async function principalGet(
+  name: string,
+): Promise<PrincipalSummary | null> {
+  return invoke<PrincipalSummary | null>("principal_get", { name });
+}
+
+/**
+ * Send a non-streaming message to a Principal and return the
+ * supervisor's final answer.
+ */
+export async function principalSend(
+  name: string,
+  message: string,
+): Promise<string> {
+  return invoke<string>("principal_send", { name, message });
+}
+
+/**
+ * Send a streaming message to a Principal. Each supervisor chunk
+ * is pushed to `onChunk` as it arrives; the resolved promise carries
+ * the full final answer (identical content to the non-streaming
+ * `principalSend` would have returned).
+ */
+export async function principalSendStream(
+  name: string,
+  message: string,
+  onChunk: (delta: string) => void,
+): Promise<string> {
+  const channel = new Channel<string>();
+  channel.onmessage = onChunk;
+  return invoke<string>("principal_send_stream", {
+    name,
+    message,
+    onChunk: channel,
+  });
+}
 
 /**
  * Read a peer's conversation thread with a Principal (ADR-042).
