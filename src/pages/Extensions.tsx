@@ -2,14 +2,12 @@ import { useState } from "react";
 import {
   useExtensions,
   useInstallExtension,
-  useEnableExtension,
-  useDisableExtension,
   useUninstallExtension,
 } from "../hooks/useExtensions";
 import DataTable from "../components/DataTable";
 import ConfirmModal from "../components/modals/ConfirmModal";
 
-import { Plus, Power, PowerOff, Trash2, X, Loader2 } from "lucide-react";
+import { Plus, Trash2, X, Loader2 } from "lucide-react";
 import type { ExtensionSummary } from "../types";
 
 function InstallModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -80,8 +78,6 @@ function InstallModal({ open, onClose }: { open: boolean; onClose: () => void })
 
 export default function Extensions() {
   const { data: extensions, isLoading } = useExtensions();
-  const enable = useEnableExtension();
-  const disable = useDisableExtension();
   const uninstall = useUninstallExtension();
   const [confirmName, setConfirmName] = useState<string | null>(null);
   const [installOpen, setInstallOpen] = useState(false);
@@ -145,23 +141,6 @@ export default function Extensions() {
       sortable: false,
       render: (row: ExtensionSummary) => (
         <div className="flex items-center gap-2">
-          {row.enabled ? (
-            <button
-              onClick={() => disable.mutate({ name: row.name })}
-              className="rounded p-1 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/30 dark:hover:text-amber-400"
-              title="Disable"
-            >
-              <PowerOff className="h-3.5 w-3.5" />
-            </button>
-          ) : (
-            <button
-              onClick={() => enable.mutate({ name: row.name })}
-              className="rounded p-1 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-400"
-              title="Enable"
-            >
-              <Power className="h-3.5 w-3.5" />
-            </button>
-          )}
           <button
             onClick={() => setConfirmName(row.name)}
             className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"

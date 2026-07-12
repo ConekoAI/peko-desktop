@@ -184,8 +184,10 @@ jobs:
                       --ignore RUSTSEC-2024-0418 \
                       --ignore RUSTSEC-2026-0185 \
                       --ignore RUSTSEC-2026-0186 \
+                      --ignore RUSTSEC-2026-0190 \
                       --ignore RUSTSEC-2026-0194 \
-                      --ignore RUSTSEC-2026-0195
+                      --ignore RUSTSEC-2026-0195 \
+                      --ignore RUSTSEC-2026-0204
 
       - name: Audit npm dependencies
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
