@@ -17,6 +17,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         daemon::daemon_status,
         daemon::daemon_ensure_running,
         principal::principal_list,
+        principal::principal_get,
         principal::principal_send,
         principal::principal_send_stream,
         principal::principal_log,

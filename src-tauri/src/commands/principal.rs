@@ -85,6 +85,70 @@ pub async fn principal_list(
     Ok(out)
 }
 
+/// Look up a single Principal by name. Returns the lightweight
+/// summary shape used by `principal_list` so the desktop's
+/// `usePrincipal` hook can consume either source interchangeably.
+/// The runtime returns `principal: null` for a miss, never an
+/// error.
+#[tauri::command]
+pub async fn principal_get(
+    state: tauri::State<'_, AppState>,
+    name: String,
+) -> Result<Option<PrincipalSummary>, String> {
+    let runtime = state
+        .get_runtime("local")
+        .await
+        .ok_or_else(|| "Local runtime not found".to_string())?;
+
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_get(&name)
+        .await
+        .map_err(|e| format!("principal_get failed: {e}"))?;
+
+    Ok(project_principal_get_envelope(&value, &runtime.id))
+}
+
+/// Project the runtime's `principal_get` response envelope down to
+/// the desktop's lightweight `PrincipalSummary`. Extracted so the
+/// projection logic is unit-testable without spinning up the IPC
+/// stack.
+fn project_principal_get_envelope(
+    value: &serde_json::Value,
+    runtime_id: &str,
+) -> Option<PrincipalSummary> {
+    let p = value.get("principal").and_then(|v| v.as_object())?;
+    Some(PrincipalSummary {
+        name: p
+            .get("name")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string(),
+        exposure: p
+            .get("exposure")
+            .and_then(|s| s.as_str())
+            .unwrap_or("unexposed")
+            .to_string(),
+        status: p
+            .get("status")
+            .and_then(|s| s.as_str())
+            .unwrap_or("offline")
+            .to_string(),
+        description: p
+            .get("description")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string()),
+        owner: p
+            .get("owner")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string(),
+        runtime_id: runtime_id.to_string(),
+    })
+}
+
 /// Send a non-streaming principal message and return the final content.
 #[tauri::command]
 pub async fn principal_send(name: String, message: String) -> Result<String, String> {
@@ -210,4 +274,64 @@ pub async fn principal_provider_list() -> Result<Vec<ProviderInfo>, String> {
         })
         .unwrap_or_default();
     Ok(providers)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_project_principal_get_envelope_hit() {
+        let envelope = serde_json::json!({
+            "type": "principal_get",
+            "request_id": 1,
+            "principal": {
+                "name": "helper",
+                "did": "did:peko:local:helper:abc",
+                "owner": "user:alice",
+                "description": "A test principal",
+                "exposure": "Private",
+                "status": "online",
+                "capabilities": {},
+                "agent_prompt_count": 2,
+                "workspace_path": "/tmp/helper",
+            }
+        });
+        let projected = project_principal_get_envelope(&envelope, "local");
+        let p = projected.expect("hit should project to Some");
+        assert_eq!(p.name, "helper");
+        assert_eq!(p.exposure, "Private");
+        assert_eq!(p.status, "online");
+        assert_eq!(p.description.as_deref(), Some("A test principal"));
+        assert_eq!(p.owner, "user:alice");
+        assert_eq!(p.runtime_id, "local");
+    }
+
+    #[test]
+    fn test_project_principal_get_envelope_miss_returns_none() {
+        let envelope = serde_json::json!({
+            "type": "principal_get",
+            "request_id": 1,
+            "principal": null,
+        });
+        assert!(project_principal_get_envelope(&envelope, "local").is_none());
+    }
+
+    #[test]
+    fn test_project_principal_get_envelope_minimal_applies_defaults() {
+        // Runtime returns a minimal summary when fields aren't set; the
+        // projection must fill in the same defaults as `principal_list`.
+        let envelope = serde_json::json!({
+            "type": "principal_get",
+            "request_id": 1,
+            "principal": { "name": "minimal" },
+        });
+        let p = project_principal_get_envelope(&envelope, "local").unwrap();
+        assert_eq!(p.name, "minimal");
+        assert_eq!(p.exposure, "unexposed");
+        assert_eq!(p.status, "offline");
+        assert_eq!(p.description, None);
+        assert_eq!(p.owner, "");
+        assert_eq!(p.runtime_id, "local");
+    }
 }
