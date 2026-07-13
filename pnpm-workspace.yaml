@@ -1,0 +1,4 @@
+allowBuilds:
+  # esbuild postinstall downloads the platform-specific native binary; pnpm 11
+  # blocks build scripts by default, so it has to be allowlisted here.
+  esbuild: true
