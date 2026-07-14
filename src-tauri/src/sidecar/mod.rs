@@ -211,16 +211,31 @@ impl Supervisor {
     /// blocks the caller for at most ~200 ms (the socket read
     /// timeout) before falling through to the spawn path.
     pub fn start(&self) -> Result<u32> {
-        // Fast-path: already Running. For owned engines this is
-        // authoritative; for adopted engines we still re-probe
-        // because the foreign daemon may have died while the
-        // supervisor was idle.
+        // Fast-path + spawn-slot claim. The fast-path matches
+        // `Running` (owned) AND `Starting` / `Restarting` so
+        // concurrent callers arriving during the startup window
+        // (e.g. the IPC client's `ensure_daemon` firing from
+        // `ping` / `system_status` / etc. on frontend mount) see
+        // the in-progress spawn and short-circuit. Without this
+        // the race lets N callers each spawn a child, and only
+        // the one whose handle `sup.stop()` later calls
+        // `child.kill()` on gets cleaned up — the rest orphan
+        // when the desktop closes (T-104 leak).
+        //
+        // The slot is claimed by setting `state = Starting` under
+        // the inner lock BEFORE the spawn returns, so the second
+        // check below (post-`sync_probe`) catches any caller that
+        // slipped through the first check.
         {
             let g = self.inner.lock().unwrap();
-            if let EngineState::Running { pid, .. } = &g.state {
-                if !g.adopted {
+            match &g.state {
+                EngineState::Running { pid, .. } if !g.adopted => {
                     return Ok(*pid);
                 }
+                EngineState::Starting | EngineState::Restarting { .. } => {
+                    return Ok(g.child_pid.unwrap_or(0));
+                }
+                _ => {}
             }
         }
 
@@ -246,6 +261,26 @@ impl Supervisor {
             g.adopted_lockfile = None;
         }
 
+        // Re-check + claim the slot. A concurrent caller that
+        // passed the first check above may have already claimed
+        // between here and there; the re-check under the lock
+        // makes the claim atomic with the state read. After this
+        // block, state == Starting and any further start() caller
+        // hits the fast-path's Starting arm and short-circuits.
+        {
+            let mut g = self.inner.lock().unwrap();
+            match &g.state {
+                EngineState::Running { pid, .. } if !g.adopted => {
+                    return Ok(*pid);
+                }
+                EngineState::Starting | EngineState::Restarting { .. } => {
+                    return Ok(g.child_pid.unwrap_or(0));
+                }
+                _ => {}
+            }
+            g.state = EngineState::Starting;
+        }
+
         let app_handle = self.app_handle.clone();
         let (rx, child) = app_handle
             .shell()
@@ -269,7 +304,6 @@ impl Supervisor {
             let mut g = self.inner.lock().unwrap();
             g.child = Some(child);
             g.child_pid = Some(pid);
-            g.state = EngineState::Starting;
             g.started_at = Some(Instant::now());
             g.last_error = None;
         }
