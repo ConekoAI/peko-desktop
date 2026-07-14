@@ -63,6 +63,12 @@ export async function runtimeRename(
 }
 
 // ─── Daemon ─────────────────────────────────────────────────────
+//
+// Legacy daemon commands. As of ADR-043 the engine lifecycle is
+// owned by the sidecar supervisor; these wrappers remain so the
+// pre-#127 callers (StatusBar legacy paths, etc.) keep working
+// while we migrate UI surfaces to `engine_*`. New code should use
+// the wrappers below this section instead.
 
 export async function daemonStart(): Promise<DaemonStatus> {
   return invoke("daemon_start");
@@ -78,6 +84,28 @@ export async function daemonRestart(): Promise<DaemonStatus> {
 
 export async function daemonStatus(): Promise<DaemonStatus> {
   return invoke("daemon_status");
+}
+
+// ─── Engine (ADR-043) ────────────────────────────────────────────
+//
+// Engine commands talk to the sidecar supervisor directly. The
+// supervisor is the canonical owner of the bundled `peko` child
+// process — its `EngineState` is what the UI should drive the
+// header badge and version banners from. The legacy `daemon_*`
+// commands above are now thin proxies over this same supervisor.
+
+import type { EngineDiagnostics, EngineState } from "../types";
+
+export async function engineStatus(): Promise<EngineState> {
+  return invoke<EngineState>("engine_status");
+}
+
+export async function engineDiagnostics(): Promise<EngineDiagnostics> {
+  return invoke<EngineDiagnostics>("engine_diagnostics");
+}
+
+export async function engineRestart(): Promise<number> {
+  return invoke<number>("engine_restart");
 }
 
 // ─── Principal (ADR-041) ─────────────────────────────────────────
