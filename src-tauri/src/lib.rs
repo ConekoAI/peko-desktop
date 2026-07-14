@@ -43,10 +43,7 @@ pub fn run() {
             let supervisor_for_spawn = supervisor.clone();
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = tokio::task::spawn_blocking(move || supervisor_for_spawn.start())
-                    .await
-                    .unwrap_or_else(|e| Err(sidecar::SupervisorError::Spawn(e.to_string())))
-                {
+                if let Err(e) = supervisor_for_spawn.start() {
                     eprintln!("[peko-desktop] sidecar spawn failed: {e}");
                     let _ = app_handle.emit(
                         "engine-state-changed",
