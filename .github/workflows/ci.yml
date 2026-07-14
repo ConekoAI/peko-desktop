@@ -124,14 +124,15 @@ jobs:
           shared-key: tauri-rust-win
 
       # See Rust (Linux) for rationale; same stub needed for Tauri's
-      # build-script validation of `bundle.externalBin`.
+      # build-script validation of `bundle.externalBin`. Tauri's
+      # Windows manifest expects `.exe` suffix on externalBin paths.
       - name: Stub sidecar binary for Tauri build
         run: |
           $line = rustc -vV | Where-Object { $_ -match '^host:' }
           if ($line -match '^host:\s+(\S+)') { $TRIPLE = $matches[1] }
           New-Item -ItemType Directory -Force -Path binaries | Out-Null
-          New-Item -ItemType File -Force -Path "binaries/peko-$TRIPLE" | Out-Null
-          Write-Host "Stubbed binaries/peko-$TRIPLE"
+          New-Item -ItemType File -Force -Path "binaries/peko-$TRIPLE.exe" | Out-Null
+          Write-Host "Stubbed binaries/peko-$TRIPLE.exe"
 
       - name: Cargo check
         run: cargo check
