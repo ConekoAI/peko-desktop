@@ -15,6 +15,7 @@ import { usePrincipals, usePrincipalCreate } from "../hooks/usePrincipals";
 import { useProviders } from "../hooks/useProviders";
 import {
   useCredential,
+  useCredentialList,
   useSetCredential,
   useTestCredential,
 } from "../hooks/useSettings";
@@ -130,13 +131,41 @@ function WalkthroughCard({
     [providers, providersLoading],
   );
 
-  // Pre-select the first provider once the catalog loads so the user
-  // doesn't have to click to enable Step 1's Next button.
+  // Pull the existing keychain so we can skip past pick/paste/test
+  // when the user already has a configured provider. Steps 1–3 only
+  // matter when nothing is set yet; once a key exists we land on
+  // Step 4 pre-selected so the walkthrough becomes "just name your
+  // first Principal."
+  const { data: credentials, isLoading: credentialsLoading } = useCredentialList();
+  const configuredIds = useMemo(
+    () =>
+      (credentials ?? [])
+        .filter((c) => c.provider && c.hasKey)
+        .map((c) => c.provider),
+    [credentials],
+  );
+  const configuredSet = useMemo(() => new Set(configuredIds), [configuredIds]);
+  const hasConfiguredProvider = configuredIds.length > 0;
+
+  // Pre-select a provider once the catalog + keychain have settled.
+  // Order: configured catalog entry first (so users with `peko
+  // provider add --template foo` land on their actual provider), then
+  // the first built-in. Once a key is found, jump straight to Step 4
+  // — no point re-running pick → paste → test.
   useEffect(() => {
-    if (providerId === null && providerItems.length > 0) {
-      setProviderId(providerItems[0].id);
+    if (providerId !== null) return;
+    if (providerItems.length === 0) return;
+    const preferred = providerItems.find((p) => configuredSet.has(p.id));
+    const initial = preferred ?? providerItems[0];
+    setProviderId(initial.id);
+  }, [providerItems, configuredSet, providerId]);
+
+  useEffect(() => {
+    if (credentialsLoading) return;
+    if (hasConfiguredProvider && step === 1) {
+      setStep(4);
     }
-  }, [providerItems, providerId]);
+  }, [hasConfiguredProvider, credentialsLoading, step]);
 
   const { data: credential } = useCredential(providerId ?? "");
   const setCred = useSetCredential();
@@ -230,7 +259,9 @@ function WalkthroughCard({
             </h2>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Let&apos;s set up your first AI assistant. Four quick steps.
+            {hasConfiguredProvider
+              ? "You already have a configured provider — just name your first Principal."
+              : "Let’s set up your first AI assistant. Four quick steps."}
           </p>
         </div>
         <button
@@ -280,6 +311,12 @@ function WalkthroughCard({
             onNameChange={setPrincipalName}
             description={principalDescription}
             onDescriptionChange={setPrincipalDescription}
+            providerLabel={
+              hasConfiguredProvider && providerId
+                ? providerItems.find((p) => p.id === providerId)?.displayName ??
+                  providerId
+                : null
+            }
           />
         )}
 
@@ -530,11 +567,17 @@ function Step4({
   onNameChange,
   description,
   onDescriptionChange,
+  providerLabel,
 }: {
   name: string;
   onNameChange: (v: string) => void;
   description: string;
   onDescriptionChange: (v: string) => void;
+  /** When non-null, rendered as a "Provider ready" badge above the
+   *  name input. The walkthrough passes the configured provider when
+   *  one was found in the keychain, so the user sees "sticking with
+   *  X" instead of a generic "pick one." */
+  providerLabel: string | null;
 }) {
   const trimmed = name.trim();
   const nameValid =
@@ -550,6 +593,15 @@ function Step4({
       <p className="text-sm text-slate-700 dark:text-slate-300">
         Name your first Principal. It&apos;s the identity you&apos;ll chat with.
       </p>
+      {providerLabel && (
+        <div
+          role="status"
+          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
+        >
+          <Check className="h-3 w-3" />
+          Provider ready: {providerLabel}
+        </div>
+      )}
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
           Name <span className="text-red-500">*</span>
