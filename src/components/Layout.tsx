@@ -5,12 +5,19 @@ import AppRail from "./AppRail";
 import PrincipalSidebar from "./PrincipalSidebar";
 import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
-import { useDaemonStatus } from "../hooks/useDaemon";
+import EngineStatusBadge from "./EngineStatusBadge";
+import VersionMismatchBanner from "./VersionMismatchBanner";
+import { useEngineStatus } from "../hooks/useEngine";
+import { useEngineVersionMismatch } from "../hooks/useEngine";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
 import { Sun, Moon, Monitor } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { data: daemon } = useDaemonStatus();
+  // Engine state drives the header badge. The supervisor is the
+  // canonical owner of the engine (ADR-043) — the legacy DaemonStatus
+  // hook is gone from the header surface.
+  const { data: engine } = useEngineStatus();
+  const { mismatch, dismiss } = useEngineVersionMismatch();
   const [theme, setThemeState] = useState<"light" | "dark" | "system">("system");
   const location = useLocation();
 
@@ -52,22 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   Peko
                 </h1>
               )}
-              <span
-                className={[
-                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  daemon?.running
-                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-                    : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400",
-                ].join(" ")}
-              >
-                <span
-                  className={[
-                    "h-1.5 w-1.5 rounded-full",
-                    daemon?.running ? "bg-emerald-500" : "bg-red-500",
-                  ].join(" ")}
-                />
-                {daemon?.running ? "Running" : "Stopped"}
-              </span>
+              <EngineStatusBadge state={engine} />
             </div>
 
             <div className="flex items-center gap-2">
@@ -83,6 +75,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Content */}
           <main className={["flex-1 overflow-hidden", isChatRoute ? "" : "overflow-auto p-6"].join(" ")}>
+            {/* Version mismatch is full-width, above the page content
+                so it stays visible even on chat routes where there's
+                no padding scroll area. */}
+            {mismatch && (
+              <div className="px-6 pb-3 pt-4">
+                <VersionMismatchBanner
+                  actual={mismatch.actual}
+                  expected={mismatch.expected}
+                  onDismiss={dismiss}
+                />
+              </div>
+            )}
             {children}
           </main>
 

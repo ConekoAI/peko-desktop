@@ -7,9 +7,19 @@ import {
   useDeleteCredential,
   useTestCredential,
 } from "../hooks/useSettings";
-import { useDaemonStatus, useDaemonStart, useDaemonStop, useDaemonRestart } from "../hooks/useDaemon";
 import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime, useOAuthConnect, startOAuthConnect } from "../hooks/useRuntimes";
 import { useProviders } from "../hooks/useProviders";
+import {
+  useEngineStatus,
+  useEngineDiagnostics,
+  useEngineRestart,
+  useEngineStateChanged,
+} from "../hooks/useEngine";
+import {
+  engineStateLabel,
+  engineStateSubtitle,
+  engineStateTone,
+} from "../lib/engine-helpers";
 import { getTheme, setTheme } from "../lib/theme";
 import {
   resolveLogLevel,
@@ -25,9 +35,6 @@ import {
   Check,
   Trash2,
   TestTube,
-  Play,
-  Square,
-  RotateCcw,
   Loader2,
   Sun,
   Moon,
@@ -42,8 +49,10 @@ import {
   LogIn,
   ExternalLink,
   AlertCircle,
+  RotateCcw,
+  Activity,
 } from "lucide-react";
-import type { RuntimeConnection } from "../types";
+import type { RuntimeConnection, EngineDiagnostics } from "../types";
 
 type Tab = "general" | "daemon" | "credentials" | "runtimes" | "about";
 
@@ -167,21 +176,132 @@ function GeneralTab() {
   );
 }
 
+function DiagnosticsPanel({
+  diag,
+  onRestart,
+  isRestarting,
+}: {
+  diag: EngineDiagnostics | undefined;
+  onRestart: () => void;
+  isRestarting: boolean;
+}) {
+  // The supervisor pushes the most recent log line via stderr;
+  // rendering the ring buffer here lets a developer eyeball what
+  // the engine is doing without leaving the app.
+  const rows: { label: string; value: string }[] = [];
+
+  if (diag) {
+    rows.push({ label: "State", value: engineStateLabel(diag.state) });
+    if (diag.pid != null) rows.push({ label: "PID", value: String(diag.pid) });
+    if (diag.version) rows.push({ label: "Version", value: diag.version });
+    if (diag.expected_version) {
+      rows.push({ label: "Expected version", value: diag.expected_version });
+      rows.push({
+        label: "Match",
+        value:
+          diag.version_matches === null
+            ? "unknown (engine still starting)"
+            : diag.version_matches
+              ? "yes"
+              : "MISMATCH",
+      });
+    }
+    rows.push({ label: "Uptime", value: `${diag.uptime_secs}s` });
+    rows.push({ label: "Lockfile", value: diag.lockfile_path });
+    rows.push({ label: "Socket", value: diag.socket_path });
+    rows.push({ label: "Restarts", value: String(diag.restart_count) });
+    if (diag.last_error) rows.push({ label: "Last error", value: diag.last_error });
+  }
+
+  return (
+    <div className="space-y-3">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-3 border-b border-slate-100 pb-1 dark:border-slate-800">
+            <dt className="shrink-0 text-slate-500 dark:text-slate-400">
+              {r.label}
+            </dt>
+            <dd
+              className={[
+                "truncate text-right font-mono",
+                r.label === "Match" && r.value === "MISMATCH"
+                  ? "font-semibold text-amber-700 dark:text-amber-300"
+                  : "text-slate-700 dark:text-slate-300",
+              ].join(" ")}
+              title={r.value}
+            >
+              {r.value}
+            </dd>
+          </div>
+        ))}
+        {(!diag || rows.length === 0) && (
+          <div className="text-xs italic text-slate-400 dark:text-slate-500">
+            {diag ? "No diagnostics fields available." : "Loading diagnostics…"}
+          </div>
+        )}
+      </dl>
+
+      {diag && diag.log_ring.length > 0 && (
+        <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60">
+          <summary className="cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300">
+            Recent log ({diag.log_ring.length} lines)
+          </summary>
+          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-snug text-slate-600 dark:text-slate-400">
+            {diag.log_ring.join("\n")}
+          </pre>
+        </details>
+      )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          onClick={onRestart}
+          disabled={isRestarting}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          {isRestarting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RotateCcw className="h-3.5 w-3.5" />
+          )}
+          Restart engine
+        </button>
+        <p className="text-[11px] italic text-slate-500 dark:text-slate-400">
+          Restarts the bundled engine. Normally you should just close
+          and reopen the desktop.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function DaemonTab() {
-  const { data: daemon, isLoading } = useDaemonStatus();
+  // ADR-043: the engine is owned by the sidecar supervisor. The
+  // Daemon tab no longer exposes Start/Stop/Restart — those actions
+  // happen automatically at app launch and on unexpected exit. The
+  // surface shrinks to a read-only status panel + a hidden
+  // "Show internal status" toggle that exposes the diagnostics
+  // bundle (PID, version parity, log ring, restart count).
+  const { data: engine, isLoading } = useEngineStatus();
   const { data: settings } = useSettings();
   const setSetting = useSetSetting();
-  const start = useDaemonStart();
-  const stop = useDaemonStop();
-  const restart = useDaemonRestart();
-  const isMutating = start.isPending || stop.isPending || restart.isPending;
-  // Surface the most recent daemon mutation error instead of swallowing it.
-  // React Query clears `error` on the next mutation call, so the banner
-  // auto-dismisses when the user retries. The Start button's previous
-  // silent-failure was a real usability bug: "click Start, nothing
-  // happened" was the user seeing nothing because the error was thrown
-  // away.
-  const daemonError = start.error?.message ?? stop.error?.message ?? restart.error?.message ?? null;
+  const diag = useEngineDiagnostics();
+  const restart = useEngineRestart();
+
+  // Refresh diagnostics whenever the engine reports a state
+  // transition — keeps the panel in sync without polling.
+  const { state: lastTransition } = useEngineStateChanged();
+  useEffect(() => {
+    if (lastTransition) {
+      diag.refetch();
+    }
+    // We intentionally exclude `diag.refetch` from the deps: React
+    // Query's QueryClient returns a stable function reference.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastTransition]);
+
+  const [showInternal, setShowInternal] = useState(false);
+  const [internalArmed, setInternalArmed] = useState(false);
+
   const currentLogLevel = resolveLogLevel(settings);
 
   function handleLogLevelChange(level: LogLevel) {
@@ -189,71 +309,91 @@ function DaemonTab() {
     setSetting.mutate({ key: "daemon.log_level", value: level });
   }
 
+  function armInternalStatus() {
+    // Two-click pattern. Pressing once arms the toggle; pressing
+    // again within the same session surfaces the diagnostics. This
+    // keeps the panel out of the default user surface (where it
+    // would just clutter the page) while remaining reachable for
+    // developers and support without a hidden flag.
+    if (!showInternal && !internalArmed) {
+      setInternalArmed(true);
+      // Disarm automatically after 5 seconds of inactivity so we
+      // don't keep an armed toggle around indefinitely.
+      window.setTimeout(() => setInternalArmed(false), 5000);
+      return;
+    }
+    setShowInternal(true);
+    diag.refetch();
+  }
+
+  const tone = engineStateTone(engine);
+  const subtitle = engineStateSubtitle(engine);
+  const label = engineStateLabel(engine);
+
   return (
     <div className="space-y-6">
-      {daemonError && (
-        <div
-          role="alert"
-          className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
-        >
-          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+      <div
+        role="status"
+        aria-live="polite"
+        data-testid="settings-engine-status"
+        data-tone={tone}
+        className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div className="flex items-center gap-4">
+          <div
+            className={[
+              "flex h-10 w-10 items-center justify-center rounded-full",
+              tone === "ok"
+                ? "bg-emerald-50 dark:bg-emerald-950/30"
+                : tone === "warn"
+                  ? "bg-amber-50 dark:bg-amber-950/30"
+                  : "bg-red-50 dark:bg-red-950/30",
+            ].join(" ")}
+          >
+            <Activity
+              className={[
+                "h-5 w-5",
+                tone === "ok"
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : tone === "warn"
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-red-600 dark:text-red-400",
+              ].join(" ")}
+            />
+          </div>
           <div className="min-w-0 flex-1">
-            <p className="font-medium">Engine action failed</p>
-            <p className="mt-1 break-words text-rose-700/90 dark:text-rose-300/90">
-              {daemonError}
-            </p>
-          </div>
-        </div>
-      )}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Daemon Status</h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              Engine is {label === "Running" ? "running" : label.toLowerCase()}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {isLoading
-                ? "Checking status..."
-                : daemon?.running
-                  ? `Running · Version ${daemon.version}${daemon.pid ? ` · PID ${daemon.pid}` : ""}`
-                  : "Daemon is not running"}
+                ? "Checking status…"
+                : engine?.kind === "running"
+                  ? `Version ${engine.version} · PID ${engine.pid}`
+                  : subtitle ?? "Engine is not running"}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+              The engine starts automatically when the desktop launches and
+              restarts itself if it exits unexpectedly. No manual controls are
+              needed.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {!daemon?.running && (
-              <button
-                onClick={() => start.mutate()}
-                disabled={isMutating}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {start.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                Start
-              </button>
-            )}
-            {daemon?.running && (
-              <>
-                <button
-                  onClick={() => stop.mutate()}
-                  disabled={isMutating}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  {stop.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
-                  Stop
-                </button>
-                <button
-                  onClick={() => restart.mutate()}
-                  disabled={isMutating}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  {restart.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RotateCcw className="h-4 w-4" />
-                  )}
-                  Restart
-                </button>
-              </>
-            )}
-          </div>
         </div>
+
+        {restart.error && (
+          <div
+            role="alert"
+            className="mt-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Engine restart failed</p>
+              <p className="mt-1 break-words text-rose-700/90 dark:text-rose-300/90">
+                {restart.error.message}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -279,6 +419,29 @@ function DaemonTab() {
             );
           })}
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <button
+          type="button"
+          onClick={armInternalStatus}
+          className="text-xs text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+        >
+          {internalArmed && !showInternal
+            ? "Click again to show internal status"
+            : showInternal
+              ? "Hide internal status"
+              : "Show internal status"}
+        </button>
+        {showInternal && (
+          <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
+            <DiagnosticsPanel
+              diag={diag.data}
+              onRestart={() => restart.mutate()}
+              isRestarting={restart.isPending}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -14,6 +14,49 @@ export interface DaemonStatus {
   version: string;
 }
 
+// ─── Engine (ADR-043) ─────────────────────────────────────────────
+//
+// The engine is the bundled `peko` sidecar, owned by the desktop's
+// `SidecarSupervisor`. EngineState is the canonical source of truth
+// for the engine lifecycle: Stopped / Starting / Running / Restarting
+// / Failed. Anything that needs to know if the engine is up should
+// poll this, not the legacy DaemonStatus shape (which is now a
+// projection from EngineState kept only for backwards compatibility).
+//
+// Diagnostics is the power-user bundle surfaced behind the
+// "Show internal status" toggle in Settings. It is intentionally
+// verbose (PID, version parity, log ring, restart count, etc.) and
+// should never appear in the default UI surface.
+
+export type EngineState =
+  | { kind: "stopped" }
+  | { kind: "starting" }
+  | { kind: "running"; pid: number; version: string; uptime_secs: number }
+  | { kind: "restarting"; attempt: number }
+  | { kind: "failed"; message: string };
+
+export interface EngineDiagnostics {
+  state: EngineState;
+  pid: number | null;
+  version: string | null;
+  expected_version: string | null;
+  /** `true` when actual == expected, `false` when both present and
+   *  different, `null` when one side is unknown (engine still
+   *  starting). */
+  version_matches: boolean | null;
+  uptime_secs: number;
+  lockfile_path: string;
+  socket_path: string;
+  log_ring: string[];
+  restart_count: number;
+  last_error: string | null;
+}
+
+export interface EngineVersionMismatch {
+  actual: string;
+  expected: string;
+}
+
 // ─── Principal (ADR-041) ────────────────────────────────────────
 //
 // Principal is the only top-level runtime actor. Agent is a thin
