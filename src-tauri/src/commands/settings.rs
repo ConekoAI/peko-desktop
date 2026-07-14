@@ -285,6 +285,7 @@ pub async fn credential_test(provider: String) -> Result<bool, String> {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct CredentialRow {
     pub provider: String,
     pub has_key: bool,
