@@ -231,16 +231,31 @@ function CredentialsTab() {
             );
           })}
         </div>
-        {credentials && credentials.length > 0 && (
-          <p
-            data-testid="credentials-configured-count"
-            className="mb-2 text-xs text-slate-500 dark:text-slate-400"
-          >
-            {credentials.filter((c) => c.hasKey).length} provider
-            {credentials.filter((c) => c.hasKey).length === 1 ? "" : "s"} with a
-            configured key.
-          </p>
-        )}
+        {credentials && credentials.length > 0 && (() => {
+          const configured = credentials.filter((c) => c.hasKey);
+          if (configured.length === 0) return null;
+          return (
+            <div
+              data-testid="credentials-configured-count"
+              className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
+            >
+              <span>
+                {configured.length} provider
+                {configured.length === 1 ? "" : "s"} with a configured key:
+              </span>
+              {configured.map((c) => (
+                <button
+                  key={c.provider}
+                  type="button"
+                  onClick={() => setSelected(c.provider)}
+                  className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
+                >
+                  {c.provider}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
         <div className="space-y-3">
           <div className="flex items-center gap-3 text-sm">

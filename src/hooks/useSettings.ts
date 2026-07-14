@@ -55,7 +55,12 @@ export function useSetCredential() {
     mutationFn: ({ provider, apiKey }: { provider: string; apiKey: string }) =>
       credentialSet(provider, apiKey),
     onSuccess: (_data, { provider }) => {
+      // Refresh both the per-provider lookup and the list — a fresh
+      // key for a provider that wasn't in the list before (or whose
+      // `hasKey` flag just flipped from false→true) needs the list
+      // to re-render so the green pill appears without a tab reload.
       qc.invalidateQueries({ queryKey: ["credentials", provider] });
+      qc.invalidateQueries({ queryKey: ["credentials"] });
     },
   });
 }
