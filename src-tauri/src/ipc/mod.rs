@@ -722,6 +722,33 @@ impl IpcClient {
         });
         self.request_response(req).await
     }
+
+    /// Create a new Principal on the local runtime. Mirror of
+    /// `RequestPacket::PrincipalCreate` (peko-runtime PR #185). The
+    /// daemon validates the name, persists the workspace +
+    /// `agents/primary.md`, and returns a `principal_created` envelope
+    /// with the new summary. Errors surface as a generic `error`
+    /// packet — callers should map them to user-facing messages.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn principal_create(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        preferred_provider_id: Option<&str>,
+        preferred_model_id: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_create",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "description": description,
+            "preferred_provider_id": preferred_provider_id,
+            "preferred_model_id": preferred_model_id,
+        });
+        self.request_response(req).await
+    }
 }
 
 #[cfg(unix)]

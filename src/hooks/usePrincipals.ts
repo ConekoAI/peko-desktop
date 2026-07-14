@@ -1,11 +1,13 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  principalCreate,
   principalGet,
   principalList,
   principalLog,
   principalSend,
   principalSendStream,
+  type PrincipalCreateRequest,
   type PrincipalSummary,
 } from "../lib/api";
 
@@ -28,6 +30,25 @@ export function usePrincipal(name: string | undefined) {
       return principalGet(name);
     },
     enabled: !!name,
+  });
+}
+
+// ─── Principal create (T-105) ───────────────────────────────────
+
+/**
+ * Create a new Principal on the local runtime. Invalidates the
+ * `["principals"]` query so the sidebar / Chat principal picker
+ * pick up the new entry without a manual refresh. Errors (name
+ * validation, AlreadyExists, daemon unreachable) propagate to the
+ * caller; the modal/walkthrough surfaces them inline.
+ */
+export function usePrincipalCreate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: PrincipalCreateRequest) => principalCreate(req),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["principals"] });
+    },
   });
 }
 

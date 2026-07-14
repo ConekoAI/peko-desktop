@@ -7,6 +7,7 @@ import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
 import EngineFailureCard from "./EngineFailureCard";
 import VersionMismatchBanner from "./VersionMismatchBanner";
+import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
@@ -21,6 +22,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: engine } = useEngineStatus();
   const { mismatch, dismiss } = useEngineVersionMismatch();
   const [theme, setThemeState] = useState<"light" | "dark" | "system">("system");
+  // T-105: hoisted CreatePrincipalModal state so the sidebar's
+  // empty-state CTA can open it. Chat.tsx and Dashboard.tsx keep
+  // their own local instances (each already wired before the hoist);
+  // only one modal is open at a time so the duplication is harmless.
+  const [createOpen, setCreateOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -50,7 +56,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <AppRail />
 
         {/* Context sidebar: principal list on chat routes, tools elsewhere */}
-        {isChatRoute ? <PrincipalSidebar /> : <Sidebar />}
+        {isChatRoute ? (
+          <PrincipalSidebar onCreateClick={() => setCreateOpen(true)} />
+        ) : (
+          <Sidebar />
+        )}
 
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -110,6 +120,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {engineFailed && <StatusBar />}
         </div>
       </div>
+
+      {/* T-105: layout-level CreatePrincipalModal so the sidebar's
+          empty-state CTA can open it. Chat and Dashboard keep their
+          own local instances; only one is open at a time. */}
+      <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

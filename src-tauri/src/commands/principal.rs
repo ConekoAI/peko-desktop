@@ -149,6 +149,102 @@ fn project_principal_get_envelope(
     })
 }
 
+/// Create a new Principal on the local runtime. Mirrors
+/// `peko principal new <name>` so the desktop user never has to drop
+/// to the CLI to onboard. The daemon validates the name (saving a
+/// round-trip is a desktop-side nicety), writes `agents/primary.md`,
+/// and registers the new principal in the in-memory manager. The
+/// caller is recorded as the owner.
+///
+/// Errors from the daemon (e.g. name validation, `AlreadyExists`)
+/// propagate as `Err(String)` — the React form surfaces them inline.
+#[tauri::command]
+pub async fn principal_create(
+    name: String,
+    description: Option<String>,
+    preferred_provider_id: Option<String>,
+    preferred_model_id: Option<String>,
+) -> Result<PrincipalSummary, String> {
+    validate_principal_name(&name)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_create(
+            &name,
+            description.as_deref(),
+            preferred_provider_id.as_deref(),
+            preferred_model_id.as_deref(),
+        )
+        .await
+        .map_err(|e| format!("principal_create failed: {e}"))?;
+    project_principal_create_envelope(&value, &name)
+}
+
+/// Mirror of the runtime's `validate_agent_name` rules
+/// (`peko-runtime/src/common/identifiers.rs:49`). Pre-IPC nicety so
+/// obviously-bad input fails fast; the daemon re-validates so this is
+/// only a UX win, not a security boundary.
+fn validate_principal_name(name: &str) -> Result<(), String> {
+    if name.is_empty() || name.len() > 64 {
+        return Err(format!("invalid principal name: {name:?}"));
+    }
+    if name.starts_with('-') || name.ends_with('-') {
+        return Err(format!("invalid principal name: {name:?}"));
+    }
+    if name.contains('/') || name.contains('\\') {
+        return Err(format!("invalid principal name: {name:?}"));
+    }
+    if name
+        .chars()
+        .any(|c| !c.is_ascii_alphanumeric() && c != '-' && c != '_')
+    {
+        return Err(format!("invalid principal name: {name:?}"));
+    }
+    Ok(())
+}
+
+/// Project the runtime's `principal_created` envelope down to the
+/// desktop's lightweight `PrincipalSummary`. Extracted so the
+/// projection logic is unit-testable without spinning up the IPC
+/// stack (same shape as `project_principal_get_envelope`).
+fn project_principal_create_envelope(
+    value: &serde_json::Value,
+    fallback_name: &str,
+) -> Result<PrincipalSummary, String> {
+    let p = value
+        .get("principal")
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| "principal_create response missing `principal`".to_string())?;
+    Ok(PrincipalSummary {
+        name: p
+            .get("name")
+            .and_then(|s| s.as_str())
+            .unwrap_or(fallback_name)
+            .to_string(),
+        exposure: p
+            .get("exposure")
+            .and_then(|s| s.as_str())
+            .unwrap_or("unexposed")
+            .to_string(),
+        status: p
+            .get("status")
+            .and_then(|s| s.as_str())
+            .unwrap_or("offline")
+            .to_string(),
+        description: p
+            .get("description")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string()),
+        owner: p
+            .get("owner")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string(),
+        runtime_id: "local".to_string(),
+    })
+}
+
 /// Send a non-streaming principal message and return the final content.
 #[tauri::command]
 pub async fn principal_send(name: String, message: String) -> Result<String, String> {
@@ -333,5 +429,69 @@ mod tests {
         assert_eq!(p.description, None);
         assert_eq!(p.owner, "");
         assert_eq!(p.runtime_id, "local");
+    }
+
+    #[test]
+    fn test_project_principal_create_envelope_hit() {
+        let envelope = serde_json::json!({
+            "type": "principal_created",
+            "request_id": 1,
+            "principal": {
+                "name": "alice",
+                "owner": "user:desktop",
+                "description": "personal assistant",
+                "exposure": "Private",
+                "status": "online",
+            }
+        });
+        let p = project_principal_create_envelope(&envelope, "alice").unwrap();
+        assert_eq!(p.name, "alice");
+        assert_eq!(p.exposure, "Private");
+        assert_eq!(p.status, "online");
+        assert_eq!(p.description.as_deref(), Some("personal assistant"));
+        assert_eq!(p.owner, "user:desktop");
+        assert_eq!(p.runtime_id, "local");
+    }
+
+    #[test]
+    fn test_project_principal_create_envelope_missing_field_returns_error() {
+        // No `principal` object — projection should fail loudly so the
+        // caller surfaces the error in the form rather than silently
+        // creating a row with empty fields.
+        let envelope = serde_json::json!({
+            "type": "error",
+            "request_id": 1,
+            "message": "principal already exists"
+        });
+        assert!(project_principal_create_envelope(&envelope, "alice").is_err());
+    }
+
+    #[test]
+    fn test_validate_principal_name_accepts_valid_names() {
+        for name in ["alice", "helper-1", "test_principal", "A1B2C3"] {
+            assert!(
+                validate_principal_name(name).is_ok(),
+                "{name:?} should validate"
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_principal_name_rejects_bad_names() {
+        for name in [
+            "",
+            "-leading-hyphen",
+            "trailing-hyphen-",
+            "has/slash",
+            "has\\backslash",
+            "has space",
+            "has.dot",
+            &"a".repeat(65),
+        ] {
+            assert!(
+                validate_principal_name(name).is_err(),
+                "{name:?} should reject"
+            );
+        }
     }
 }
