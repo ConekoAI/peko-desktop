@@ -93,11 +93,18 @@ describe("EngineDiagnostics JSON shape", () => {
       log_ring: ["PEKO_VERSION=0.1.0", "started"],
       restart_count: 0,
       last_error: null,
+      owns_process: true,
+      mode: "sidecar",
     };
     const json = JSON.parse(JSON.stringify(diag));
     expect(json.lockfile_path).toContain("desktop.lock");
     expect(json.version_matches).toBe(true);
     expect(json.log_ring).toHaveLength(2);
+    // ADR-043 §adoption: owned sidecar reports owns_process=true and
+    // mode="sidecar" — the diagnostics panel uses these to decide
+    // whether to enable the Restart button.
+    expect(json.owns_process).toBe(true);
+    expect(json.mode).toBe("sidecar");
   });
 
   it("tolerates null optional fields when the engine is starting", () => {
@@ -113,11 +120,45 @@ describe("EngineDiagnostics JSON shape", () => {
       log_ring: [],
       restart_count: 0,
       last_error: null,
+      owns_process: true,
+      mode: null,
     };
     const json = JSON.parse(JSON.stringify(diag));
     expect(json.pid).toBeNull();
     expect(json.version).toBeNull();
     expect(json.version_matches).toBeNull();
     expect(json.log_ring).toEqual([]);
+    expect(json.owns_process).toBe(true);
+    expect(json.mode).toBeNull();
+  });
+
+  it("round-trips adoption: owns_process=false with mode='headless'", () => {
+    // When the supervisor adopts a CLI-managed daemon, the engine
+    // is running but is not the desktop's to control. The
+    // diagnostics panel disables the Restart button on borrowed
+    // engines and shows the "borrowed from CLI daemon" banner.
+    const diag: EngineDiagnostics = {
+      state: { kind: "running", pid: 9001, version: "0.1.0", uptime_secs: 60 },
+      pid: 9001,
+      version: "0.1.0",
+      expected_version: "0.1.0",
+      version_matches: true,
+      uptime_secs: 60,
+      lockfile_path: "/home/u/.peko/run/daemon.pid",
+      socket_path: "/home/u/.peko/run/daemon.sock",
+      log_ring: ["PEKO_VERSION=0.1.0"],
+      restart_count: 0,
+      last_error: null,
+      owns_process: false,
+      mode: "headless",
+    };
+    const json = JSON.parse(JSON.stringify(diag));
+    expect(json.owns_process).toBe(false);
+    expect(json.mode).toBe("headless");
+    // The adopted lockfile is `daemon.pid`, not `desktop.lock` —
+    // pin that too so the supervisor's path-honour-PEKO_CONFIG_DIR
+    // change shows up here if it ever regresses.
+    expect(json.lockfile_path).toContain("daemon.pid");
+    expect(json.lockfile_path).not.toContain("desktop.lock");
   });
 });

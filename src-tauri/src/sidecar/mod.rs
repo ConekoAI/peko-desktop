@@ -23,10 +23,13 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent, TerminatedPayload}
 use tauri_plugin_shell::ShellExt;
 use thiserror::Error;
 
+use crate::ipc::{IpcClient, StatusSnapshot};
+
 const LOG_RING_CAPACITY: usize = 200;
 const RESTART_BACKOFF: Duration = Duration::from_secs(2);
 const RESTART_GIVEUP_WINDOW: Duration = Duration::from_secs(30);
 const MAX_RESTART_ATTEMPTS: u32 = 1;
+const LIVENESS_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 const STATE_EVENT: &str = "engine-state-changed";
 const VERSION_MISMATCH_EVENT: &str = "engine-version-mismatch";
@@ -80,6 +83,16 @@ pub struct Diagnostics {
     pub log_ring: Vec<String>,
     pub restart_count: u32,
     pub last_error: Option<String>,
+    /// ADR-043 §adoption: `true` when the supervisor owns the engine
+    /// process (spawned a child), `false` when it adopted a foreign
+    /// daemon already on the IPC socket. The diagnostics panel uses
+    /// this to disable the Restart button on borrowed engines.
+    pub owns_process: bool,
+    /// Launch mode of the running engine (`"sidecar"` or `"headless"`).
+    /// `None` when the supervisor owns the engine and hasn't learned
+    /// the mode yet, or when the foreign daemon is from a build that
+    /// doesn't report it.
+    pub mode: Option<String>,
 }
 
 /// Payload emitted alongside `engine-version-mismatch` so the UI can
@@ -106,6 +119,31 @@ struct Inner {
     restart_count: u32,
     last_error: Option<String>,
     log_ring: VecDeque<String>,
+    /// ADR-043 §adoption: `true` when the supervisor is mirroring a
+    /// foreign daemon already on the IPC socket. In that case
+    /// `child`/`child_pid` are `None` (we never spawned anything) and
+    /// `stop()` must not send `kill`. The liveness poll owns
+    /// observing the foreign daemon's lifetime instead of the
+    /// `CommandEvent::Terminated` stream (which never fires here).
+    adopted: bool,
+    /// `"sidecar"` or `"headless"` — surfaced by the foreign daemon's
+    /// `ResponsePacket::Status::mode`. Used to choose the right
+    /// lockfile path in `diagnostics()` and to label the diagnostics
+    /// panel "borrowed from X daemon" banner.
+    adopted_mode: Option<String>,
+    /// Best-effort PID for the adopted daemon, read from the
+    /// headless-mode `daemon.pid` lockfile. `None` if the foreign
+    /// daemon didn't write one.
+    adopted_pid: Option<u32>,
+    /// Lockfile path the foreign daemon owns (e.g. `<config>/run/
+    /// daemon.pid` for a CLI-launched headless daemon). Reported in
+    /// the diagnostics panel as `lockfile_path`.
+    adopted_lockfile: Option<PathBuf>,
+    /// Background task that periodically re-probes the IPC socket
+    /// while `adopted == true`. Aborted on `stop()` and on adoption
+    /// (state transitions to a real spawn). Stored so `stop()` can
+    /// drop it without leaking a thread.
+    liveness_handle: Option<tauri::async_runtime::JoinHandle<()>>,
 }
 
 impl Supervisor {
@@ -122,6 +160,11 @@ impl Supervisor {
                 restart_count: 0,
                 last_error: None,
                 log_ring: VecDeque::with_capacity(LOG_RING_CAPACITY),
+                adopted: false,
+                adopted_mode: None,
+                adopted_pid: None,
+                adopted_lockfile: None,
+                liveness_handle: None,
             })),
             app_handle,
         }
@@ -145,18 +188,62 @@ impl Supervisor {
     /// Spawn the bundled sidecar with `--sidecar-mode`. Idempotent:
     /// returns the existing PID if already running.
     ///
+    /// ADR-043 §adoption: before spawning, probe the IPC socket. If a
+    /// daemon is already responding (e.g. the user ran `peko daemon
+    /// start` separately), mirror its state without spawning a
+    /// competing child. The supervisor then polls IPC every 5 s to
+    /// detect when the foreign daemon dies, and demotes to `Stopped`
+    /// if it does.
+    ///
     /// Intentionally NOT async: all operations are synchronous
-    /// (lock, sidecar spawn, lock update, reader-task spawn). The
-    /// Tauri commands wrap this in `async_runtime::block_on` when
-    /// they need to call it from a sync context. Avoiding `async`
-    /// here keeps the function `Send`-able across `await` points in
-    /// callers like `handle_terminated`.
+    /// (lock, IPC probe via `block_on`, sidecar spawn, lock update,
+    /// reader-task spawn). The Tauri commands wrap this in
+    /// `async_runtime::block_on` when they need to call it from a
+    /// sync context. Avoiding `async` here keeps the function
+    /// `Send`-able across `await` points in callers like
+    /// `handle_terminated`.
     pub fn start(&self) -> Result<u32> {
+        // Fast-path: already Running. For owned engines this is
+        // authoritative; for adopted engines we still re-probe
+        // because the foreign daemon may have died while the
+        // supervisor was idle. The probe is cheap (~10ms over the
+        // Unix datagram socket) and keeps the badge honest.
         {
             let g = self.inner.lock().unwrap();
             if let EngineState::Running { pid, .. } = &g.state {
-                return Ok(*pid);
+                if !g.adopted {
+                    return Ok(*pid);
+                }
             }
+        }
+
+        // ADR-043 §adoption: probe the IPC socket before spawning.
+        // If something is already responding, mirror it instead of
+        // spawning a competing child. `block_on` is safe here
+        // because `start()` is itself invoked under
+        // `async_runtime::block_on` by Tauri commands.
+        if let Some(snap) = tauri::async_runtime::block_on(async {
+            match IpcClient::new().await {
+                Ok(client) => client.probe_status().await,
+                Err(_) => None,
+            }
+        }) {
+            self.adopt(snap);
+            return Ok(self.inner.lock().unwrap().adopted_pid.unwrap_or(0));
+        }
+
+        // Foreign daemon not responding — fall through to the
+        // existing spawn path. Clear any stale adoption fields so
+        // a previously-adopted-then-stopped state doesn't leak.
+        {
+            let mut g = self.inner.lock().unwrap();
+            if let Some(handle) = g.liveness_handle.take() {
+                handle.abort();
+            }
+            g.adopted = false;
+            g.adopted_mode = None;
+            g.adopted_pid = None;
+            g.adopted_lockfile = None;
         }
 
         let app_handle = self.app_handle.clone();
@@ -191,12 +278,180 @@ impl Supervisor {
         Ok(pid)
     }
 
+    /// Mirror a foreign daemon's state. Called from `start()` when
+    /// the IPC probe succeeds before we've spawned anything.
+    /// Spawns the liveness poll so we notice when the foreign
+    /// daemon eventually dies.
+    fn adopt(&self, snap: StatusSnapshot) {
+        let pid = snap.pid.unwrap_or(0);
+        let uptime_secs = snap.uptime_secs;
+        let version = snap.version.clone();
+        let mode = snap.mode.clone();
+        let adopted_lockfile = crate::ipc::headless_pid_file_path();
+        let started_at = Instant::now()
+            .checked_sub(Duration::from_secs(uptime_secs))
+            .unwrap_or_else(Instant::now);
+
+        {
+            let mut g = self.inner.lock().unwrap();
+            g.adopted = true;
+            g.adopted_mode = mode.clone();
+            g.adopted_pid = snap.pid;
+            g.adopted_lockfile = Some(adopted_lockfile.clone());
+            g.version = Some(version.clone());
+            g.state = EngineState::Running {
+                pid,
+                version: version.clone(),
+                uptime_secs,
+            };
+            g.started_at = Some(started_at);
+            g.first_exit_at = None;
+            g.restart_count = 0;
+            g.last_error = None;
+            push_log_inner(
+                &mut g,
+                format!(
+                    "[supervisor] adopted foreign {} daemon (pid {pid}, uptime {uptime_secs}s)",
+                    mode.as_deref().unwrap_or("headless")
+                ),
+            );
+        }
+        self.emit_state();
+
+        // Spawn the liveness poll. It runs until `stop()` aborts the
+        // handle (or detects the foreign daemon is gone and self-
+        // terminates by transitioning to `Stopped`).
+        self.spawn_liveness_poll();
+    }
+
+    /// Periodic re-probe for adopted engines. Fires every
+    /// `LIVENESS_POLL_INTERVAL`; on probe failure, drops the
+    /// supervisor state to `Stopped` and emits `engine-state-
+    /// changed`. On success, refreshes `uptime_secs`/`version` if
+    /// they changed (e.g. user cycled the CLI daemon).
+    fn spawn_liveness_poll(&self) {
+        let inner = self.inner.clone();
+        let app = self.app_handle.clone();
+        let handle = tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::time::sleep(LIVENESS_POLL_INTERVAL).await;
+
+                let snap = match IpcClient::new().await {
+                    Ok(client) => client.probe_status().await,
+                    Err(_) => None,
+                };
+
+                let mut g = inner.lock().unwrap();
+                if !g.adopted {
+                    // Adoption was cleared by `stop()` or a restart
+                    // already spawned a real child. Stop polling.
+                    break;
+                }
+
+                match snap {
+                    Some(snap) => {
+                        // Apply state mutations first, then drop the
+                        // borrow on `g.state` before logging (the
+                        // log helper takes `&mut Inner`).
+                        let mut log_lines: Vec<String> = Vec::new();
+                        if let EngineState::Running {
+                            uptime_secs,
+                            version,
+                            pid,
+                        } = &mut g.state
+                        {
+                            let new_pid = snap.pid.unwrap_or(*pid);
+                            if *pid != new_pid {
+                                log_lines.push(format!(
+                                    "[supervisor] adopted daemon pid changed: {pid} -> {new_pid}"
+                                ));
+                            }
+                            *pid = new_pid;
+                            *uptime_secs = snap.uptime_secs;
+                            if *version != snap.version {
+                                log_lines.push(format!(
+                                    "[supervisor] adopted daemon version changed: {version} -> {}",
+                                    snap.version
+                                ));
+                                *version = snap.version.clone();
+                            }
+                            g.version = Some(snap.version.clone());
+                            g.adopted_pid = Some(new_pid);
+                        }
+                        for line in log_lines {
+                            push_log_inner(&mut g, line);
+                        }
+                    }
+                    None => {
+                        // Foreign daemon is gone. Drop to Stopped —
+                        // the user (or the diagnostics-panel Restart
+                        // button) decides what to do next.
+                        push_log_inner(
+                            &mut g,
+                            "[supervisor] foreign daemon no longer responding — dropping to Stopped"
+                                .to_string(),
+                        );
+                        let was_pid = match &g.state {
+                            EngineState::Running { pid, .. } => Some(*pid),
+                            _ => None,
+                        };
+                        g.adopted = false;
+                        g.adopted_mode = None;
+                        g.adopted_pid = None;
+                        g.adopted_lockfile = None;
+                        g.state = EngineState::Stopped;
+                        g.started_at = None;
+                        g.last_error = was_pid.map(|p| {
+                            format!("adopted foreign daemon (was pid {p}) is no longer responding")
+                        });
+                        drop(g);
+                        emit_state_change(&app);
+                        break;
+                    }
+                }
+            }
+        });
+
+        self.inner.lock().unwrap().liveness_handle = Some(handle);
+    }
+
     /// Stop the sidecar. Sends SIGTERM via CommandChild::kill. The
     /// reader task observes the Terminated event and finalises state
     /// asynchronously — we don't wait for it here, since `CommandChild`
     /// exposes no `try_wait` and the reader task owns the receiver.
     /// Idempotent: returns Ok if already stopped.
+    ///
+    /// ADR-043 §adoption: when the supervisor is mirroring a foreign
+    /// daemon (`adopted == true`), there is no child to kill and no
+    /// lockfile to remove. We only cancel the liveness poll and
+    /// clear local state; the foreign daemon keeps running.
     pub fn stop(&self) -> Result<()> {
+        let adopted = {
+            let mut g = self.inner.lock().unwrap();
+            if g.adopted {
+                if let Some(handle) = g.liveness_handle.take() {
+                    handle.abort();
+                }
+                g.adopted = false;
+                g.adopted_mode = None;
+                g.adopted_pid = None;
+                g.adopted_lockfile = None;
+                g.state = EngineState::Stopped;
+                g.started_at = None;
+                g.first_exit_at = None;
+                g.restart_count = 0;
+                push_log_inner(
+                    &mut g,
+                    "[supervisor] released foreign daemon (still running)".to_string(),
+                );
+                drop(g);
+                self.emit_state();
+                return Ok(());
+            }
+            g.adopted
+        };
+        let _ = adopted;
+
         let child = {
             let mut g = self.inner.lock().unwrap();
             match g.child.take() {
@@ -224,6 +479,10 @@ impl Supervisor {
     }
 
     /// Restart: stop + start. Sync — same Send rationale as `start`.
+    /// For adopted engines the `stop()` is a no-op (no kill), and
+    /// `start()` re-probes; if the foreign daemon died in between,
+    /// the supervisor demotes to `Stopped` and spawns a fresh
+    /// sidecar.
     pub fn restart(&self) -> Result<u32> {
         let _ = self.stop();
         self.start()
@@ -237,10 +496,20 @@ impl Supervisor {
             (Some(actual), Some(expected)) => Some(actual == expected),
             _ => None,
         };
-        let pid = g.child_pid.or_else(|| match &g.state {
+        let pid = g.child_pid.or(g.adopted_pid).or_else(|| match &g.state {
             EngineState::Running { pid, .. } => Some(*pid),
             _ => None,
         });
+        let lockfile_path = g.adopted_lockfile.clone().unwrap_or_else(lockfile_path);
+        let owns_process = !g.adopted;
+        let mode = if g.adopted {
+            g.adopted_mode.clone()
+        } else {
+            // Owned engines are by definition sidecar-mode. Report
+            // it consistently so the diagnostics panel can show
+            // "sidecar" without a special case.
+            Some("sidecar".to_string())
+        };
         Diagnostics {
             state: g.state.clone(),
             pid,
@@ -248,11 +517,13 @@ impl Supervisor {
             expected_version: g.expected_version.clone(),
             version_matches,
             uptime_secs,
-            lockfile_path: lockfile_path().to_string_lossy().to_string(),
+            lockfile_path: lockfile_path.to_string_lossy().to_string(),
             socket_path: socket_path().to_string_lossy().to_string(),
             log_ring: g.log_ring.iter().cloned().collect(),
             restart_count: g.restart_count,
             last_error: g.last_error.clone(),
+            owns_process,
+            mode,
         }
     }
 
@@ -496,10 +767,21 @@ fn push_log_inner(g: &mut Inner, line: String) {
 /// Sidecar-mode lockfile path. The runtime writes `desktop.lock`
 /// (not `daemon.pid`) when started with `--sidecar-mode`, per
 /// ADR-043 §2.3 and `daemon_process_service::pid_file_path`.
+///
+/// Honours `PEKO_CONFIG_DIR` (matches `PathResolver`'s config_dir)
+/// so diagnostics point at the correct file when the user has
+/// relocated the peko home. Falls back to `~/.peko` like the
+/// runtime's resolver.
 pub fn lockfile_path() -> PathBuf {
-    dirs::home_dir()
-        .map(|d| d.join(".peko").join("run").join("desktop.lock"))
-        .unwrap_or_else(|| PathBuf::from(".peko").join("run").join("desktop.lock"))
+    let config_dir = std::env::var("PEKO_CONFIG_DIR")
+        .ok()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .map(|d| d.join(".peko"))
+                .unwrap_or_else(|| PathBuf::from(".peko"))
+        });
+    config_dir.join("run").join("desktop.lock")
 }
 
 /// IPC socket path the runtime binds in sidecar mode. The runtime
@@ -621,6 +903,11 @@ mod tests {
             restart_count: 0,
             last_error: None,
             log_ring: VecDeque::with_capacity(LOG_RING_CAPACITY),
+            adopted: false,
+            adopted_mode: None,
+            adopted_pid: None,
+            adopted_lockfile: None,
+            liveness_handle: None,
         };
         for i in 0..(LOG_RING_CAPACITY + 50) {
             push_log_inner(&mut g, format!("line {i}"));

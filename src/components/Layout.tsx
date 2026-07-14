@@ -5,7 +5,7 @@ import AppRail from "./AppRail";
 import PrincipalSidebar from "./PrincipalSidebar";
 import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
-import EngineStatusBadge from "./EngineStatusBadge";
+import EngineFailureCard from "./EngineFailureCard";
 import VersionMismatchBanner from "./VersionMismatchBanner";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
@@ -13,9 +13,11 @@ import { getTheme, setTheme, applyTheme } from "../lib/theme";
 import { Sun, Moon, Monitor } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  // Engine state drives the header badge. The supervisor is the
-  // canonical owner of the engine (ADR-043) — the legacy DaemonStatus
-  // hook is gone from the header surface.
+  // Engine state is invisible on the happy path (ADR-043 §adoption).
+  // We still poll `useEngineStatus` so the failure card can surface
+  // when the engine is in `Failed` (and so the layout reacts to the
+  // CLI-daemon-died scenario for borrowed engines). The badge in
+  // the header is gone — version/about links live in Settings → About.
   const { data: engine } = useEngineStatus();
   const { mismatch, dismiss } = useEngineVersionMismatch();
   const [theme, setThemeState] = useState<"light" | "dark" | "system">("system");
@@ -33,6 +35,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
+  const engineFailed = engine?.kind === "failed";
 
   const isChatRoute =
     location.pathname === "/" || location.pathname === "/chat" || location.pathname.startsWith("/chat/");
@@ -59,7 +62,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   Peko
                 </h1>
               )}
-              <EngineStatusBadge state={engine} />
             </div>
 
             <div className="flex items-center gap-2">
@@ -75,6 +77,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Content */}
           <main className={["flex-1 overflow-hidden", isChatRoute ? "" : "overflow-auto p-6"].join(" ")}>
+            {/* Engine failure card. Only renders on Failed. On every
+                other state (Stopped, Starting, Restarting, Running)
+                the engine is invisible in the chrome — the user only
+                needs to think about it when something needs action. */}
+            {engineFailed && engine && (
+              <div className="px-6 pb-3 pt-4">
+                <EngineFailureCard
+                  message={engine.message}
+                />
+              </div>
+            )}
+
             {/* Version mismatch is full-width, above the page content
                 so it stays visible even on chat routes where there's
                 no padding scroll area. */}
@@ -90,8 +104,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {children}
           </main>
 
-          {/* Status bar */}
-          <StatusBar />
+          {/* Status bar — renders only on Failed (matches the
+              layout-level failure card) so the happy path has no
+              engine chrome at all. */}
+          {engineFailed && <StatusBar />}
         </div>
       </div>
     </div>
