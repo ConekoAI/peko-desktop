@@ -7,6 +7,7 @@ import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
 import EngineFailureCard from "./EngineFailureCard";
 import VersionMismatchBanner from "./VersionMismatchBanner";
+import FirstRunWalkthrough from "./FirstRunWalkthrough";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
@@ -125,6 +126,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           empty-state CTA can open it. Chat and Dashboard keep their
           own local instances; only one is open at a time. */}
       <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
+
+      {/* T-105: first-run walkthrough. Auto-appears when there are
+          zero principals and the dismiss flag is unset. Renders its
+          own `fixed inset-0 z-50` overlay when active, so it sits
+          above everything else in the layout. */}
+      <FirstRunWalkthrough />
     </div>
   );
 }

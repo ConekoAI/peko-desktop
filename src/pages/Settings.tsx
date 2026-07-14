@@ -21,6 +21,7 @@ import {
   engineStateTone,
 } from "../lib/engine-helpers";
 import { getTheme, setTheme } from "../lib/theme";
+import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import {
   resolveLogLevel,
   resolveProviderItems,
@@ -986,6 +987,15 @@ function RuntimesTab() {
 }
 
 function AboutTab() {
+  // T-105: escape hatch — clear the dismiss flag and broadcast so the
+  // FirstRunWalkthrough overlay re-shows. The overlay listens for
+  // REPLAY_EVENT and clears its own in-session `dismissed` state.
+  function handleReplayOnboarding() {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(ONBOARDING_KEY);
+    window.dispatchEvent(new Event(REPLAY_EVENT));
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
@@ -1028,6 +1038,22 @@ function AboutTab() {
         >
           GitHub Repository →
         </a>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <h3 className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">First-run walkthrough</h3>
+        <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+          Reopen the onboarding overlay (pick provider → paste key → test →
+          create principal). Useful for showing a teammate the flow without
+          wiping the profile.
+        </p>
+        <button
+          type="button"
+          onClick={handleReplayOnboarding}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Replay onboarding
+        </button>
       </div>
     </div>
   );
