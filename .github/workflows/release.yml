@@ -63,6 +63,30 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      # Build the peko-runtime binary from source so the desktop can
+      # bundle it as a Tauri sidecar (see ADR-043 and
+      # scripts/fetch-peko-sidecar.sh). The desktop's tauri.conf.json
+      # declares `bundle.externalBin: ["binaries/peko"]`, which fails
+      # the build if the host-triple-suffixed binary is missing.
+      #
+      # For a tagged release we build peko-runtime at the matching
+      # tag so the shipped engine matches the desktop. For a dev
+      # dispatch without a tag (or a hotfix that needs a newer engine
+      # than the desktop tag), the fallback uses master.
+      - name: Build peko-runtime sidecar
+        run: |
+          RUNTIME_REPO="https://github.com/ConekoAI/peko-runtime.git"
+          RUNTIME_DIR="$(mktemp -d)/peko-runtime"
+          # When triggered by a tag, use that tag in peko-runtime too.
+          # Otherwise default to master so the workflow stays valid for
+          # ad-hoc dispatch.
+          RUNTIME_REF="${PEKO_RUNTIME_REF:-master}"
+          git clone --depth 1 --branch "$RUNTIME_REF" "$RUNTIME_REPO" "$RUNTIME_DIR"
+          (cd "$RUNTIME_DIR" && cargo build --release -p peko)
+          PEKO_RUNTIME_DIR="$RUNTIME_DIR" bash scripts/fetch-peko-sidecar.sh
+        env:
+          PEKO_RUNTIME_REF: ${{ inputs.tag || github.ref_name }}
+
       # Builds release-mode Tauri app and publishes a draft GitHub
       # release with the resulting .deb / .AppImage / .rpm attached.
       # For signed auto-updater artifacts, set TAURI_SIGNING_PRIVATE_KEY
