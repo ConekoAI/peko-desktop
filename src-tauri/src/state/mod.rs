@@ -99,25 +99,19 @@ impl AppState {
 ///
 /// - Creates the PekoHub HTTP client.
 /// - Registers the default local runtime.
-/// - Attempts to auto-connect to the local daemon.
+///
+/// The local runtime starts as `Connecting` — the supervisor (installed
+/// in `lib.rs::run()`'s setup closure) is the canonical owner of the
+/// engine lifecycle (ADR-043). The `engine-state-changed` bridge flips
+/// the status to `Connected` / `Disconnected` / `Error` as the
+/// supervisor reports state. Earlier versions of this function
+/// attempted to auto-connect here, which raced against the supervisor's
+/// own start and double-spawned the daemon; that probe is gone.
 pub async fn init_state() -> AppState {
     let pekohub_client = crate::clients::pekohub::PekohubClient::new();
     let state = AppState::new(pekohub_client);
 
-    // Register local runtime
-    let mut local = RuntimeConnection::local_default();
-
-    // Try to ping the local daemon
-    match state.check_local_runtime().await {
-        Ok(()) => {
-            local.status = RuntimeStatus::Connected;
-        }
-        Err(e) => {
-            eprintln!("[peko-desktop] Local runtime not reachable: {}", e);
-            local.status = RuntimeStatus::Disconnected;
-        }
-    }
-
+    let local = RuntimeConnection::local_default();
     state.set_runtime(local).await;
     state
 }
