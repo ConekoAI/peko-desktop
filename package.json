@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sidecar:fetch": "bash scripts/fetch-peko-sidecar.sh",
+    "sidecar:build-and-fetch": "cargo build --release --manifest-path ../peko-runtime/Cargo.toml -p peko && bash scripts/fetch-peko-sidecar.sh ../peko-runtime"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",

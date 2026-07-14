@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Tauri sidecar binaries — populated by `pnpm run sidecar:fetch`
+# from the freshly-built peko-runtime binary. Not checked in because
+# they are host-specific (target-triple suffix) and rebuilt on demand.
+# See ADR-043 and scripts/fetch-peko-sidecar.sh.
+src-tauri/binaries/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
