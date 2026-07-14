@@ -142,6 +142,36 @@ export async function principalGet(
 }
 
 /**
+ * Create a new Principal on the active local runtime. Thin proxy
+ * over the runtime's `principal_create` IPC variant (peko-runtime PR
+ * #185); the runtime persists the workspace, `agents/primary.md`,
+ * `principal.toml`, and registers the principal in the in-memory
+ * manager.
+ *
+ * Optional fields flow as `null` over the wire — the runtime has
+ * `#[serde(default)]` on each option so a partial request still
+ * round-trips cleanly. Used by the desktop's create modal and the
+ * first-run walkthrough's last step.
+ */
+export interface PrincipalCreateRequest {
+  name: string;
+  description?: string;
+  preferredProviderId?: string;
+  preferredModelId?: string;
+}
+
+export async function principalCreate(
+  req: PrincipalCreateRequest,
+): Promise<PrincipalSummary> {
+  return invoke<PrincipalSummary>("principal_create", {
+    name: req.name,
+    description: req.description ?? null,
+    preferred_provider_id: req.preferredProviderId ?? null,
+    preferred_model_id: req.preferredModelId ?? null,
+  });
+}
+
+/**
  * Send a non-streaming message to a Principal and return the
  * supervisor's final answer.
  */

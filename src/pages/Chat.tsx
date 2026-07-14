@@ -274,10 +274,7 @@ export default function Chat() {
             No principals yet
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            Create one with{" "}
-            <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">
-              peko principal new &lt;name&gt;
-            </code>
+            Create your first principal to start chatting.
           </p>
         </div>
         <button
@@ -285,7 +282,7 @@ export default function Chat() {
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
           <Plus className="h-4 w-4" />
-          How to create a principal
+          Create a principal
         </button>
         <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
       </div>

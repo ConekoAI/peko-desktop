@@ -10,6 +10,7 @@ import {
   Activity,
   Monitor,
   Globe,
+  Plus,
 } from "lucide-react";
 
 function PrincipalContextMenu({
@@ -77,7 +78,11 @@ function RuntimeIndicator({ type, status }: { type: "local" | "remote"; status: 
   return <Icon className={`h-3 w-3 shrink-0 ${color}`} aria-label={`${type} — ${status}`} />;
 }
 
-export default function PrincipalSidebar() {
+export default function PrincipalSidebar({
+  onCreateClick,
+}: {
+  onCreateClick?: () => void;
+} = {}) {
   const navigate = useNavigate();
   const params = useParams({ strict: false });
   const principalName = (params as Record<string, string | undefined>).principalName ?? "";
@@ -174,12 +179,18 @@ export default function PrincipalSidebar() {
             {search.trim() ? (
               "No principals match"
             ) : (
-              <span className="block space-y-1">
+              <span className="block space-y-3">
                 <span className="block">No principals yet</span>
-                <span className="block text-[10px] text-slate-500">
-                  Run <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">peko principal new &lt;name&gt;</code> in
-                  your terminal to create one.
-                </span>
+                {onCreateClick && (
+                  <button
+                    type="button"
+                    onClick={onCreateClick}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Create your first principal
+                  </button>
+                )}
               </span>
             )}
           </div>

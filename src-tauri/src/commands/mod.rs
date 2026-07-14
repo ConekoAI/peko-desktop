@@ -22,6 +22,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         engine::engine_restart,
         principal::principal_list,
         principal::principal_get,
+        principal::principal_create,
         principal::principal_send,
         principal::principal_send_stream,
         principal::principal_log,
