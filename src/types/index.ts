@@ -224,6 +224,53 @@ export interface Credential {
   lastTested?: string;
 }
 
+// T-109b: One model declared by a built-in provider template.
+// Mirrors the runtime's `ModelTemplateInfo` (snake_case on the
+// wire; the Tauri command at `commands/provider_admin.rs`
+// projects to camelCase before this type sees it).
+export interface ModelTemplate {
+  id: string;
+  displayName?: string;
+  contextLength?: number;
+  maxOutputTokens?: number;
+}
+
+// T-109b: One built-in provider template the runtime ships with.
+// Shape consumed by the "Add Provider" modal's template picker.
+// Richer than `ProviderInfo` (which is the catalog-summary view)
+// so the picker can render the curated model list + context
+// lengths in one screen.
+export interface ProviderTemplate {
+  id: string;
+  displayName: string;
+  /** "openai" or "anthropic" — matches `ProviderInfo.apiType`. */
+  apiType: string;
+  /** Empty string for templates that need a deployment URL. */
+  baseUrl: string;
+  requiresKey: boolean;
+  defaultModel: string;
+  models: ModelTemplate[];
+}
+
+// T-109b: Arguments for `provider_add`. Mirrors the runtime's
+// `ProviderAddArgs` 1:1 (camelCase on the Tauri command side).
+// `template` and `custom` are mutually exclusive; sending neither
+// produces a `ResponsePacket::Error` from the runtime, which the
+// Tauri command surfaces as a thrown error.
+export interface ProviderAddArgs {
+  template?: string;
+  name?: string;
+  displayName?: string;
+  custom?: boolean;
+  apiFormat?: "openai_completions" | "anthropic_messages" | string;
+  baseUrl?: string;
+  requiresKey?: boolean;
+  model?: string[];
+  key?: string;
+  setDefault?: boolean;
+  defaultModel?: string;
+}
+
 export interface AccessiblePrincipal {
   id: string;
   ownerId: number;

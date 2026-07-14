@@ -3,6 +3,7 @@ pub mod daemon;
 pub mod engine;
 pub mod extension;
 pub mod principal;
+pub mod provider_admin;
 pub mod registry;
 pub mod runtime;
 pub mod settings;
@@ -27,6 +28,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_send_stream,
         principal::principal_log,
         principal::principal_provider_list,
+        provider_admin::provider_templates,
+        provider_admin::provider_add,
         extension::extension_list,
         extension::extension_install,
         extension::extension_uninstall,
