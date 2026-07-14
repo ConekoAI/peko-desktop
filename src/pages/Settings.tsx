@@ -180,10 +180,15 @@ function DiagnosticsPanel({
   diag,
   onRestart,
   isRestarting,
+  borrowed,
 }: {
   diag: EngineDiagnostics | undefined;
   onRestart: () => void;
   isRestarting: boolean;
+  /** `true` when the engine is adopted from a foreign daemon (CLI
+   *  `peko daemon start` or another desktop). Restart is disabled
+   *  in that case — the engine is not the desktop's to cycle. */
+  borrowed: boolean;
 }) {
   // The supervisor pushes the most recent log line via stderr;
   // rendering the ring buffer here lets a developer eyeball what
@@ -210,11 +215,42 @@ function DiagnosticsPanel({
     rows.push({ label: "Lockfile", value: diag.lockfile_path });
     rows.push({ label: "Socket", value: diag.socket_path });
     rows.push({ label: "Restarts", value: String(diag.restart_count) });
+    // `mode` distinguishes "sidecar" (this desktop spawned it) from
+    // "headless" (adopted from a CLI daemon). Useful confirmation
+    // when a user opens the panel to ask "whose engine am I
+    // looking at?"
+    if (diag.mode) {
+      rows.push({ label: "Launch mode", value: diag.mode });
+    }
     if (diag.last_error) rows.push({ label: "Last error", value: diag.last_error });
   }
 
   return (
     <div className="space-y-3">
+      {borrowed && (
+        <div
+          role="status"
+          data-testid="diagnostics-borrowed-banner"
+          className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200"
+        >
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Borrowed from a CLI daemon</p>
+            <p className="mt-0.5 text-[11px] text-indigo-700 dark:text-indigo-300">
+              The desktop did not spawn this engine. It picked up a
+              daemon that was already running on the IPC socket.
+              Restart is disabled to avoid killing a process the
+              desktop does not own — run{" "}
+              <code className="rounded bg-indigo-100 px-1 dark:bg-indigo-950/50">
+                peko daemon stop &amp;&amp; peko daemon start
+              </code>{" "}
+              from the terminal, or close and reopen this window to
+              spawn a fresh sidecar.
+            </p>
+          </div>
+        </div>
+      )}
+
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
         {rows.map((r) => (
           <div key={r.label} className="flex items-baseline justify-between gap-3 border-b border-slate-100 pb-1 dark:border-slate-800">
@@ -255,7 +291,12 @@ function DiagnosticsPanel({
       <div className="flex items-center gap-2 pt-1">
         <button
           onClick={onRestart}
-          disabled={isRestarting}
+          disabled={isRestarting || borrowed}
+          title={
+            borrowed
+              ? "Restart is disabled while the engine is borrowed from a CLI daemon. Run `peko daemon stop && peko daemon start` from the terminal, or close and reopen this window to spawn a fresh sidecar."
+              : undefined
+          }
           className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           {isRestarting ? (
@@ -265,22 +306,27 @@ function DiagnosticsPanel({
           )}
           Restart engine
         </button>
-        <p className="text-[11px] italic text-slate-500 dark:text-slate-400">
-          Restarts the bundled engine. Normally you should just close
-          and reopen the desktop.
-        </p>
+        {!borrowed && (
+          <p className="text-[11px] italic text-slate-500 dark:text-slate-400">
+            Restarts the bundled engine. Normally you should just close
+            and reopen the desktop.
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
 function DaemonTab() {
-  // ADR-043: the engine is owned by the sidecar supervisor. The
-  // Daemon tab no longer exposes Start/Stop/Restart — those actions
-  // happen automatically at app launch and on unexpected exit. The
-  // surface shrinks to a read-only status panel + a hidden
-  // "Show internal status" toggle that exposes the diagnostics
-  // bundle (PID, version parity, log ring, restart count).
+  // ADR-043 §adoption: the engine is owned by the sidecar
+  // supervisor. The Daemon tab no longer exposes Start/Stop/Restart
+  // — those happen automatically at app launch and on unexpected
+  // exit. The diagnostics panel is reachable directly from this tab
+  // (no two-click arm pattern anymore — that pattern only made
+  // sense for a "happy path decoration" surface, which the engine
+  // status is no longer). When the engine is adopted from a
+  // foreign daemon the panel renders a "borrowed from CLI daemon"
+  // banner and disables the Restart button.
   const { data: engine, isLoading } = useEngineStatus();
   const { data: settings } = useSettings();
   const setSetting = useSetSetting();
@@ -299,9 +345,6 @@ function DaemonTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastTransition]);
 
-  const [showInternal, setShowInternal] = useState(false);
-  const [internalArmed, setInternalArmed] = useState(false);
-
   const currentLogLevel = resolveLogLevel(settings);
 
   function handleLogLevelChange(level: LogLevel) {
@@ -309,26 +352,15 @@ function DaemonTab() {
     setSetting.mutate({ key: "daemon.log_level", value: level });
   }
 
-  function armInternalStatus() {
-    // Two-click pattern. Pressing once arms the toggle; pressing
-    // again within the same session surfaces the diagnostics. This
-    // keeps the panel out of the default user surface (where it
-    // would just clutter the page) while remaining reachable for
-    // developers and support without a hidden flag.
-    if (!showInternal && !internalArmed) {
-      setInternalArmed(true);
-      // Disarm automatically after 5 seconds of inactivity so we
-      // don't keep an armed toggle around indefinitely.
-      window.setTimeout(() => setInternalArmed(false), 5000);
-      return;
-    }
-    setShowInternal(true);
-    diag.refetch();
-  }
-
   const tone = engineStateTone(engine);
   const subtitle = engineStateSubtitle(engine);
   const label = engineStateLabel(engine);
+  // `owns_process === false` means the supervisor adopted an
+  // already-running daemon (typically `peko daemon start` from the
+  // CLI). The engine is up and the chat works, but the desktop
+  // doesn't own the process — Restart would be a destructive
+  // surprise to a process the user controls from their terminal.
+  const borrowed = diag.data?.owns_process === false;
 
   return (
     <div className="space-y-6">
@@ -422,26 +454,18 @@ function DaemonTab() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <button
-          type="button"
-          onClick={armInternalStatus}
-          className="text-xs text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
-        >
-          {internalArmed && !showInternal
-            ? "Click again to show internal status"
-            : showInternal
-              ? "Hide internal status"
-              : "Show internal status"}
-        </button>
-        {showInternal && (
-          <div className="mt-4 border-t border-slate-200 pt-4 dark:border-slate-800">
-            <DiagnosticsPanel
-              diag={diag.data}
-              onRestart={() => restart.mutate()}
-              isRestarting={restart.isPending}
-            />
-          </div>
-        )}
+        <h3 className="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-200">Engine diagnostics</h3>
+        <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+          Internal details for the bundled engine — PID, version parity, lockfile
+          path, recent log lines, restart count. Useful when filing a bug or
+          debugging a failure.
+        </p>
+        <DiagnosticsPanel
+          diag={diag.data}
+          onRestart={() => restart.mutate()}
+          isRestarting={restart.isPending}
+          borrowed={borrowed}
+        />
       </div>
     </div>
   );

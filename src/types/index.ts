@@ -23,10 +23,13 @@ export interface DaemonStatus {
 // poll this, not the legacy DaemonStatus shape (which is now a
 // projection from EngineState kept only for backwards compatibility).
 //
-// Diagnostics is the power-user bundle surfaced behind the
-// "Show internal status" toggle in Settings. It is intentionally
-// verbose (PID, version parity, log ring, restart count, etc.) and
-// should never appear in the default UI surface.
+// Diagnostics is the power-user bundle surfaced from Settings →
+// Daemon. It is intentionally verbose (PID, version parity, log
+// ring, restart count, ownership mode, etc.) and only renders when
+// the user has explicitly navigated to the diagnostics surface
+// (ADR-043 §adoption — engine status is invisible on the happy
+// path, so the diagnostics panel is opt-in by route, not by an
+// arm-and-reveal toggle).
 
 export type EngineState =
   | { kind: "stopped" }
@@ -50,6 +53,17 @@ export interface EngineDiagnostics {
   log_ring: string[];
   restart_count: number;
   last_error: string | null;
+  /** ADR-043 §adoption: `true` when the supervisor owns the engine
+   *  process (spawned a child sidecar), `false` when it adopted a
+   *  foreign daemon already on the IPC socket. The diagnostics
+   *  panel disables the Restart button on borrowed engines — they
+   *  are not the desktop's to restart. */
+  owns_process: boolean;
+  /** Launch mode of the running engine (`"sidecar"` or `"headless"`).
+   *  `null` when the supervisor owns the engine and hasn't learned
+   *  the mode yet, or when the foreign daemon is from a build that
+   *  doesn't report it. */
+  mode: string | null;
 }
 
 export interface EngineVersionMismatch {

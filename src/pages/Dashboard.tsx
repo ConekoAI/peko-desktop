@@ -2,18 +2,10 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { usePrincipals } from "../hooks/usePrincipals";
 import { useExtensions } from "../hooks/useExtensions";
-import { useEngineStatus } from "../hooks/useEngine";
-import { formatDuration } from "../lib/format";
-import {
-  engineStateLabel,
-  engineStateSubtitle,
-  engineStateTone,
-} from "../lib/engine-helpers";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import {
   Bot,
   Puzzle,
-  Activity,
   Plus,
   Globe,
   FileText,
@@ -58,18 +50,13 @@ function StatCard({
 export default function Dashboard() {
   const { data: principals } = usePrincipals();
   const { data: extensions } = useExtensions();
-  // ADR-043: the engine is owned by the sidecar supervisor. The
-  // dashboard surfaces its state only — Start/Stop/Restart buttons
-  // were removed because the supervisor auto-spawns on app launch
-  // and auto-restarts on unexpected exit. The manual escape hatch
-  // lives in Settings → Daemon → "Show internal status".
-  const { data: engine, isLoading: engineLoading } = useEngineStatus();
+  // ADR-043 §adoption: the engine is invisible on the happy path.
+  // The dashboard used to render an "Engine Running" card; that's
+  // gone. When the engine fails, the layout-level EngineFailureCard
+  // appears at the top of the page (above any route). When it
+  // succeeds, nothing in the chrome mentions the engine — chat and
+  // other engine-backed features just work.
   const [createOpen, setCreateOpen] = useState(false);
-
-  const tone = engineStateTone(engine);
-  const label = engineStateLabel(engine);
-  const subtitle = engineStateSubtitle(engine);
-  const running = engine?.kind === "running";
 
   return (
     <div className="space-y-6">
@@ -78,51 +65,6 @@ export default function Dashboard() {
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Overview of your Peko environment
         </p>
-      </div>
-
-      {/* Engine Status Card (ADR-043) */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-4">
-          <div
-            data-testid="dashboard-engine-tone"
-            data-tone={tone}
-            className={[
-              "flex h-12 w-12 items-center justify-center rounded-full",
-              tone === "ok"
-                ? "bg-emerald-50 dark:bg-emerald-950/30"
-                : tone === "warn"
-                  ? "bg-amber-50 dark:bg-amber-950/30"
-                  : "bg-red-50 dark:bg-red-950/30",
-            ].join(" ")}
-          >
-            <Activity
-              className={[
-                "h-6 w-6",
-                tone === "ok"
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : tone === "warn"
-                    ? "text-amber-600 dark:text-amber-400"
-                    : "text-red-600 dark:text-red-400",
-              ].join(" ")}
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-              Engine {label === "Running" ? "Running" : label}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {engineLoading
-                ? "Checking status…"
-                : running
-                  ? `Version ${engine.version}${
-                      engine.uptime_secs
-                        ? ` · Uptime ${formatDuration(engine.uptime_secs)}`
-                        : ""
-                    }`
-                  : subtitle ?? "Engine is starting…"}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Quick Stats */}

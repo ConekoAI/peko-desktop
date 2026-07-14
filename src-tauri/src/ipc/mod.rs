@@ -47,6 +47,29 @@ pub struct PongResponse {
     pub uptime_secs: u64,
 }
 
+/// Snapshot of a foreign daemon's status, used by the supervisor's
+/// adoption probe. The supervisor calls `probe_status()` from
+/// `start()` BEFORE spawning the bundled sidecar — if a daemon
+/// (CLI-launched or otherwise) is already responding on the IPC
+/// socket, the supervisor mirrors its state instead of spawning a
+/// competing child.
+///
+/// Distinct from `PongResponse` (used by the legacy `ping` flow)
+/// because adoption needs the launch mode and a best-effort PID to
+/// populate the diagnostics panel.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct StatusSnapshot {
+    pub version: String,
+    pub uptime_secs: u64,
+    /// `None` if the daemon didn't report a mode (older builds).
+    /// Otherwise `"sidecar"` or `"headless"`.
+    pub mode: Option<String>,
+    /// Best-effort PID read from the daemon's lockfile (`<config>/run/
+    /// daemon.pid` for headless daemons). `None` if the lockfile is
+    /// missing or the daemon didn't write one.
+    pub pid: Option<u32>,
+}
+
 /// Stream event emitted to the frontend via Tauri events.
 /// This is the desktop's unified shape — the daemon uses different
 /// packet shapes (ResponsePacket) which get mapped into this.
@@ -110,6 +133,21 @@ pub fn current_app_handle() -> Option<tauri::AppHandle> {
     crate::sidecar::current_app_handle()
 }
 
+/// Path to the headless daemon's PID file. Mirrors
+/// `DaemonProcessService::pid_file_path(sidecar_mode=false)`: `<config>/run/
+/// daemon.pid`. Honours `PEKO_CONFIG_DIR` like the runtime's resolver.
+pub fn headless_pid_file_path() -> std::path::PathBuf {
+    let config_dir = std::env::var("PEKO_CONFIG_DIR")
+        .ok()
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .map(|d| d.join(".peko"))
+                .unwrap_or_else(|| std::path::PathBuf::from(".peko"))
+        });
+    config_dir.join("run").join("daemon.pid")
+}
+
 impl IpcClient {
     /// Create a new IPC client connected to the default daemon endpoint.
     #[cfg(windows)]
@@ -164,6 +202,58 @@ impl IpcClient {
         let value: serde_json::Value = serde_json::from_slice(&buf[..len])
             .map_err(|e| IpcError::Serialization(e.to_string()))?;
         Ok(value)
+    }
+
+    /// Send a request without calling `ensure_daemon()`. Used by the
+    /// supervisor's adoption probe so the probe can detect a foreign
+    /// daemon WITHOUT recursing back into the supervisor (which would
+    /// be an infinite loop: supervisor → probe → supervisor → …).
+    ///
+    /// Returns `Err(IpcError::ConnectionFailed | Timeout | …)` if
+    /// nothing is listening on the IPC socket. Callers should treat
+    /// any error as "no foreign daemon", not as a fatal error.
+    async fn request_raw(&self, request: serde_json::Value) -> Result<serde_json::Value> {
+        self.request_response(request).await
+    }
+
+    /// Adoption probe: ask the IPC socket for a Status packet and
+    /// decode it without touching the supervisor. Used by
+    /// `SidecarSupervisor::start` to detect a foreign daemon (CLI-
+    /// launched or otherwise) before spawning the bundled sidecar.
+    ///
+    /// Returns `None` if no daemon is responding, if the response
+    /// isn't a `status` packet, or if the wire shape is unparseable.
+    /// Never panics.
+    pub async fn probe_status(&self) -> Option<StatusSnapshot> {
+        let req = serde_json::json!({
+            "type": "status",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 0u64,
+        });
+        let value = self.request_raw(req).await.ok()?;
+        if value.get("type").and_then(|v| v.as_str()) != Some("status") {
+            return None;
+        }
+        let version = value
+            .get("version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let uptime_secs = value
+            .get("uptime_secs")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let mode = value
+            .get("mode")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let pid = read_pid_file(&headless_pid_file_path());
+        Some(StatusSnapshot {
+            version,
+            uptime_secs,
+            mode,
+            pid,
+        })
     }
 
     /// Send a ping and wait for a pong response.
@@ -643,6 +733,14 @@ fn default_socket_path() -> std::path::PathBuf {
                 .join("run")
                 .join("daemon.sock")
         })
+}
+
+/// Read a peko daemon PID file (typically `<config>/run/daemon.pid` for
+/// the headless CLI daemon). Returns `None` if the file is missing,
+/// unreadable, or contains a non-numeric value.
+fn read_pid_file(path: &std::path::Path) -> Option<u32> {
+    let s = std::fs::read_to_string(path).ok()?;
+    s.trim().parse::<u32>().ok()
 }
 
 #[cfg(test)]
