@@ -71,6 +71,10 @@ export function useDeleteCredential() {
     mutationFn: (provider: string) => credentialDelete(provider),
     onSuccess: (_data, provider) => {
       qc.invalidateQueries({ queryKey: ["credentials", provider] });
+      // T-109b redesign: also invalidate the list so the orphan
+      // strip + the per-row "Key set" indicator both re-render when
+      // the last configured key is removed.
+      qc.invalidateQueries({ queryKey: ["credentials"] });
     },
   });
 }

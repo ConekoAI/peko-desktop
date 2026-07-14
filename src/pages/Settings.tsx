@@ -13,7 +13,6 @@ import { useProviders } from "../hooks/useProviders";
 import { getTheme, setTheme } from "../lib/theme";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddProviderModal from "../components/modals/AddProviderModal";
-import { resolveProviderItems } from "../lib/settings-helpers";
 import {
   Save,
   Key,
@@ -148,51 +147,35 @@ function GeneralTab() {
   );
 }
 function CredentialsTab() {
+  // T-109b redesign: one row per provider (catalog ∪ vault) with the
+  // full edit / test / remove controls inline. The previous design
+  // had a fallback-pill row of static catalog defaults (OpenAI /
+  // Anthropic / Kimi / Ollama / Azure / Google) that meant nothing
+  // when the runtime hadn't returned providers yet, plus a single
+  // shared input gated on a "selected" state — neither of which told
+  // the user what they could actually do with an existing key.
+  //
+  // Each row owns its own API-key input and action buttons, so the
+  // user can:
+  //   • See every catalog entry that exists on disk, even without a
+  //     key (so they can add one inline without going through the
+  //     Add Provider modal first).
+  //   • Update / test / remove a configured key directly on its row.
+  //   • Spot orphan vault keys (vault entry, no catalog match) in a
+  //     separate strip below — surfacing the `miniax`-style typos that
+  //     the CLI now reports too (T-110 / peko-runtime#190).
   const { data: providers, isLoading: providersLoading } = useProviders();
-  const providerItems = resolveProviderItems(providers, providersLoading);
-  // Pull the full list of configured credentials so each pill can
-  // carry a "Key set" indicator, and so the tab auto-selects a
-  // provider with a key when one exists — not just `providerItems[0]`
-  // (which was always `openai` alphabetically and hid the user's
-  // actual configuration).
-  const { data: credentials } = useCredentialList();
-  const configuredIds = useMemo(
-    () =>
-      new Set(
-        (credentials ?? [])
-          .filter((c) => c.provider && c.hasKey)
-          .map((c) => c.provider),
-      ),
-    [credentials],
-  );
-  const [selected, setSelected] = useState<string | null>(null);
-  useEffect(() => {
-    if (selected !== null) return;
-    if (providerItems.length === 0) return;
-    // Prefer a configured provider so the Status pill below shows
-    // "Key set" right away — the user's mental model is "show me
-    // what I already configured", not "show me the catalog from A–Z".
-    const configured = providerItems.find((p) => configuredIds.has(p.id));
-    setSelected(configured?.id ?? providerItems[0].id);
-  }, [providerItems, configuredIds, selected]);
-  const [apiKey, setApiKey] = useState("");
-  const { data: credential } = useCredential(selected ?? "");
-  const setCred = useSetCredential();
-  const deleteCred = useDeleteCredential();
-  const testCred = useTestCredential();
+  const { data: credentials, isLoading: credentialsLoading } = useCredentialList();
 
-  useEffect(() => {
-    // The Credential shape is `{ provider, hasKey, lastTested? }` —
-    // we never see the raw key, only whether one is set. Clear the
-    // input when the user switches providers.
-    setApiKey("");
-  }, [selected]);
-
-  function handleSave() {
-    if (!selected || !apiKey) return;
-    setCred.mutate({ provider: selected, apiKey });
-    setApiKey("");
-  }
+  const credentialByProvider = useMemo(() => {
+    const map = new Map<string, { hasKey: boolean; lastTested?: string }>();
+    for (const c of credentials ?? []) {
+      if (c.provider) {
+        map.set(c.provider, { hasKey: c.hasKey, lastTested: c.lastTested });
+      }
+    }
+    return map;
+  }, [credentials]);
 
   // T-109b: "+ Add provider" opens the modal that drives the
   // runtime's `provider_templates` + `provider_add` IPC. Keeps the
@@ -200,176 +183,345 @@ function CredentialsTab() {
   // / `--custom` surface (per-memory `cli-catalog-vs-vault-disagreement`).
   const [showAddProvider, setShowAddProvider] = useState(false);
 
+  // Stable row order: configured first (alphabetical), then the rest
+  // of the catalog (alphabetical). Orphans render separately below.
+  const orderedRows = useMemo(() => {
+    const list = (providers ?? []).slice();
+    list.sort((a, b) => {
+      const aHas = credentialByProvider.get(a.id)?.hasKey ? 1 : 0;
+      const bHas = credentialByProvider.get(b.id)?.hasKey ? 1 : 0;
+      if (aHas !== bHas) return bHas - aHas;
+      return a.id.localeCompare(b.id);
+    });
+    return list;
+  }, [providers, credentialByProvider]);
+
+  const orphanIds = useMemo(() => {
+    const catalogIds = new Set((providers ?? []).map((p) => p.id));
+    return (credentials ?? [])
+      .filter((c) => c.provider && c.hasKey && !catalogIds.has(c.provider))
+      .map((c) => c.provider);
+  }, [providers, credentials]);
+
+  const isLoading = providersLoading || credentialsLoading;
+  const hasAnyContent =
+    orderedRows.length > 0 || orphanIds.length > 0;
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            Provider Credentials
-          </h3>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              Provider Credentials
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Manage API keys for each provider. Keys are stored in the OS
+              keychain by the runtime — the desktop never holds the secret
+              beyond the save call.
+            </p>
+          </div>
           <button
             onClick={() => setShowAddProvider(true)}
             data-testid="open-add-provider-modal"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
           >
             <Plus className="h-3.5 w-3.5" />
             Add provider
           </button>
         </div>
-        <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
-          Keys are stored in the OS keychain by the runtime
-          (<code>peko credential set &lt;provider&gt; &lt;key&gt;</code>).
-          The desktop never holds the secret beyond the save call.
-        </p>
-        <div className="mb-4 flex flex-wrap gap-2">
-          {providerItems.map((p) => {
-            const isConfigured = configuredIds.has(p.id);
-            return (
-              <button
-                key={p.id}
-                onClick={() => setSelected(p.id)}
-                className={[
-                  "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
-                  selected === p.id
-                    ? isConfigured
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-                      : "border-slate-500 bg-slate-100 text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                    : isConfigured
-                      ? "border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
-                ].join(" ")}
-              >
-                {isConfigured && (
-                  <Check
-                    className="h-3 w-3"
-                    aria-label="Key configured"
-                  />
-                )}
-                {p.displayName}
-              </button>
-            );
-          })}
-        </div>
-        {credentials && credentials.length > 0 && (() => {
-          const configured = credentials.filter((c) => c.hasKey);
-          if (configured.length === 0) return null;
-          return (
-            <div
-              data-testid="credentials-configured-count"
-              className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
-            >
-              <span>
-                {configured.length} provider
-                {configured.length === 1 ? "" : "s"} with a configured key:
-              </span>
-              {configured.map((c) => (
-                <button
-                  key={c.provider}
-                  type="button"
-                  onClick={() => setSelected(c.provider)}
-                  className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
-                >
-                  {c.provider}
-                </button>
-              ))}
-            </div>
-          );
-        })()}
 
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Status
-            </span>
-            {credential?.hasKey ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-                Key set
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                No key
-              </span>
-            )}
-            {credential?.lastTested && (
-              <span className="text-xs text-slate-400 dark:text-slate-500">
-                Last tested: {new Date(credential.lastTested).toLocaleString()}
-              </span>
-            )}
-          </div>
+        {isLoading && !hasAnyContent && (
+          <p className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+            Loading providers…
+          </p>
+        )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-              API Key / Token
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={credential?.hasKey ? "•••••••• (leave blank to keep)" : "sk-..."}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-            />
-          </div>
-          <div className="flex gap-2 pt-1">
+        {!isLoading && !hasAnyContent && (
+          <div
+            data-testid="credentials-empty-state"
+            className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center dark:border-slate-800"
+          >
+            <Key className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              No providers configured yet
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Add a provider to start chatting. Built-in templates
+              (Anthropic, OpenAI, Ollama, …) and fully custom endpoints
+              are both supported.
+            </p>
             <button
-              onClick={handleSave}
-              disabled={!apiKey}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+              onClick={() => setShowAddProvider(true)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
             >
-              <Save className="h-3.5 w-3.5" />
-              Save
+              <Plus className="h-3.5 w-3.5" />
+              Add your first provider
             </button>
-            {credential?.hasKey && selected && (
-              <>
-                <button
-                  onClick={() => testCred.mutate(selected)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  <TestTube className="h-3.5 w-3.5" />
-                  Test
-                </button>
-                <button
-                  onClick={() => deleteCred.mutate(selected)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </button>
-              </>
-            )}
           </div>
-        </div>
+        )}
+
+        {hasAnyContent && (
+          <div
+            data-testid="credentials-rows"
+            className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
+          >
+            {orderedRows.map((p) => (
+              <ProviderRow
+                key={p.id}
+                provider={p}
+                credential={credentialByProvider.get(p.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {testCred.data && (
+      {orphanIds.length > 0 && (
         <div
-          className={[
-            "rounded-xl border p-4",
-            testCred.data.success
-              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30"
-              : "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30",
-          ].join(" ")}
+          data-testid="credentials-orphans"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20"
         >
-          <div className="flex items-center gap-2 text-sm font-medium">
-            {testCred.data.success ? (
-              <>
-                <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-emerald-700 dark:text-emerald-400">Connection successful</span>
-              </>
-            ) : (
-              <span className="text-red-700 dark:text-red-400">
-                {testCred.data.message ?? "Connection failed"}
-              </span>
-            )}
+          <div className="mb-2 flex items-center gap-2">
+            <Info className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+            <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              Orphaned vault keys
+            </h3>
           </div>
+          <p className="mb-3 text-xs text-amber-700 dark:text-amber-400">
+            These keys are stored in the keychain but no provider entry
+            exists in the catalog. They were likely added via CLI
+            (<code>peko credential set</code>) with a typo'd id. Clean up
+            with <code>peko credential delete &lt;id&gt;</code>.
+          </p>
+          <ul className="space-y-1.5">
+            {orphanIds.map((id) => (
+              <OrphanRow key={id} providerId={id} />
+            ))}
+          </ul>
         </div>
       )}
 
       <AddProviderModal
         open={showAddProvider}
         onClose={() => setShowAddProvider(false)}
-        onSuccess={(id) => setSelected(id)}
+        onSuccess={(id) => {
+          // The new provider appears in the catalog via React Query
+          // invalidation; nothing else to wire here.
+          void id;
+        }}
       />
     </div>
+  );
+}
+
+/**
+ * One row per catalog provider — name, status, inline API-key input,
+ * and Test / Save / Delete buttons. The row is self-contained: there
+ * is no parent "selected" state to keep in sync, so the user can
+ * edit multiple providers without losing input on another.
+ */
+function ProviderRow({
+  provider,
+  credential,
+}: {
+  provider: {
+    id: string;
+    displayName: string;
+    apiType: string;
+    defaultModel: string;
+    requiresKey: boolean;
+    isLocal: boolean;
+  };
+  credential?: { hasKey: boolean; lastTested?: string };
+}) {
+  const [apiKey, setApiKey] = useState("");
+  const setCred = useSetCredential();
+  const deleteCred = useDeleteCredential();
+  const testCred = useTestCredential();
+
+  // Track which mutation just succeeded for *this* row so we can show
+  // a transient confirmation without other rows' mutations stomping
+  // on it.
+  const [justSaved, setJustSaved] = useState(false);
+  const [justDeleted, setJustDeleted] = useState(false);
+
+  function handleSave() {
+    if (!apiKey) return;
+    setCred.mutate(
+      { provider: provider.id, apiKey },
+      {
+        onSuccess: () => {
+          setApiKey("");
+          setJustSaved(true);
+          setTimeout(() => setJustSaved(false), 2500);
+        },
+      },
+    );
+  }
+
+  function handleDelete() {
+    deleteCred.mutate(provider.id, {
+      onSuccess: () => {
+        setJustDeleted(true);
+        setTimeout(() => setJustDeleted(false), 2500);
+      },
+    });
+  }
+
+  const hasKey = credential?.hasKey ?? false;
+  const showInput = provider.requiresKey && !provider.isLocal;
+  const isPending = setCred.isPending || deleteCred.isPending;
+
+  return (
+    <div
+      data-testid={`provider-row-${provider.id}`}
+      className="bg-white px-4 py-3 dark:bg-slate-900"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+              {provider.displayName}
+            </span>
+            <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              {provider.id}
+            </span>
+            <span className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              {provider.apiType}
+            </span>
+            {hasKey ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                <Check className="h-2.5 w-2.5" />
+                Key set
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                No key
+              </span>
+            )}
+            {provider.defaultModel && (
+              <span className="hidden font-mono text-[10px] text-slate-400 sm:inline dark:text-slate-500">
+                {provider.defaultModel}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showInput && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={hasKey ? "•••••••• (leave blank to keep)" : "Enter API key…"}
+            data-testid={`api-key-input-${provider.id}`}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && apiKey) handleSave();
+            }}
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          />
+          <button
+            onClick={handleSave}
+            disabled={!apiKey || isPending}
+            data-testid={`save-key-${provider.id}`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          >
+            <Save className="h-3 w-3" />
+            {hasKey ? "Update" : "Save"}
+          </button>
+          {hasKey && (
+            <button
+              onClick={() => testCred.mutate(provider.id)}
+              disabled={isPending || testCred.isPending}
+              data-testid={`test-key-${provider.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <TestTube className="h-3 w-3" />
+              Test
+            </button>
+          )}
+          {hasKey && (
+            <button
+              onClick={handleDelete}
+              disabled={isPending}
+              data-testid={`delete-key-${provider.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-slate-800 dark:text-red-400"
+            >
+              <Trash2 className="h-3 w-3" />
+              Delete
+            </button>
+          )}
+        </div>
+      )}
+
+      {(justSaved || justDeleted) && (
+        <p className="mt-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+          {justSaved ? "✓ Saved" : "✓ Removed"}
+        </p>
+      )}
+
+      {testCred.data && testCred.variables === provider.id && (
+        <p
+          className={[
+            "mt-1.5 text-[11px]",
+            testCred.data.success
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-red-600 dark:text-red-400",
+          ].join(" ")}
+        >
+          {testCred.data.success
+            ? "✓ Connection successful"
+            : `✗ ${testCred.data.message ?? "Connection failed"}`}
+        </p>
+      )}
+
+      {setCred.error && (
+        <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">
+          {setCred.error instanceof Error
+            ? setCred.error.message
+            : String(setCred.error)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One orphan row — a keychain entry with no catalog match. Renders
+ * id + lastTested + a delete button. Per-memory
+ * `cli-catalog-vs-vault-disagreement`, the desktop and CLI now both
+ * surface these so the user can clean up typo'd vault entries.
+ */
+function OrphanRow({ providerId }: { providerId: string }) {
+  const { data: credential } = useCredential(providerId);
+  const deleteCred = useDeleteCredential();
+
+  return (
+    <li
+      data-testid={`orphan-row-${providerId}`}
+      className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-white px-3 py-1.5 dark:border-amber-900 dark:bg-slate-900"
+    >
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-xs font-medium text-amber-900 dark:text-amber-200">
+          {providerId}
+        </span>
+        {credential?.lastTested && (
+          <span className="text-[10px] text-amber-700 dark:text-amber-400">
+            tested {new Date(credential.lastTested).toLocaleString()}
+          </span>
+        )}
+      </div>
+      <button
+        onClick={() => deleteCred.mutate(providerId)}
+        disabled={deleteCred.isPending}
+        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-0.5 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-slate-800 dark:text-red-400"
+      >
+        <Trash2 className="h-3 w-3" />
+        Delete
+      </button>
+    </li>
   );
 }
 

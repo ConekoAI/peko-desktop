@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Plus, X } from "lucide-react";
+import { Check, Plus, RefreshCw, X } from "lucide-react";
 
 import { useAddProvider, useProviderTemplates } from "../../hooks/useProviders";
 import type { ProviderAddArgs, ProviderTemplate } from "../../types";
@@ -71,7 +71,18 @@ export default function AddProviderModal({
   onClose: () => void;
   onSuccess?: (providerId: string) => void;
 }) {
-  const { data: templates, isLoading: templatesLoading } = useProviderTemplates();
+  // Pull error/loading too — the previous "No built-in templates are
+  // available." message fired when IPC returned `[]` OR silently
+  // failed, which left the user with no signal about *why* the picker
+  // was empty. Now we surface the runtime error directly so the user
+  // can see whether it's "IPC is down" vs "you have no templates"
+  // (and they can switch to Custom in either case).
+  const {
+    data: templates,
+    isLoading: templatesLoading,
+    error: templatesError,
+    refetch: refetchTemplates,
+  } = useProviderTemplates();
   const addMut = useAddProvider();
 
   const [mode, setMode] = useState<Mode>("template");
@@ -179,9 +190,35 @@ export default function AddProviderModal({
                   Loading templates…
                 </p>
               )}
-              {!templatesLoading && (templates ?? []).length === 0 && (
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  No built-in templates are available.
+              {templatesError && !templatesLoading && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+                  <div className="mb-1 font-medium">
+                    Could not load built-in templates
+                  </div>
+                  <div className="font-mono text-[11px]">
+                    {templatesError instanceof Error
+                      ? templatesError.message
+                      : String(templatesError)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => refetchTemplates()}
+                    data-testid="retry-templates"
+                    className="mt-2 inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-0.5 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!templatesLoading && !templatesError && (templates ?? []).length === 0 && (
+                <p
+                  data-testid="templates-empty-state"
+                  className="text-xs text-slate-500 dark:text-slate-400"
+                >
+                  No built-in templates are available. Switch to{" "}
+                  <strong>Custom endpoint</strong> to add an OpenAI- or
+                  Anthropic-compatible provider manually.
                 </p>
               )}
               <div
