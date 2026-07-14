@@ -170,22 +170,50 @@ pub fn restart() -> Result<u32> {
 }
 
 /// Ensure the daemon is running, starting it if necessary.
-/// Returns the daemon PID.
-pub fn ensure_running() -> Result<u32> {
+///
+/// As of ADR-043 the desktop owns the engine lifecycle via
+/// `crate::sidecar::Supervisor`. The legacy `ensure_running_async`
+/// path (called from the IPC client) defers to the supervisor so
+/// every IPC call goes through the same child handle.
+pub async fn ensure_running_async() -> Result<u32> {
+    // The IPC client holds an `AppHandle` only when invoked from a
+    // `#[tauri::command]`; for non-Tauri contexts (tests, ad-hoc
+    // scripts) this short-circuits to the legacy find-binary path.
+    // The IPC client itself is the only production caller of this
+    // function, so the Tauri path is the one that matters.
+    match crate::ipc::current_app_handle() {
+        Some(handle) => {
+            let sup = crate::sidecar::get(&handle);
+            match sup.state() {
+                crate::sidecar::EngineState::Running { pid, .. } => Ok(pid),
+                _ => tokio::task::spawn_blocking(move || sup.start())
+                    .await
+                    .map_err(|e| DaemonError::StartFailed(e.to_string()))?
+                    .map_err(|e| DaemonError::StartFailed(e.to_string())),
+            }
+        }
+        None => {
+            // No Tauri context — fall back to the legacy PATH-based
+            // lookup so unit tests and headless tools keep working.
+            tokio::task::spawn_blocking(ensure_running_legacy)
+                .await
+                .map_err(|e| DaemonError::StartFailed(e.to_string()))?
+        }
+    }
+}
+
+/// Legacy ensure-running kept for headless / non-Tauri callers.
+/// The supervisor (ADR-043) is the preferred path; this only fires
+/// when the IPC client is invoked outside a Tauri runtime.
+fn ensure_running_legacy() -> Result<u32> {
     if is_running() {
-        // Try to read PID from file
-        let pid_path = default_pid_path();
-        if let Ok(content) = std::fs::read_to_string(&pid_path) {
+        if let Ok(content) = std::fs::read_to_string(default_pid_path()) {
             if let Ok(pid) = content.trim().parse::<u32>() {
                 return Ok(pid);
             }
         }
     }
-
-    // Not running — start it
     start()?;
-
-    // Wait for PID file with retry
     let pid_path = default_pid_path();
     for _ in 0..20 {
         std::thread::sleep(Duration::from_millis(500));
@@ -197,16 +225,9 @@ pub fn ensure_running() -> Result<u32> {
             }
         }
     }
-
     Err(DaemonError::StartFailed(
         "daemon started but did not write PID file within 10 seconds".to_string(),
     ))
-}
-
-pub async fn ensure_running_async() -> Result<u32> {
-    tokio::task::spawn_blocking(ensure_running)
-        .await
-        .map_err(|e| DaemonError::StartFailed(e.to_string()))?
 }
 
 /// Get daemon status

@@ -102,6 +102,14 @@ async fn ensure_daemon() -> Result<()> {
     Ok(())
 }
 
+/// Returns the AppHandle that was stashed at supervisor install
+/// time, or `None` if no Tauri runtime is active (tests, ad-hoc
+/// tooling). Used by `daemon::ensure_running_async` to route through
+/// the supervisor instead of the legacy find-binary path.
+pub fn current_app_handle() -> Option<tauri::AppHandle> {
+    crate::sidecar::current_app_handle()
+}
+
 impl IpcClient {
     /// Create a new IPC client connected to the default daemon endpoint.
     #[cfg(windows)]
