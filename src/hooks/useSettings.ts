@@ -3,6 +3,7 @@ import {
   settingsList,
   settingsSet,
   credentialGet,
+  credentialList,
   credentialSet,
   credentialDelete,
   credentialTest,
@@ -28,6 +29,22 @@ export function useCredential(provider: string) {
     queryKey: ["credentials", provider],
     queryFn: () => credentialGet(provider),
     enabled: !!provider,
+  });
+}
+
+/**
+ * Enumerate every provider that has a key stored in the OS keychain.
+ *
+ * Powers the Settings → Credentials "configured" indicators and the
+ * FirstRunWalkthrough's "your provider is already set" branch — both
+ * want to know which provider ids have a `hasKey=true` row without
+ * having to call `credentialGet` per provider.
+ */
+export function useCredentialList() {
+  return useQuery({
+    queryKey: ["credentials"],
+    queryFn: () => credentialList(),
+    staleTime: 30_000,
   });
 }
 

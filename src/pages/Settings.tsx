@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   useSettings,
   useSetSetting,
   useCredential,
+  useCredentialList,
   useSetCredential,
   useDeleteCredential,
   useTestCredential,
@@ -475,12 +476,31 @@ function DaemonTab() {
 function CredentialsTab() {
   const { data: providers, isLoading: providersLoading } = useProviders();
   const providerItems = resolveProviderItems(providers, providersLoading);
+  // Pull the full list of configured credentials so each pill can
+  // carry a "Key set" indicator, and so the tab auto-selects a
+  // provider with a key when one exists — not just `providerItems[0]`
+  // (which was always `openai` alphabetically and hid the user's
+  // actual configuration).
+  const { data: credentials } = useCredentialList();
+  const configuredIds = useMemo(
+    () =>
+      new Set(
+        (credentials ?? [])
+          .filter((c) => c.provider && c.hasKey)
+          .map((c) => c.provider),
+      ),
+    [credentials],
+  );
   const [selected, setSelected] = useState<string | null>(null);
   useEffect(() => {
-    if (selected === null && providerItems.length > 0) {
-      setSelected(providerItems[0].id);
-    }
-  }, [providerItems, selected]);
+    if (selected !== null) return;
+    if (providerItems.length === 0) return;
+    // Prefer a configured provider so the Status pill below shows
+    // "Key set" right away — the user's mental model is "show me
+    // what I already configured", not "show me the catalog from A–Z".
+    const configured = providerItems.find((p) => configuredIds.has(p.id));
+    setSelected(configured?.id ?? providerItems[0].id);
+  }, [providerItems, configuredIds, selected]);
   const [apiKey, setApiKey] = useState("");
   const { data: credential } = useCredential(selected ?? "");
   const setCred = useSetCredential();
@@ -510,21 +530,44 @@ function CredentialsTab() {
           The desktop never holds the secret beyond the save call.
         </p>
         <div className="mb-4 flex flex-wrap gap-2">
-          {providerItems.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelected(p.id)}
-              className={[
-                "rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
-                selected === p.id
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
-              ].join(" ")}
-            >
-              {p.displayName}
-            </button>
-          ))}
+          {providerItems.map((p) => {
+            const isConfigured = configuredIds.has(p.id);
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelected(p.id)}
+                className={[
+                  "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
+                  selected === p.id
+                    ? isConfigured
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                      : "border-slate-500 bg-slate-100 text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                    : isConfigured
+                      ? "border-emerald-200 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
+                ].join(" ")}
+              >
+                {isConfigured && (
+                  <Check
+                    className="h-3 w-3"
+                    aria-label="Key configured"
+                  />
+                )}
+                {p.displayName}
+              </button>
+            );
+          })}
         </div>
+        {credentials && credentials.length > 0 && (
+          <p
+            data-testid="credentials-configured-count"
+            className="mb-2 text-xs text-slate-500 dark:text-slate-400"
+          >
+            {credentials.filter((c) => c.hasKey).length} provider
+            {credentials.filter((c) => c.hasKey).length === 1 ? "" : "s"} with a
+            configured key.
+          </p>
+        )}
 
         <div className="space-y-3">
           <div className="flex items-center gap-3 text-sm">
