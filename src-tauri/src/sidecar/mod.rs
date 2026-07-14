@@ -251,7 +251,15 @@ impl Supervisor {
             .shell()
             .sidecar("peko")
             .map_err(|e| SupervisorError::Spawn(e.to_string()))?
-            .args(["daemon", "start", "--sidecar-mode"])
+            // `--foreground` is critical: without it the peko CLI's
+            // `daemon start` handler calls `spawn_daemon_with`,
+            // which spawns a *grandchild* and exits — leaving our
+            // `CommandChild` pointing at a wrapper that immediately
+            // terminates. The grandchild gets reparented to launchd
+            // when the desktop dies, and `CommandChild::kill()` on
+            // the (already-dead) wrapper is a no-op. With
+            // `--foreground`, peko runs in-process as our child.
+            .args(["daemon", "start", "--sidecar-mode", "--foreground"])
             .spawn()
             .map_err(|e| SupervisorError::Spawn(e.to_string()))?;
 
