@@ -1,5 +1,6 @@
 pub mod cron;
 pub mod daemon;
+pub mod engine;
 pub mod extension;
 pub mod principal;
 pub mod registry;
@@ -16,6 +17,9 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         daemon::daemon_restart,
         daemon::daemon_status,
         daemon::daemon_ensure_running,
+        engine::engine_status,
+        engine::engine_diagnostics,
+        engine::engine_restart,
         principal::principal_list,
         principal::principal_get,
         principal::principal_send,
