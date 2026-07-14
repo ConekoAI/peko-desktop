@@ -80,6 +80,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      # Tauri's build script validates `bundle.externalBin` paths exist
+      # at compile time (clippy/check, not just `tauri build`). CI does
+      # not need a real peko runtime for these jobs — an empty stub at
+      # the host-triple-suffixed path is enough to satisfy the check.
+      # The real binary only matters for `tauri build`/release.yml.
+      - name: Stub sidecar binary for Tauri build
+        run: |
+          TRIPLE="$(rustc -vV | awk '/^host:/ {print $2}')"
+          mkdir -p binaries
+          touch "binaries/peko-${TRIPLE}"
+          echo "Stubbed binaries/peko-${TRIPLE}"
+
       - name: Check formatting
         run: cargo fmt -- --check
 
@@ -111,6 +123,16 @@ jobs:
           workspaces: src-tauri
           shared-key: tauri-rust-win
 
+      # See Rust (Linux) for rationale; same stub needed for Tauri's
+      # build-script validation of `bundle.externalBin`.
+      - name: Stub sidecar binary for Tauri build
+        run: |
+          $line = rustc -vV | Where-Object { $_ -match '^host:' }
+          if ($line -match '^host:\s+(\S+)') { $TRIPLE = $matches[1] }
+          New-Item -ItemType Directory -Force -Path binaries | Out-Null
+          New-Item -ItemType File -Force -Path "binaries/peko-$TRIPLE" | Out-Null
+          Write-Host "Stubbed binaries/peko-$TRIPLE"
+
       - name: Cargo check
         run: cargo check
 
@@ -135,6 +157,16 @@ jobs:
         with:
           workspaces: src-tauri
           shared-key: tauri-rust-macos
+
+      # See Rust (Linux) for rationale; same stub needed for Tauri's
+      # build-script validation of `bundle.externalBin`. Apple Silicon
+      # runners currently report aarch64-apple-darwin.
+      - name: Stub sidecar binary for Tauri build
+        run: |
+          TRIPLE="$(rustc -vV | awk '/^host:/ {print $2}')"
+          mkdir -p binaries
+          touch "binaries/peko-${TRIPLE}"
+          echo "Stubbed binaries/peko-${TRIPLE}"
 
       - name: Cargo check
         run: cargo check
