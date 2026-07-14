@@ -12,6 +12,7 @@ import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useR
 import { useProviders } from "../hooks/useProviders";
 import { getTheme, setTheme } from "../lib/theme";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
+import AddProviderModal from "../components/modals/AddProviderModal";
 import { resolveProviderItems } from "../lib/settings-helpers";
 import {
   Save,
@@ -193,10 +194,28 @@ function CredentialsTab() {
     setApiKey("");
   }
 
+  // T-109b: "+ Add provider" opens the modal that drives the
+  // runtime's `provider_templates` + `provider_add` IPC. Keeps the
+  // desktop in sync with the CLI's `peko provider add --template`
+  // / `--custom` surface (per-memory `cli-catalog-vs-vault-disagreement`).
+  const [showAddProvider, setShowAddProvider] = useState(false);
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">Provider Credentials</h3>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            Provider Credentials
+          </h3>
+          <button
+            onClick={() => setShowAddProvider(true)}
+            data-testid="open-add-provider-modal"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add provider
+          </button>
+        </div>
         <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
           Keys are stored in the OS keychain by the runtime
           (<code>peko credential set &lt;provider&gt; &lt;key&gt;</code>).
@@ -344,6 +363,12 @@ function CredentialsTab() {
           </div>
         </div>
       )}
+
+      <AddProviderModal
+        open={showAddProvider}
+        onClose={() => setShowAddProvider(false)}
+        onSuccess={(id) => setSelected(id)}
+      />
     </div>
   );
 }

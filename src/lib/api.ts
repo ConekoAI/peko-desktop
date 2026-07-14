@@ -26,7 +26,9 @@ import type {
   DoctorReport,
   ExtensionSummary,
   LogResponse,
+  ProviderAddArgs,
   ProviderInfo,
+  ProviderTemplate,
   RuntimeConnection,
   SearchResult,
   Setting,
@@ -231,6 +233,24 @@ export async function principalLog(params: {
  */
 export async function principalProviderList(): Promise<ProviderInfo[]> {
   return invoke("principal_provider_list");
+}
+
+// T-109b: list the runtime's built-in provider templates. The picker
+// uses these to seed the "Add Provider" modal — no rounding to
+// `ProviderInfo` (the picker needs `baseUrl`, `requiresKey`, and the
+// curated `models[]` with context lengths, which `ProviderInfo` does
+// not carry).
+export async function providerTemplates(): Promise<ProviderTemplate[]> {
+  return invoke("provider_templates");
+}
+
+// T-109b: add a provider to the runtime catalog. Either a `template`
+// string (binds to one of `provider_templates()`) or `custom: true` with
+// the full shape (id, apiFormat, baseUrl, model, …). Sending neither
+// produces a `ResponsePacket::Error` from the runtime, which the Tauri
+// command surfaces as a thrown error.
+export async function providerAdd(args: ProviderAddArgs): Promise<ProviderInfo> {
+  return invoke("provider_add", { args });
 }
 
 // ─── Extensions ─────────────────────────────────────────────────

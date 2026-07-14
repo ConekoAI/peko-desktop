@@ -514,6 +514,38 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// List the built-in provider templates the runtime ships
+    /// with. Mirrors the CLI's `peko provider templates` over IPC
+    /// so the desktop's "Add Provider" modal can populate its
+    /// template picker without shelling out. T-109b.
+    pub async fn provider_templates(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "provider_templates",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Add a provider to the runtime catalog. Mirrors
+    /// `peko provider add` over IPC so the desktop's "Add Provider"
+    /// modal can register a new template- or custom-shaped
+    /// provider without shelling out. The full `args` payload is
+    /// serialized and forwarded; the runtime's handler does the
+    /// template/custom branch + `--key` / `--set-default` folding
+    /// and returns the new entry's catalog-summary view. T-109b.
+    pub async fn provider_add(&self, args: serde_json::Value) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "provider_add",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "args": args,
+        });
+        self.request_response(req).await
+    }
+
     // ── Principal operations (ADR-041) ───────────────────────────────
 
     /// Send a Principal message via the streaming IPC path. The
