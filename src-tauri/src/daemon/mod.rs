@@ -276,9 +276,19 @@ pub struct DaemonStatus {
 // --- Internal helpers ---
 
 fn default_pid_path() -> PathBuf {
-    dirs::home_dir()
-        .map(|d| d.join(".peko").join("run").join("daemon.pid"))
-        .unwrap_or_else(|| PathBuf::from(".peko").join("run").join("daemon.pid"))
+    // Honour `PEKO_CONFIG_DIR` (matches the supervisor's `lockfile_path`
+    // and the runtime's `DaemonProcessService::pid_file_path`) so the
+    // legacy fallback path stays consistent with the canonical engine
+    // lifecycle paths when the user has relocated peko home.
+    let config_dir = std::env::var("PEKO_CONFIG_DIR")
+        .ok()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .map(|d| d.join(".peko"))
+                .unwrap_or_else(|| PathBuf::from(".peko"))
+        });
+    config_dir.join("run").join("daemon.pid")
 }
 
 fn try_shutdown_via_ipc() -> Result<()> {
@@ -407,6 +417,38 @@ mod tests {
     fn test_default_pid_path() {
         let path = default_pid_path();
         assert!(path.to_string_lossy().contains("daemon.pid"));
+    }
+
+    /// `PEKO_CONFIG_DIR` overrides the default `~/.peko` root.
+    /// Serialized via `ENV_LOCK` because env vars are process-global;
+    /// any future test that touches `PEKO_CONFIG_DIR` (in this crate
+    /// or in `sidecar::tests`) must take the same lock to avoid
+    /// parallel-test interference.
+    #[test]
+    fn test_default_pid_path_honours_peko_config_dir() {
+        static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        let saved = std::env::var("PEKO_CONFIG_DIR").ok();
+        let temp = std::env::temp_dir().join(format!("peko-cfg-test-{}", std::process::id()));
+        // SAFETY: tests in this crate are serialized against this
+        // env var via `ENV_LOCK`. `set_var`/`remove_var` are unsafe
+        // on rustc ≥ 1.83 because the surrounding process may be
+        // reading the env concurrently; the lock bounds that risk
+        // to this test's lifetime.
+        unsafe {
+            std::env::set_var("PEKO_CONFIG_DIR", &temp);
+        }
+
+        let path = default_pid_path();
+        assert_eq!(path, temp.join("run").join("daemon.pid"));
+
+        unsafe {
+            match saved {
+                Some(v) => std::env::set_var("PEKO_CONFIG_DIR", v),
+                None => std::env::remove_var("PEKO_CONFIG_DIR"),
+            }
+        }
     }
 
     #[test]
