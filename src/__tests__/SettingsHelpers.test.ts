@@ -9,11 +9,17 @@ import {
 /**
  * Regression tests for peko-desktop#5 — covers the Settings.tsx helpers.
  *
- * `resolveProviderItems` powers the CredentialsTab provider list; the
- * `LOG_LEVELS` / `resolveLogLevel` pair are no longer consumed by
- * Settings.tsx (T-107 removed the Daemon tab) but the helpers remain
- * exported for any future surface and the tests pin their behavior so a
- * silent rename doesn't break callers we haven't seen yet.
+ * `resolveProviderItems` still powers the FirstRunWalkthrough's provider
+ * picker (T-109b redesign). The redesigned Settings → Credentials tab
+ * iterates the runtime's catalog directly so it can show "Configured
+ * first, rest of catalog below, orphans separately" — but the
+ * walkthrough still wants a non-empty picker on first launch, so the
+ * helper + `FALLBACK_PROVIDER_IDS` stay exported.
+ *
+ * `LOG_LEVELS` / `resolveLogLevel` are no longer consumed by Settings.tsx
+ * (T-107 removed the Daemon tab) but the helpers remain exported for any
+ * future surface and the tests pin their behavior so a silent rename
+ * doesn't break callers we haven't seen yet.
  */
 
 describe("resolveProviderItems", () => {
