@@ -107,6 +107,25 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
+            // macOS: clicking the window's red close button fires
+            // `WindowEvent::CloseRequested`, NOT `RunEvent::Exit`.
+            // By default Tauri closes just the window and the app
+            // stays in the dock — which leaves our owned peko
+            // daemon running. Force the app to quit on window
+            // close so `Exit` fires below and `sup.stop()` runs.
+            // This makes T-104 (close desktop → engine exits)
+            // work for both X-click and Cmd+Q paths. Cmd+Q is
+            // unaffected: it goes through `ExitRequested → Exit`
+            // without invoking CloseRequested.
+            if let tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::CloseRequested { .. },
+                ..
+            } = event
+            {
+                app_handle.exit(0);
+                return;
+            }
+
             // Graceful shutdown on app exit: stop the sidecar so we
             // don't leave a zombie peko process holding the lockfile.
             // RunEvent::Exit fires after ExitRequested is accepted
