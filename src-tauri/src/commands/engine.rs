@@ -35,11 +35,8 @@ pub fn engine_diagnostics() -> Diagnostics {
 /// to fully cycle the engine. This exists so a developer / support
 /// agent can recover from a `Failed` state without quitting.
 #[tauri::command]
-pub async fn engine_restart() -> Result<u32, String> {
+pub fn engine_restart() -> Result<u32, String> {
     let app = crate::sidecar::current_app_handle()
         .expect("engine_restart invoked before supervisor install");
-    tokio::task::spawn_blocking(move || sidecar::get(&app).restart())
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+    sidecar::get(&app).restart().map_err(|e| e.to_string())
 }

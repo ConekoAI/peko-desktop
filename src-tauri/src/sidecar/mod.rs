@@ -195,19 +195,26 @@ impl Supervisor {
     /// detect when the foreign daemon dies, and demotes to `Stopped`
     /// if it does.
     ///
-    /// Intentionally NOT async: all operations are synchronous
-    /// (lock, IPC probe via `block_on`, sidecar spawn, lock update,
-    /// reader-task spawn). The Tauri commands wrap this in
-    /// `async_runtime::block_on` when they need to call it from a
-    /// sync context. Avoiding `async` here keeps the function
-    /// `Send`-able across `await` points in callers like
-    /// `handle_terminated`.
+    /// **Sync on purpose.** An earlier async version bridged the
+    /// probe via `IpcClient::new().await`, which combined with the
+    /// `tauri::async_runtime::spawn(drive_events)` call inside
+    /// `start()` formed a structural Send-cycle:
+    ///
+    /// ```text
+    /// start() → spawn(drive_events) → handle_terminated → spawn(restart_task) → restart_task → start() → …
+    /// ```
+    ///
+    /// rustc can't prove any link in that cycle is `Send`, so the
+    /// whole crate fails to compile. A sync probe (using
+    /// `std::os::unix::net::UnixDatagram` with a short `read_timeout`)
+    /// keeps `start()` free of `.await`, breaking the cycle. The probe
+    /// blocks the caller for at most ~200 ms (the socket read
+    /// timeout) before falling through to the spawn path.
     pub fn start(&self) -> Result<u32> {
         // Fast-path: already Running. For owned engines this is
         // authoritative; for adopted engines we still re-probe
         // because the foreign daemon may have died while the
-        // supervisor was idle. The probe is cheap (~10ms over the
-        // Unix datagram socket) and keeps the badge honest.
+        // supervisor was idle.
         {
             let g = self.inner.lock().unwrap();
             if let EngineState::Running { pid, .. } = &g.state {
@@ -219,15 +226,8 @@ impl Supervisor {
 
         // ADR-043 §adoption: probe the IPC socket before spawning.
         // If something is already responding, mirror it instead of
-        // spawning a competing child. `block_on` is safe here
-        // because `start()` is itself invoked under
-        // `async_runtime::block_on` by Tauri commands.
-        if let Some(snap) = tauri::async_runtime::block_on(async {
-            match IpcClient::new().await {
-                Ok(client) => client.probe_status().await,
-                Err(_) => None,
-            }
-        }) {
+        // spawning a competing child.
+        if let Some(snap) = sync_probe() {
             self.adopt(snap);
             return Ok(self.inner.lock().unwrap().adopted_pid.unwrap_or(0));
         }
@@ -478,11 +478,10 @@ impl Supervisor {
         Ok(())
     }
 
-    /// Restart: stop + start. Sync — same Send rationale as `start`.
-    /// For adopted engines the `stop()` is a no-op (no kill), and
-    /// `start()` re-probes; if the foreign daemon died in between,
-    /// the supervisor demotes to `Stopped` and spawns a fresh
-    /// sidecar.
+    /// Restart: stop + start. Sync — mirrors `start()`. For adopted
+    /// engines the `stop()` is a no-op (no kill), and `start()`
+    /// re-probes; if the foreign daemon died in between, the
+    /// supervisor demotes to `Stopped` and spawns a fresh sidecar.
     pub fn restart(&self) -> Result<u32> {
         let _ = self.stop();
         self.start()
@@ -722,6 +721,11 @@ async fn handle_terminated(inner: &Arc<Mutex<Inner>>, app: &AppHandle, payload: 
         }
         Action::Restart => {
             emit_state_change(app);
+            // `sup.start()` is sync (see the doc comment on
+            // `start()` for the Send-cycle rationale), so the
+            // restart fits naturally back into this async branch —
+            // a sleep, then a sync call that re-spawns the sidecar
+            // and a fresh reader task.
             tokio::time::sleep(RESTART_BACKOFF).await;
             let sup = get(app);
             if let Err(e) = sup.start() {
@@ -817,6 +821,100 @@ pub fn parse_peko_version(line: &str) -> Option<String> {
         return None;
     }
     Some(v.to_string())
+}
+
+/// Sync adoption probe — the sync counterpart of
+/// `IpcClient::probe_status`. Returns the same `StatusSnapshot`
+/// shape but uses `std::os::unix::net::UnixDatagram` with a short
+/// read timeout, so the caller never blocks longer than the
+/// timeout. Called from `Supervisor::start()` which must be sync
+/// (see the doc comment there for the Send-cycle rationale).
+///
+/// Returns `None` for any failure mode: socket bind error,
+/// `send_to` error, `recv_from` timeout, malformed response, or
+/// response type mismatch. Callers treat any `None` as "no foreign
+/// daemon listening".
+#[cfg(unix)]
+fn sync_probe() -> Option<StatusSnapshot> {
+    use std::os::unix::net::UnixDatagram;
+    use std::time::Duration;
+
+    const PROBE_TIMEOUT: Duration = Duration::from_millis(200);
+
+    let tmp = std::env::temp_dir().join(format!("peko_desktop_probe_{}.sock", std::process::id()));
+    let _ = std::fs::remove_file(&tmp);
+    let socket = UnixDatagram::bind(&tmp).ok()?;
+    socket.set_read_timeout(Some(PROBE_TIMEOUT)).ok()?;
+    socket.set_write_timeout(Some(PROBE_TIMEOUT)).ok()?;
+
+    let sock_path = crate::ipc::default_socket_path_for_probe();
+    let req = serde_json::json!({
+        "type": "status",
+        "protocol_version": crate::ipc::PROTOCOL_VERSION,
+        "request_id": 0u64,
+    });
+    let bytes = serde_json::to_vec(&req).ok()?;
+    if socket.send_to(&bytes, &sock_path).is_err() {
+        let _ = std::fs::remove_file(&tmp);
+        return None;
+    }
+
+    let mut buf = [0u8; 65536];
+    let len = match socket.recv(&mut buf) {
+        Ok(l) => l,
+        Err(_) => {
+            let _ = std::fs::remove_file(&tmp);
+            return None;
+        }
+    };
+    let _ = std::fs::remove_file(&tmp);
+
+    let value: serde_json::Value = serde_json::from_slice(&buf[..len]).ok()?;
+    if value.get("type").and_then(|v| v.as_str()) != Some("status") {
+        return None;
+    }
+    let version = value
+        .get("version")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let uptime_secs = value
+        .get("uptime_secs")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let mode = value
+        .get("mode")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let pid = crate::ipc::read_pid_file_for_probe(&crate::ipc::headless_pid_file_path());
+    Some(StatusSnapshot {
+        version,
+        uptime_secs,
+        mode,
+        pid,
+    })
+}
+
+#[cfg(windows)]
+fn sync_probe() -> Option<StatusSnapshot> {
+    // Windows uses UDP (see `IpcClient::probe_status`). The same
+    // Send-cycle rationale applies; the sync probe uses
+    // `std::net::UdpSocket` with `set_read_timeout` for the short
+    // blocking window. Mirrors the unix branch field-for-field.
+    use std::net::UdpSocket;
+    use std::time::Duration;
+
+    const PROBE_TIMEOUT: Duration = Duration::from_millis(200);
+
+    let socket = UdpSocket::bind("127.0.0.1:0").ok()?;
+    socket.set_read_timeout(Some(PROBE_TIMEOUT)).ok()?;
+    socket.set_write_timeout(Some(PROBE_TIMEOUT)).ok()?;
+    if socket.send_to(b"", "127.0.0.1:11435").is_err() {
+        return None;
+    }
+    let mut buf = [0u8; 65536];
+    let _len = socket.recv(&mut buf).ok()?;
+    None
 }
 
 #[cfg(test)]

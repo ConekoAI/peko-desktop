@@ -186,9 +186,8 @@ pub async fn ensure_running_async() -> Result<u32> {
             let sup = crate::sidecar::get(&handle);
             match sup.state() {
                 crate::sidecar::EngineState::Running { pid, .. } => Ok(pid),
-                _ => tokio::task::spawn_blocking(move || sup.start())
-                    .await
-                    .map_err(|e| DaemonError::StartFailed(e.to_string()))?
+                _ => sup
+                    .start()
                     .map_err(|e| DaemonError::StartFailed(e.to_string())),
             }
         }

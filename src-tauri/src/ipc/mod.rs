@@ -735,12 +735,28 @@ fn default_socket_path() -> std::path::PathBuf {
         })
 }
 
+/// Public re-export of the unix socket path so the supervisor's
+/// sync probe (`sidecar::sync_probe`) can hit the same socket the
+/// async `IpcClient` uses. Kept `pub(crate)` — the desktop's IPC
+/// surface is intentionally internal.
+#[cfg(unix)]
+pub(crate) fn default_socket_path_for_probe() -> std::path::PathBuf {
+    default_socket_path()
+}
+
 /// Read a peko daemon PID file (typically `<config>/run/daemon.pid` for
 /// the headless CLI daemon). Returns `None` if the file is missing,
 /// unreadable, or contains a non-numeric value.
 fn read_pid_file(path: &std::path::Path) -> Option<u32> {
     let s = std::fs::read_to_string(path).ok()?;
     s.trim().parse::<u32>().ok()
+}
+
+/// Public re-export of the PID-file reader for the supervisor's
+/// sync probe. Same access boundary as
+/// `default_socket_path_for_probe`.
+pub(crate) fn read_pid_file_for_probe(path: &std::path::Path) -> Option<u32> {
+    read_pid_file(path)
 }
 
 #[cfg(test)]
