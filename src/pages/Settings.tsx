@@ -41,6 +41,7 @@ import {
   Edit3,
   LogIn,
   ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 import type { RuntimeConnection } from "../types";
 
@@ -174,6 +175,13 @@ function DaemonTab() {
   const stop = useDaemonStop();
   const restart = useDaemonRestart();
   const isMutating = start.isPending || stop.isPending || restart.isPending;
+  // Surface the most recent daemon mutation error instead of swallowing it.
+  // React Query clears `error` on the next mutation call, so the banner
+  // auto-dismisses when the user retries. The Start button's previous
+  // silent-failure was a real usability bug: "click Start, nothing
+  // happened" was the user seeing nothing because the error was thrown
+  // away.
+  const daemonError = start.error?.message ?? stop.error?.message ?? restart.error?.message ?? null;
   const currentLogLevel = resolveLogLevel(settings);
 
   function handleLogLevelChange(level: LogLevel) {
@@ -183,6 +191,20 @@ function DaemonTab() {
 
   return (
     <div className="space-y-6">
+      {daemonError && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Engine action failed</p>
+            <p className="mt-1 break-words text-rose-700/90 dark:text-rose-300/90">
+              {daemonError}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center justify-between">
           <div>
