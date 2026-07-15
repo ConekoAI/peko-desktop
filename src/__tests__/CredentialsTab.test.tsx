@@ -147,44 +147,49 @@ describe("CredentialsTab (T-109b redesign)", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders one row per catalog provider, configured rows first", () => {
+  it("renders only configured catalog rows (unconfigured entries are NOT shown — they belong in the Add Provider picker)", () => {
+    // Three catalog entries; only `anthropic` has a stored key. The
+    // list should render exactly one row — for `anthropic`. The
+    // unconfigured `openai` and `ollama` entries are reachable
+    // through the "Add Provider" picker, not this screen.
     catalogSignal.value = [
       { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
       { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
       { id: "ollama", displayName: "Ollama", apiType: "openai", defaultModel: "llama-3.1", requiresKey: false, isLocal: true },
     ];
-    credentialsSignal.value = [
-      { provider: "ollama", hasKey: false },
-      { provider: "anthropic", hasKey: true, lastTested: "2026-07-14T12:00:00Z" },
-    ];
+    credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
     renderTab();
     switchToCredentialsTab();
     expect(screen.getByTestId("provider-row-anthropic")).toBeInTheDocument();
-    expect(screen.getByTestId("provider-row-openai")).toBeInTheDocument();
-    expect(screen.getByTestId("provider-row-ollama")).toBeInTheDocument();
+    expect(screen.queryByTestId("provider-row-openai")).toBeNull();
+    expect(screen.queryByTestId("provider-row-ollama")).toBeNull();
     // "Key set" indicator only on the configured row.
     expect(screen.getAllByText(/Key set/i).length).toBeGreaterThanOrEqual(1);
-    // Anthropic has lastTested so its row should render the timestamp.
-    expect(screen.getByTestId("provider-row-anthropic").textContent).toContain(
-      "anthropic",
-    );
   });
 
-  it("hides the API key input for local providers (ollama) and providers with requiresKey=false", () => {
+  it("configured local providers render a row but hide the API key input", () => {
+    // Ollama is local and doesn't take a key. When it's already
+    // configured (vault has `hasKey` flag) it shows as a row in the
+    // list, but the row never renders the password input.
     catalogSignal.value = [
       { id: "ollama", displayName: "Ollama", apiType: "openai", defaultModel: "llama-3.1", requiresKey: false, isLocal: true },
     ];
-    credentialsSignal.value = [];
+    credentialsSignal.value = [{ provider: "ollama", hasKey: true }];
     renderTab();
     switchToCredentialsTab();
+    expect(screen.getByTestId("provider-row-ollama")).toBeInTheDocument();
     expect(screen.queryByTestId("api-key-input-ollama")).toBeNull();
   });
 
-  it("typing a key and clicking Save calls useSetCredential.mutate", () => {
+  it("updating an existing key calls useSetCredential.mutate", () => {
+    // Only configured rows render. Updating a key on an existing
+    // row flows through `useSetCredential.mutate`. (Adding the first
+    // key for an unconfigured provider goes through the Add Provider
+    // modal — that's a different code path.)
     catalogSignal.value = [
       { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
     ];
-    credentialsSignal.value = [];
+    credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
     renderTab();
     switchToCredentialsTab();
     const input = screen.getByTestId("api-key-input-anthropic");
@@ -193,6 +198,30 @@ describe("CredentialsTab (T-109b redesign)", () => {
     expect(setMut).toHaveBeenCalledTimes(1);
     const [args] = setMut.mock.calls[0] as [{ provider: string; apiKey: string }];
     expect(args).toEqual({ provider: "anthropic", apiKey: "sk-test-key" });
+  });
+
+  it("the credential rows panel scrolls internally when many providers are configured (no off-screen overflow)", () => {
+    // Six configured providers — for a user with a heavy catalog,
+    // this would otherwise push the orphan banner and tab bar off
+    // the bottom of the screen. Cap the height and let the panel
+    // scroll inside itself.
+    catalogSignal.value = Array.from({ length: 6 }).map((_, i) => ({
+      id: `p${i}`,
+      displayName: `Provider ${i}`,
+      apiType: "openai",
+      defaultModel: "m",
+      requiresKey: true,
+      isLocal: false,
+    }));
+    credentialsSignal.value = Array.from({ length: 6 }).map((_, i) => ({
+      provider: `p${i}`,
+      hasKey: true,
+    }));
+    renderTab();
+    switchToCredentialsTab();
+    const rows = screen.getByTestId("credentials-rows");
+    expect(rows.className).toContain("overflow-y-auto");
+    expect(rows.className).toContain("max-h-");
   });
 
   it("configured row shows Test and Delete buttons; clicking them calls the matching mutation", () => {

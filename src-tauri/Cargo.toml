@@ -37,4 +37,6 @@ urlencoding = "2"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-shell = "2"
+libc = "0.2"
+tracing = "0.1"
 

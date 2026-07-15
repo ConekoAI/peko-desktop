@@ -125,6 +125,56 @@ async fn ensure_daemon() -> Result<()> {
     Ok(())
 }
 
+/// Raise the kernel-side `SO_RCVBUF` on the freshly-bound client
+/// socket so the desktop can receive larger daemon responses
+/// (`provider_templates`, `provider_list`, `system_status`, …).
+///
+/// Why this exists: the desktop binds a per-PID tmp
+/// `AF_UNIX/SOCK_DGRAM` socket to receive responses. With the
+/// platform's default receive queue, the daemon's
+/// `send_to(peer)` for a 5+ KB `provider_templates` payload
+/// returns `ENOBUFS` ("No buffer space available", os error 55).
+/// The handler logs the error and the client silently times out at
+/// 10 s — the modal then shows "provider_templates failed:
+/// timeout". We saw this exactly when the catalog grew past a
+/// handful of templates (memory: `provider-templates-ipc-enobufs`).
+///
+/// The runtime already bumps `SO_SNDBUF` on its server socket
+/// (`peko-runtime/src/ipc/server.rs::bump_send_buffer`); 256 KiB is
+/// generous for the largest response in flight while staying well
+/// under any per-socket memory budget on a developer workstation.
+/// Failures here are non-fatal: we drop the warning and the socket
+/// keeps whatever the kernel gave us (often still enough for small
+/// responses like `credential_test`).
+#[cfg(unix)]
+fn bump_recv_buffer<S: std::os::fd::AsRawFd>(socket: &S) {
+    const IPC_RECV_BUFFER_BYTES: usize = 256 * 1024;
+    let fd = socket.as_raw_fd();
+    let buf_len = IPC_RECV_BUFFER_BYTES as libc::c_int;
+    // SAFETY: `fd` is a live socket owned by `socket`, and `buf_len` is
+    // a valid `c_int`. `SOL_SOCKET` / `SO_RCVBUF` are the kernel
+    // constants we want. `setsockopt` does not take ownership of the
+    // fd and writes the requested buffer size back via the same fd.
+    let rc = unsafe {
+        libc::setsockopt(
+            fd,
+            libc::SOL_SOCKET,
+            libc::SO_RCVBUF,
+            &buf_len as *const _ as *const libc::c_void,
+            std::mem::size_of::<libc::c_int>() as libc::socklen_t,
+        )
+    };
+    if rc != 0 {
+        let err = std::io::Error::last_os_error();
+        tracing::warn!(
+            "failed to bump client socket SO_RCVBUF to {} bytes ({}); \
+             large responses (e.g. provider_templates) may fail with ENOBUFS",
+            IPC_RECV_BUFFER_BYTES,
+            err
+        );
+    }
+}
+
 /// Returns the AppHandle that was stashed at supervisor install
 /// time, or `None` if no Tauri runtime is active (tests, ad-hoc
 /// tooling). Used by `daemon::ensure_running_async` to route through
@@ -165,6 +215,7 @@ impl IpcClient {
         let _ = tokio::fs::remove_file(&tmp).await;
         let socket = tokio::net::UnixDatagram::bind(&tmp)
             .map_err(|e| IpcError::ConnectionFailed(e.to_string()))?;
+        bump_recv_buffer(&socket);
         Ok(Self {
             socket,
             _tmp_path: tmp,

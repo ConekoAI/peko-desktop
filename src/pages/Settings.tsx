@@ -147,23 +147,26 @@ function GeneralTab() {
   );
 }
 function CredentialsTab() {
-  // T-109b redesign: one row per provider (catalog ∪ vault) with the
-  // full edit / test / remove controls inline. The previous design
-  // had a fallback-pill row of static catalog defaults (OpenAI /
-  // Anthropic / Kimi / Ollama / Azure / Google) that meant nothing
-  // when the runtime hadn't returned providers yet, plus a single
-  // shared input gated on a "selected" state — neither of which told
-  // the user what they could actually do with an existing key.
+  // T-109b redesign: one row per *configured* provider (catalog entry
+  // ∩ vault hasKey) with full edit / test / remove controls inline.
+  //
+  // Unconfigured catalog entries are intentionally NOT shown here —
+  // adding a new provider is the job of the "Add provider" picker
+  // (Add Provider modal), which lists every available template.
+  // Rendering "No key" rows for every OpenAI / Anthropic / Ollama
+  // catalog entry would dump the whole provider zoo on this screen
+  // and overlap with the picker's affordance (and overflow the panel
+  // — see the scroll fix below).
   //
   // Each row owns its own API-key input and action buttons, so the
   // user can:
-  //   • See every catalog entry that exists on disk, even without a
-  //     key (so they can add one inline without going through the
-  //     Add Provider modal first).
   //   • Update / test / remove a configured key directly on its row.
   //   • Spot orphan vault keys (vault entry, no catalog match) in a
   //     separate strip below — surfacing the `miniax`-style typos that
   //     the CLI now reports too (T-110 / peko-runtime#190).
+  //   • When zero keys are configured, see a single "No providers
+  //     configured yet" empty state with a CTA into the Add Provider
+  //     picker (no noisy "No key" pills).
   const { data: providers, isLoading: providersLoading, isError: providersError } =
     useProviders();
   const { data: credentials, isLoading: credentialsLoading } = useCredentialList();
@@ -184,16 +187,14 @@ function CredentialsTab() {
   // / `--custom` surface (per-memory `cli-catalog-vs-vault-disagreement`).
   const [showAddProvider, setShowAddProvider] = useState(false);
 
-  // Stable row order: configured first (alphabetical), then the rest
-  // of the catalog (alphabetical). Orphans render separately below.
-  const orderedRows = useMemo(() => {
-    const list = (providers ?? []).slice();
-    list.sort((a, b) => {
-      const aHas = credentialByProvider.get(a.id)?.hasKey ? 1 : 0;
-      const bHas = credentialByProvider.get(b.id)?.hasKey ? 1 : 0;
-      if (aHas !== bHas) return bHas - aHas;
-      return a.id.localeCompare(b.id);
-    });
+  // Only configured rows reach this tab. Unconfigured catalog
+  // entries show up in the "Add Provider" picker, not here. Catalog
+  // matches join with `credential.hasKey === true`; vault-orphans
+  // (no catalog match) render in a separate strip below.
+  const configuredRows = useMemo(() => {
+    const list = (providers ?? [])
+      .filter((p) => credentialByProvider.get(p.id)?.hasKey);
+    list.sort((a, b) => a.id.localeCompare(b.id));
     return list;
   }, [providers, credentialByProvider]);
 
@@ -218,7 +219,7 @@ function CredentialsTab() {
 
   const isLoading = providersLoading || credentialsLoading;
   const hasAnyContent =
-    orderedRows.length > 0 || orphanIds.length > 0;
+    configuredRows.length > 0 || orphanIds.length > 0;
 
   return (
     <div className="space-y-4">
@@ -275,11 +276,18 @@ function CredentialsTab() {
         )}
 
         {hasAnyContent && (
+          // Cap the height at 60vh and let the panel scroll within
+          // itself. The earlier `overflow-hidden` made the rows reach
+          // off the bottom of the screen for users with several
+          // configured providers — there was no inner scrollbar, so
+          // the orphan banner / tab bar got pushed off-screen. The
+          // outer rounded border stays sharp; the inner dividers are
+          // preserved because we scroll inside the container.
           <div
             data-testid="credentials-rows"
-            className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
+            className="max-h-[60vh] divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
           >
-            {orderedRows.map((p) => (
+            {configuredRows.map((p) => (
               <ProviderRow
                 key={p.id}
                 provider={p}
