@@ -584,6 +584,26 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Ask the runtime to re-read the provider catalog AND the credential
+    /// vault from disk. The desktop calls this before listing credentials
+    /// so the long-running daemon sees keys the user just added via the
+    /// CLI (`peko credential set` → `notify_daemon_reload`) — without
+    /// the explicit hop, a daemon that started before the user added
+    /// the key (or one that the supervisor adopted from a foreign
+    /// headless process) can hold a stale in-memory vault and report
+    /// `credentials: []` even though the key is on disk and the CLI
+    /// round-trips fine. Returns the raw response; the success path
+    /// carries `(providers_count, keys_count)` for the caller to log.
+    pub async fn provider_reload(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "provider_reload",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
     /// List the built-in provider templates the runtime ships
     /// with. Mirrors the CLI's `peko provider templates` over IPC
     /// so the desktop's "Add Provider" modal can populate its
