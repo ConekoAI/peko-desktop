@@ -340,6 +340,14 @@ pub async fn principal_provider_list() -> Result<Vec<ProviderInfo>, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    // Mirror the `credential_list` flow: force the runtime to re-read
+    // the catalog and the vault from disk first. The desktop's
+    // `useProviders` query keys off this, and the catalog's user-added
+    // entries live in `providers.toml` — a daemon that started before
+    // the user added a custom provider via the CLI would otherwise hand
+    // us a stale snapshot. We pair this with the `credential_list`
+    // reload so both queries see the same on-disk reality.
+    let _ = client.provider_reload().await;
     let value = client
         .list_providers()
         .await

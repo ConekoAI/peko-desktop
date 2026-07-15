@@ -338,6 +338,17 @@ pub async fn credential_list() -> Result<Vec<CredentialRow>, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
+    // Force the runtime to re-read both the catalog and the vault from
+    // disk before listing. The long-running daemon (sidecar or adopted
+    // headless) can otherwise hold a stale in-memory vault if the user
+    // added keys via the CLI after the daemon was started; without this
+    // hop the Settings tab would show "No providers configured yet"
+    // even though `peko credential list` (and `peko credential test`)
+    // both succeed end-to-end. The reload is cheap (small file read +
+    // Argon2id-derivation-cached decrypt) and we ignore the response
+    // — the next `credential_list` IPC will return whatever the
+    // reloaded state has.
+    let _ = client.provider_reload().await;
     let resp = client.credential_list().await.map_err(|e| e.to_string())?;
     let providers = resp
         .get("providers")
