@@ -250,15 +250,17 @@ pub async fn credential_get(provider: String) -> Result<Option<String>, String> 
 /// Store an API key for `provider` in the runtime's keychain-backed
 /// vault.
 ///
-/// Parameter naming matches the JS call sites in `src/lib/api.ts`
-/// (`credentialSet`, `credentialSetRaw`) — both pass `api_key` as the
-/// payload key, so the Tauri command must declare the parameter as
-/// `api_key` rather than the bare `key`. A previous revision used
-/// `key: String` here, which surfaced to the user as
-/// "invalid args `key` for command `credential_set`: command
-/// credential_set missing required key key" — the runtime rejected
-/// the JS payload because the Tauri deserializer expected the
-/// parameter under the name `key`.
+/// Parameter naming: Tauri 2's command macro default-renames Rust
+/// snake_case arg names to JS camelCase for the invoke payload (see
+/// `tauri-macros` `command/wrapper.rs:510`). The Rust param
+/// `api_key: String` therefore surfaces on the JS side as `apiKey` —
+/// the JS call sites (`credentialSet`, `credentialSetRaw` in
+/// `src/lib/api.ts`) must pass the camelCase key, not `api_key`,
+/// otherwise the deserializer rejects the request with
+/// "missing required key apiKey". A prior revision declared
+/// `key: String` and was even worse (the bare `key` did not match
+/// what JS sent); the current `api_key` / `apiKey` pairing is the
+/// one that round-trips.
 #[tauri::command]
 pub async fn credential_set(provider: String, api_key: String) -> Result<(), String> {
     let client = crate::ipc::IpcClient::new()
