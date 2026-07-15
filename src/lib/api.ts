@@ -343,7 +343,13 @@ export async function credentialSet(
   provider: string,
   apiKey: string,
 ): Promise<void> {
-  return invoke("credential_set", { provider, api_key: apiKey });
+  // Tauri 2 default-renames command arg names from Rust snake_case
+  // to JS camelCase for the invoke payload (see `tauri-macros`
+  // `command/wrapper.rs:510`), so the Rust `api_key: String` param
+  // surfaces as `apiKey` on the JS side. Sending `api_key` (snake_case
+  // in the payload) makes the deserializer reject the request with
+  // "missing required key apiKey".
+  return invoke("credential_set", { provider, apiKey });
 }
 
 /**
@@ -356,7 +362,8 @@ export async function credentialSetRaw(
   provider: string,
   rawValue: string,
 ): Promise<void> {
-  return invoke("credential_set", { provider, api_key: rawValue });
+  // Same Tauri camelCase rename as `credentialSet` — see note there.
+  return invoke("credential_set", { provider, apiKey: rawValue });
 }
 
 export async function credentialGetRaw(provider: string): Promise<string | null> {
