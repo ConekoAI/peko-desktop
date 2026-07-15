@@ -15,9 +15,14 @@ type Catalog = Array<{
 }>;
 type Credentials = Array<{ provider: string; hasKey: boolean; lastTested?: string }>;
 
-const catalogSignal: { value: Catalog | undefined; loading: boolean } = {
+const catalogSignal: {
+  value: Catalog | undefined;
+  loading: boolean;
+  isError: boolean;
+} = {
   value: undefined,
   loading: false,
+  isError: false,
 };
 const credentialsSignal: { value: Credentials | undefined; loading: boolean } = {
   value: undefined,
@@ -68,6 +73,7 @@ vi.mock("../hooks/useProviders", () => ({
   useProviders: () => ({
     data: catalogSignal.value,
     isLoading: catalogSignal.loading,
+    isError: catalogSignal.isError,
   }),
   useProviderTemplates: () => ({
     data: templatesSignal.value,
@@ -107,6 +113,7 @@ describe("CredentialsTab (T-109b redesign)", () => {
     catalogSignal.value = undefined;
     credentialsSignal.value = undefined;
     catalogSignal.loading = false;
+    catalogSignal.isError = false;
     credentialsSignal.loading = false;
     // Default to the Credentials tab — Settings defaults to "general".
     localStorage.removeItem("peko.settingsTab");
@@ -208,6 +215,23 @@ describe("CredentialsTab (T-109b redesign)", () => {
     expect(screen.getByTestId("credentials-orphans")).toBeInTheDocument();
     expect(screen.getByTestId("orphan-row-miniax")).toBeInTheDocument();
     expect(screen.queryByTestId("orphan-row-openai")).toBeNull();
+  });
+
+  it("does NOT mark vault keys as orphans when the catalog fetch errored (peko-desktop#44 regression)", () => {
+    // Bug shape: when `provider_list` fails (daemon IPC error / restart),
+    // `useProviders()` returns `data = undefined` and React Query flags
+    // `isError`. The previous code computed `orphanIds` against an
+    // empty catalog, so every real vault key (e.g. `minimax`) was
+    // surfaced as an orphan with the "Clean up with peko credential
+    // delete" copy — a destructive prompt against a working key.
+    catalogSignal.value = undefined;
+    catalogSignal.isError = true;
+    credentialsSignal.value = [{ provider: "minimax", hasKey: true }];
+    renderTab();
+    switchToCredentialsTab();
+    expect(screen.queryByTestId("credentials-orphans")).toBeNull();
+    expect(screen.queryByTestId("orphan-row-minimax")).toBeNull();
+    expect(screen.getByTestId("credentials-catalog-unavailable")).toBeInTheDocument();
   });
 
   it("orphan delete routes through useDeleteCredential", () => {

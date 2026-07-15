@@ -164,7 +164,8 @@ function CredentialsTab() {
   //   • Spot orphan vault keys (vault entry, no catalog match) in a
   //     separate strip below — surfacing the `miniax`-style typos that
   //     the CLI now reports too (T-110 / peko-runtime#190).
-  const { data: providers, isLoading: providersLoading } = useProviders();
+  const { data: providers, isLoading: providersLoading, isError: providersError } =
+    useProviders();
   const { data: credentials, isLoading: credentialsLoading } = useCredentialList();
 
   const credentialByProvider = useMemo(() => {
@@ -196,12 +197,24 @@ function CredentialsTab() {
     return list;
   }, [providers, credentialByProvider]);
 
+  // T-109b hardening: only treat a vault key as an orphan once the
+  // catalog fetch has *succeeded* at least once. If `useProviders()`
+  // is still loading OR errored (e.g. the daemon briefly dropped the
+  // IPC connection), the catalog we have in memory is empty —
+  // declaring every vault entry "orphaned" would mislabel legitimate
+  // providers like `minimax` as typos (this is exactly what peko-desktop#44
+  // surfaced, before the runtime's `SO_SNDBUF` bump fixed the
+  // underlying IPC EMSGSIZE). When the catalog is unavailable we
+  // surface a single "catalog unavailable" banner in the JSX instead
+  // of accusing real providers of being orphans.
+  const catalogAvailable = !providersLoading && !providersError && Array.isArray(providers);
   const orphanIds = useMemo(() => {
+    if (!catalogAvailable) return [];
     const catalogIds = new Set((providers ?? []).map((p) => p.id));
     return (credentials ?? [])
       .filter((c) => c.provider && c.hasKey && !catalogIds.has(c.provider))
       .map((c) => c.provider);
-  }, [providers, credentials]);
+  }, [providers, credentials, catalogAvailable]);
 
   const isLoading = providersLoading || credentialsLoading;
   const hasAnyContent =
@@ -277,7 +290,27 @@ function CredentialsTab() {
         )}
       </div>
 
-      {orphanIds.length > 0 && (
+      {!catalogAvailable && !providersLoading && (
+        <div
+          data-testid="credentials-catalog-unavailable"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20"
+        >
+          <div className="mb-1 flex items-center gap-2">
+            <Info className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+            <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              Provider catalog unavailable
+            </h3>
+          </div>
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Couldn&apos;t load the provider catalog from the daemon, so
+            we can&apos;t tell which vault keys are in use. Check that
+            the daemon is running (<code>peko daemon status</code>) and
+            reload this tab.
+          </p>
+        </div>
+      )}
+
+      {catalogAvailable && orphanIds.length > 0 && (
         <div
           data-testid="credentials-orphans"
           className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20"
