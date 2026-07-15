@@ -189,24 +189,12 @@ function CredentialsTab() {
 
   // Configured rows (catalog entry has a stored key). These reach
   // the primary list panel — the user can edit / test / delete keys
-  // inline.
+  // inline. Unconfigured catalog entries are reachable through the
+  // "Add Provider" picker (the user always adds with a key, so
+  // there's no separate "needs key" surface here).
   const configuredRows = useMemo(() => {
     const list = (providers ?? [])
       .filter((p) => credentialByProvider.get(p.id)?.hasKey);
-    list.sort((a, b) => a.id.localeCompare(b.id));
-    return list;
-  }, [providers, credentialByProvider]);
-
-  // Catalog entries without a stored key render in a separate
-  // "needs API key" panel below. This is what makes the
-  // Add Provider → "where did my new provider go?" flow stop
-  // regressing (T-XXX): after `useAddProvider` invalidates
-  // `["providers"]`, the new entry shows up here with a "No key"
-  // pill, ready for inline key entry, instead of falling into the
-  // empty-state branch.
-  const unconfiguredRows = useMemo(() => {
-    const list = (providers ?? [])
-      .filter((p) => !credentialByProvider.get(p.id)?.hasKey);
     list.sort((a, b) => a.id.localeCompare(b.id));
     return list;
   }, [providers, credentialByProvider]);
@@ -259,16 +247,7 @@ function CredentialsTab() {
   }, [providers, credentials, catalogAvailable]);
 
   const isLoading = providersLoading || credentialsLoading;
-  // hasAnyContent: anything worth rendering — configured rows, an
-  // empty catalog banner below, an unconfigured-row strip, or a real
-  // orphan strip. The empty-state branch fires only when the catalog
-  // is *truly* empty (no providers AND no orphans), so adding a new
-  // provider via the modal no longer drops the user into a stale
-  // "No providers configured yet" view.
-  const hasAnyContent =
-    configuredRows.length > 0 ||
-    unconfiguredRows.length > 0 ||
-    orphanIds.length > 0;
+  const hasAnyContent = configuredRows.length > 0 || orphanIds.length > 0;
 
   return (
     <div className="space-y-4">
@@ -324,7 +303,7 @@ function CredentialsTab() {
           </div>
         )}
 
-        {configuredRows.length > 0 && (
+        {hasAnyContent && (
           // Cap the height at 60vh and let the panel scroll within
           // itself. The earlier `overflow-hidden` made the rows reach
           // off the bottom of the screen for users with several
@@ -337,30 +316,6 @@ function CredentialsTab() {
             className="max-h-[60vh] divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
           >
             {configuredRows.map((p) => (
-              <ProviderRow
-                key={p.id}
-                provider={p}
-                credential={credentialByProvider.get(p.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {unconfiguredRows.length > 0 && (
-          // Catalog entries without a stored key. Rendered below the
-          // configured panel so the user can see a freshly-added
-          // provider immediately after `useAddProvider` invalidates
-          // the catalog — without this strip the empty-state branch
-          // above would fire (no rows in `credentials-rows`) and
-          // hide the new provider until the user manually refreshed.
-          <div
-            data-testid="credentials-needs-key"
-            className="mt-3 max-h-[40vh] divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
-          >
-            <div className="bg-slate-50 px-4 py-2 text-xs font-medium text-slate-600 dark:bg-slate-800/40 dark:text-slate-400">
-              Needs API key
-            </div>
-            {unconfiguredRows.map((p) => (
               <ProviderRow
                 key={p.id}
                 provider={p}
