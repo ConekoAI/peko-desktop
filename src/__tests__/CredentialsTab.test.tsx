@@ -147,11 +147,12 @@ describe("CredentialsTab (T-109b redesign)", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders only configured catalog rows (unconfigured entries are NOT shown — they belong in the Add Provider picker)", () => {
+  it("renders configured rows in the primary panel and unconfigured rows in a 'Needs API key' panel below", () => {
     // Three catalog entries; only `anthropic` has a stored key. The
-    // list should render exactly one row — for `anthropic`. The
-    // unconfigured `openai` and `ollama` entries are reachable
-    // through the "Add Provider" picker, not this screen.
+    // primary panel shows `anthropic`. `openai` and `ollama` (no key
+    // yet) appear in the secondary "Needs API key" panel below — so
+    // the user can see the provider they just added via the Add
+    // Provider modal without manually refreshing the page.
     catalogSignal.value = [
       { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
       { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
@@ -160,11 +161,57 @@ describe("CredentialsTab (T-109b redesign)", () => {
     credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
     renderTab();
     switchToCredentialsTab();
+    // Configured panel: only anthropic.
+    expect(screen.getByTestId("credentials-rows")).toBeInTheDocument();
     expect(screen.getByTestId("provider-row-anthropic")).toBeInTheDocument();
-    expect(screen.queryByTestId("provider-row-openai")).toBeNull();
-    expect(screen.queryByTestId("provider-row-ollama")).toBeNull();
+    // Needs-key panel: openai + ollama.
+    expect(screen.getByTestId("credentials-needs-key")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-row-openai")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-row-ollama")).toBeInTheDocument();
     // "Key set" indicator only on the configured row.
     expect(screen.getAllByText(/Key set/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does NOT show the empty state when the catalog has entries without keys (Add Provider flow)", () => {
+    // Regression: after `useAddProvider` invalidates ["providers"], a
+    // freshly-added provider with no key used to fall into the
+    // `configuredRows=[]` branch and trigger "No providers configured
+    // yet" — the user had to refresh the page to see their new entry.
+    catalogSignal.value = [
+      { id: "fresh-add", displayName: "Freshly Added", apiType: "anthropic", defaultModel: "claude-haiku-4-5", requiresKey: true, isLocal: false },
+    ];
+    credentialsSignal.value = []; // no key yet
+    renderTab();
+    switchToCredentialsTab();
+    expect(screen.queryByTestId("credentials-empty-state")).toBeNull();
+    expect(screen.getByTestId("provider-row-fresh-add")).toBeInTheDocument();
+  });
+
+  it("does NOT flag vault keys as orphans when the catalog refetches empty mid-session (transient refetch race)", () => {
+    // Regression: after `useAddProvider` invalidates ["providers"], the
+    // refetch could return `[]` momentarily while credentials was still
+    // populated. The previous guard treated that as a settled empty
+    // catalog and marked every vault entry as an orphan, surfacing the
+    // destructive "Clean up with peko credential delete" copy against
+    // a working key. The fix tracks a "seen non-empty" ref so a
+    // transient empty refetch doesn't trigger orphan detection.
+    catalogSignal.value = [
+      { id: "minimax", displayName: "MiniMax", apiType: "anthropic", defaultModel: "m", requiresKey: true, isLocal: false },
+    ];
+    credentialsSignal.value = [{ provider: "minimax", hasKey: true }];
+    renderTab();
+    switchToCredentialsTab();
+    // First render — catalog has minimax, configured row renders,
+    // and `hasSeenNonEmpty` flips true via the useEffect.
+    expect(screen.getByTestId("provider-row-minimax")).toBeInTheDocument();
+    // Now simulate the refetch race: catalog transiently empty.
+    catalogSignal.value = [];
+    // Re-render with the transient empty. orphanIds must NOT fire.
+    // The empty state would otherwise fire too — that's an acceptable
+    // brief flicker during the refetch; what we MUST NOT show is
+    // the destructive orphan prompt against the working key.
+    expect(screen.queryByTestId("credentials-orphans")).toBeNull();
+    expect(screen.queryByTestId("orphan-row-minimax")).toBeNull();
   });
 
   it("configured local providers render a row but hide the API key input", () => {
