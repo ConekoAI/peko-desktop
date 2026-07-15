@@ -54,7 +54,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         system::system_status,
         system::system_doctor,
         system::system_clean,
-        system::system_logs,
         runtime::runtime_list,
         runtime::runtime_add,
         runtime::runtime_remove,

@@ -15,7 +15,6 @@ import { Route as RegistryRouteImport } from './routes/registry'
 import { Route as ExtensionsRouteImport } from './routes/extensions'
 import { Route as EventBusRouteImport } from './routes/event-bus'
 import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as DaemonLogsRouteImport } from './routes/daemon-logs'
 import { Route as CronRouteImport } from './routes/cron'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
@@ -52,11 +51,6 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DaemonLogsRoute = DaemonLogsRouteImport.update({
-  id: '/daemon-logs',
-  path: '/daemon-logs',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CronRoute = CronRouteImport.update({
   id: '/cron',
   path: '/cron',
@@ -87,7 +81,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
-  '/daemon-logs': typeof DaemonLogsRoute
   '/dashboard': typeof DashboardRoute
   '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
@@ -101,7 +94,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
-  '/daemon-logs': typeof DaemonLogsRoute
   '/dashboard': typeof DashboardRoute
   '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
@@ -116,7 +108,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
-  '/daemon-logs': typeof DaemonLogsRoute
   '/dashboard': typeof DashboardRoute
   '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
@@ -132,7 +123,6 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/cron'
-    | '/daemon-logs'
     | '/dashboard'
     | '/event-bus'
     | '/extensions'
@@ -146,7 +136,6 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/cron'
-    | '/daemon-logs'
     | '/dashboard'
     | '/event-bus'
     | '/extensions'
@@ -160,7 +149,6 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/cron'
-    | '/daemon-logs'
     | '/dashboard'
     | '/event-bus'
     | '/extensions'
@@ -175,7 +163,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRouteWithChildren
   CronRoute: typeof CronRoute
-  DaemonLogsRoute: typeof DaemonLogsRoute
   DashboardRoute: typeof DashboardRoute
   EventBusRoute: typeof EventBusRoute
   ExtensionsRoute: typeof ExtensionsRoute
@@ -227,13 +214,6 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/daemon-logs': {
-      id: '/daemon-logs'
-      path: '/daemon-logs'
-      fullPath: '/daemon-logs'
-      preLoaderRoute: typeof DaemonLogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cron': {
@@ -288,7 +268,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRouteWithChildren,
   CronRoute: CronRoute,
-  DaemonLogsRoute: DaemonLogsRoute,
   DashboardRoute: DashboardRoute,
   EventBusRoute: EventBusRoute,
   ExtensionsRoute: ExtensionsRoute,

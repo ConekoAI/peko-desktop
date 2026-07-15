@@ -8,7 +8,6 @@ import {
   Puzzle,
   Plus,
   Globe,
-  FileText,
 } from "lucide-react";
 
 function StatCard({
@@ -95,13 +94,6 @@ export default function Dashboard() {
           >
             <Globe className="h-4 w-4" />
             Browse Registry
-          </Link>
-          <Link
-            to="/daemon-logs"
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <FileText className="h-4 w-4" />
-            Daemon Log
           </Link>
         </div>
       </div>

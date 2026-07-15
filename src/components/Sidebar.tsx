@@ -5,7 +5,6 @@ import {
   Globe,
   Clock,
   Radio,
-  FileText,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
@@ -18,7 +17,6 @@ const navItems = [
   { to: "/shared", label: "Shared", icon: Users },
   { to: "/cron", label: "Cron", icon: Clock },
   { to: "/event-bus", label: "Event Bus", icon: Radio },
-  { to: "/daemon-logs", label: "Daemon Log", icon: FileText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

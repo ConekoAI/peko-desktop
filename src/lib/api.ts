@@ -395,10 +395,6 @@ export async function systemDoctor(runtimeId?: string): Promise<DoctorReport> {
   return invoke("system_doctor", { runtime_id: runtimeId });
 }
 
-export async function systemLogs(lines?: number): Promise<string[]> {
-  return invoke("system_logs", { lines });
-}
-
 // ─── Accessible Principals ──────────────────────────────────
 
 export async function accessiblePrincipalsList(): Promise<AccessiblePrincipal[]> {
