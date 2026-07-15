@@ -147,12 +147,11 @@ describe("CredentialsTab (T-109b redesign)", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders configured rows in the primary panel and unconfigured rows in a 'Needs API key' panel below", () => {
+  it("renders only configured catalog rows (unconfigured entries are NOT shown — they belong in the Add Provider picker)", () => {
     // Three catalog entries; only `anthropic` has a stored key. The
-    // primary panel shows `anthropic`. `openai` and `ollama` (no key
-    // yet) appear in the secondary "Needs API key" panel below — so
-    // the user can see the provider they just added via the Add
-    // Provider modal without manually refreshing the page.
+    // list renders exactly one row — for `anthropic`. The unconfigured
+    // `openai` and `ollama` entries are reachable through the "Add
+    // Provider" picker, not this screen.
     catalogSignal.value = [
       { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
       { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
@@ -161,30 +160,12 @@ describe("CredentialsTab (T-109b redesign)", () => {
     credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
     renderTab();
     switchToCredentialsTab();
-    // Configured panel: only anthropic.
     expect(screen.getByTestId("credentials-rows")).toBeInTheDocument();
     expect(screen.getByTestId("provider-row-anthropic")).toBeInTheDocument();
-    // Needs-key panel: openai + ollama.
-    expect(screen.getByTestId("credentials-needs-key")).toBeInTheDocument();
-    expect(screen.getByTestId("provider-row-openai")).toBeInTheDocument();
-    expect(screen.getByTestId("provider-row-ollama")).toBeInTheDocument();
+    expect(screen.queryByTestId("provider-row-openai")).toBeNull();
+    expect(screen.queryByTestId("provider-row-ollama")).toBeNull();
     // "Key set" indicator only on the configured row.
     expect(screen.getAllByText(/Key set/i).length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("does NOT show the empty state when the catalog has entries without keys (Add Provider flow)", () => {
-    // Regression: after `useAddProvider` invalidates ["providers"], a
-    // freshly-added provider with no key used to fall into the
-    // `configuredRows=[]` branch and trigger "No providers configured
-    // yet" — the user had to refresh the page to see their new entry.
-    catalogSignal.value = [
-      { id: "fresh-add", displayName: "Freshly Added", apiType: "anthropic", defaultModel: "claude-haiku-4-5", requiresKey: true, isLocal: false },
-    ];
-    credentialsSignal.value = []; // no key yet
-    renderTab();
-    switchToCredentialsTab();
-    expect(screen.queryByTestId("credentials-empty-state")).toBeNull();
-    expect(screen.getByTestId("provider-row-fresh-add")).toBeInTheDocument();
   });
 
   it("does NOT flag vault keys as orphans when the catalog refetches empty mid-session (transient refetch race)", () => {
