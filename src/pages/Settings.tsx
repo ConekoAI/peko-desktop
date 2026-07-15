@@ -113,7 +113,16 @@ function GeneralTab() {
       {/* Other settings */}
       <div className="space-y-4">
         {settings
-          ?.filter((s) => !["app.data_dir"].includes(s.key))
+          // Hide operator-only keys from the user-facing surface.
+          //   • `app.data_dir` lives in the dedicated Data Directory
+          //     panel above (read-only display).
+          //   • `daemon.autostart` is owned by the sidecar supervisor
+          //     lifecycle (ADR-043) — there is no user-meaningful
+          //     toggle for it; the runtime doesn't even read it.
+          //     Surfacing it as a generic "Other settings" row let
+          //     the user toggle a no-op and looked like a broken
+          //     setting.
+          ?.filter((s) => !["app.data_dir", "daemon.autostart"].includes(s.key))
           .map((s) => (
             <div
               key={s.key}
