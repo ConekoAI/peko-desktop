@@ -29,6 +29,11 @@ const deleteMut = vi.fn();
 const testMut = vi.fn();
 const addMut = vi.fn();
 const refetchTemplates = vi.fn();
+const testMutSignal: {
+  data: { success: boolean; message: string; latencyMs: number; httpStatus: number | null; modelUsed: string | null } | undefined;
+  isPending: boolean;
+  variables: string | undefined;
+} = { data: undefined, isPending: false, variables: undefined };
 const templatesSignal: {
   value: Array<{ id: string; displayName: string; apiType: string; baseUrl: string; requiresKey: boolean; defaultModel: string; models: unknown[] }>;
   loading: boolean;
@@ -56,9 +61,9 @@ vi.mock("../hooks/useSettings", () => ({
   }),
   useTestCredential: () => ({
     mutate: testMut,
-    isPending: false,
-    data: undefined,
-    variables: undefined,
+    isPending: testMutSignal.isPending,
+    data: testMutSignal.data,
+    variables: testMutSignal.variables,
   }),
   useSettings: () => ({ data: [] }),
   useSetSetting: () => ({ mutate: vi.fn() }),
@@ -101,6 +106,9 @@ describe("CredentialsTab (T-109b redesign)", () => {
     testMut.mockReset();
     addMut.mockReset();
     refetchTemplates.mockReset();
+    testMutSignal.data = undefined;
+    testMutSignal.isPending = false;
+    testMutSignal.variables = undefined;
     templatesSignal.value = [];
     templatesSignal.loading = false;
     templatesSignal.error = null;
@@ -226,5 +234,93 @@ describe("CredentialsTab (T-109b redesign)", () => {
     switchToCredentialsTab();
     fireEvent.click(screen.getByTestId("open-add-provider-modal"));
     expect(screen.getByText("Add a Provider")).toBeInTheDocument();
+  });
+
+  // ─── credential test rendering (peko-desktop follow-up to peko-runtime #193) ───
+
+  it("shows the result line with latency after a successful test", () => {
+    catalogSignal.value = [
+      { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
+    ];
+    credentialsSignal.value = [{ provider: "openai", hasKey: true }];
+    testMutSignal.data = {
+      success: true,
+      message: "Connection successful (124 models)",
+      latencyMs: 187,
+      httpStatus: 200,
+      modelUsed: null,
+    };
+    testMutSignal.variables = "openai";
+    renderTab();
+    switchToCredentialsTab();
+    const result = screen.getByTestId("credential-test-result-openai");
+    expect(result.textContent).toContain("Connected");
+    expect(result.textContent).toContain("187ms");
+    expect(result.textContent).not.toContain("via ");
+  });
+
+  it("shows the via-model line for an Anthropic-format success", () => {
+    catalogSignal.value = [
+      { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
+    ];
+    credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
+    testMutSignal.data = {
+      success: true,
+      message: "Connection successful (1 token billed via claude-haiku-4-5)",
+      latencyMs: 312,
+      httpStatus: 200,
+      modelUsed: "claude-haiku-4-5",
+    };
+    testMutSignal.variables = "anthropic";
+    renderTab();
+    switchToCredentialsTab();
+    const result = screen.getByTestId("credential-test-result-anthropic");
+    expect(result.textContent).toContain("Connected");
+    expect(result.textContent).toContain("via claude-haiku-4-5");
+    expect(result.textContent).toContain("312ms");
+    expect(result.textContent).toContain("~1 token billed");
+  });
+
+  it("shows the HTTP status and latency after a failed test", () => {
+    catalogSignal.value = [
+      { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
+    ];
+    credentialsSignal.value = [{ provider: "openai", hasKey: true }];
+    testMutSignal.data = {
+      success: false,
+      message: "HTTP 401: invalid api key",
+      latencyMs: 124,
+      httpStatus: 401,
+      modelUsed: null,
+    };
+    testMutSignal.variables = "openai";
+    renderTab();
+    switchToCredentialsTab();
+    const result = screen.getByTestId("credential-test-result-openai");
+    expect(result.textContent).toContain("✗");
+    expect(result.textContent).toContain("HTTP 401");
+    expect(result.textContent).toContain("invalid api key");
+    expect(result.textContent).toContain("124ms");
+  });
+
+  it("shows the spinner (Loader2) while the test is pending and the variables match this row", () => {
+    catalogSignal.value = [
+      { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
+    ];
+    credentialsSignal.value = [{ provider: "openai", hasKey: true }];
+    testMutSignal.isPending = true;
+    testMutSignal.variables = "openai";
+    renderTab();
+    switchToCredentialsTab();
+    // While pending, the Test button's icon swaps from TestTube to
+    // Loader2 with the animate-spin class. The animate-spin lives
+    // on the icon, not the button — walk one element down.
+    const btn = screen.getByTestId("test-key-openai");
+    const spinner = btn.querySelector(".animate-spin");
+    expect(spinner).not.toBeNull();
+    // The result line must NOT render before the test settles.
+    expect(
+      screen.queryByTestId("credential-test-result-openai"),
+    ).toBeNull();
   });
 });

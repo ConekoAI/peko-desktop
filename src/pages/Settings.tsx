@@ -438,7 +438,11 @@ function ProviderRow({
               data-testid={`test-key-${provider.id}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
-              <TestTube className="h-3 w-3" />
+              {testCred.isPending && testCred.variables === provider.id ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <TestTube className="h-3 w-3" />
+              )}
               Test
             </button>
           )}
@@ -464,6 +468,7 @@ function ProviderRow({
 
       {testCred.data && testCred.variables === provider.id && (
         <p
+          data-testid={`credential-test-result-${provider.id}`}
           className={[
             "mt-1.5 text-[11px]",
             testCred.data.success
@@ -471,9 +476,21 @@ function ProviderRow({
               : "text-red-600 dark:text-red-400",
           ].join(" ")}
         >
-          {testCred.data.success
-            ? "✓ Connection successful"
-            : `✗ ${testCred.data.message ?? "Connection failed"}`}
+          {testCred.data.success ? (
+            <>
+              ✓ Connected
+              {testCred.data.modelUsed
+                ? ` via ${testCred.data.modelUsed} (${testCred.data.latencyMs}ms, ~1 token billed)`
+                : ` (${testCred.data.latencyMs}ms)`}
+            </>
+          ) : (
+            <>
+              ✗ {testCred.data.message || "Connection failed"}
+              {testCred.data.httpStatus !== null
+                ? ` (HTTP ${testCred.data.httpStatus}, ${testCred.data.latencyMs}ms)`
+                : ` (${testCred.data.latencyMs}ms)`}
+            </>
+          )}
         </p>
       )}
 
