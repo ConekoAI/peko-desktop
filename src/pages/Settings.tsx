@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   useSettings,
   useSetSetting,
@@ -187,10 +187,9 @@ function CredentialsTab() {
   // / `--custom` surface (per-memory `cli-catalog-vs-vault-disagreement`).
   const [showAddProvider, setShowAddProvider] = useState(false);
 
-  // Only configured rows reach this tab. Unconfigured catalog
-  // entries show up in the "Add Provider" picker, not here. Catalog
-  // matches join with `credential.hasKey === true`; vault-orphans
-  // (no catalog match) render in a separate strip below.
+  // Configured rows (catalog entry has a stored key). These reach
+  // the primary list panel — the user can edit / test / delete keys
+  // inline.
   const configuredRows = useMemo(() => {
     const list = (providers ?? [])
       .filter((p) => credentialByProvider.get(p.id)?.hasKey);
@@ -198,28 +197,78 @@ function CredentialsTab() {
     return list;
   }, [providers, credentialByProvider]);
 
-  // T-109b hardening: only treat a vault key as an orphan once the
-  // catalog fetch has *succeeded* at least once. If `useProviders()`
-  // is still loading OR errored (e.g. the daemon briefly dropped the
-  // IPC connection), the catalog we have in memory is empty —
-  // declaring every vault entry "orphaned" would mislabel legitimate
-  // providers like `minimax` as typos (this is exactly what peko-desktop#44
-  // surfaced, before the runtime's `SO_SNDBUF` bump fixed the
-  // underlying IPC EMSGSIZE). When the catalog is unavailable we
-  // surface a single "catalog unavailable" banner in the JSX instead
-  // of accusing real providers of being orphans.
-  const catalogAvailable = !providersLoading && !providersError && Array.isArray(providers);
+  // Catalog entries without a stored key render in a separate
+  // "needs API key" panel below. This is what makes the
+  // Add Provider → "where did my new provider go?" flow stop
+  // regressing (T-XXX): after `useAddProvider` invalidates
+  // `["providers"]`, the new entry shows up here with a "No key"
+  // pill, ready for inline key entry, instead of falling into the
+  // empty-state branch.
+  const unconfiguredRows = useMemo(() => {
+    const list = (providers ?? [])
+      .filter((p) => !credentialByProvider.get(p.id)?.hasKey);
+    list.sort((a, b) => a.id.localeCompare(b.id));
+    return list;
+  }, [providers, credentialByProvider]);
+
+  // T-109b hardening: only treat a vault key as an orphan once we
+  // have reason to trust the catalog snapshot. The previous guard
+  // (`!providersLoading && !providersError && Array.isArray(providers)`)
+  // returned `true` for an empty-but-settled catalog — which during
+  // the invalidation window after `useAddProvider` could briefly
+  // show every real vault entry as an orphan, with a destructive
+  // "Clean up with peko credential delete" prompt against a working
+  // key. Track the "catalog was observed non-empty at least once
+  // during this session" flag in a ref so we can distinguish:
+  //
+  //   • transient empty (refetch race right after a mutation) → skip
+  //     orphan detection; the catalog will repopulate on the next
+  //     render.
+  //   • genuine empty (user really has no providers in the catalog)
+  //     → flag every vault entry as orphan so the user can clean up.
+  //
+  // When the catalog fetch errored (peko-desktop#44) we surface a
+  // single "catalog unavailable" banner instead.
+  const hasSeenNonEmptyCatalogRef = useRef(false);
+  useEffect(() => {
+    if (Array.isArray(providers) && providers.length > 0) {
+      hasSeenNonEmptyCatalogRef.current = true;
+    }
+  }, [providers]);
+  const catalogAvailable =
+    !providersLoading && !providersError && Array.isArray(providers);
   const orphanIds = useMemo(() => {
     if (!catalogAvailable) return [];
-    const catalogIds = new Set((providers ?? []).map((p) => p.id));
+    if ((providers?.length ?? 0) > 0) {
+      // Catalog has settled with entries — flag vault entries that
+      // don't match any catalog id.
+      const catalogIds = new Set((providers ?? []).map((p) => p.id));
+      return (credentials ?? [])
+        .filter((c) => c.provider && c.hasKey && !catalogIds.has(c.provider))
+        .map((c) => c.provider);
+    }
+    // Catalog is settled empty. Two cases:
+    //   • transient refetch race after `useAddProvider` (or a CLI
+    //     mutation): if we've ever observed the catalog non-empty
+    //     in this session, the current `[]` is suspect — skip.
+    //   • genuinely empty: every vault entry is an orphan.
+    if (hasSeenNonEmptyCatalogRef.current) return [];
     return (credentials ?? [])
-      .filter((c) => c.provider && c.hasKey && !catalogIds.has(c.provider))
+      .filter((c) => c.provider && c.hasKey)
       .map((c) => c.provider);
   }, [providers, credentials, catalogAvailable]);
 
   const isLoading = providersLoading || credentialsLoading;
+  // hasAnyContent: anything worth rendering — configured rows, an
+  // empty catalog banner below, an unconfigured-row strip, or a real
+  // orphan strip. The empty-state branch fires only when the catalog
+  // is *truly* empty (no providers AND no orphans), so adding a new
+  // provider via the modal no longer drops the user into a stale
+  // "No providers configured yet" view.
   const hasAnyContent =
-    configuredRows.length > 0 || orphanIds.length > 0;
+    configuredRows.length > 0 ||
+    unconfiguredRows.length > 0 ||
+    orphanIds.length > 0;
 
   return (
     <div className="space-y-4">
@@ -275,7 +324,7 @@ function CredentialsTab() {
           </div>
         )}
 
-        {hasAnyContent && (
+        {configuredRows.length > 0 && (
           // Cap the height at 60vh and let the panel scroll within
           // itself. The earlier `overflow-hidden` made the rows reach
           // off the bottom of the screen for users with several
@@ -288,6 +337,30 @@ function CredentialsTab() {
             className="max-h-[60vh] divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
           >
             {configuredRows.map((p) => (
+              <ProviderRow
+                key={p.id}
+                provider={p}
+                credential={credentialByProvider.get(p.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {unconfiguredRows.length > 0 && (
+          // Catalog entries without a stored key. Rendered below the
+          // configured panel so the user can see a freshly-added
+          // provider immediately after `useAddProvider` invalidates
+          // the catalog — without this strip the empty-state branch
+          // above would fire (no rows in `credentials-rows`) and
+          // hide the new provider until the user manually refreshed.
+          <div
+            data-testid="credentials-needs-key"
+            className="mt-3 max-h-[40vh] divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
+          >
+            <div className="bg-slate-50 px-4 py-2 text-xs font-medium text-slate-600 dark:bg-slate-800/40 dark:text-slate-400">
+              Needs API key
+            </div>
+            {unconfiguredRows.map((p) => (
               <ProviderRow
                 key={p.id}
                 provider={p}
