@@ -33,14 +33,28 @@ export function useProviderTemplates() {
 // (currently static, but cheap to keep in sync in case it ever goes
 // dynamic), and `["credentials"]` so a supplied `key` paints the
 // green "Key set" pill immediately.
+//
+// We *await* the refetches (rather than fire-and-forget) so the
+// mutation's `onSuccess` doesn't resolve until the new provider is
+// actually visible in the cache. Without this, `useMutation`'s
+// `onSuccess` callback chain (including the modal's `onClose`) runs
+// before the background refetch completes, and the configured-rows
+// filter keeps showing its pre-add state — the user would see "No
+// providers configured yet" until they manually refreshed the tab.
+// Awaiting the refetches closes the modal only after the new entry
+// is in the React Query cache.
 export function useAddProvider() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (args: ProviderAddArgs) => providerAdd(args),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["providers"] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["providers"] }),
+        qc.refetchQueries({ queryKey: ["credentials"] }),
+      ]);
+      // Templates is static today, so a fire-and-forget invalidate is
+      // fine — it's here for the day the templates list goes dynamic.
       qc.invalidateQueries({ queryKey: ["provider-templates"] });
-      qc.invalidateQueries({ queryKey: ["credentials"] });
     },
   });
 }
