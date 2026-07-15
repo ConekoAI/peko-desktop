@@ -271,17 +271,52 @@ pub async fn credential_delete(provider: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Live-credential-test result projected to the frontend.
+///
+/// Mirrors the daemon's `ResponsePacket::CredentialTested` so the
+/// Settings → Credentials panel can render latency + reason
+/// without re-parsing strings. `success` is the boolean the UI
+/// branches on; the rest are diagnostics for the result line.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialTestResult {
+    pub success: bool,
+    pub message: String,
+    pub latency_ms: u32,
+    pub http_status: Option<u16>,
+    pub model_used: Option<String>,
+}
+
 #[tauri::command]
-pub async fn credential_test(provider: String) -> Result<bool, String> {
-    // Cheap format-only check via the runtime's secret store.
+pub async fn credential_test(provider: String) -> Result<CredentialTestResult, String> {
+    // Real API round-trip via the runtime's `credential_test` IPC
+    // (peko-runtime PR #193). The old `credential_get` + shape
+    // check couldn't tell `sk-opena-12345` from a real key —
+    // this pings the provider's actual API URL.
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
     let resp = client
-        .credential_get(&provider)
+        .credential_test(&provider)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(resp.get("key").and_then(|v| v.as_str()).is_some())
+    Ok(CredentialTestResult {
+        success: resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+        message: resp
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        latency_ms: resp.get("latency_ms").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+        http_status: resp
+            .get("http_status")
+            .and_then(|v| v.as_u64())
+            .map(|n| n as u16),
+        model_used: resp
+            .get("model_used")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+    })
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]

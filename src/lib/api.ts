@@ -367,10 +367,17 @@ export async function credentialDelete(provider: string): Promise<void> {
   return invoke("credential_delete", { provider });
 }
 
-export async function credentialTest(provider: string): Promise<{
+export type CredentialTestResult = {
   success: boolean;
-  message?: string;
-}> {
+  message: string;
+  latencyMs: number;
+  httpStatus: number | null;
+  modelUsed: string | null;
+};
+
+export async function credentialTest(
+  provider: string,
+): Promise<CredentialTestResult> {
   return invoke("credential_test", { provider });
 }
 

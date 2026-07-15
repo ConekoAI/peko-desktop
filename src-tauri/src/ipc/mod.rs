@@ -466,6 +466,25 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Live-ping the provider's real API with the stored key (or
+    /// no key for local providers like Ollama) and return the
+    /// structured outcome (`{ok, message, latency_ms, http_status,
+    /// model_used, tested_at}`). Replaces the old `credential_get`-
+    /// then-shape-check path that couldn't tell `sk-opena-12345`
+    /// from a real key. Powers the desktop's Test button — the
+    /// CLI's `peko credential test` uses the same IPC seam. See
+    /// `peko-runtime` PR #193 (`providers::validator::Validator`).
+    pub async fn credential_test(&self, provider: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "credential_test",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "provider": provider,
+        });
+        self.request_response(req).await
+    }
+
     /// Set a credential via the runtime. The desktop should *not* hold
     /// the secret beyond the IPC call.
     pub async fn credential_set(&self, provider: &str, api_key: &str) -> Result<serde_json::Value> {
