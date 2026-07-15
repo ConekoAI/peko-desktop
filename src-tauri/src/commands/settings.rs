@@ -301,19 +301,13 @@ pub async fn credential_test(provider: String) -> Result<CredentialTestResult, S
         .await
         .map_err(|e| e.to_string())?;
     Ok(CredentialTestResult {
-        success: resp
-            .get("ok")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
+        success: resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
         message: resp
             .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
-        latency_ms: resp
-            .get("latency_ms")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32,
+        latency_ms: resp.get("latency_ms").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
         http_status: resp
             .get("http_status")
             .and_then(|v| v.as_u64())
