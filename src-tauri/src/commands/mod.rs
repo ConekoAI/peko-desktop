@@ -56,7 +56,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         settings::credential_get_material,
         settings::credential_set_generic,
         settings::credential_delete_by_id,
-        settings::credential_test_by_id,
         settings::credential_list_generic,
         system::system_status,
         system::system_doctor,

@@ -6,7 +6,6 @@ import {
   credentialListGeneric,
   credentialSetGeneric,
   credentialDeleteById,
-  credentialTestById,
   credentialGetMaterial,
 } from "../lib/api";
 
@@ -69,19 +68,6 @@ export function useDeleteCredentialById() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["credentials"] });
       qc.invalidateQueries({ queryKey: ["credential"] });
-    },
-  });
-}
-
-export function useTestCredentialById() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => credentialTestById(id),
-    onSuccess: () => {
-      // A successful test updates the credential's lastTestedAt /
-      // lastTestedOk fields, so refresh the list so the row shows the
-      // new state without requiring a tab reload.
-      qc.invalidateQueries({ queryKey: ["credentials"] });
     },
   });
 }

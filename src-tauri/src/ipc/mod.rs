@@ -145,7 +145,7 @@ async fn ensure_daemon() -> Result<()> {
 /// under any per-socket memory budget on a developer workstation.
 /// Failures here are non-fatal: we drop the warning and the socket
 /// keeps whatever the kernel gave us (often still enough for small
-/// responses like `credential_test`).
+/// responses like `credential_get`).
 #[cfg(unix)]
 fn bump_recv_buffer<S: std::os::fd::AsRawFd>(socket: &S) {
     const IPC_RECV_BUFFER_BYTES: usize = 256 * 1024;
@@ -554,19 +554,6 @@ impl IpcClient {
             "request_id": 1u64,
             "id": id,
             "reason": reason,
-        });
-        self.request_response(req).await
-    }
-
-    /// Live-ping a credential by id and return the structured outcome
-    /// (`{id, ok, message, latency_ms, http_status, model_used, tested_at}`).
-    pub async fn credential_test(&self, id: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "credential_test",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "id": id,
         });
         self.request_response(req).await
     }

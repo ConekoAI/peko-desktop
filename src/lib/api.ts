@@ -395,20 +395,6 @@ export async function credentialDeleteById(id: string): Promise<void> {
   return invoke("credential_delete_by_id", { id });
 }
 
-export type CredentialTestResult = {
-  success: boolean;
-  message: string;
-  latencyMs: number;
-  httpStatus: number | null;
-  modelUsed: string | null;
-};
-
-export async function credentialTestById(
-  id: string,
-): Promise<CredentialTestResult> {
-  return invoke<CredentialTestResult>("credential_test_by_id", { id });
-}
-
 export async function credentialListGeneric(
   namespace?: string,
   kind?: string,

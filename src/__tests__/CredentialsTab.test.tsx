@@ -24,7 +24,6 @@ const modelsSignal: {
 
 const setGenericCredentialMut = vi.fn();
 const deleteCredentialByIdMut = vi.fn();
-const testCredentialByIdMut = vi.fn();
 const credentialMaterialSignal: { value: string | undefined; loading: boolean } = {
   value: undefined,
   loading: false,
@@ -48,12 +47,6 @@ vi.mock("../hooks/useSettings", () => ({
   useDeleteCredentialById: () => ({
     mutate: deleteCredentialByIdMut,
     isPending: false,
-  }),
-  useTestCredentialById: () => ({
-    mutate: testCredentialByIdMut,
-    isPending: false,
-    data: undefined,
-    variables: undefined,
   }),
   useCredentialMaterial: () => ({
     data: credentialMaterialSignal.value,
@@ -158,18 +151,6 @@ describe("Settings → Credentials & Models tabs", () => {
   beforeEach(() => {
     setGenericCredentialMut.mockReset();
     deleteCredentialByIdMut.mockReset();
-    testCredentialByIdMut.mockReset();
-    testCredentialByIdMut.mockImplementation(
-      (_id: string, options?: { onSuccess?: (result: unknown) => void }) => {
-        options?.onSuccess?.({
-          success: true,
-          message: "ok",
-          latencyMs: 120,
-          httpStatus: 200,
-          modelUsed: "gpt-4o",
-        });
-      },
-    );
     updateModelMut.mockReset();
     removeModelMut.mockReset();
     testModelMut.mockReset();
@@ -264,18 +245,7 @@ describe("Settings → Credentials & Models tabs", () => {
       expect(deleteCredentialByIdMut).toHaveBeenCalledWith("cred-1");
     });
 
-    it("tests a credential via useTestCredentialById and shows success feedback", () => {
-      credentialsSignal.value = [
-        { id: "cred-1", namespace: "llm", name: "openai", kind: "api_key", hasKey: true },
-      ];
-      renderSettings();
-      switchTab(/credentials/i);
-      const row = screen.getByTestId("credential-row-cred-1");
-      fireEvent.click(within(row).getByText("Test"));
-      expect(testCredentialByIdMut).toHaveBeenCalledWith("cred-1", expect.any(Object));
-      expect(within(row).getByText(/Test passed · gpt-4o/)).toBeInTheDocument();
     });
-  });
 
   describe("Models tab", () => {
     it("renders the empty state when there are no models", () => {
