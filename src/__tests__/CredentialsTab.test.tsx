@@ -1,22 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ProviderInfo, CredentialDetail, RotationBinding } from "../types";
 
-// Mutable signals: the tab reads catalog + vault from these hooks.
-// Capturing the last mutate call lets each test assert exactly what
-// the row would have sent over IPC.
-type Catalog = Array<{
-  id: string;
-  displayName: string;
-  apiType: string;
-  defaultModel: string;
-  requiresKey: boolean;
-  isLocal: boolean;
-}>;
-type Credentials = Array<{ provider: string; hasKey: boolean; lastTested?: string }>;
-
+// Mutable signals for the hooks the tab consumes.
 const catalogSignal: {
-  value: Catalog | undefined;
+  value: ProviderInfo[] | undefined;
   loading: boolean;
   isError: boolean;
 } = {
@@ -24,54 +13,70 @@ const catalogSignal: {
   loading: false,
   isError: false,
 };
-const credentialsSignal: { value: Credentials | undefined; loading: boolean } = {
+const credentialsSignal: {
+  value: CredentialDetail[] | undefined;
+  loading: boolean;
+} = {
+  value: undefined,
+  loading: false,
+};
+const bindingSignal: {
+  value: RotationBinding | undefined;
+  loading: boolean;
+} = {
   value: undefined,
   loading: false,
 };
 
-const setMut = vi.fn();
-const deleteMut = vi.fn();
-const testMut = vi.fn();
-const addMut = vi.fn();
+const updateProviderMut = vi.fn();
+const removeProviderMut = vi.fn();
+const setDefaultProviderMut = vi.fn();
+const addProviderMut = vi.fn();
 const refetchTemplates = vi.fn();
-const testMutSignal: {
-  data: { success: boolean; message: string; latencyMs: number; httpStatus: number | null; modelUsed: string | null } | undefined;
-  isPending: boolean;
-  variables: string | undefined;
-} = { data: undefined, isPending: false, variables: undefined };
-const templatesSignal: {
-  value: Array<{ id: string; displayName: string; apiType: string; baseUrl: string; requiresKey: boolean; defaultModel: string; models: unknown[] }>;
-  loading: boolean;
-  error: Error | null;
-} = { value: [], loading: false, error: null };
+
+const setGenericCredentialMut = vi.fn();
+const deleteCredentialByIdMut = vi.fn();
+const testCredentialByIdMut = vi.fn();
+const credentialMaterialSignal: { value: string | undefined; loading: boolean } = {
+  value: undefined,
+  loading: false,
+};
+
+const setBindingMut = vi.fn();
+const deleteBindingMut = vi.fn();
+const testBindingRotationMut = vi.fn();
 
 vi.mock("../hooks/useSettings", () => ({
-  useCredentialList: () => ({
+  useSettings: () => ({ data: [] }),
+  useSetSetting: () => ({ mutate: vi.fn() }),
+  useCredential: (provider: string) => ({
+    data: provider
+      ? (credentialsSignal.value ?? []).find((c) => c.namespace === `provider:${provider}`) ?? null
+      : null,
+  }),
+  useDeleteCredential: () => ({ mutate: vi.fn(), isPending: false }),
+  useGenericCredentialList: () => ({
     data: credentialsSignal.value,
     isLoading: credentialsSignal.loading,
   }),
-  useCredential: (provider: string) => ({
-    data: provider
-      ? (credentialsSignal.value ?? []).find((c) => c.provider === provider) ?? null
-      : null,
-  }),
-  useSetCredential: () => ({
-    mutate: setMut,
-    isPending: false,
-    error: null,
-  }),
-  useDeleteCredential: () => ({
-    mutate: deleteMut,
+  useSetGenericCredential: () => ({
+    mutate: setGenericCredentialMut,
     isPending: false,
   }),
-  useTestCredential: () => ({
-    mutate: testMut,
-    isPending: testMutSignal.isPending,
-    data: testMutSignal.data,
-    variables: testMutSignal.variables,
+  useDeleteCredentialById: () => ({
+    mutate: deleteCredentialByIdMut,
+    isPending: false,
   }),
-  useSettings: () => ({ data: [] }),
-  useSetSetting: () => ({ mutate: vi.fn() }),
+  useTestCredentialById: () => ({
+    mutate: testCredentialByIdMut,
+    isPending: false,
+    data: undefined,
+    variables: undefined,
+  }),
+  useCredentialMaterial: () => ({
+    data: credentialMaterialSignal.value,
+    isLoading: credentialMaterialSignal.loading,
+  }),
 }));
 
 vi.mock("../hooks/useProviders", () => ({
@@ -80,18 +85,61 @@ vi.mock("../hooks/useProviders", () => ({
     isLoading: catalogSignal.loading,
     isError: catalogSignal.isError,
   }),
-  useProviderTemplates: () => ({
-    data: templatesSignal.value,
-    isLoading: templatesSignal.loading,
-    error: templatesSignal.error,
-    refetch: refetchTemplates,
+  useUpdateProvider: () => ({
+    mutate: updateProviderMut,
+    isPending: false,
+    error: null,
+  }),
+  useRemoveProvider: () => ({
+    mutate: removeProviderMut,
+    isPending: false,
+  }),
+  useSetDefaultProvider: () => ({
+    mutate: setDefaultProviderMut,
+    isPending: false,
   }),
   useAddProvider: () => ({
-    mutate: addMut,
+    mutate: addProviderMut,
     isPending: false,
     error: null,
     reset: vi.fn(),
   }),
+  useProviderTemplates: () => ({
+    data: [],
+    isLoading: false,
+    error: null,
+    refetch: refetchTemplates,
+  }),
+}));
+
+vi.mock("../hooks/useBindings", () => ({
+  useBinding: () => ({
+    data: bindingSignal.value,
+    isLoading: bindingSignal.loading,
+  }),
+  useSetBinding: () => ({
+    mutate: setBindingMut,
+    isPending: false,
+  }),
+  useDeleteBinding: () => ({
+    mutate: deleteBindingMut,
+    isPending: false,
+  }),
+  useTestBindingRotation: () => ({
+    mutate: testBindingRotationMut,
+    isPending: false,
+    data: undefined,
+  }),
+}));
+
+vi.mock("../components/modals/AddProviderModal", () => ({
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="add-provider-modal">Add a Provider</div> : null,
+}));
+
+vi.mock("../components/modals/EditProviderModal", () => ({
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="edit-provider-modal">Edit Provider</div> : null,
 }));
 
 import Settings from "../pages/Settings";
@@ -105,175 +153,248 @@ function renderTab() {
   );
 }
 
-describe("CredentialsTab (T-109b redesign)", () => {
+function switchToCredentialsTab() {
+  const buttons = screen.getAllByRole("button");
+  const credentialsBtn = buttons.find((b) => /credentials/i.test(b.textContent ?? ""));
+  if (credentialsBtn) fireEvent.click(credentialsBtn);
+}
+
+function providerFixture(overrides?: Partial<ProviderInfo>): ProviderInfo {
+  return {
+    id: "openai",
+    displayName: "OpenAI",
+    apiType: "openai",
+    defaultModel: "gpt-4o",
+    requiresKey: true,
+    isLocal: false,
+    baseUrl: "https://api.openai.com",
+    enabled: true,
+    models: [],
+    headers: {},
+    ...overrides,
+  };
+}
+
+describe("CredentialsTab (RP6 accordion redesign)", () => {
   beforeEach(() => {
-    setMut.mockReset();
-    deleteMut.mockReset();
-    testMut.mockReset();
-    addMut.mockReset();
+    updateProviderMut.mockReset();
+    removeProviderMut.mockReset();
+    setDefaultProviderMut.mockReset();
+    addProviderMut.mockReset();
     refetchTemplates.mockReset();
-    testMutSignal.data = undefined;
-    testMutSignal.isPending = false;
-    testMutSignal.variables = undefined;
-    templatesSignal.value = [];
-    templatesSignal.loading = false;
-    templatesSignal.error = null;
+    setGenericCredentialMut.mockReset();
+    deleteCredentialByIdMut.mockReset();
+    testCredentialByIdMut.mockReset();
+    testBindingRotationMut.mockReset();
+    setBindingMut.mockReset();
+    deleteBindingMut.mockReset();
+
     catalogSignal.value = undefined;
-    credentialsSignal.value = undefined;
     catalogSignal.loading = false;
     catalogSignal.isError = false;
+    credentialsSignal.value = undefined;
     credentialsSignal.loading = false;
-    // Default to the Credentials tab — Settings defaults to "general".
-    localStorage.removeItem("peko.settingsTab");
+    bindingSignal.value = undefined;
+    bindingSignal.loading = false;
+    credentialMaterialSignal.value = undefined;
+    credentialMaterialSignal.loading = false;
   });
 
-  function switchToCredentialsTab() {
-    // The Settings page exposes tab buttons. Click the "Credentials" one.
-    const buttons = screen.getAllByRole("button");
-    const credentialsBtn = buttons.find((b) =>
-      /credentials/i.test(b.textContent ?? ""),
-    );
-    if (credentialsBtn) fireEvent.click(credentialsBtn);
-  }
-
-  it("renders the empty state with the Add button when there are no providers and no credentials", () => {
+  it("renders the empty state when there are no providers", () => {
     catalogSignal.value = [];
     credentialsSignal.value = [];
     renderTab();
     switchToCredentialsTab();
     expect(screen.getByTestId("credentials-empty-state")).toBeInTheDocument();
-    expect(
-      screen.getByText(/No providers configured yet/i),
-    ).toBeInTheDocument();
   });
 
-  it("renders only configured catalog rows (unconfigured entries are NOT shown — they belong in the Add Provider picker)", () => {
-    // Three catalog entries; only `anthropic` has a stored key. The
-    // list renders exactly one row — for `anthropic`. The unconfigured
-    // `openai` and `ollama` entries are reachable through the "Add
-    // Provider" picker, not this screen.
+  it("renders ALL catalog providers, not only configured ones", () => {
     catalogSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
-      { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
-      { id: "ollama", displayName: "Ollama", apiType: "openai", defaultModel: "llama-3.1", requiresKey: false, isLocal: true },
+      providerFixture({ id: "openai", displayName: "OpenAI" }),
+      providerFixture({ id: "anthropic", displayName: "Anthropic", apiType: "anthropic" }),
     ];
-    credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
+    credentialsSignal.value = [];
     renderTab();
     switchToCredentialsTab();
     expect(screen.getByTestId("credentials-rows")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-row-openai")).toBeInTheDocument();
     expect(screen.getByTestId("provider-row-anthropic")).toBeInTheDocument();
-    expect(screen.queryByTestId("provider-row-openai")).toBeNull();
-    expect(screen.queryByTestId("provider-row-ollama")).toBeNull();
-    // "Key set" indicator only on the configured row.
-    expect(screen.getAllByText(/Key set/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("does NOT flag vault keys as orphans when the catalog refetches empty mid-session (transient refetch race)", () => {
-    // Regression: after `useAddProvider` invalidates ["providers"], the
-    // refetch could return `[]` momentarily while credentials was still
-    // populated. The previous guard treated that as a settled empty
-    // catalog and marked every vault entry as an orphan, surfacing the
-    // destructive "Clean up with peko credential delete" copy against
-    // a working key. The fix tracks a "seen non-empty" ref so a
-    // transient empty refetch doesn't trigger orphan detection.
-    catalogSignal.value = [
-      { id: "minimax", displayName: "MiniMax", apiType: "anthropic", defaultModel: "m", requiresKey: true, isLocal: false },
-    ];
-    credentialsSignal.value = [{ provider: "minimax", hasKey: true }];
+  it("toggles enabled via useUpdateProvider", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
     renderTab();
     switchToCredentialsTab();
-    // First render — catalog has minimax, configured row renders,
-    // and `hasSeenNonEmpty` flips true via the useEffect.
-    expect(screen.getByTestId("provider-row-minimax")).toBeInTheDocument();
-    // Now simulate the refetch race: catalog transiently empty.
-    catalogSignal.value = [];
-    // Re-render with the transient empty. orphanIds must NOT fire.
-    // The empty state would otherwise fire too — that's an acceptable
-    // brief flicker during the refetch; what we MUST NOT show is
-    // the destructive orphan prompt against the working key.
-    expect(screen.queryByTestId("credentials-orphans")).toBeNull();
-    expect(screen.queryByTestId("orphan-row-minimax")).toBeNull();
+    const checkbox = screen.getByRole("checkbox", { name: /enabled/i });
+    fireEvent.click(checkbox);
+    expect(updateProviderMut).toHaveBeenCalledWith({ id: "openai", enabled: false });
   });
 
-  it("configured local providers render a row but hide the API key input", () => {
-    // Ollama is local and doesn't take a key. When it's already
-    // configured (vault has `hasKey` flag) it shows as a row in the
-    // list, but the row never renders the password input.
-    catalogSignal.value = [
-      { id: "ollama", displayName: "Ollama", apiType: "openai", defaultModel: "llama-3.1", requiresKey: false, isLocal: true },
-    ];
-    credentialsSignal.value = [{ provider: "ollama", hasKey: true }];
+  it("sets a provider as default via useSetDefaultProvider", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
     renderTab();
     switchToCredentialsTab();
-    expect(screen.getByTestId("provider-row-ollama")).toBeInTheDocument();
-    expect(screen.queryByTestId("api-key-input-ollama")).toBeNull();
+    const star = screen.getByTitle("Set as default");
+    fireEvent.click(star);
+    expect(setDefaultProviderMut).toHaveBeenCalledWith({ provider: "openai" });
   });
 
-  it("updating an existing key calls useSetCredential.mutate", () => {
-    // Only configured rows render. Updating a key on an existing
-    // row flows through `useSetCredential.mutate`. (Adding the first
-    // key for an unconfigured provider goes through the Add Provider
-    // modal — that's a different code path.)
-    catalogSignal.value = [
-      { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
-    ];
-    credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
+  it("removes a provider via useRemoveProvider after confirm", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
     renderTab();
     switchToCredentialsTab();
-    const input = screen.getByTestId("api-key-input-anthropic");
-    fireEvent.change(input, { target: { value: "sk-test-key" } });
-    fireEvent.click(screen.getByTestId("save-key-anthropic"));
-    expect(setMut).toHaveBeenCalledTimes(1);
-    const [args] = setMut.mock.calls[0] as [{ provider: string; apiKey: string }];
-    expect(args).toEqual({ provider: "anthropic", apiKey: "sk-test-key" });
+    fireEvent.click(screen.getByTitle("Remove"));
+    expect(removeProviderMut).toHaveBeenCalledWith("openai");
   });
 
-  it("the credential rows panel scrolls internally when many providers are configured (no off-screen overflow)", () => {
-    // Six configured providers — for a user with a heavy catalog,
-    // this would otherwise push the orphan banner and tab bar off
-    // the bottom of the screen. Cap the height and let the panel
-    // scroll inside itself.
-    catalogSignal.value = Array.from({ length: 6 }).map((_, i) => ({
-      id: `p${i}`,
-      displayName: `Provider ${i}`,
-      apiType: "openai",
-      defaultModel: "m",
-      requiresKey: true,
-      isLocal: false,
-    }));
-    credentialsSignal.value = Array.from({ length: 6 }).map((_, i) => ({
-      provider: `p${i}`,
-      hasKey: true,
-    }));
+  it("opens the Edit Provider modal", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
     renderTab();
     switchToCredentialsTab();
-    const rows = screen.getByTestId("credentials-rows");
-    expect(rows.className).toContain("overflow-y-auto");
-    expect(rows.className).toContain("max-h-");
+    fireEvent.click(screen.getByTitle("Edit"));
+    expect(screen.getByTestId("edit-provider-modal")).toBeInTheDocument();
   });
 
-  it("configured row shows Test and Delete buttons; clicking them calls the matching mutation", () => {
-    catalogSignal.value = [
-      { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
-    ];
-    credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
+  it("expands a provider to show credentials, add-key form, and binding panel", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
     renderTab();
     switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("test-key-anthropic"));
-    expect(testMut).toHaveBeenCalledWith("anthropic");
-    fireEvent.click(screen.getByTestId("delete-key-anthropic"));
-    // `useDeleteCredential` is invoked as mutate(provider, { onSuccess })
-    // from ProviderRow (we want a transient "Removed" indicator).
-    expect(deleteMut.mock.calls[0][0]).toBe("anthropic");
+    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+    expect(screen.getByRole("heading", { name: /Keys/i })).toBeInTheDocument();
+    expect(screen.getByTestId("add-credential-form")).toBeInTheDocument();
+    expect(screen.getByTestId("rotation-binding-panel")).toBeInTheDocument();
   });
 
-  it("renders the orphan strip when the vault has keys for providers that are NOT in the catalog", () => {
-    catalogSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
-    ];
+  it("lists stored credentials in the expanded body", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
     credentialsSignal.value = [
-      { provider: "openai", hasKey: true },
-      { provider: "miniax", hasKey: true },
+      {
+        id: "cred-1",
+        namespace: "provider:openai",
+        name: "primary",
+        kind: "api_key",
+        hasKey: true,
+        lastTestedAt: "2026-07-16T00:00:00Z",
+        lastTestedOk: true,
+      },
+    ];
+    renderTab();
+    switchToCredentialsTab();
+    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+    const row = screen.getByTestId("credential-row-cred-1");
+    expect(within(row).getByText("primary")).toBeInTheDocument();
+    expect(within(row).getByText("api_key")).toBeInTheDocument();
+  });
+
+  it("deletes a credential via useDeleteCredentialById", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [
+      { id: "cred-1", namespace: "provider:openai", name: "primary", kind: "api_key", hasKey: true },
+    ];
+    renderTab();
+    switchToCredentialsTab();
+    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+    const row = screen.getByTestId("credential-row-cred-1");
+    fireEvent.click(within(row).getByText("Delete"));
+    expect(deleteCredentialByIdMut).toHaveBeenCalledWith("cred-1");
+  });
+
+  it("tests a credential via useTestCredentialById", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [
+      { id: "cred-1", namespace: "provider:openai", name: "primary", kind: "api_key", hasKey: true },
+    ];
+    renderTab();
+    switchToCredentialsTab();
+    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+    const row = screen.getByTestId("credential-row-cred-1");
+    fireEvent.click(within(row).getByText("Test"));
+    expect(testCredentialByIdMut).toHaveBeenCalledWith("cred-1");
+  });
+
+  it("adds a credential via useSetGenericCredential", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
+    renderTab();
+    switchToCredentialsTab();
+    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+
+    const form = screen.getByTestId("add-credential-form");
+    const inputs = form.querySelectorAll("input");
+    fireEvent.change(inputs[0], { target: { value: "work" } });
+    fireEvent.change(inputs[1], { target: { value: "sk-secret" } });
+    fireEvent.click(form.querySelector("button[type=submit]")!);
+
+    expect(setGenericCredentialMut).toHaveBeenCalledWith(
+      expect.objectContaining({
+        namespace: "provider:openai",
+        name: "work",
+        kind: "api_key",
+        material: "sk-secret",
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("saves a rotation binding via useSetBinding", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
+    renderTab();
+    switchToCredentialsTab();
+    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+
+    const panel = screen.getByTestId("rotation-binding-panel");
+    const input = within(panel).getByPlaceholderText(/Credential ids/i);
+    fireEvent.change(input, { target: { value: "cred-1, cred-2" } });
+    fireEvent.click(within(panel).getByText("Save binding"));
+
+    expect(setBindingMut).toHaveBeenCalledWith({
+      key: "provider:openai:default",
+      strategy: "round_robin",
+      order: ["cred-1", "cred-2"],
+    });
+  });
+
+  it("deletes an existing rotation binding via useDeleteBinding", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
+    bindingSignal.value = {
+      key: "provider:openai:default",
+      strategy: "round_robin",
+      order: ["cred-1"],
+    };
+    renderTab();
+    switchToCredentialsTab();
+    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+
+    const panel = screen.getByTestId("rotation-binding-panel");
+    fireEvent.click(within(panel).getByText("Delete"));
+    expect(deleteBindingMut).toHaveBeenCalledWith("provider:openai:default");
+  });
+
+  it("tests a rotation binding via useTestBindingRotation", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [];
+    renderTab();
+    switchToCredentialsTab();
+    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+
+    const panel = screen.getByTestId("rotation-binding-panel");
+    fireEvent.click(within(panel).getByText("Test rotation"));
+    expect(testBindingRotationMut).toHaveBeenCalledWith("provider:openai:default");
+  });
+
+  it("renders orphaned vault keys when no matching catalog provider exists", () => {
+    catalogSignal.value = [providerFixture({ id: "openai" })];
+    credentialsSignal.value = [
+      { id: "cred-1", namespace: "provider:openai", name: "ok", kind: "api_key", hasKey: true },
+      { id: "cred-2", namespace: "provider:miniax", name: "typo", kind: "api_key", hasKey: true },
     ];
     renderTab();
     switchToCredentialsTab();
@@ -282,126 +403,24 @@ describe("CredentialsTab (T-109b redesign)", () => {
     expect(screen.queryByTestId("orphan-row-openai")).toBeNull();
   });
 
-  it("does NOT mark vault keys as orphans when the catalog fetch errored (peko-desktop#44 regression)", () => {
-    // Bug shape: when `provider_list` fails (daemon IPC error / restart),
-    // `useProviders()` returns `data = undefined` and React Query flags
-    // `isError`. The previous code computed `orphanIds` against an
-    // empty catalog, so every real vault key (e.g. `minimax`) was
-    // surfaced as an orphan with the "Clean up with peko credential
-    // delete" copy — a destructive prompt against a working key.
+  it("does NOT flag orphans while the catalog fetch is in error", () => {
     catalogSignal.value = undefined;
     catalogSignal.isError = true;
-    credentialsSignal.value = [{ provider: "minimax", hasKey: true }];
+    credentialsSignal.value = [
+      { id: "cred-1", namespace: "provider:miniax", name: "typo", kind: "api_key", hasKey: true },
+    ];
     renderTab();
     switchToCredentialsTab();
     expect(screen.queryByTestId("credentials-orphans")).toBeNull();
-    expect(screen.queryByTestId("orphan-row-minimax")).toBeNull();
     expect(screen.getByTestId("credentials-catalog-unavailable")).toBeInTheDocument();
   });
 
-  it("orphan delete routes through useDeleteCredential", () => {
-    catalogSignal.value = [];
-    credentialsSignal.value = [{ provider: "miniax", hasKey: true }];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("orphan-row-miniax").querySelector("button")!);
-    expect(deleteMut).toHaveBeenCalledWith("miniax");
-  });
-
-  it("opens the Add Provider modal when the header button is clicked", () => {
+  it("opens the Add Provider modal from the header button", () => {
     catalogSignal.value = [];
     credentialsSignal.value = [];
     renderTab();
     switchToCredentialsTab();
     fireEvent.click(screen.getByTestId("open-add-provider-modal"));
-    expect(screen.getByText("Add a Provider")).toBeInTheDocument();
-  });
-
-  // ─── credential test rendering (peko-desktop follow-up to peko-runtime #193) ───
-
-  it("shows the result line with latency after a successful test", () => {
-    catalogSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
-    ];
-    credentialsSignal.value = [{ provider: "openai", hasKey: true }];
-    testMutSignal.data = {
-      success: true,
-      message: "Connection successful (124 models)",
-      latencyMs: 187,
-      httpStatus: 200,
-      modelUsed: null,
-    };
-    testMutSignal.variables = "openai";
-    renderTab();
-    switchToCredentialsTab();
-    const result = screen.getByTestId("credential-test-result-openai");
-    expect(result.textContent).toContain("Connected");
-    expect(result.textContent).toContain("187ms");
-    expect(result.textContent).not.toContain("via ");
-  });
-
-  it("shows the via-model line for an Anthropic-format success", () => {
-    catalogSignal.value = [
-      { id: "anthropic", displayName: "Anthropic", apiType: "anthropic", defaultModel: "claude-opus-4-7", requiresKey: true, isLocal: false },
-    ];
-    credentialsSignal.value = [{ provider: "anthropic", hasKey: true }];
-    testMutSignal.data = {
-      success: true,
-      message: "Connection successful (1 token billed via claude-haiku-4-5)",
-      latencyMs: 312,
-      httpStatus: 200,
-      modelUsed: "claude-haiku-4-5",
-    };
-    testMutSignal.variables = "anthropic";
-    renderTab();
-    switchToCredentialsTab();
-    const result = screen.getByTestId("credential-test-result-anthropic");
-    expect(result.textContent).toContain("Connected");
-    expect(result.textContent).toContain("via claude-haiku-4-5");
-    expect(result.textContent).toContain("312ms");
-    expect(result.textContent).toContain("~1 token billed");
-  });
-
-  it("shows the HTTP status and latency after a failed test", () => {
-    catalogSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
-    ];
-    credentialsSignal.value = [{ provider: "openai", hasKey: true }];
-    testMutSignal.data = {
-      success: false,
-      message: "HTTP 401: invalid api key",
-      latencyMs: 124,
-      httpStatus: 401,
-      modelUsed: null,
-    };
-    testMutSignal.variables = "openai";
-    renderTab();
-    switchToCredentialsTab();
-    const result = screen.getByTestId("credential-test-result-openai");
-    expect(result.textContent).toContain("✗");
-    expect(result.textContent).toContain("HTTP 401");
-    expect(result.textContent).toContain("invalid api key");
-    expect(result.textContent).toContain("124ms");
-  });
-
-  it("shows the spinner (Loader2) while the test is pending and the variables match this row", () => {
-    catalogSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiType: "openai", defaultModel: "gpt-5", requiresKey: true, isLocal: false },
-    ];
-    credentialsSignal.value = [{ provider: "openai", hasKey: true }];
-    testMutSignal.isPending = true;
-    testMutSignal.variables = "openai";
-    renderTab();
-    switchToCredentialsTab();
-    // While pending, the Test button's icon swaps from TestTube to
-    // Loader2 with the animate-spin class. The animate-spin lives
-    // on the icon, not the button — walk one element down.
-    const btn = screen.getByTestId("test-key-openai");
-    const spinner = btn.querySelector(".animate-spin");
-    expect(spinner).not.toBeNull();
-    // The result line must NOT render before the test settles.
-    expect(
-      screen.queryByTestId("credential-test-result-openai"),
-    ).toBeNull();
+    expect(screen.getByTestId("add-provider-modal")).toBeInTheDocument();
   });
 });

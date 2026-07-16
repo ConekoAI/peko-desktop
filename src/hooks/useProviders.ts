@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { principalProviderList, providerAdd, providerTemplates } from "../lib/api";
-import type { ProviderAddArgs, ProviderTemplate } from "../types";
+import {
+  principalProviderList,
+  providerAdd,
+  providerRemove,
+  providerSetDefault,
+  providerTemplates,
+  providerUpdate,
+} from "../lib/api";
+import type { ProviderAddArgs, ProviderUpdateArgs } from "../types";
 
 /**
  * Provider catalog hook. The catalog lives under
@@ -20,7 +27,7 @@ export function useProviders(runtimeId?: string) {
 // (compiled into the sidecar binary via `BUILT_IN_TEMPLATES`) so we
 // keep them around for 5 minutes — they don't change at runtime.
 export function useProviderTemplates() {
-  return useQuery<ProviderTemplate[]>({
+  return useQuery({
     queryKey: ["provider-templates"],
     queryFn: () => providerTemplates(),
     staleTime: 5 * 60_000,
@@ -55,6 +62,48 @@ export function useAddProvider() {
       // Templates is static today, so a fire-and-forget invalidate is
       // fine — it's here for the day the templates list goes dynamic.
       qc.invalidateQueries({ queryKey: ["provider-templates"] });
+    },
+  });
+}
+
+// RP6: update an existing provider catalog entry. On success we refetch
+// the catalog so the list and any open edit modal see the merged
+// result immediately.
+export function useUpdateProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: ProviderUpdateArgs) => providerUpdate(args),
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["providers"] });
+    },
+  });
+}
+
+// RP6: remove a provider from the runtime catalog. On success we
+// refetch the catalog and the credentials list (orphaned keys may
+// change state).
+export function useRemoveProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => providerRemove(id),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ["providers"] }),
+        qc.refetchQueries({ queryKey: ["credentials"] }),
+      ]);
+    },
+  });
+}
+
+// RP6: promote a provider+model to the runtime default. On success we
+// refetch the catalog so the UI can render the default star.
+export function useSetDefaultProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ provider, model }: { provider: string; model?: string }) =>
+      providerSetDefault(provider, model),
+    onSuccess: async () => {
+      await qc.refetchQueries({ queryKey: ["providers"] });
     },
   });
 }

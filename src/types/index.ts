@@ -194,6 +194,14 @@ export interface StreamEvent {
   timestamp?: string;
 }
 
+export interface ModelInfo {
+  id: string;
+  displayName?: string;
+  contextLength?: number;
+  maxOutputTokens?: number;
+  capabilities?: string[];
+}
+
 export interface ProviderInfo {
   id: string;
   displayName: string;
@@ -201,6 +209,30 @@ export interface ProviderInfo {
   defaultModel: string;
   requiresKey: boolean;
   isLocal: boolean;
+  /** Base URL configured for this provider. Empty for providers where the user must supply a deployment URL. */
+  baseUrl: string;
+  /** Catalog `enabled` flag. Disabled entries still appear in the list. */
+  enabled: boolean;
+  /** Declared models for this provider. */
+  models: ModelInfo[];
+  /** Optional extra HTTP headers (e.g. `OpenAI-Organization`). */
+  headers: Record<string, string>;
+  /** True if this entry is the runtime's current default provider. */
+  isDefault?: boolean;
+}
+
+// RP6: Arguments for `provider_update`. Every field except `id` is optional;
+// omitted fields leave the existing catalog entry untouched.
+export interface ProviderUpdateArgs {
+  id: string;
+  displayName?: string;
+  baseUrl?: string;
+  apiFormat?: string;
+  models?: ModelInfo[];
+  defaultModelId?: string;
+  headers?: Record<string, string>;
+  requiresKey?: boolean;
+  enabled?: boolean;
 }
 
 export interface Setting {

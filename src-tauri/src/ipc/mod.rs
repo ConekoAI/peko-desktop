@@ -740,6 +740,52 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// RP6: Update an existing provider catalog entry. Mirrors
+    /// `peko provider edit` / `RequestPacket::ProviderUpdate`.
+    /// The `args` payload is forwarded in the snake_case shape the
+    /// runtime expects.
+    pub async fn provider_update(&self, args: serde_json::Value) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "provider_update",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "args": args,
+        });
+        self.request_response(req).await
+    }
+
+    /// RP6: Remove a provider from the runtime catalog. Mirrors
+    /// `RequestPacket::ProviderRemove { id }`.
+    pub async fn provider_remove(&self, id: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "provider_remove",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "id": id,
+        });
+        self.request_response(req).await
+    }
+
+    /// RP6: Promote a provider (and optionally a model) to the runtime
+    /// default. Mirrors `RequestPacket::ProviderSetDefault`.
+    pub async fn provider_set_default(
+        &self,
+        provider: &str,
+        model: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "provider_set_default",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "provider": provider,
+            "model": model,
+        });
+        self.request_response(req).await
+    }
+
     // ── Principal operations (ADR-041) ───────────────────────────────
 
     /// Send a Principal message via the streaming IPC path. The

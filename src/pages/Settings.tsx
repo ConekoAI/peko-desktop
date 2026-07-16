@@ -1,18 +1,22 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   useSettings,
   useSetSetting,
   useCredential,
-  useCredentialList,
-  useSetCredential,
   useDeleteCredential,
-  useTestCredential,
+  useGenericCredentialList,
+  useSetGenericCredential,
+  useDeleteCredentialById,
+  useTestCredentialById,
+  useCredentialMaterial,
 } from "../hooks/useSettings";
 import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime, useOAuthConnect, startOAuthConnect } from "../hooks/useRuntimes";
-import { useProviders } from "../hooks/useProviders";
+import { useProviders, useUpdateProvider, useRemoveProvider, useSetDefaultProvider } from "../hooks/useProviders";
+import { useBinding, useSetBinding, useDeleteBinding, useTestBindingRotation } from "../hooks/useBindings";
 import { getTheme, setTheme } from "../lib/theme";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddProviderModal from "../components/modals/AddProviderModal";
+import EditProviderModal from "../components/modals/EditProviderModal";
 import {
   Save,
   Key,
@@ -34,8 +38,13 @@ import {
   Edit3,
   LogIn,
   ExternalLink,
+  Star,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
 } from "lucide-react";
-import type { RuntimeConnection } from "../types";
+import type { RuntimeConnection, ProviderInfo, CredentialDetail, RotationBinding, CredentialKind } from "../types";
 
 type Tab = "general" | "credentials" | "runtimes" | "about";
 
@@ -156,107 +165,49 @@ function GeneralTab() {
   );
 }
 function CredentialsTab() {
-  // T-109b redesign: one row per *configured* provider (catalog entry
-  // ∩ vault hasKey) with full edit / test / remove controls inline.
-  //
-  // Unconfigured catalog entries are intentionally NOT shown here —
-  // adding a new provider is the job of the "Add provider" picker
-  // (Add Provider modal), which lists every available template.
-  // Rendering "No key" rows for every OpenAI / Anthropic / Ollama
-  // catalog entry would dump the whole provider zoo on this screen
-  // and overlap with the picker's affordance (and overflow the panel
-  // — see the scroll fix below).
-  //
-  // Each row owns its own API-key input and action buttons, so the
-  // user can:
-  //   • Update / test / remove a configured key directly on its row.
-  //   • Spot orphan vault keys (vault entry, no catalog match) in a
-  //     separate strip below — surfacing the `miniax`-style typos that
-  //     the CLI now reports too (T-110 / peko-runtime#190).
-  //   • When zero keys are configured, see a single "No providers
-  //     configured yet" empty state with a CTA into the Add Provider
-  //     picker (no noisy "No key" pills).
+  // RP6 redesign: accordion of all catalog providers. Each provider
+  // can hold multiple generic credentials under namespace
+  // `provider:<id>` and one rotation binding at
+  // `provider:<id>:default`. Catalog-level actions (edit / remove /
+  // set-default / enabled) live in the card header; credential and
+  // binding management lives in the expandable body.
   const { data: providers, isLoading: providersLoading, isError: providersError } =
     useProviders();
-  const { data: credentials, isLoading: credentialsLoading } = useCredentialList();
+  const { data: allCreds, isLoading: credsLoading } = useGenericCredentialList();
 
-  const credentialByProvider = useMemo(() => {
-    const map = new Map<string, { hasKey: boolean; lastTested?: string }>();
-    for (const c of credentials ?? []) {
-      if (c.provider) {
-        map.set(c.provider, { hasKey: c.hasKey, lastTested: c.lastTested });
-      }
+  const credsByNamespace = useMemo(() => {
+    const map = new Map<string, CredentialDetail[]>();
+    for (const c of allCreds ?? []) {
+      const list = map.get(c.namespace) ?? [];
+      list.push(c);
+      map.set(c.namespace, list);
     }
     return map;
-  }, [credentials]);
+  }, [allCreds]);
 
-  // T-109b: "+ Add provider" opens the modal that drives the
-  // runtime's `provider_templates` + `provider_add` IPC. Keeps the
-  // desktop in sync with the CLI's `peko provider add --template`
-  // / `--custom` surface (per-memory `cli-catalog-vs-vault-disagreement`).
-  const [showAddProvider, setShowAddProvider] = useState(false);
-
-  // Configured rows (catalog entry has a stored key). These reach
-  // the primary list panel — the user can edit / test / delete keys
-  // inline. Unconfigured catalog entries are reachable through the
-  // "Add Provider" picker (the user always adds with a key, so
-  // there's no separate "needs key" surface here).
-  const configuredRows = useMemo(() => {
-    const list = (providers ?? [])
-      .filter((p) => credentialByProvider.get(p.id)?.hasKey);
-    list.sort((a, b) => a.id.localeCompare(b.id));
-    return list;
-  }, [providers, credentialByProvider]);
-
-  // T-109b hardening: only treat a vault key as an orphan once we
-  // have reason to trust the catalog snapshot. The previous guard
-  // (`!providersLoading && !providersError && Array.isArray(providers)`)
-  // returned `true` for an empty-but-settled catalog — which during
-  // the invalidation window after `useAddProvider` could briefly
-  // show every real vault entry as an orphan, with a destructive
-  // "Clean up with peko credential delete" prompt against a working
-  // key. Track the "catalog was observed non-empty at least once
-  // during this session" flag in a ref so we can distinguish:
-  //
-  //   • transient empty (refetch race right after a mutation) → skip
-  //     orphan detection; the catalog will repopulate on the next
-  //     render.
-  //   • genuine empty (user really has no providers in the catalog)
-  //     → flag every vault entry as orphan so the user can clean up.
-  //
-  // When the catalog fetch errored (peko-desktop#44) we surface a
-  // single "catalog unavailable" banner instead.
-  const hasSeenNonEmptyCatalogRef = useRef(false);
-  useEffect(() => {
-    if (Array.isArray(providers) && providers.length > 0) {
-      hasSeenNonEmptyCatalogRef.current = true;
-    }
-  }, [providers]);
   const catalogAvailable =
     !providersLoading && !providersError && Array.isArray(providers);
+  const catalogIds = useMemo(
+    () => new Set((providers ?? []).map((p) => p.id)),
+    [providers],
+  );
   const orphanIds = useMemo(() => {
     if (!catalogAvailable) return [];
-    if ((providers?.length ?? 0) > 0) {
-      // Catalog has settled with entries — flag vault entries that
-      // don't match any catalog id.
-      const catalogIds = new Set((providers ?? []).map((p) => p.id));
-      return (credentials ?? [])
-        .filter((c) => c.provider && c.hasKey && !catalogIds.has(c.provider))
-        .map((c) => c.provider);
+    const out: string[] = [];
+    for (const c of allCreds ?? []) {
+      if (!c.namespace.startsWith("provider:")) continue;
+      const id = c.namespace.slice("provider:".length);
+      if (!catalogIds.has(id) && !out.includes(id)) {
+        out.push(id);
+      }
     }
-    // Catalog is settled empty. Two cases:
-    //   • transient refetch race after `useAddProvider` (or a CLI
-    //     mutation): if we've ever observed the catalog non-empty
-    //     in this session, the current `[]` is suspect — skip.
-    //   • genuinely empty: every vault entry is an orphan.
-    if (hasSeenNonEmptyCatalogRef.current) return [];
-    return (credentials ?? [])
-      .filter((c) => c.provider && c.hasKey)
-      .map((c) => c.provider);
-  }, [providers, credentials, catalogAvailable]);
+    return out.sort();
+  }, [allCreds, catalogAvailable, catalogIds]);
 
-  const isLoading = providersLoading || credentialsLoading;
-  const hasAnyContent = configuredRows.length > 0 || orphanIds.length > 0;
+  const isLoading = providersLoading || credsLoading;
+  const hasAnyContent = (providers?.length ?? 0) > 0 || orphanIds.length > 0;
+
+  const [showAddProvider, setShowAddProvider] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -267,9 +218,8 @@ function CredentialsTab() {
               Provider Credentials
             </h3>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Manage API keys for each provider. Keys are stored in the OS
-              keychain by the runtime — the desktop never holds the secret
-              beyond the save call.
+              Manage API keys, rotation bindings, and provider catalog
+              entries. Keys are stored in the OS keychain by the runtime.
             </p>
           </div>
           <button
@@ -298,9 +248,8 @@ function CredentialsTab() {
               No providers configured yet
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Add a provider to start chatting. Built-in templates
-              (Anthropic, OpenAI, Ollama, …) and fully custom endpoints
-              are both supported.
+              Add a provider to start chatting. Built-in templates and
+              custom endpoints are both supported.
             </p>
             <button
               onClick={() => setShowAddProvider(true)}
@@ -312,23 +261,16 @@ function CredentialsTab() {
           </div>
         )}
 
-        {hasAnyContent && (
-          // Cap the height at 60vh and let the panel scroll within
-          // itself. The earlier `overflow-hidden` made the rows reach
-          // off the bottom of the screen for users with several
-          // configured providers — there was no inner scrollbar, so
-          // the orphan banner / tab bar got pushed off-screen. The
-          // outer rounded border stays sharp; the inner dividers are
-          // preserved because we scroll inside the container.
+        {catalogAvailable && (providers?.length ?? 0) > 0 && (
           <div
             data-testid="credentials-rows"
             className="max-h-[60vh] divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
           >
-            {configuredRows.map((p) => (
-              <ProviderRow
+            {(providers ?? []).map((p) => (
+              <ProviderCard
                 key={p.id}
                 provider={p}
-                credential={credentialByProvider.get(p.id)}
+                credentials={credsByNamespace.get(`provider:${p.id}`) ?? []}
               />
             ))}
           </div>
@@ -383,83 +325,67 @@ function CredentialsTab() {
       <AddProviderModal
         open={showAddProvider}
         onClose={() => setShowAddProvider(false)}
-        onSuccess={(id) => {
-          // The new provider appears in the catalog via React Query
-          // invalidation; nothing else to wire here.
-          void id;
-        }}
+        onSuccess={() => {}}
       />
     </div>
   );
 }
 
 /**
- * One row per catalog provider — name, status, inline API-key input,
- * and Test / Save / Delete buttons. The row is self-contained: there
- * is no parent "selected" state to keep in sync, so the user can
- * edit multiple providers without losing input on another.
+ * Accordion card for one catalog provider. Header shows identity,
+ * enabled toggle, default-provider star, edit/remove actions, and an
+ * expand chevron. Body shows stored credentials, an add-credential
+ * form, and the default rotation binding editor.
  */
-function ProviderRow({
+function ProviderCard({
   provider,
-  credential,
+  credentials,
 }: {
-  provider: {
-    id: string;
-    displayName: string;
-    apiType: string;
-    defaultModel: string;
-    requiresKey: boolean;
-    isLocal: boolean;
-  };
-  credential?: { hasKey: boolean; lastTested?: string };
+  provider: ProviderInfo;
+  credentials: CredentialDetail[];
 }) {
-  const [apiKey, setApiKey] = useState("");
-  const setCred = useSetCredential();
-  const deleteCred = useDeleteCredential();
-  const testCred = useTestCredential();
+  const [expanded, setExpanded] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const updateProvider = useUpdateProvider();
+  const removeProvider = useRemoveProvider();
+  const setDefault = useSetDefaultProvider();
 
-  // Track which mutation just succeeded for *this* row so we can show
-  // a transient confirmation without other rows' mutations stomping
-  // on it.
-  const [justSaved, setJustSaved] = useState(false);
-  const [justDeleted, setJustDeleted] = useState(false);
+  const hasKey = credentials.some((c) => c.hasKey);
+  const isDefault = provider.isDefault ?? false;
 
-  function handleSave() {
-    if (!apiKey) return;
-    setCred.mutate(
-      { provider: provider.id, apiKey },
-      {
-        onSuccess: () => {
-          setApiKey("");
-          setJustSaved(true);
-          setTimeout(() => setJustSaved(false), 2500);
-        },
-      },
-    );
+  function handleToggleEnabled() {
+    updateProvider.mutate({ id: provider.id, enabled: !provider.enabled });
   }
 
-  function handleDelete() {
-    deleteCred.mutate(provider.id, {
-      onSuccess: () => {
-        setJustDeleted(true);
-        setTimeout(() => setJustDeleted(false), 2500);
-      },
-    });
+  function handleSetDefault() {
+    setDefault.mutate({ provider: provider.id });
   }
 
-  const hasKey = credential?.hasKey ?? false;
-  const showInput = provider.requiresKey && !provider.isLocal;
-  const isPending = setCred.isPending || deleteCred.isPending;
+  function handleRemove() {
+    if (confirm(`Remove provider "${provider.displayName}" from the catalog?`)) {
+      removeProvider.mutate(provider.id);
+    }
+  }
 
   return (
-    <div
-      data-testid={`provider-row-${provider.id}`}
-      className="bg-white px-4 py-3 dark:bg-slate-900"
-    >
-      <div className="flex flex-wrap items-center gap-2">
+    <div data-testid={`provider-row-${provider.id}`} className="bg-white dark:bg-slate-900">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <button
+          onClick={() => setExpanded((e) => !e)}
+          className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+        >
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={[
+                "truncate text-sm font-medium",
+                provider.enabled
+                  ? "text-slate-800 dark:text-slate-100"
+                  : "text-slate-400 dark:text-slate-500",
+              ].join(" ")}
+            >
               {provider.displayName}
             </span>
             <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
@@ -468,116 +394,351 @@ function ProviderRow({
             <span className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
               {provider.apiType}
             </span>
-            {hasKey ? (
+            {!provider.enabled && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                Disabled
+              </span>
+            )}
+            {hasKey && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
                 <Check className="h-2.5 w-2.5" />
                 Key set
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                No key
-              </span>
             )}
-            {provider.defaultModel && (
-              <span className="hidden font-mono text-[10px] text-slate-400 sm:inline dark:text-slate-500">
-                {provider.defaultModel}
-              </span>
-            )}
+            {isDefault && <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />}
           </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {provider.requiresKey && !hasKey && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400"
+            >
+              Add key
+            </button>
+          )}
+          <button
+            onClick={handleSetDefault}
+            title="Set as default"
+            className={[
+              "rounded p-1.5 transition-colors",
+              isDefault ? "text-amber-500" : "text-slate-400 hover:text-amber-500",
+            ].join(" ")}
+          >
+            <Star className={isDefault ? "h-3.5 w-3.5 fill-amber-500" : "h-3.5 w-3.5"} />
+          </button>
+          <button
+            onClick={() => setShowEdit(true)}
+            title="Edit"
+            className="rounded p-1.5 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={handleRemove}
+            title="Remove"
+            className="rounded p-1.5 text-slate-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+          <label className="ml-1 flex cursor-pointer items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
+            <input
+              type="checkbox"
+              checked={provider.enabled}
+              onChange={handleToggleEnabled}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            Enabled
+          </label>
         </div>
       </div>
 
-      {showInput && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={hasKey ? "•••••••• (leave blank to keep)" : "Enter API key…"}
-            data-testid={`api-key-input-${provider.id}`}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && apiKey) handleSave();
-            }}
-            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-          />
-          <button
-            onClick={handleSave}
-            disabled={!apiKey || isPending}
-            data-testid={`save-key-${provider.id}`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <Save className="h-3 w-3" />
-            {hasKey ? "Update" : "Save"}
-          </button>
-          {hasKey && (
-            <button
-              onClick={() => testCred.mutate(provider.id)}
-              disabled={isPending || testCred.isPending}
-              data-testid={`test-key-${provider.id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {testCred.isPending && testCred.variables === provider.id ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <TestTube className="h-3 w-3" />
-              )}
-              Test
-            </button>
-          )}
-          {hasKey && (
-            <button
-              onClick={handleDelete}
-              disabled={isPending}
-              data-testid={`delete-key-${provider.id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-slate-800 dark:text-red-400"
-            >
-              <Trash2 className="h-3 w-3" />
-              Delete
-            </button>
-          )}
+      {expanded && (
+        <div className="border-t border-slate-200 px-4 py-3 dark:border-slate-800">
+          <CredentialList credentials={credentials} />
+          <AddCredentialForm providerId={provider.id} />
+          <BindingPanel providerId={provider.id} />
         </div>
       )}
 
-      {(justSaved || justDeleted) && (
-        <p className="mt-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
-          {justSaved ? "✓ Saved" : "✓ Removed"}
-        </p>
+      {showEdit && (
+        <EditProviderModal open provider={provider} onClose={() => setShowEdit(false)} />
       )}
+    </div>
+  );
+}
 
-      {testCred.data && testCred.variables === provider.id && (
-        <p
-          data-testid={`credential-test-result-${provider.id}`}
-          className={[
-            "mt-1.5 text-[11px]",
-            testCred.data.success
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-red-600 dark:text-red-400",
-          ].join(" ")}
-        >
-          {testCred.data.success ? (
-            <>
-              ✓ Connected
-              {testCred.data.modelUsed
-                ? ` via ${testCred.data.modelUsed} (${testCred.data.latencyMs}ms, ~1 token billed)`
-                : ` (${testCred.data.latencyMs}ms)`}
-            </>
+function CredentialList({
+  credentials,
+}: {
+  credentials: CredentialDetail[];
+}) {
+  const deleteCred = useDeleteCredentialById();
+  const testCred = useTestCredentialById();
+
+  return (
+    <div className="mb-4">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        Keys
+      </h4>
+      {credentials.length === 0 ? (
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          No keys stored for this provider.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {credentials.map((c) => (
+            <li
+              key={c.id}
+              data-testid={`credential-row-${c.id}`}
+              className="rounded-lg border border-slate-200 p-2 dark:border-slate-700"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs text-slate-800 dark:text-slate-200">
+                    {c.name}
+                  </span>
+                  <span className="rounded bg-slate-100 px-1 py-0.5 text-[10px] uppercase text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                    {c.kind}
+                  </span>
+                  {c.lastTestedAt && (
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {c.lastTestedOk ? "✓" : "✗"} {new Date(c.lastTestedAt).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => testCred.mutate(c.id)}
+                    disabled={testCred.isPending && testCred.variables === c.id}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    {testCred.isPending && testCred.variables === c.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <TestTube className="h-3 w-3" />
+                    )}
+                    Test
+                  </button>
+                  <button
+                    onClick={() => deleteCred.mutate(c.id)}
+                    disabled={deleteCred.isPending}
+                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-slate-800 dark:text-red-400"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+              <RevealButton id={c.id} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function RevealButton({ id }: { id: string }) {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading } = useCredentialMaterial(id, open ? "reveal" : "");
+
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
+      >
+        {open ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+        {open ? "Hide secret" : "Reveal secret"}
+      </button>
+      {open && (
+        <div className="mt-1">
+          {isLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin text-slate-400" />
           ) : (
-            <>
-              ✗ {testCred.data.message || "Connection failed"}
-              {testCred.data.httpStatus !== null
-                ? ` (HTTP ${testCred.data.httpStatus}, ${testCred.data.latencyMs}ms)`
-                : ` (${testCred.data.latencyMs}ms)`}
-            </>
+            <input
+              type="text"
+              readOnly
+              value={data ?? ""}
+              className="w-full rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[10px] text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+            />
           )}
-        </p>
+        </div>
       )}
+    </div>
+  );
+}
 
-      {setCred.error && (
-        <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">
-          {setCred.error instanceof Error
-            ? setCred.error.message
-            : String(setCred.error)}
-        </p>
+function AddCredentialForm({ providerId }: { providerId: string }) {
+  const setCred = useSetGenericCredential();
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState<CredentialKind>("api_key");
+  const [material, setMaterial] = useState("");
+
+  function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !material.trim()) return;
+    setCred.mutate(
+      {
+        namespace: `provider:${providerId}`,
+        name: name.trim(),
+        kind,
+        material: material.trim(),
+      },
+      {
+        onSuccess: () => {
+          setName("");
+          setMaterial("");
+        },
+      },
+    );
+  }
+
+  return (
+    <form
+      data-testid="add-credential-form"
+      onSubmit={handleSave}
+      className="mb-4 rounded-lg border border-slate-200 p-3 dark:border-slate-700"
+    >
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        Add key
+      </h4>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name"
+          className="min-w-[8rem] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        />
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as CredentialKind)}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          <option value="api_key">api_key</option>
+          <option value="bearer_token">bearer_token</option>
+          <option value="oauth_token">oauth_token</option>
+          <option value="basic_auth">basic_auth</option>
+          <option value="private_key">private_key</option>
+          <option value="generic_secret">generic_secret</option>
+        </select>
+        <input
+          type="password"
+          value={material}
+          onChange={(e) => setMaterial(e.target.value)}
+          placeholder="Secret"
+          className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        />
+        <button
+          type="submit"
+          disabled={!name.trim() || !material.trim() || setCred.isPending}
+          className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {setCred.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          Save
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function BindingPanel({ providerId }: { providerId: string }) {
+  const slotKey = `provider:${providerId}:default`;
+  const { data: binding } = useBinding(slotKey);
+  const setBinding = useSetBinding();
+  const deleteBinding = useDeleteBinding();
+  const testRotation = useTestBindingRotation();
+
+  const [strategy, setStrategy] = useState<RotationBinding["strategy"]>("round_robin");
+  const [orderText, setOrderText] = useState("");
+
+  useEffect(() => {
+    if (binding) {
+      setStrategy(binding.strategy);
+      setOrderText(binding.order.join(", "));
+    } else {
+      setStrategy("round_robin");
+      setOrderText("");
+    }
+  }, [binding]);
+
+  function handleSave() {
+    const order = orderText
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setBinding.mutate({ key: slotKey, strategy, order });
+  }
+
+  return (
+    <div data-testid="rotation-binding-panel" className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        Rotation binding
+      </h4>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={strategy}
+          onChange={(e) => setStrategy(e.target.value as RotationBinding["strategy"])}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        >
+          <option value="round_robin">round_robin</option>
+          <option value="last_resort">last_resort</option>
+          <option value="random">random</option>
+        </select>
+        <input
+          type="text"
+          value={orderText}
+          onChange={(e) => setOrderText(e.target.value)}
+          placeholder="Credential ids, comma-separated"
+          className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          onClick={handleSave}
+          disabled={setBinding.isPending}
+          className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {setBinding.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          Save binding
+        </button>
+        {binding && (
+          <button
+            onClick={() => deleteBinding.mutate(slotKey)}
+            disabled={deleteBinding.isPending}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            Delete
+          </button>
+        )}
+        <button
+          onClick={() => testRotation.mutate(slotKey)}
+          disabled={testRotation.isPending}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        >
+          {testRotation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <TestTube className="h-3 w-3" />}
+          Test rotation
+        </button>
+      </div>
+      {testRotation.data && Array.isArray(testRotation.data) && (
+        <ul className="mt-2 space-y-1">
+          {testRotation.data.map((r, i) => (
+            <li
+              key={i}
+              className={[
+                "text-xs",
+                r.success
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-red-600 dark:text-red-400",
+              ].join(" ")}
+            >
+              {r.id}: {r.success ? "ok" : r.message}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
