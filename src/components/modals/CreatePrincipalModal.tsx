@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, Sparkles, X } from "lucide-react";
 
 import { usePrincipalCreate } from "../../hooks/usePrincipals";
@@ -32,6 +32,11 @@ export default function CreatePrincipalModal({
   const [description, setDescription] = useState("");
   const [providerId, setProviderId] = useState<string | null>(null);
   const [modelId, setModelId] = useState<string | null>(null);
+
+  const selectedProvider = useMemo(
+    () => providers?.find((p) => p.id === providerId),
+    [providers, providerId],
+  );
 
   const createMut = usePrincipalCreate();
 
@@ -154,9 +159,11 @@ export default function CreatePrincipalModal({
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() =>
-                    setProviderId(providerId === p.id ? null : p.id)
-                  }
+                  onClick={() => {
+                    const nextId = providerId === p.id ? null : p.id;
+                    setProviderId(nextId);
+                    setModelId(null);
+                  }}
                   className={[
                     "rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
                     providerId === p.id
@@ -168,6 +175,30 @@ export default function CreatePrincipalModal({
                 </button>
               ))}
             </div>
+
+            {selectedProvider && selectedProvider.models.length > 0 && (
+              <div className="mt-3">
+                <label
+                  htmlFor="create-principal-model"
+                  className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                >
+                  Model (optional — inherits provider default)
+                </label>
+                <select
+                  id="create-principal-model"
+                  value={modelId ?? ""}
+                  onChange={(e) => setModelId(e.target.value || null)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                >
+                  <option value="">— Provider default —</option>
+                  {selectedProvider.models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.displayName ?? m.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {errorMessage && (
