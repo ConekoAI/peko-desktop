@@ -10,6 +10,7 @@
 //! added in peko-runtime PR #124 and surfaced here as `principal_log`.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tauri::ipc::Channel;
 use tauri::AppHandle;
 
@@ -323,16 +324,139 @@ pub async fn principal_log(
 // The provider catalog is a per-principal "soft hint" via
 // `principal.toml`, not a top-level entity. It moved here from the
 // retired `agent::provider_list` command in peko-runtime PR #125.
+//
+// RP6 widened the local shape to match the runtime's post-RP1
+// catalog-summary view (`ProviderInfo` in `peko-runtime/src/ipc/packet.rs`):
+// `baseUrl`, `enabled`, `models[]`, `headers`, and the explicit
+// `defaultModelId` (renamed to `defaultModel` for the JS surface).
 
+/// One model declared by a provider catalog entry.
+/// Projection of `peko_runtime::providers::catalog::ModelInfo`.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInfo {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_length: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_output_tokens: Option<u32>,
+    /// Capability tags (e.g. `"tool_use"`, `"vision"`) as received from
+    /// the runtime. Kept as opaque strings so the desktop UI can filter
+    /// without taking a dependency on the runtime's `ModelCapability` enum.
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+}
+
+/// Catalog-summary view of a provider.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderInfo {
     pub id: String,
     pub display_name: String,
     pub api_type: String,
-    pub default_model: String,
+    /// Base URL configured for this provider. Empty for providers where
+    /// the user must supply a deployment URL.
+    pub base_url: String,
     pub requires_key: bool,
+    /// True iff the catalog entry has `requires_key = false` (e.g. Ollama).
     pub is_local: bool,
+    /// Catalog `enabled` flag. Disabled entries still appear in the list.
+    pub enabled: bool,
+    /// Declared models. The desktop's "Edit Provider" modal edits these rows.
+    pub models: Vec<ModelInfo>,
+    /// Catalog-declared default model id.
+    pub default_model: String,
+    /// Optional extra HTTP headers (e.g. `OpenAI-Organization`).
+    #[serde(default)]
+    pub headers: BTreeMap<String, String>,
+    /// True iff this entry is the runtime's current default provider.
+    pub is_default: bool,
+}
+
+/// Project a runtime `provider` JSON object (snake_case fields) into the
+/// desktop's camelCase `ProviderInfo`. Returns `None` when the object is
+/// missing required fields.
+pub(crate) fn project_provider(p: &serde_json::Value) -> Option<ProviderInfo> {
+    let models = p
+        .get("models")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(project_model).collect())
+        .unwrap_or_default();
+
+    Some(ProviderInfo {
+        id: p.get("id")?.as_str()?.to_string(),
+        display_name: p
+            .get("display_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        api_type: p
+            .get("api_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        base_url: p
+            .get("base_url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        requires_key: p
+            .get("requires_key")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true),
+        is_local: p.get("is_local").and_then(|v| v.as_bool()).unwrap_or(false),
+        enabled: p.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+        models,
+        default_model: p
+            .get("default_model_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        headers: p
+            .get("headers")
+            .and_then(|v| v.as_object())
+            .map(|obj| {
+                obj.iter()
+                    .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        is_default: p
+            .get("is_default")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+    })
+}
+
+fn project_model(m: &serde_json::Value) -> Option<ModelInfo> {
+    let capabilities = m
+        .get("capabilities")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(std::string::ToString::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Some(ModelInfo {
+        id: m.get("id")?.as_str()?.to_string(),
+        display_name: m
+            .get("display_name")
+            .and_then(|v| v.as_str())
+            .map(std::string::ToString::to_string),
+        context_length: m
+            .get("context_length")
+            .and_then(|v| v.as_u64())
+            .and_then(|n| u32::try_from(n).ok()),
+        max_output_tokens: m
+            .get("max_output_tokens")
+            .and_then(|v| v.as_u64())
+            .and_then(|n| u32::try_from(n).ok()),
+        capabilities,
+    })
 }
 
 #[tauri::command]
@@ -362,20 +486,7 @@ pub async fn principal_provider_list() -> Result<Vec<ProviderInfo>, String> {
     let providers = value
         .get("providers")
         .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|p| {
-                    Some(ProviderInfo {
-                        id: p.get("id")?.as_str()?.to_string(),
-                        display_name: p.get("display_name")?.as_str()?.to_string(),
-                        api_type: p.get("api_type")?.as_str()?.to_string(),
-                        default_model: p.get("default_model")?.as_str()?.to_string(),
-                        requires_key: p.get("requires_key")?.as_bool().unwrap_or(true),
-                        is_local: p.get("is_local")?.as_bool().unwrap_or(false),
-                    })
-                })
-                .collect()
-        })
+        .map(|arr| arr.iter().filter_map(project_provider).collect())
         .unwrap_or_default();
     Ok(providers)
 }
@@ -501,5 +612,60 @@ mod tests {
                 "{name:?} should reject"
             );
         }
+    }
+
+    #[test]
+    fn test_project_provider_maps_default_model_id() {
+        // The runtime field is `default_model_id`; the desktop surface
+        // exposes it as `defaultModel`. This regressed once when the
+        // projection looked for the legacy `default_model` key.
+        let value = serde_json::json!({
+            "id": "openai",
+            "display_name": "OpenAI",
+            "api_type": "openai",
+            "base_url": "https://api.openai.com",
+            "requires_key": true,
+            "is_local": false,
+            "enabled": true,
+            "models": [
+                {
+                    "id": "gpt-4o",
+                    "display_name": "GPT-4o",
+                    "context_length": 128000,
+                    "max_output_tokens": 4096,
+                    "capabilities": ["tool_use", "vision"]
+                }
+            ],
+            "default_model_id": "gpt-4o",
+            "headers": { "OpenAI-Organization": "org-123" },
+            "is_default": true
+        });
+
+        let p = project_provider(&value).expect("should project");
+        assert_eq!(p.id, "openai");
+        assert_eq!(p.base_url, "https://api.openai.com");
+        assert_eq!(p.default_model, "gpt-4o");
+        assert!(p.enabled);
+        assert!(p.is_default);
+        assert_eq!(
+            p.headers.get("OpenAI-Organization"),
+            Some(&"org-123".to_string())
+        );
+
+        let model = p.models.first().unwrap();
+        assert_eq!(model.id, "gpt-4o");
+        assert_eq!(model.context_length, Some(128000));
+        assert_eq!(
+            model.capabilities,
+            vec!["tool_use".to_string(), "vision".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_project_provider_missing_id_returns_none() {
+        let value = serde_json::json!({
+            "display_name": "No id"
+        });
+        assert!(project_provider(&value).is_none());
     }
 }

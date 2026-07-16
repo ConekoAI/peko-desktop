@@ -31,6 +31,7 @@ import type {
   ProviderAddArgs,
   ProviderInfo,
   ProviderTemplate,
+  ProviderUpdateArgs,
   RotationBinding,
   RuntimeConnection,
   SearchResult,
@@ -254,6 +255,26 @@ export async function providerTemplates(): Promise<ProviderTemplate[]> {
 // command surfaces as a thrown error.
 export async function providerAdd(args: ProviderAddArgs): Promise<ProviderInfo> {
   return invoke("provider_add", { args });
+}
+
+// RP6: update/remove/set-default provider catalog mutations.
+
+export async function providerUpdate(args: ProviderUpdateArgs): Promise<ProviderInfo> {
+  return invoke<ProviderInfo>("provider_update", { args });
+}
+
+export async function providerRemove(id: string): Promise<boolean> {
+  return invoke<boolean>("provider_remove", { id });
+}
+
+export async function providerSetDefault(
+  provider: string,
+  model?: string,
+): Promise<{ provider: string; model: string }> {
+  return invoke<{ provider: string; model: string }>("provider_set_default", {
+    provider,
+    model,
+  });
 }
 
 // ─── Extensions ─────────────────────────────────────────────────
