@@ -83,7 +83,10 @@ mod config_tests {
         let mut inner = toml::Table::new();
         inner.insert("key".to_string(), toml::Value::String("secret".to_string()));
         table.insert("provider".to_string(), toml::Value::Table(inner));
-        assert_eq!(get_nested(&table, "provider.key"), Some("secret".to_string()));
+        assert_eq!(
+            get_nested(&table, "provider.key"),
+            Some("secret".to_string())
+        );
     }
 
     #[test]
@@ -269,10 +272,7 @@ fn map_credential_tested(resp: &serde_json::Value) -> CredentialTestResult {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
-        latency_ms: resp
-            .get("latency_ms")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as u32,
+        latency_ms: resp.get("latency_ms").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
         http_status: resp
             .get("http_status")
             .and_then(|v| v.as_u64())
@@ -311,7 +311,10 @@ pub async fn credential_get(provider: String) -> Result<Option<CredentialRow>, S
         .map_err(|e| e.to_string())?;
     match find_default_credential_id(&client, &provider).await? {
         Some(id) => {
-            let resp = client.credential_get(&id).await.map_err(|e| e.to_string())?;
+            let resp = client
+                .credential_get(&id)
+                .await
+                .map_err(|e| e.to_string())?;
             check_runtime_error(&resp)?;
             let last_tested = resp
                 .get("credential")
@@ -350,7 +353,10 @@ pub async fn credential_delete(provider: String) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
     if let Some(id) = find_default_credential_id(&client, &provider).await? {
-        let resp = client.credential_delete(&id).await.map_err(|e| e.to_string())?;
+        let resp = client
+            .credential_delete(&id)
+            .await
+            .map_err(|e| e.to_string())?;
         check_runtime_error(&resp)?;
     }
     Ok(())
@@ -365,7 +371,10 @@ pub async fn credential_test(provider: String) -> Result<CredentialTestResult, S
     let id = find_default_credential_id(&client, &provider)
         .await?
         .ok_or_else(|| format!("no API key stored for '{provider}'"))?;
-    let resp = client.credential_test(&id).await.map_err(|e| e.to_string())?;
+    let resp = client
+        .credential_test(&id)
+        .await
+        .map_err(|e| e.to_string())?;
     check_runtime_error(&resp)?;
     Ok(map_credential_tested(&resp))
 }
@@ -433,10 +442,7 @@ pub async fn credential_list() -> Result<Vec<CredentialRow>, String> {
                     let provider = provider_from_namespace(namespace).unwrap_or(namespace);
                     Some(CredentialRow {
                         provider: provider.to_string(),
-                        has_key: v
-                            .get("has_key")
-                            .and_then(|h| h.as_bool())
-                            .unwrap_or(false),
+                        has_key: v.get("has_key").and_then(|h| h.as_bool()).unwrap_or(false),
                         last_tested: v
                             .get("last_tested_at")
                             .and_then(|t| t.as_str())
@@ -488,7 +494,10 @@ pub async fn credential_get_by_id(id: String) -> Result<CredentialDetail, String
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    let resp = client.credential_get(&id).await.map_err(|e| e.to_string())?;
+    let resp = client
+        .credential_get(&id)
+        .await
+        .map_err(|e| e.to_string())?;
     check_runtime_error(&resp)?;
     let credential = resp
         .get("credential")
@@ -498,10 +507,7 @@ pub async fn credential_get_by_id(id: String) -> Result<CredentialDetail, String
 }
 
 #[tauri::command]
-pub async fn credential_get_material(
-    id: String,
-    reason: String,
-) -> Result<String, String> {
+pub async fn credential_get_material(id: String, reason: String) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
@@ -543,7 +549,10 @@ pub async fn credential_delete_by_id(id: String) -> Result<(), String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    let resp = client.credential_delete(&id).await.map_err(|e| e.to_string())?;
+    let resp = client
+        .credential_delete(&id)
+        .await
+        .map_err(|e| e.to_string())?;
     check_runtime_error(&resp)?;
     Ok(())
 }
@@ -553,7 +562,10 @@ pub async fn credential_test_by_id(id: String) -> Result<CredentialTestResult, S
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    let resp = client.credential_test(&id).await.map_err(|e| e.to_string())?;
+    let resp = client
+        .credential_test(&id)
+        .await
+        .map_err(|e| e.to_string())?;
     check_runtime_error(&resp)?;
     Ok(map_credential_tested(&resp))
 }
@@ -634,11 +646,7 @@ pub async fn binding_get(key: String) -> Result<Option<RotationBinding>, String>
 }
 
 #[tauri::command]
-pub async fn binding_set(
-    key: String,
-    strategy: String,
-    order: Vec<String>,
-) -> Result<(), String> {
+pub async fn binding_set(key: String, strategy: String, order: Vec<String>) -> Result<(), String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
@@ -655,15 +663,16 @@ pub async fn binding_delete(key: String) -> Result<(), String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    let resp = client.binding_delete(&key).await.map_err(|e| e.to_string())?;
+    let resp = client
+        .binding_delete(&key)
+        .await
+        .map_err(|e| e.to_string())?;
     check_runtime_error(&resp)?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn binding_test_rotation(
-    key: String,
-) -> Result<Vec<BindingTestResult>, String> {
+pub async fn binding_test_rotation(key: String) -> Result<Vec<BindingTestResult>, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
@@ -756,7 +765,10 @@ mod credential_tests {
         assert_eq!(detail.id, "id-1");
         assert_eq!(detail.namespace, "provider:anthropic");
         assert!(detail.has_key);
-        assert_eq!(detail.last_tested_at.as_deref(), Some("2026-07-16T00:00:00Z"));
+        assert_eq!(
+            detail.last_tested_at.as_deref(),
+            Some("2026-07-16T00:00:00Z")
+        );
     }
 
     #[tokio::test]
