@@ -67,7 +67,7 @@ fn set_nested(table: &mut toml::Table, key: &str, value: &str) {
 }
 
 #[cfg(test)]
-mod tests {
+mod config_tests {
     use super::*;
 
     #[test]
@@ -83,10 +83,7 @@ mod tests {
         let mut inner = toml::Table::new();
         inner.insert("key".to_string(), toml::Value::String("secret".to_string()));
         table.insert("provider".to_string(), toml::Value::Table(inner));
-        assert_eq!(
-            get_nested(&table, "provider.key"),
-            Some("secret".to_string())
-        );
+        assert_eq!(get_nested(&table, "provider.key"), Some("secret".to_string()));
     }
 
     #[test]
@@ -164,17 +161,6 @@ mod tests {
         let debug = settings.iter().find(|s| s.key == "debug").unwrap();
         assert_eq!(debug.value, "true");
     }
-
-    #[tokio::test]
-    async fn test_credential_test_returns_true() {
-        // `credential_test` is now async because it proxies through
-        // IpcClient. Without a running daemon in unit tests we can't
-        // assert a real round-trip, but we can assert it compiles
-        // and returns a Result type at minimum. We just call it and
-        // let any error fall through — a proper integration test
-        // belongs in the e2e suite.
-        let _ = credential_test("openai".to_string()).await;
-    }
 }
 
 #[tauri::command]
@@ -228,69 +214,265 @@ pub fn settings_set(key: String, value: String) -> Result<(), String> {
     write_config(&table)
 }
 
+// ─── Credential / binding helpers ─────────────────────────────────
+
+/// Build the provider namespace for the default API-key slot.
+fn provider_namespace(provider: &str) -> String {
+    format!("provider:{provider}")
+}
+
+/// If a runtime response is an error packet, surface its message.
+fn check_runtime_error(resp: &serde_json::Value) -> Result<(), String> {
+    if resp.get("type").and_then(|t| t.as_str()) == Some("error") {
+        let msg = resp
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("runtime error")
+            .to_string();
+        return Err(msg);
+    }
+    Ok(())
+}
+
+/// Resolve the default credential id for a provider by listing its
+/// `provider:<provider>` namespace and picking the `default` name row.
+async fn find_default_credential_id(
+    client: &crate::ipc::IpcClient,
+    provider: &str,
+) -> Result<Option<String>, String> {
+    let namespace = provider_namespace(provider);
+    let resp = client
+        .credential_list(Some(&namespace), Some("api_key"))
+        .await
+        .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(resp
+        .get("providers")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| {
+            arr.iter().find_map(|row| {
+                let name = row.get("name").and_then(|n| n.as_str())?;
+                if name == "default" {
+                    row.get("id").and_then(|id| id.as_str()).map(String::from)
+                } else {
+                    None
+                }
+            })
+        }))
+}
+
+fn map_credential_tested(resp: &serde_json::Value) -> CredentialTestResult {
+    CredentialTestResult {
+        success: resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+        message: resp
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        latency_ms: resp
+            .get("latency_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32,
+        http_status: resp
+            .get("http_status")
+            .and_then(|v| v.as_u64())
+            .map(|n| n as u16),
+        model_used: resp
+            .get("model_used")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+    }
+}
+
+fn provider_from_namespace(namespace: &str) -> Option<&str> {
+    namespace.strip_prefix("provider:")
+}
+
+// ─── Provider-keyed credential adapters (current UI) ──────────────
+
+/// Provider-keyed credential view. Kept for the existing Settings UI;
+/// the new generic surface uses [`CredentialDetail`].
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialRow {
+    pub provider: String,
+    #[serde(alias = "has_key")]
+    pub has_key: bool,
+    #[serde(alias = "last_tested")]
+    pub last_tested: Option<String>,
+}
+
+/// Get the default credential record for a provider. Returns the
+/// provider-keyed row the current UI expects, not the secret material.
 #[tauri::command]
-pub async fn credential_get(provider: String) -> Result<Option<String>, String> {
-    // As of v3, credentials live in the runtime's OS-keychain-backed
-    // secret store. The desktop proxies through IPC instead of
-    // maintaining its own copy.
+pub async fn credential_get(provider: String) -> Result<Option<CredentialRow>, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    let resp = client
-        .credential_get(&provider)
-        .await
-        .map_err(|e| e.to_string())?;
-    let key = resp
-        .get("key")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
-    Ok(key)
+    match find_default_credential_id(&client, &provider).await? {
+        Some(id) => {
+            let resp = client.credential_get(&id).await.map_err(|e| e.to_string())?;
+            check_runtime_error(&resp)?;
+            let last_tested = resp
+                .get("credential")
+                .and_then(|c| c.get("last_tested_at"))
+                .and_then(|t| t.as_str())
+                .map(|s| s.to_string());
+            Ok(Some(CredentialRow {
+                provider,
+                has_key: true,
+                last_tested,
+            }))
+        }
+        None => Ok(None),
+    }
 }
 
-/// Store an API key for `provider` in the runtime's keychain-backed
-/// vault.
-///
-/// Parameter naming: Tauri 2's command macro default-renames Rust
-/// snake_case arg names to JS camelCase for the invoke payload (see
-/// `tauri-macros` `command/wrapper.rs:510`). The Rust param
-/// `api_key: String` therefore surfaces on the JS side as `apiKey` —
-/// the JS call sites (`credentialSet`, `credentialSetRaw` in
-/// `src/lib/api.ts`) must pass the camelCase key, not `api_key`,
-/// otherwise the deserializer rejects the request with
-/// "missing required key apiKey". A prior revision declared
-/// `key: String` and was even worse (the bare `key` did not match
-/// what JS sent); the current `api_key` / `apiKey` pairing is the
-/// one that round-trips.
+/// Store an API key for `provider` at `provider:<provider>/default`.
 #[tauri::command]
 pub async fn credential_set(provider: String, api_key: String) -> Result<(), String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    client
-        .credential_set(&provider, &api_key)
+    let namespace = provider_namespace(&provider);
+    let resp = client
+        .credential_set(&namespace, "default", "api_key", &api_key, None)
         .await
         .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
     Ok(())
 }
 
+/// Delete the default API key for a provider.
 #[tauri::command]
 pub async fn credential_delete(provider: String) -> Result<(), String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    client
-        .credential_delete(&provider)
-        .await
-        .map_err(|e| e.to_string())?;
+    if let Some(id) = find_default_credential_id(&client, &provider).await? {
+        let resp = client.credential_delete(&id).await.map_err(|e| e.to_string())?;
+        check_runtime_error(&resp)?;
+    }
     Ok(())
 }
 
+/// Live-test the default API key for a provider.
+#[tauri::command]
+pub async fn credential_test(provider: String) -> Result<CredentialTestResult, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let id = find_default_credential_id(&client, &provider)
+        .await?
+        .ok_or_else(|| format!("no API key stored for '{provider}'"))?;
+    let resp = client.credential_test(&id).await.map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(map_credential_tested(&resp))
+}
+
+/// Reveal the raw secret material for a provider's default credential.
+/// Audit-logged by the runtime.
+#[tauri::command]
+pub async fn credential_get_raw(provider: String) -> Result<Option<String>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    match find_default_credential_id(&client, &provider).await? {
+        Some(id) => {
+            let resp = client
+                .credential_get_material(&id, "desktop provider-keyed raw reveal")
+                .await
+                .map_err(|e| e.to_string())?;
+            check_runtime_error(&resp)?;
+            Ok(resp
+                .get("material")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Store a raw secret for a provider at `provider:<provider>/default`
+/// as an OAuth token. Used by the PekoHub OAuth flow.
+#[tauri::command]
+pub async fn credential_set_raw(provider: String, raw_value: String) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let namespace = provider_namespace(&provider);
+    let resp = client
+        .credential_set(&namespace, "default", "oauth_token", &raw_value, None)
+        .await
+        .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(())
+}
+
+/// List credentials and project them to the provider-keyed row shape the
+/// current UI expects. Non-provider credentials show their full namespace
+/// as the `provider` field (orphan strip) until RP6 restructures the UI.
+#[tauri::command]
+pub async fn credential_list() -> Result<Vec<CredentialRow>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let _ = client.provider_reload().await;
+    let resp = client
+        .credential_list(None, None)
+        .await
+        .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(resp
+        .get("providers")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| {
+                    let namespace = v.get("namespace").and_then(|n| n.as_str())?;
+                    let provider = provider_from_namespace(namespace).unwrap_or(namespace);
+                    Some(CredentialRow {
+                        provider: provider.to_string(),
+                        has_key: v
+                            .get("has_key")
+                            .and_then(|h| h.as_bool())
+                            .unwrap_or(false),
+                        last_tested: v
+                            .get("last_tested_at")
+                            .and_then(|t| t.as_str())
+                            .map(|s| s.to_string()),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+// ─── Generic credential commands (RP4) ────────────────────────────
+
+/// Full credential record returned by the generic commands.
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialDetail {
+    pub id: String,
+    pub namespace: String,
+    pub name: String,
+    pub kind: String,
+    #[serde(alias = "has_key")]
+    pub has_key: bool,
+    #[serde(alias = "last_tested_at")]
+    pub last_tested_at: Option<String>,
+    #[serde(alias = "last_tested_ok")]
+    pub last_tested_ok: Option<bool>,
+    #[serde(default)]
+    pub metadata: serde_json::Value,
+    #[serde(alias = "created_at")]
+    pub created_at: Option<String>,
+    #[serde(alias = "updated_at")]
+    pub updated_at: Option<String>,
+}
+
 /// Live-credential-test result projected to the frontend.
-///
-/// Mirrors the daemon's `ResponsePacket::CredentialTested` so the
-/// Settings → Credentials panel can render latency + reason
-/// without re-parsing strings. `success` is the boolean the UI
-/// branches on; the rest are diagnostics for the result line.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CredentialTestResult {
@@ -302,94 +484,286 @@ pub struct CredentialTestResult {
 }
 
 #[tauri::command]
-pub async fn credential_test(provider: String) -> Result<CredentialTestResult, String> {
-    // Real API round-trip via the runtime's `credential_test` IPC
-    // (peko-runtime PR #193). The old `credential_get` + shape
-    // check couldn't tell `sk-opena-12345` from a real key —
-    // this pings the provider's actual API URL.
+pub async fn credential_get_by_id(id: String) -> Result<CredentialDetail, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client.credential_get(&id).await.map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    let credential = resp
+        .get("credential")
+        .ok_or_else(|| "missing credential in response".to_string())?;
+    serde_json::from_value(credential.clone())
+        .map_err(|e| format!("failed to parse credential: {e}"))
+}
+
+#[tauri::command]
+pub async fn credential_get_material(
+    id: String,
+    reason: String,
+) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
     let resp = client
-        .credential_test(&provider)
+        .credential_get_material(&id, &reason)
         .await
         .map_err(|e| e.to_string())?;
-    Ok(CredentialTestResult {
-        success: resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-        message: resp
-            .get("message")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        latency_ms: resp.get("latency_ms").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        http_status: resp
-            .get("http_status")
-            .and_then(|v| v.as_u64())
-            .map(|n| n as u16),
-        model_used: resp
-            .get("model_used")
-            .and_then(|v| v.as_str())
-            .map(String::from),
-    })
+    check_runtime_error(&resp)?;
+    resp.get("material")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "missing material in response".to_string())
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct CredentialRow {
-    pub provider: String,
-    pub has_key: bool,
-    pub last_tested: Option<String>,
-}
-
-/// List providers that have a stored credential. Proxies the
-/// `credential_list` IPC method, which the runtime returns as a JSON
-/// object `{ providers: [{ name, hasKey, lastTested? }] }`. The
-/// desktop normalizes the key-shape from the runtime's `name` to
-/// `provider` to match the `Credential` type in the TS layer
-/// (`src/types/index.ts`).
 #[tauri::command]
-pub async fn credential_list() -> Result<Vec<CredentialRow>, String> {
+pub async fn credential_set_generic(
+    namespace: String,
+    name: String,
+    kind: String,
+    material: String,
+    metadata: Option<serde_json::Value>,
+) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    // Force the runtime to re-read both the catalog and the vault from
-    // disk before listing. The long-running daemon (sidecar or adopted
-    // headless) can otherwise hold a stale in-memory vault if the user
-    // added keys via the CLI after the daemon was started; without this
-    // hop the Settings tab would show "No providers configured yet"
-    // even though `peko credential list` (and `peko credential test`)
-    // both succeed end-to-end. The reload is cheap (small file read +
-    // Argon2id-derivation-cached decrypt) and we ignore the response
-    // — the next `credential_list` IPC will return whatever the
-    // reloaded state has.
-    let _ = client.provider_reload().await;
-    let resp = client.credential_list().await.map_err(|e| e.to_string())?;
-    let providers = resp
+    let resp = client
+        .credential_set(&namespace, &name, &kind, &material, metadata)
+        .await
+        .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    resp.get("id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "missing id in credential_set response".to_string())
+}
+
+#[tauri::command]
+pub async fn credential_delete_by_id(id: String) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client.credential_delete(&id).await.map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn credential_test_by_id(id: String) -> Result<CredentialTestResult, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client.credential_test(&id).await.map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(map_credential_tested(&resp))
+}
+
+#[tauri::command]
+pub async fn credential_list_generic(
+    namespace: Option<String>,
+    kind: Option<String>,
+) -> Result<Vec<CredentialDetail>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .credential_list(namespace.as_deref(), kind.as_deref())
+        .await
+        .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(resp
         .get("providers")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+// ─── Rotation binding commands (RP4) ──────────────────────────────
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RotationBinding {
+    pub key: String,
+    pub strategy: String,
+    pub order: Vec<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BindingTestResult {
+    pub id: String,
+    pub success: bool,
+    pub message: String,
+    pub http_status: Option<u16>,
+}
+
+#[tauri::command]
+pub async fn binding_list() -> Result<Vec<RotationBinding>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client.binding_list().await.map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(resp
+        .get("bindings")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn binding_get(key: String) -> Result<Option<RotationBinding>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client.binding_get(&key).await.map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(resp
+        .get("bindings")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| serde_json::from_value(v.clone()).ok()))
+}
+
+#[tauri::command]
+pub async fn binding_set(
+    key: String,
+    strategy: String,
+    order: Vec<String>,
+) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .binding_set(&key, &strategy, &order)
+        .await
+        .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn binding_delete(key: String) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client.binding_delete(&key).await.map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn binding_test_rotation(
+    key: String,
+) -> Result<Vec<BindingTestResult>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .binding_test_rotation(&key)
+        .await
+        .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(resp
+        .get("results")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
                 .filter_map(|v| {
-                    Some(CredentialRow {
-                        provider: v
-                            .get("name")
-                            .or_else(|| v.get("provider"))
-                            .and_then(|p| p.as_str())?
-                            .to_string(),
-                        has_key: v
-                            .get("hasKey")
-                            .or_else(|| v.get("has_key"))
-                            .and_then(|h| h.as_bool())
-                            .unwrap_or(false),
-                        last_tested: v
-                            .get("lastTested")
-                            .or_else(|| v.get("last_tested"))
-                            .and_then(|t| t.as_str())
-                            .map(|s| s.to_string()),
-                    })
+                    let mut out = v.clone();
+                    if let Some(ok) = v.get("ok").and_then(|x| x.as_bool()) {
+                        out["success"] = serde_json::Value::Bool(ok);
+                    }
+                    serde_json::from_value(out).ok()
                 })
                 .collect()
         })
-        .unwrap_or_default();
-    Ok(providers)
+        .unwrap_or_default())
+}
+
+// ─── Tests ─────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod credential_tests {
+    use super::*;
+
+    #[test]
+    fn provider_namespace_format() {
+        assert_eq!(provider_namespace("anthropic"), "provider:anthropic");
+    }
+
+    #[test]
+    fn provider_from_namespace_strips_prefix() {
+        assert_eq!(provider_from_namespace("provider:openai"), Some("openai"));
+        assert_eq!(provider_from_namespace("mcp:analytics"), None);
+    }
+
+    #[test]
+    fn check_runtime_error_surfaces_message() {
+        let resp = serde_json::json!({
+            "type": "error",
+            "message": "boom",
+        });
+        assert_eq!(check_runtime_error(&resp).unwrap_err(), "boom");
+    }
+
+    #[test]
+    fn check_runtime_error_ignores_success() {
+        let resp = serde_json::json!({
+            "type": "credential_set_done",
+            "id": "abc",
+        });
+        assert!(check_runtime_error(&resp).is_ok());
+    }
+
+    #[test]
+    fn map_credential_tested_extracts_fields() {
+        let resp = serde_json::json!({
+            "ok": true,
+            "message": "ok",
+            "latency_ms": 123u64,
+            "http_status": 200u64,
+            "model_used": "claude-3",
+        });
+        let got = map_credential_tested(&resp);
+        assert!(got.success);
+        assert_eq!(got.message, "ok");
+        assert_eq!(got.latency_ms, 123);
+        assert_eq!(got.http_status, Some(200));
+        assert_eq!(got.model_used.as_deref(), Some("claude-3"));
+    }
+
+    #[test]
+    fn credential_detail_deserializes_runtime_snake_case() {
+        let value = serde_json::json!({
+            "id": "id-1",
+            "namespace": "provider:anthropic",
+            "name": "default",
+            "kind": "api_key",
+            "has_key": true,
+            "last_tested_at": "2026-07-16T00:00:00Z",
+            "last_tested_ok": true,
+        });
+        let detail: CredentialDetail = serde_json::from_value(value).unwrap();
+        assert_eq!(detail.id, "id-1");
+        assert_eq!(detail.namespace, "provider:anthropic");
+        assert!(detail.has_key);
+        assert_eq!(detail.last_tested_at.as_deref(), Some("2026-07-16T00:00:00Z"));
+    }
+
+    #[tokio::test]
+    async fn provider_adapter_compiles_without_daemon() {
+        // Without a running daemon this returns a connection error;
+        // the important thing is that the adapter path compiles and
+        // returns a Result.
+        let _ = credential_test("openai".to_string()).await;
+    }
 }

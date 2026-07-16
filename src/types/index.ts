@@ -224,6 +224,42 @@ export interface Credential {
   lastTested?: string;
 }
 
+// ─── RP4 Generic vault credentials (RP5 desktop IPC) ──────────────
+
+export type CredentialKind =
+  | "api_key"
+  | "bearer_token"
+  | "oauth_token"
+  | "basic_auth"
+  | "private_key"
+  | "generic_secret";
+
+export interface CredentialDetail {
+  id: string;
+  namespace: string;
+  name: string;
+  kind: CredentialKind;
+  hasKey: boolean;
+  lastTestedAt?: string;
+  lastTestedOk?: boolean;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RotationBinding {
+  key: string;
+  strategy: "round_robin" | "last_resort" | "random";
+  order: string[];
+}
+
+export interface BindingTestResult {
+  id: string;
+  success: boolean;
+  message: string;
+  httpStatus?: number;
+}
+
 // T-109b: One model declared by a built-in provider template.
 // Mirrors the runtime's `ModelTemplateInfo` (snake_case on the
 // wire; the Tauri command at `commands/provider_admin.rs`

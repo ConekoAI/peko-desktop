@@ -19,9 +19,11 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 import type {
   AccessiblePrincipal,
   AuthStatus,
+  BindingTestResult,
   BundleItem,
   CronJob,
   Credential,
+  CredentialDetail,
   DaemonStatus,
   DoctorReport,
   ExtensionSummary,
@@ -29,6 +31,7 @@ import type {
   ProviderAddArgs,
   ProviderInfo,
   ProviderTemplate,
+  RotationBinding,
   RuntimeConnection,
   SearchResult,
   Setting,
@@ -362,12 +365,14 @@ export async function credentialSetRaw(
   provider: string,
   rawValue: string,
 ): Promise<void> {
-  // Same Tauri camelCase rename as `credentialSet` — see note there.
-  return invoke("credential_set", { provider, apiKey: rawValue });
+  // Tauri 2 default-renames Rust snake_case arg names to camelCase for
+  // the invoke payload, so the Rust `raw_value` param surfaces as
+  // `rawValue` on the JS side.
+  return invoke("credential_set_raw", { provider, rawValue });
 }
 
 export async function credentialGetRaw(provider: string): Promise<string | null> {
-  return invoke<string | null>("credential_get", { provider });
+  return invoke<string | null>("credential_get_raw", { provider });
 }
 
 export async function credentialDelete(provider: string): Promise<void> {
@@ -390,6 +395,79 @@ export async function credentialTest(
 
 export async function credentialList(): Promise<Credential[]> {
   return invoke("credential_list");
+}
+
+// ─── RP4 Generic vault credentials ────────────────────────────────
+
+export async function credentialGetById(
+  id: string,
+): Promise<CredentialDetail> {
+  return invoke("credential_get_by_id", { id });
+}
+
+export async function credentialGetMaterial(
+  id: string,
+  reason: string,
+): Promise<string> {
+  return invoke<string>("credential_get_material", { id, reason });
+}
+
+export async function credentialSetGeneric(payload: {
+  namespace: string;
+  name: string;
+  kind: import("../types").CredentialKind;
+  material: string;
+  metadata?: Record<string, unknown>;
+}): Promise<string> {
+  return invoke<string>("credential_set_generic", payload);
+}
+
+export async function credentialDeleteById(id: string): Promise<void> {
+  return invoke("credential_delete_by_id", { id });
+}
+
+export async function credentialTestById(
+  id: string,
+): Promise<CredentialTestResult> {
+  return invoke("credential_test_by_id", { id });
+}
+
+export async function credentialListGeneric(
+  namespace?: string,
+  kind?: string,
+): Promise<CredentialDetail[]> {
+  return invoke<CredentialDetail[]>("credential_list_generic", {
+    namespace: namespace ?? null,
+    kind: kind ?? null,
+  });
+}
+
+// ─── RP4 Rotation bindings ───────────────────────────────────────
+
+export async function bindingList(): Promise<RotationBinding[]> {
+  return invoke<RotationBinding[]>("binding_list");
+}
+
+export async function bindingGet(key: string): Promise<RotationBinding | null> {
+  return invoke<RotationBinding | null>("binding_get", { key });
+}
+
+export async function bindingSet(
+  key: string,
+  strategy: string,
+  order: string[],
+): Promise<void> {
+  return invoke("binding_set", { key, strategy, order });
+}
+
+export async function bindingDelete(key: string): Promise<void> {
+  return invoke("binding_delete", { key });
+}
+
+export async function bindingTestRotation(
+  key: string,
+): Promise<BindingTestResult[]> {
+  return invoke<BindingTestResult[]>("binding_test_rotation", { key });
 }
 
 // ─── System ─────────────────────────────────────────────────────

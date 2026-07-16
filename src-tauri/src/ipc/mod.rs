@@ -501,74 +501,178 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    // ── Credential (keychain) ─────────────────────────────────────
+    // ── Credential (vault) ─────────────────────────────────────────
 
-    /// Get a stored credential from the runtime's OS-keychain-backed
-    /// secret store. As of v3 the runtime owns the keychain; the
-    /// desktop no longer maintains its own copy.
-    pub async fn credential_get(&self, provider: &str) -> Result<serde_json::Value> {
+    /// List credentials from the runtime's vault, optionally filtered by
+    /// namespace and kind. RP4 generic shape: returns
+    /// `{ providers: [{ id, namespace, name, kind, has_key, last_tested_at,
+    /// last_tested_ok }] }`.
+    pub async fn credential_list(
+        &self,
+        namespace: Option<&str>,
+        kind: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let mut req = serde_json::json!({
+            "type": "credential_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        if let Some(ns) = namespace {
+            req["namespace"] = serde_json::Value::String(ns.to_string());
+        }
+        if let Some(k) = kind {
+            req["kind"] = serde_json::Value::String(k.to_string());
+        }
+        self.request_response(req).await
+    }
+
+    /// Fetch the full (non-material) record for a credential by id.
+    pub async fn credential_get(&self, id: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "credential_get",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "provider": provider,
+            "id": id,
         });
         self.request_response(req).await
     }
 
-    /// Live-ping the provider's real API with the stored key (or
-    /// no key for local providers like Ollama) and return the
-    /// structured outcome (`{ok, message, latency_ms, http_status,
-    /// model_used, tested_at}`). Replaces the old `credential_get`-
-    /// then-shape-check path that couldn't tell `sk-opena-12345`
-    /// from a real key. Powers the desktop's Test button — the
-    /// CLI's `peko credential test` uses the same IPC seam. See
-    /// `peko-runtime` PR #193 (`providers::validator::Validator`).
-    pub async fn credential_test(&self, provider: &str) -> Result<serde_json::Value> {
+    /// Fetch the secret material for a credential by id. Audit-logged on
+    /// the runtime side; the desktop should only call this for the Reveal
+    /// affordance or OAuth-token retrieval.
+    pub async fn credential_get_material(
+        &self,
+        id: &str,
+        reason: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "credential_get_material",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "id": id,
+            "reason": reason,
+        });
+        self.request_response(req).await
+    }
+
+    /// Live-ping a credential by id and return the structured outcome
+    /// (`{id, ok, message, latency_ms, http_status, model_used, tested_at}`).
+    pub async fn credential_test(&self, id: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "credential_test",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "provider": provider,
+            "id": id,
         });
         self.request_response(req).await
     }
 
-    /// Set a credential via the runtime. The desktop should *not* hold
-    /// the secret beyond the IPC call.
-    pub async fn credential_set(&self, provider: &str, api_key: &str) -> Result<serde_json::Value> {
+    /// Store or overwrite a credential at `(namespace, name)`. Returns the
+    /// runtime-assigned credential id on success.
+    pub async fn credential_set(
+        &self,
+        namespace: &str,
+        name: &str,
+        kind: &str,
+        material: &str,
+        metadata: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
-        let req = serde_json::json!({
+        let mut req = serde_json::json!({
             "type": "credential_set",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "provider": provider,
-            "api_key": api_key,
+            "namespace": namespace,
+            "name": name,
+            "kind": kind,
+            "material": material,
         });
+        if let Some(meta) = metadata {
+            req["metadata"] = meta;
+        }
         self.request_response(req).await
     }
 
-    /// Delete a credential via the runtime.
-    pub async fn credential_delete(&self, provider: &str) -> Result<serde_json::Value> {
+    /// Delete a credential by id.
+    pub async fn credential_delete(&self, id: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "credential_delete",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "provider": provider,
+            "id": id,
         });
         self.request_response(req).await
     }
 
-    /// List providers with stored credentials (via the runtime).
-    pub async fn credential_list(&self) -> Result<serde_json::Value> {
+    // ── Rotation bindings (RP4) ────────────────────────────────────
+
+    /// List every rotation binding configured in the vault.
+    pub async fn binding_list(&self) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "credential_list",
+            "type": "binding_list",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Fetch one rotation binding by slot key (`namespace:name`).
+    pub async fn binding_get(&self, key: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "binding_get",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "key": key,
+        });
+        self.request_response(req).await
+    }
+
+    /// Store or overwrite a rotation binding.
+    pub async fn binding_set(
+        &self,
+        key: &str,
+        strategy: &str,
+        order: &[String],
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "binding_set",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "key": key,
+            "strategy": strategy,
+            "order": order,
+        });
+        self.request_response(req).await
+    }
+
+    /// Delete a rotation binding by slot key.
+    pub async fn binding_delete(&self, key: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "binding_delete",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "key": key,
+        });
+        self.request_response(req).await
+    }
+
+    /// Test each credential in a binding in order.
+    pub async fn binding_test_rotation(&self, key: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "binding_test_rotation",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "key": key,
         });
         self.request_response(req).await
     }
