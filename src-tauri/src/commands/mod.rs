@@ -2,8 +2,8 @@ pub mod cron;
 pub mod daemon;
 pub mod engine;
 pub mod extension;
+pub mod model_admin;
 pub mod principal;
-pub mod provider_admin;
 pub mod registry;
 pub mod runtime;
 pub mod settings;
@@ -27,12 +27,13 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_send,
         principal::principal_send_stream,
         principal::principal_log,
-        principal::principal_provider_list,
-        provider_admin::provider_templates,
-        provider_admin::provider_add,
-        provider_admin::provider_update,
-        provider_admin::provider_remove,
-        provider_admin::provider_set_default,
+        model_admin::model_list,
+        model_admin::model_templates,
+        model_admin::model_add,
+        model_admin::model_update,
+        model_admin::model_remove,
+        model_admin::model_test,
+        model_admin::model_reload,
         extension::extension_list,
         extension::extension_install,
         extension::extension_uninstall,
@@ -49,11 +50,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         settings::settings_get,
         settings::settings_set,
         settings::settings_list,
-        settings::credential_get,
-        settings::credential_set,
-        settings::credential_delete,
-        settings::credential_test,
-        settings::credential_list,
         settings::credential_get_raw,
         settings::credential_set_raw,
         settings::credential_get_by_id,
@@ -62,11 +58,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         settings::credential_delete_by_id,
         settings::credential_test_by_id,
         settings::credential_list_generic,
-        settings::binding_list,
-        settings::binding_get,
-        settings::binding_set,
-        settings::binding_delete,
-        settings::binding_test_rotation,
         system::system_status,
         system::system_doctor,
         system::system_clean,

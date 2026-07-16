@@ -36,20 +36,19 @@ describe("principalCreate wire shape", () => {
   });
 
   it("calls invoke with the principal_create command name", async () => {
-    await principalCreate({ name: "alice" });
+    await principalCreate({ name: "alice", modelId: "openai" });
     expect(mockedInvoke).toHaveBeenCalledTimes(1);
     const [command] = mockedInvoke.mock.calls[0] as [string, unknown];
     expect(command).toBe("principal_create");
   });
 
   it("sends optional fields as null when omitted (the runtime uses #[serde(default)])", async () => {
-    await principalCreate({ name: "alice" });
+    await principalCreate({ name: "alice", modelId: "openai" });
     const [, payload] = mockedInvoke.mock.calls[0] as [string, Record<string, unknown>];
     expect(payload).toEqual({
       name: "alice",
       description: null,
-      preferred_provider_id: null,
-      preferred_model_id: null,
+      model_id: "openai",
     });
   });
 
@@ -57,23 +56,20 @@ describe("principalCreate wire shape", () => {
     await principalCreate({
       name: "alice",
       description: "personal assistant",
-      preferredProviderId: "openai",
-      preferredModelId: "gpt-4o",
+      modelId: "openai",
     });
     const [, payload] = mockedInvoke.mock.calls[0] as [string, Record<string, unknown>];
-    // snake_case keys match the runtime's serde rename; the
-    // PreferredXyzId (camelCase) → preferred_Xyz_id (snake_case)
-    // mapping is what `principalCreate()` in api.ts enforces.
+    // snake_case keys match the runtime's serde rename; model_id is the
+    // configured model reference in the model-first architecture.
     expect(payload).toEqual({
       name: "alice",
       description: "personal assistant",
-      preferred_provider_id: "openai",
-      preferred_model_id: "gpt-4o",
+      model_id: "openai",
     });
   });
 
   it("returns the runtime's projected PrincipalSummary", async () => {
-    const summary = await principalCreate({ name: "alice" });
+    const summary = await principalCreate({ name: "alice", modelId: "openai" });
     expect(summary).toEqual(STUB_SUMMARY);
     expect(summary.name).toBe("alice");
     expect(summary.runtimeId).toBe("local");
@@ -81,7 +77,7 @@ describe("principalCreate wire shape", () => {
 
   it("propagates a rejection from invoke (e.g. AlreadyExists)", async () => {
     mockedInvoke.mockRejectedValueOnce("principal alice already exists");
-    await expect(principalCreate({ name: "alice" })).rejects.toBe(
+    await expect(principalCreate({ name: "alice", modelId: "openai" })).rejects.toBe(
       "principal alice already exists",
     );
   });

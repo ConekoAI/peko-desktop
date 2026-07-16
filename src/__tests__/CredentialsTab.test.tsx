@@ -1,18 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ProviderInfo, CredentialDetail, RotationBinding } from "../types";
+import type { CredentialDetail, ModelSummary } from "../types";
 
 // Mutable signals for the hooks the tab consumes.
-const catalogSignal: {
-  value: ProviderInfo[] | undefined;
-  loading: boolean;
-  isError: boolean;
-} = {
-  value: undefined,
-  loading: false,
-  isError: false,
-};
 const credentialsSignal: {
   value: CredentialDetail[] | undefined;
   loading: boolean;
@@ -20,19 +11,16 @@ const credentialsSignal: {
   value: undefined,
   loading: false,
 };
-const bindingSignal: {
-  value: RotationBinding | undefined;
+
+const modelsSignal: {
+  value: ModelSummary[] | undefined;
   loading: boolean;
+  isError: boolean;
 } = {
   value: undefined,
   loading: false,
+  isError: false,
 };
-
-const updateProviderMut = vi.fn();
-const removeProviderMut = vi.fn();
-const setDefaultProviderMut = vi.fn();
-const addProviderMut = vi.fn();
-const refetchTemplates = vi.fn();
 
 const setGenericCredentialMut = vi.fn();
 const deleteCredentialByIdMut = vi.fn();
@@ -42,19 +30,13 @@ const credentialMaterialSignal: { value: string | undefined; loading: boolean } 
   loading: false,
 };
 
-const setBindingMut = vi.fn();
-const deleteBindingMut = vi.fn();
-const testBindingRotationMut = vi.fn();
+const updateModelMut = vi.fn();
+const removeModelMut = vi.fn();
+const testModelMut = vi.fn();
 
 vi.mock("../hooks/useSettings", () => ({
   useSettings: () => ({ data: [] }),
   useSetSetting: () => ({ mutate: vi.fn() }),
-  useCredential: (provider: string) => ({
-    data: provider
-      ? (credentialsSignal.value ?? []).find((c) => c.namespace === `provider:${provider}`) ?? null
-      : null,
-  }),
-  useDeleteCredential: () => ({ mutate: vi.fn(), isPending: false }),
   useGenericCredentialList: () => ({
     data: credentialsSignal.value,
     isLoading: credentialsSignal.loading,
@@ -79,72 +61,67 @@ vi.mock("../hooks/useSettings", () => ({
   }),
 }));
 
-vi.mock("../hooks/useProviders", () => ({
-  useProviders: () => ({
-    data: catalogSignal.value,
-    isLoading: catalogSignal.loading,
-    isError: catalogSignal.isError,
+vi.mock("../hooks/useModels", () => ({
+  useModels: () => ({
+    data: modelsSignal.value,
+    isLoading: modelsSignal.loading,
+    isError: modelsSignal.isError,
   }),
-  useUpdateProvider: () => ({
-    mutate: updateProviderMut,
-    isPending: false,
+  useModelTemplates: () => ({
+    data: [],
+    isLoading: false,
     error: null,
+    refetch: vi.fn(),
   }),
-  useRemoveProvider: () => ({
-    mutate: removeProviderMut,
-    isPending: false,
-  }),
-  useSetDefaultProvider: () => ({
-    mutate: setDefaultProviderMut,
-    isPending: false,
-  }),
-  useAddProvider: () => ({
-    mutate: addProviderMut,
+  useAddModel: () => ({
+    mutate: vi.fn(),
     isPending: false,
     error: null,
     reset: vi.fn(),
   }),
-  useProviderTemplates: () => ({
-    data: [],
-    isLoading: false,
+  useUpdateModel: () => ({
+    mutate: updateModelMut,
+    isPending: false,
     error: null,
-    refetch: refetchTemplates,
   }),
-}));
-
-vi.mock("../hooks/useBindings", () => ({
-  useBinding: () => ({
-    data: bindingSignal.value,
-    isLoading: bindingSignal.loading,
-  }),
-  useSetBinding: () => ({
-    mutate: setBindingMut,
+  useRemoveModel: () => ({
+    mutate: removeModelMut,
     isPending: false,
   }),
-  useDeleteBinding: () => ({
-    mutate: deleteBindingMut,
-    isPending: false,
-  }),
-  useTestBindingRotation: () => ({
-    mutate: testBindingRotationMut,
+  useTestModel: () => ({
+    mutate: testModelMut,
     isPending: false,
     data: undefined,
   }),
+  useReloadModels: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
 }));
 
-vi.mock("../components/modals/AddProviderModal", () => ({
-  default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="add-provider-modal">Add a Provider</div> : null,
+vi.mock("../hooks/useRuntimes", () => ({
+  useRuntimes: () => ({ data: [], isLoading: false }),
+  useAddRuntime: () => ({ mutate: vi.fn(), isPending: false }),
+  useRemoveRuntime: () => ({ mutate: vi.fn(), isPending: false }),
+  useReconnectRuntime: () => ({ mutate: vi.fn(), isPending: false }),
+  useRenameRuntime: () => ({ mutate: vi.fn(), isPending: false }),
+  useOAuthConnect: () => ({ mutate: vi.fn(), isPending: false }),
+  startOAuthConnect: () => Promise.resolve("https://pekohub.org/auth"),
 }));
 
-vi.mock("../components/modals/EditProviderModal", () => ({
+vi.mock("../components/modals/AddModelModal", () => ({
   default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="edit-provider-modal">Edit Provider</div> : null,
+    open ? <div data-testid="add-model-modal">Add a Model</div> : null,
+}));
+
+vi.mock("../components/modals/EditModelModal", () => ({
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="edit-model-modal">Edit Model</div> : null,
 }));
 
 import Settings from "../pages/Settings";
 
-function renderTab() {
+function renderSettings() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
@@ -153,274 +130,245 @@ function renderTab() {
   );
 }
 
-function switchToCredentialsTab() {
+function switchTab(label: RegExp) {
   const buttons = screen.getAllByRole("button");
-  const credentialsBtn = buttons.find((b) => /credentials/i.test(b.textContent ?? ""));
-  if (credentialsBtn) fireEvent.click(credentialsBtn);
+  const tabBtn = buttons.find((b) => label.test(b.textContent ?? ""));
+  if (tabBtn) fireEvent.click(tabBtn);
 }
 
-function providerFixture(overrides?: Partial<ProviderInfo>): ProviderInfo {
+function modelFixture(overrides?: Partial<ModelSummary>): ModelSummary {
   return {
     id: "openai",
     displayName: "OpenAI",
-    apiType: "openai",
-    defaultModel: "gpt-4o",
+    apiFormat: "openai_completions",
+    baseUrl: "https://api.openai.com",
+    modelId: "gpt-4o",
+    contextWindow: 128_000,
+    maxOutputTokens: 4096,
+    capabilities: ["tool_use", "vision"],
+    headers: {},
     requiresKey: true,
     isLocal: false,
-    baseUrl: "https://api.openai.com",
     enabled: true,
-    models: [],
-    headers: {},
     ...overrides,
   };
 }
 
-describe("CredentialsTab (RP6 accordion redesign)", () => {
+describe("Settings → Credentials & Models tabs", () => {
   beforeEach(() => {
-    updateProviderMut.mockReset();
-    removeProviderMut.mockReset();
-    setDefaultProviderMut.mockReset();
-    addProviderMut.mockReset();
-    refetchTemplates.mockReset();
     setGenericCredentialMut.mockReset();
     deleteCredentialByIdMut.mockReset();
     testCredentialByIdMut.mockReset();
-    testBindingRotationMut.mockReset();
-    setBindingMut.mockReset();
-    deleteBindingMut.mockReset();
+    testCredentialByIdMut.mockImplementation(
+      (_id: string, options?: { onSuccess?: (result: unknown) => void }) => {
+        options?.onSuccess?.({
+          success: true,
+          message: "ok",
+          latencyMs: 120,
+          httpStatus: 200,
+          modelUsed: "gpt-4o",
+        });
+      },
+    );
+    updateModelMut.mockReset();
+    removeModelMut.mockReset();
+    testModelMut.mockReset();
+    testModelMut.mockImplementation(
+      (_id: string, options?: { onSuccess?: (result: unknown) => void }) => {
+        options?.onSuccess?.({
+          id: _id,
+          ok: true,
+          message: "ok",
+          latencyMs: 120,
+          httpStatus: 200,
+          modelUsed: "gpt-4o",
+          testedAt: new Date().toISOString(),
+        });
+      },
+    );
 
-    catalogSignal.value = undefined;
-    catalogSignal.loading = false;
-    catalogSignal.isError = false;
     credentialsSignal.value = undefined;
     credentialsSignal.loading = false;
-    bindingSignal.value = undefined;
-    bindingSignal.loading = false;
+    modelsSignal.value = undefined;
+    modelsSignal.loading = false;
+    modelsSignal.isError = false;
     credentialMaterialSignal.value = undefined;
     credentialMaterialSignal.loading = false;
   });
 
-  it("renders the empty state when there are no providers", () => {
-    catalogSignal.value = [];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    expect(screen.getByTestId("credentials-empty-state")).toBeInTheDocument();
-  });
+  describe("Credentials tab", () => {
+    it("renders the empty state when there are no credentials", () => {
+      credentialsSignal.value = [];
+      renderSettings();
+      switchTab(/credentials/i);
+      expect(screen.getByTestId("credentials-empty-state")).toBeInTheDocument();
+    });
 
-  it("renders ALL catalog providers, not only configured ones", () => {
-    catalogSignal.value = [
-      providerFixture({ id: "openai", displayName: "OpenAI" }),
-      providerFixture({ id: "anthropic", displayName: "Anthropic", apiType: "anthropic" }),
-    ];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    expect(screen.getByTestId("credentials-rows")).toBeInTheDocument();
-    expect(screen.getByTestId("provider-row-openai")).toBeInTheDocument();
-    expect(screen.getByTestId("provider-row-anthropic")).toBeInTheDocument();
-  });
+    it("renders generic credential rows", () => {
+      credentialsSignal.value = [
+        {
+          id: "cred-1",
+          namespace: "llm",
+          name: "openai",
+          kind: "api_key",
+          hasKey: true,
+          lastTestedAt: "2026-07-16T00:00:00Z",
+          lastTestedOk: true,
+        },
+        {
+          id: "cred-2",
+          namespace: "llm",
+          name: "anthropic",
+          kind: "api_key",
+          hasKey: true,
+        },
+      ];
+      renderSettings();
+      switchTab(/credentials/i);
+      expect(screen.getByTestId("credentials-rows")).toBeInTheDocument();
+      expect(screen.getByTestId("credential-row-cred-1")).toBeInTheDocument();
+      expect(screen.getByTestId("credential-row-cred-2")).toBeInTheDocument();
+    });
 
-  it("toggles enabled via useUpdateProvider", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    const checkbox = screen.getByRole("checkbox", { name: /enabled/i });
-    fireEvent.click(checkbox);
-    expect(updateProviderMut).toHaveBeenCalledWith({ id: "openai", enabled: false });
-  });
+    it("adds a generic credential via useSetGenericCredential", () => {
+      credentialsSignal.value = [];
+      renderSettings();
+      switchTab(/credentials/i);
 
-  it("sets a provider as default via useSetDefaultProvider", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    const star = screen.getByTitle("Set as default");
-    fireEvent.click(star);
-    expect(setDefaultProviderMut).toHaveBeenCalledWith({ provider: "openai" });
-  });
+      const form = screen.getByTestId("add-credential-form");
+      const inputs = form.querySelectorAll("input");
+      // namespace, name, material
+      fireEvent.change(inputs[0], { target: { value: "llm" } });
+      fireEvent.change(inputs[1], { target: { value: "openai" } });
+      fireEvent.change(inputs[2], { target: { value: "sk-secret" } });
+      fireEvent.click(form.querySelector("button[type=submit]")!);
 
-  it("removes a provider via useRemoveProvider after confirm", () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTitle("Remove"));
-    expect(removeProviderMut).toHaveBeenCalledWith("openai");
-  });
+      expect(setGenericCredentialMut).toHaveBeenCalledWith(
+        expect.objectContaining({
+          namespace: "llm",
+          name: "openai",
+          material: "sk-secret",
+        }),
+        expect.any(Object),
+      );
+    });
 
-  it("opens the Edit Provider modal", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTitle("Edit"));
-    expect(screen.getByTestId("edit-provider-modal")).toBeInTheDocument();
-  });
+    it("deletes a credential via useDeleteCredentialById", () => {
+      credentialsSignal.value = [
+        { id: "cred-1", namespace: "llm", name: "openai", kind: "api_key", hasKey: true },
+      ];
+      renderSettings();
+      switchTab(/credentials/i);
+      const row = screen.getByTestId("credential-row-cred-1");
+      fireEvent.click(within(row).getByText("Delete"));
+      expect(deleteCredentialByIdMut).toHaveBeenCalledWith("cred-1");
+    });
 
-  it("expands a provider to show credentials, add-key form, and binding panel", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
-    expect(screen.getByRole("heading", { name: /Keys/i })).toBeInTheDocument();
-    expect(screen.getByTestId("add-credential-form")).toBeInTheDocument();
-    expect(screen.getByTestId("rotation-binding-panel")).toBeInTheDocument();
-  });
-
-  it("lists stored credentials in the expanded body", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [
-      {
-        id: "cred-1",
-        namespace: "provider:openai",
-        name: "primary",
-        kind: "api_key",
-        hasKey: true,
-        lastTestedAt: "2026-07-16T00:00:00Z",
-        lastTestedOk: true,
-      },
-    ];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
-    const row = screen.getByTestId("credential-row-cred-1");
-    expect(within(row).getByText("primary")).toBeInTheDocument();
-    expect(within(row).getByText("api_key")).toBeInTheDocument();
-  });
-
-  it("deletes a credential via useDeleteCredentialById", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [
-      { id: "cred-1", namespace: "provider:openai", name: "primary", kind: "api_key", hasKey: true },
-    ];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
-    const row = screen.getByTestId("credential-row-cred-1");
-    fireEvent.click(within(row).getByText("Delete"));
-    expect(deleteCredentialByIdMut).toHaveBeenCalledWith("cred-1");
-  });
-
-  it("tests a credential via useTestCredentialById", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [
-      { id: "cred-1", namespace: "provider:openai", name: "primary", kind: "api_key", hasKey: true },
-    ];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
-    const row = screen.getByTestId("credential-row-cred-1");
-    fireEvent.click(within(row).getByText("Test"));
-    expect(testCredentialByIdMut).toHaveBeenCalledWith("cred-1");
-  });
-
-  it("adds a credential via useSetGenericCredential", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
-
-    const form = screen.getByTestId("add-credential-form");
-    const inputs = form.querySelectorAll("input");
-    fireEvent.change(inputs[0], { target: { value: "work" } });
-    fireEvent.change(inputs[1], { target: { value: "sk-secret" } });
-    fireEvent.click(form.querySelector("button[type=submit]")!);
-
-    expect(setGenericCredentialMut).toHaveBeenCalledWith(
-      expect.objectContaining({
-        namespace: "provider:openai",
-        name: "work",
-        kind: "api_key",
-        material: "sk-secret",
-      }),
-      expect.any(Object),
-    );
-  });
-
-  it("saves a rotation binding via useSetBinding", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
-
-    const panel = screen.getByTestId("rotation-binding-panel");
-    const input = within(panel).getByPlaceholderText(/Credential ids/i);
-    fireEvent.change(input, { target: { value: "cred-1, cred-2" } });
-    fireEvent.click(within(panel).getByText("Save binding"));
-
-    expect(setBindingMut).toHaveBeenCalledWith({
-      key: "provider:openai:default",
-      strategy: "round_robin",
-      order: ["cred-1", "cred-2"],
+    it("tests a credential via useTestCredentialById and shows success feedback", () => {
+      credentialsSignal.value = [
+        { id: "cred-1", namespace: "llm", name: "openai", kind: "api_key", hasKey: true },
+      ];
+      renderSettings();
+      switchTab(/credentials/i);
+      const row = screen.getByTestId("credential-row-cred-1");
+      fireEvent.click(within(row).getByText("Test"));
+      expect(testCredentialByIdMut).toHaveBeenCalledWith("cred-1", expect.any(Object));
+      expect(within(row).getByText(/Test passed · gpt-4o/)).toBeInTheDocument();
     });
   });
 
-  it("deletes an existing rotation binding via useDeleteBinding", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    bindingSignal.value = {
-      key: "provider:openai:default",
-      strategy: "round_robin",
-      order: ["cred-1"],
-    };
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+  describe("Models tab", () => {
+    it("renders the empty state when there are no models", () => {
+      modelsSignal.value = [];
+      renderSettings();
+      switchTab(/models/i);
+      expect(screen.getByTestId("models-empty-state")).toBeInTheDocument();
+    });
 
-    const panel = screen.getByTestId("rotation-binding-panel");
-    fireEvent.click(within(panel).getByText("Delete"));
-    expect(deleteBindingMut).toHaveBeenCalledWith("provider:openai:default");
-  });
+    it("renders configured model rows", () => {
+      modelsSignal.value = [
+        modelFixture({ id: "openai", displayName: "OpenAI" }),
+        modelFixture({
+          id: "anthropic",
+          displayName: "Anthropic",
+          apiFormat: "anthropic_messages",
+          modelId: "claude-sonnet-4-6",
+          enabled: false,
+        }),
+      ];
+      renderSettings();
+      switchTab(/models/i);
+      expect(screen.getByTestId("models-rows")).toBeInTheDocument();
+      expect(screen.getByTestId("model-row-openai")).toBeInTheDocument();
+      expect(screen.getByTestId("model-row-anthropic")).toBeInTheDocument();
+    });
 
-  it("tests a rotation binding via useTestBindingRotation", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("provider-row-openai").querySelector("button")!);
+    it("toggles enabled via useUpdateModel", () => {
+      modelsSignal.value = [modelFixture({ id: "openai" })];
+      renderSettings();
+      switchTab(/models/i);
+      const checkbox = screen.getByRole("checkbox", { name: /enabled/i });
+      fireEvent.click(checkbox);
+      expect(updateModelMut).toHaveBeenCalledWith({ id: "openai", enabled: false });
+    });
 
-    const panel = screen.getByTestId("rotation-binding-panel");
-    fireEvent.click(within(panel).getByText("Test rotation"));
-    expect(testBindingRotationMut).toHaveBeenCalledWith("provider:openai:default");
-  });
+    it("tests a model via useTestModel and shows success feedback", () => {
+      modelsSignal.value = [modelFixture({ id: "openai" })];
+      renderSettings();
+      switchTab(/models/i);
+      const row = screen.getByTestId("model-row-openai");
+      const testBtn = within(row).getByTitle("Test model");
+      fireEvent.click(testBtn);
+      expect(testModelMut).toHaveBeenCalledWith("openai", expect.any(Object));
+      expect(screen.getByText(/Test passed · gpt-4o/)).toBeInTheDocument();
+    });
 
-  it("renders orphaned vault keys when no matching catalog provider exists", () => {
-    catalogSignal.value = [providerFixture({ id: "openai" })];
-    credentialsSignal.value = [
-      { id: "cred-1", namespace: "provider:openai", name: "ok", kind: "api_key", hasKey: true },
-      { id: "cred-2", namespace: "provider:miniax", name: "typo", kind: "api_key", hasKey: true },
-    ];
-    renderTab();
-    switchToCredentialsTab();
-    expect(screen.getByTestId("credentials-orphans")).toBeInTheDocument();
-    expect(screen.getByTestId("orphan-row-miniax")).toBeInTheDocument();
-    expect(screen.queryByTestId("orphan-row-openai")).toBeNull();
-  });
+    it("removes a model via useRemoveModel after inline confirmation", () => {
+      modelsSignal.value = [modelFixture({ id: "openai" })];
+      renderSettings();
+      switchTab(/models/i);
+      const row = screen.getByTestId("model-row-openai");
+      fireEvent.click(within(row).getByTitle("Remove"));
+      expect(screen.getByText("Confirm")).toBeInTheDocument();
+      fireEvent.click(screen.getByText("Confirm"));
+      expect(removeModelMut).toHaveBeenCalledWith(
+        "openai",
+        expect.any(Object),
+      );
+    });
 
-  it("does NOT flag orphans while the catalog fetch is in error", () => {
-    catalogSignal.value = undefined;
-    catalogSignal.isError = true;
-    credentialsSignal.value = [
-      { id: "cred-1", namespace: "provider:miniax", name: "typo", kind: "api_key", hasKey: true },
-    ];
-    renderTab();
-    switchToCredentialsTab();
-    expect(screen.queryByTestId("credentials-orphans")).toBeNull();
-    expect(screen.getByTestId("credentials-catalog-unavailable")).toBeInTheDocument();
-  });
+    it("cancels model removal without calling useRemoveModel", () => {
+      modelsSignal.value = [modelFixture({ id: "openai" })];
+      renderSettings();
+      switchTab(/models/i);
+      const row = screen.getByTestId("model-row-openai");
+      fireEvent.click(within(row).getByTitle("Remove"));
+      fireEvent.click(screen.getByText("Cancel"));
+      expect(removeModelMut).not.toHaveBeenCalled();
+    });
 
-  it("opens the Add Provider modal from the header button", () => {
-    catalogSignal.value = [];
-    credentialsSignal.value = [];
-    renderTab();
-    switchToCredentialsTab();
-    fireEvent.click(screen.getByTestId("open-add-provider-modal"));
-    expect(screen.getByTestId("add-provider-modal")).toBeInTheDocument();
+    it("opens the Add Model modal from the header button", () => {
+      modelsSignal.value = [];
+      renderSettings();
+      switchTab(/models/i);
+      fireEvent.click(screen.getByTestId("open-add-model-modal"));
+      expect(screen.getByTestId("add-model-modal")).toBeInTheDocument();
+    });
+
+    it("opens the Edit Model modal", () => {
+      modelsSignal.value = [modelFixture({ id: "openai" })];
+      renderSettings();
+      switchTab(/models/i);
+      fireEvent.click(screen.getByTitle("Edit"));
+      expect(screen.getByTestId("edit-model-modal")).toBeInTheDocument();
+    });
+
+    it("shows the catalog-unavailable banner on error", () => {
+      modelsSignal.value = undefined;
+      modelsSignal.isError = true;
+      renderSettings();
+      switchTab(/models/i);
+      expect(screen.getByTestId("models-catalog-unavailable")).toBeInTheDocument();
+    });
   });
 });

@@ -127,15 +127,15 @@ async fn ensure_daemon() -> Result<()> {
 
 /// Raise the kernel-side `SO_RCVBUF` on the freshly-bound client
 /// socket so the desktop can receive larger daemon responses
-/// (`provider_templates`, `provider_list`, `system_status`, …).
+/// (`model_templates`, `model_list`, `system_status`, …).
 ///
 /// Why this exists: the desktop binds a per-PID tmp
 /// `AF_UNIX/SOCK_DGRAM` socket to receive responses. With the
 /// platform's default receive queue, the daemon's
-/// `send_to(peer)` for a 5+ KB `provider_templates` payload
+/// `send_to(peer)` for a 5+ KB `model_templates` payload
 /// returns `ENOBUFS` ("No buffer space available", os error 55).
 /// The handler logs the error and the client silently times out at
-/// 10 s — the modal then shows "provider_templates failed:
+/// 10 s — the modal then shows "model_templates failed:
 /// timeout". We saw this exactly when the catalog grew past a
 /// handful of templates (memory: `provider-templates-ipc-enobufs`).
 ///
@@ -168,7 +168,7 @@ fn bump_recv_buffer<S: std::os::fd::AsRawFd>(socket: &S) {
         let err = std::io::Error::last_os_error();
         tracing::warn!(
             "failed to bump client socket SO_RCVBUF to {} bytes ({}); \
-             large responses (e.g. provider_templates) may fail with ENOBUFS",
+             large responses (e.g. model_templates) may fail with ENOBUFS",
             IPC_RECV_BUFFER_BYTES,
             err
         );
@@ -609,130 +609,46 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    // ── Rotation bindings (RP4) ────────────────────────────────────
+    // ── Model catalog ───────────────────────────────────────────────
 
-    /// List every rotation binding configured in the vault.
-    pub async fn binding_list(&self) -> Result<serde_json::Value> {
+    /// List configured models from the runtime's model catalog.
+    pub async fn model_list(&self) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "binding_list",
+            "type": "model_list",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
         });
         self.request_response(req).await
     }
 
-    /// Fetch one rotation binding by slot key (`namespace:name`).
-    pub async fn binding_get(&self, key: &str) -> Result<serde_json::Value> {
+    /// Re-read the model catalog and credential vault from disk.
+    pub async fn model_reload(&self) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "binding_get",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "key": key,
-        });
-        self.request_response(req).await
-    }
-
-    /// Store or overwrite a rotation binding.
-    pub async fn binding_set(
-        &self,
-        key: &str,
-        strategy: &str,
-        order: &[String],
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "binding_set",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "key": key,
-            "strategy": strategy,
-            "order": order,
-        });
-        self.request_response(req).await
-    }
-
-    /// Delete a rotation binding by slot key.
-    pub async fn binding_delete(&self, key: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "binding_delete",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "key": key,
-        });
-        self.request_response(req).await
-    }
-
-    /// Test each credential in a binding in order.
-    pub async fn binding_test_rotation(&self, key: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "binding_test_rotation",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "key": key,
-        });
-        self.request_response(req).await
-    }
-
-    /// List the runtime's provider catalog.
-    pub async fn list_providers(&self) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "provider_list",
+            "type": "model_reload",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
         });
         self.request_response(req).await
     }
 
-    /// Ask the runtime to re-read the provider catalog AND the credential
-    /// vault from disk. The desktop calls this before listing credentials
-    /// so the long-running daemon sees keys the user just added via the
-    /// CLI (`peko credential set` → `notify_daemon_reload`) — without
-    /// the explicit hop, a daemon that started before the user added
-    /// the key (or one that the supervisor adopted from a foreign
-    /// headless process) can hold a stale in-memory vault and report
-    /// `credentials: []` even though the key is on disk and the CLI
-    /// round-trips fine. Returns the raw response; the success path
-    /// carries `(providers_count, keys_count)` for the caller to log.
-    pub async fn provider_reload(&self) -> Result<serde_json::Value> {
+    /// List the built-in model presets the runtime ships with.
+    pub async fn model_templates(&self) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "provider_reload",
+            "type": "model_templates",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
         });
         self.request_response(req).await
     }
 
-    /// List the built-in provider templates the runtime ships
-    /// with. Mirrors the CLI's `peko provider templates` over IPC
-    /// so the desktop's "Add Provider" modal can populate its
-    /// template picker without shelling out. T-109b.
-    pub async fn provider_templates(&self) -> Result<serde_json::Value> {
+    /// Add a model to the runtime catalog.
+    pub async fn model_add(&self, args: serde_json::Value) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "provider_templates",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-        });
-        self.request_response(req).await
-    }
-
-    /// Add a provider to the runtime catalog. Mirrors
-    /// `peko provider add` over IPC so the desktop's "Add Provider"
-    /// modal can register a new template- or custom-shaped
-    /// provider without shelling out. The full `args` payload is
-    /// serialized and forwarded; the runtime's handler does the
-    /// template/custom branch + `--key` / `--set-default` folding
-    /// and returns the new entry's catalog-summary view. T-109b.
-    pub async fn provider_add(&self, args: serde_json::Value) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "provider_add",
+            "type": "model_add",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "args": args,
@@ -740,14 +656,11 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// RP6: Update an existing provider catalog entry. Mirrors
-    /// `peko provider edit` / `RequestPacket::ProviderUpdate`.
-    /// The `args` payload is forwarded in the snake_case shape the
-    /// runtime expects.
-    pub async fn provider_update(&self, args: serde_json::Value) -> Result<serde_json::Value> {
+    /// Update an existing model catalog entry.
+    pub async fn model_update(&self, args: serde_json::Value) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "provider_update",
+            "type": "model_update",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "args": args,
@@ -755,12 +668,11 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// RP6: Remove a provider from the runtime catalog. Mirrors
-    /// `RequestPacket::ProviderRemove { id }`.
-    pub async fn provider_remove(&self, id: &str) -> Result<serde_json::Value> {
+    /// Remove a model from the runtime catalog.
+    pub async fn model_remove(&self, id: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "provider_remove",
+            "type": "model_remove",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "id": id,
@@ -768,20 +680,14 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// RP6: Promote a provider (and optionally a model) to the runtime
-    /// default. Mirrors `RequestPacket::ProviderSetDefault`.
-    pub async fn provider_set_default(
-        &self,
-        provider: &str,
-        model: Option<&str>,
-    ) -> Result<serde_json::Value> {
+    /// Live-test a configured model.
+    pub async fn model_test(&self, id: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "provider_set_default",
+            "type": "model_test",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
-            "provider": provider,
-            "model": model,
+            "id": id,
         });
         self.request_response(req).await
     }
@@ -1001,13 +907,11 @@ impl IpcClient {
     /// `agents/primary.md`, and returns a `principal_created` envelope
     /// with the new summary. Errors surface as a generic `error`
     /// packet — callers should map them to user-facing messages.
-    #[allow(clippy::too_many_arguments)]
     pub async fn principal_create(
         &self,
         name: &str,
         description: Option<&str>,
-        preferred_provider_id: Option<&str>,
-        preferred_model_id: Option<&str>,
+        model_id: &str,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1016,8 +920,7 @@ impl IpcClient {
             "request_id": 1u64,
             "name": name,
             "description": description,
-            "preferred_provider_id": preferred_provider_id,
-            "preferred_model_id": preferred_model_id,
+            "model_id": model_id,
         });
         self.request_response(req).await
     }

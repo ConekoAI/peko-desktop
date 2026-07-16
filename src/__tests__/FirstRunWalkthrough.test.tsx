@@ -6,11 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // mutable signal lets each test drive the visibility branch it
 // cares about without restaging the full React Query cache.
 const principalsSignal: { value: unknown } = { value: [] };
-const providersSignal: { value: unknown; loading: boolean } = {
-  value: [],
-  loading: false,
-};
-const credentialsSignal: { value: Array<{ provider: string; hasKey: boolean }>; loading: boolean } = {
+const modelsSignal: { value: unknown; loading: boolean } = {
   value: [],
   loading: false,
 };
@@ -23,22 +19,8 @@ vi.mock("../hooks/usePrincipals", () => ({
     reset: vi.fn(),
   }),
 }));
-vi.mock("../hooks/useProviders", () => ({
-  useProviders: () => ({ data: providersSignal.value, isLoading: providersSignal.loading }),
-}));
-vi.mock("../hooks/useSettings", () => ({
-  useCredential: () => ({ data: null }),
-  useCredentialList: () => ({
-    data: credentialsSignal.value,
-    isLoading: credentialsSignal.loading,
-  }),
-  useSetCredential: () => ({ mutate: vi.fn(), error: null }),
-  useTestCredential: () => ({
-    mutate: vi.fn(),
-    data: undefined,
-    isPending: false,
-    error: null,
-  }),
+vi.mock("../hooks/useModels", () => ({
+  useModels: () => ({ data: modelsSignal.value, isLoading: modelsSignal.loading }),
 }));
 
 import FirstRunWalkthrough, { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
@@ -56,10 +38,8 @@ describe("FirstRunWalkthrough visibility (T-105)", () => {
   beforeEach(() => {
     localStorage.clear();
     principalsSignal.value = [];
-    providersSignal.value = [];
-    providersSignal.loading = false;
-    credentialsSignal.value = [];
-    credentialsSignal.loading = false;
+    modelsSignal.value = [];
+    modelsSignal.loading = false;
   });
 
   it("does not render when the onboarding flag is set", () => {
@@ -102,28 +82,29 @@ describe("FirstRunWalkthrough visibility (T-105)", () => {
     expect(await screen.findByTestId("first-run-walkthrough")).toBeInTheDocument();
   });
 
-  it("skips past credential steps when a provider is already configured", () => {
-    providersSignal.value = [
-      { id: "openai", displayName: "OpenAI" },
-      { id: "minimax", displayName: "MiniMax" },
+  it("lists configured models in step 1", () => {
+    modelsSignal.value = [
+      { id: "openai", displayName: "OpenAI", apiFormat: "openai_completions", modelId: "gpt-4o" },
+      { id: "anthropic", displayName: "Anthropic", apiFormat: "anthropic_messages", modelId: "claude-sonnet-4-6" },
     ];
-    credentialsSignal.value = [{ provider: "minimax", hasKey: true }];
     renderWalkthrough();
-    // Step 4 ("Create principal") should render immediately — the
-    // user already has a configured provider, so pick / paste /
-    // test are skipped.
-    expect(screen.getByText(/identity you'll chat with/i)).toBeInTheDocument();
-    expect(screen.getByText(/Provider ready: MiniMax/)).toBeInTheDocument();
-    expect(screen.queryByText(/Pick the model provider/i)).toBeNull();
+    expect(screen.getByText(/Pick a configured model/i)).toBeInTheDocument();
+    expect(screen.getByText("OpenAI")).toBeInTheDocument();
+    expect(screen.getByText("Anthropic")).toBeInTheDocument();
   });
 
-  it("falls through to all four steps when no provider is configured", () => {
-    providersSignal.value = [
-      { id: "openai", displayName: "OpenAI" },
-      { id: "minimax", displayName: "MiniMax" },
+  it("pre-selects the first configured model", () => {
+    modelsSignal.value = [
+      { id: "openai", displayName: "OpenAI", apiFormat: "openai_completions", modelId: "gpt-4o" },
+      { id: "anthropic", displayName: "Anthropic", apiFormat: "anthropic_messages", modelId: "claude-sonnet-4-6" },
     ];
-    credentialsSignal.value = [];
     renderWalkthrough();
-    expect(screen.getByText(/Pick the model provider/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
+  });
+
+  it("shows an empty-state helper when no models are configured", () => {
+    modelsSignal.value = [];
+    renderWalkthrough();
+    expect(screen.getByText(/No models configured yet/i)).toBeInTheDocument();
   });
 });
