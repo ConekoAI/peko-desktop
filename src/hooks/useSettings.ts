@@ -7,6 +7,12 @@ import {
   credentialSet,
   credentialDelete,
   credentialTest,
+  credentialGetById,
+  credentialListGeneric,
+  credentialSetGeneric,
+  credentialDeleteById,
+  credentialTestById,
+  credentialGetMaterial,
 } from "../lib/api";
 
 export function useSettings() {
@@ -82,5 +88,67 @@ export function useDeleteCredential() {
 export function useTestCredential() {
   return useMutation({
     mutationFn: (provider: string) => credentialTest(provider),
+  });
+}
+
+// ─── RP4 generic credential hooks (RP6 UI will consume these) ─────
+
+export function useCredentialById(id: string | undefined) {
+  return useQuery({
+    queryKey: ["credential", id],
+    queryFn: () => credentialGetById(id!),
+    enabled: !!id,
+  });
+}
+
+export function useGenericCredentialList(
+  namespace?: string,
+  kind?: string,
+) {
+  return useQuery({
+    queryKey: ["credentials", "generic", namespace ?? "*", kind ?? "*"],
+    queryFn: () => credentialListGeneric(namespace, kind),
+    staleTime: 30_000,
+  });
+}
+
+export function useSetGenericCredential() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      namespace: string;
+      name: string;
+      kind: import("../types").CredentialKind;
+      material: string;
+      metadata?: Record<string, unknown>;
+    }) => credentialSetGeneric(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["credentials"] });
+    },
+  });
+}
+
+export function useDeleteCredentialById() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => credentialDeleteById(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["credentials"] });
+      qc.invalidateQueries({ queryKey: ["credential"] });
+    },
+  });
+}
+
+export function useTestCredentialById() {
+  return useMutation({
+    mutationFn: (id: string) => credentialTestById(id),
+  });
+}
+
+export function useCredentialMaterial(id: string, reason: string) {
+  return useQuery({
+    queryKey: ["credential", id, "material", reason],
+    queryFn: () => credentialGetMaterial(id, reason),
+    enabled: !!id && !!reason,
   });
 }
