@@ -5,7 +5,6 @@ import {
   useGenericCredentialList,
   useSetGenericCredential,
   useDeleteCredentialById,
-  useTestCredentialById,
   useCredentialMaterial,
 } from "../hooks/useSettings";
 import {
@@ -283,29 +282,6 @@ function CredentialsTab() {
 
 function CredentialRow({ credential }: { credential: CredentialDetail }) {
   const deleteCred = useDeleteCredentialById();
-  const testCred = useTestCredentialById();
-  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(
-    null,
-  );
-
-  function handleTest() {
-    testCred.mutate(credential.id, {
-      onSuccess: (result) => {
-        setFeedback({
-          ok: result.success,
-          text: result.success
-            ? `Test passed${result.modelUsed ? ` · ${result.modelUsed}` : ""}`
-            : result.message,
-        });
-      },
-      onError: (err) => {
-        setFeedback({
-          ok: false,
-          text: err instanceof Error ? err.message : "Test failed",
-        });
-      },
-    });
-  }
 
   return (
     <div
@@ -327,43 +303,16 @@ function CredentialRow({ credential }: { credential: CredentialDetail }) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleTest}
-            disabled={testCred.isPending && testCred.variables === credential.id}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          >
-            {testCred.isPending && testCred.variables === credential.id ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <TestTube className="h-3 w-3" />
-            )}
-            Test
-          </button>
-          <button
-            onClick={() => deleteCred.mutate(credential.id)}
-            disabled={deleteCred.isPending}
-            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-slate-800 dark:text-red-400"
-          >
-            <Trash2 className="h-3 w-3" />
-            Delete
-          </button>
-        </div>
+        <button
+          onClick={() => deleteCred.mutate(credential.id)}
+          disabled={deleteCred.isPending}
+          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-slate-800 dark:text-red-400"
+        >
+          <Trash2 className="h-3 w-3" />
+          Delete
+        </button>
       </div>
       <RevealButton id={credential.id} />
-      {feedback && (
-        <div
-          className={[
-            "mt-1.5 text-[11px]",
-            feedback.ok
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-red-600 dark:text-red-400",
-          ].join(" ")}
-        >
-          {feedback.ok ? "✓ " : "✗ "}
-          {feedback.text}
-        </div>
-      )}
     </div>
   );
 }

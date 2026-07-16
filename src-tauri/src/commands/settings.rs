@@ -264,26 +264,6 @@ async fn find_default_credential_id(
         }))
 }
 
-fn map_credential_tested(resp: &serde_json::Value) -> CredentialTestResult {
-    CredentialTestResult {
-        success: resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-        message: resp
-            .get("message")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        latency_ms: resp.get("latency_ms").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-        http_status: resp
-            .get("http_status")
-            .and_then(|v| v.as_u64())
-            .map(|n| n as u16),
-        model_used: resp
-            .get("model_used")
-            .and_then(|v| v.as_str())
-            .map(String::from),
-    }
-}
-
 // ─── Provider-keyed credential adapters (current UI) ──────────────
 
 /// Reveal the raw secret material for a provider's default credential.
@@ -347,17 +327,6 @@ pub struct CredentialDetail {
     pub created_at: Option<String>,
     #[serde(alias = "updated_at")]
     pub updated_at: Option<String>,
-}
-
-/// Live-credential-test result projected to the frontend.
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct CredentialTestResult {
-    pub success: bool,
-    pub message: String,
-    pub latency_ms: u32,
-    pub http_status: Option<u16>,
-    pub model_used: Option<String>,
 }
 
 #[tauri::command]
@@ -429,19 +398,6 @@ pub async fn credential_delete_by_id(id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn credential_test_by_id(id: String) -> Result<CredentialTestResult, String> {
-    let client = crate::ipc::IpcClient::new()
-        .await
-        .map_err(|e| e.to_string())?;
-    let resp = client
-        .credential_test(&id)
-        .await
-        .map_err(|e| e.to_string())?;
-    check_runtime_error(&resp)?;
-    Ok(map_credential_tested(&resp))
-}
-
-#[tauri::command]
 pub async fn credential_list_generic(
     namespace: Option<String>,
     kind: Option<String>,
@@ -487,23 +443,6 @@ mod credential_tests {
             "id": "abc",
         });
         assert!(check_runtime_error(&resp).is_ok());
-    }
-
-    #[test]
-    fn map_credential_tested_extracts_fields() {
-        let resp = serde_json::json!({
-            "ok": true,
-            "message": "ok",
-            "latency_ms": 123u64,
-            "http_status": 200u64,
-            "model_used": "claude-3",
-        });
-        let got = map_credential_tested(&resp);
-        assert!(got.success);
-        assert_eq!(got.message, "ok");
-        assert_eq!(got.latency_ms, 123);
-        assert_eq!(got.http_status, Some(200));
-        assert_eq!(got.model_used.as_deref(), Some("claude-3"));
     }
 
     #[test]

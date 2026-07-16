@@ -285,8 +285,7 @@ export interface Setting {
 //
 // Credentials are owned by the runtime's OS keychain / vault.
 // The desktop never holds the secret beyond the IPC call. The shape
-// mirrors what `credential_test_by_id` and `credential_list_generic`
-// return over IPC.
+// mirrors what `credential_list_generic` returns over IPC.
 
 export type CredentialKind =
   | "api_key"
