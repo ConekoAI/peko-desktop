@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { ProviderInfo } from "../types";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const createMut = vi.fn();
 const resetMut = vi.fn();
@@ -14,11 +14,11 @@ vi.mock("../hooks/usePrincipals", () => ({
   }),
 }));
 
-const providersSignal: { value: ProviderInfo[] | undefined } = { value: undefined };
+const modelsSignal: { value: unknown } = { value: undefined };
 
-vi.mock("../hooks/useProviders", () => ({
-  useProviders: () => ({
-    data: providersSignal.value,
+vi.mock("../hooks/useModels", () => ({
+  useModels: () => ({
+    data: modelsSignal.value,
     isLoading: false,
     isError: false,
   }),
@@ -27,88 +27,72 @@ vi.mock("../hooks/useProviders", () => ({
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 
 function renderModal() {
-  return render(<CreatePrincipalModal open onClose={vi.fn()} />);
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <CreatePrincipalModal open onClose={vi.fn()} />
+    </QueryClientProvider>,
+  );
 }
 
-function providerFixture(overrides?: Partial<ProviderInfo>): ProviderInfo {
-  return {
-    id: "openai",
-    displayName: "OpenAI",
-    apiType: "openai",
-    defaultModel: "gpt-4o",
-    requiresKey: true,
-    isLocal: false,
-    baseUrl: "https://api.openai.com",
-    enabled: true,
-    models: [],
-    headers: {},
-    ...overrides,
-  };
-}
-
-describe("CreatePrincipalModal model picker (RP7)", () => {
+describe("CreatePrincipalModal model picker", () => {
   beforeEach(() => {
     createMut.mockReset();
     resetMut.mockReset();
-    providersSignal.value = [
-      providerFixture({
+    modelsSignal.value = [
+      {
         id: "openai",
         displayName: "OpenAI",
-        models: [
-          { id: "gpt-4o", displayName: "GPT-4o" },
-          { id: "gpt-4o-mini" },
-        ],
-      }),
-      providerFixture({
-        id: "local",
-        displayName: "Local",
-        apiType: "ollama",
-        models: [],
-      }),
+        apiFormat: "openai_completions",
+        modelId: "gpt-4o",
+        baseUrl: "https://api.openai.com",
+        requiresKey: true,
+        isLocal: false,
+        enabled: true,
+        capabilities: ["tool_use", "vision"],
+        headers: {},
+      },
+      {
+        id: "anthropic",
+        displayName: "Anthropic",
+        apiFormat: "anthropic_messages",
+        modelId: "claude-sonnet-4-6",
+        baseUrl: "https://api.anthropic.com",
+        requiresKey: true,
+        isLocal: false,
+        enabled: true,
+        capabilities: ["tool_use"],
+        headers: {},
+      },
     ];
   });
 
-  it("does not show a model dropdown until a provider is selected", () => {
+  it("renders a model dropdown", () => {
     renderModal();
-    expect(screen.queryByLabelText(/model/i)).toBeNull();
-  });
-
-  it("shows a model dropdown for the selected provider", () => {
-    renderModal();
-    fireEvent.click(screen.getByText("OpenAI"));
     expect(screen.getByLabelText(/model/i)).toBeInTheDocument();
-    expect(screen.getByText("GPT-4o")).toBeInTheDocument();
-    expect(screen.getByText("gpt-4o-mini")).toBeInTheDocument();
+    expect(screen.getByText("OpenAI")).toBeInTheDocument();
   });
 
-  it("omits the model dropdown when the selected provider has no models", () => {
+  it("does not allow submission without a selected model", () => {
     renderModal();
-    fireEvent.click(screen.getByText("Local"));
-    expect(screen.queryByLabelText(/model/i)).toBeNull();
-  });
-
-  it("clears the selected model when the provider changes", () => {
-    renderModal();
-    fireEvent.click(screen.getByText("OpenAI"));
-    fireEvent.change(screen.getByLabelText(/model/i), {
-      target: { value: "gpt-4o-mini" },
-    });
-
-    fireEvent.click(screen.getByText("Local"));
-    expect(screen.queryByLabelText(/model/i)).toBeNull();
-
-    fireEvent.click(screen.getByText("OpenAI"));
-    expect((screen.getByLabelText(/model/i) as HTMLSelectElement).value).toBe("");
-  });
-
-  it("submits preferredProviderId and preferredModelId when a model is chosen", () => {
-    renderModal();
-    fireEvent.change(screen.getByPlaceholderText("alice"), {
+    fireEvent.change(screen.getByLabelText(/name/i), {
       target: { value: "alice" },
     });
-    fireEvent.click(screen.getByText("OpenAI"));
+    fireEvent.change(screen.getByLabelText(/model/i), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /create/i }));
+    expect(createMut).not.toHaveBeenCalled();
+  });
+
+  it("submits name, description, and modelId when a model is chosen", () => {
+    renderModal();
+    fireEvent.change(screen.getByLabelText(/name/i), {
+      target: { value: "alice" },
+    });
+    fireEvent.change(screen.getByLabelText(/description/i), {
+      target: { value: "Personal coding assistant" },
+    });
     fireEvent.change(screen.getByLabelText(/model/i), {
-      target: { value: "gpt-4o-mini" },
+      target: { value: "anthropic" },
     });
     fireEvent.click(screen.getByRole("button", { name: /create/i }));
 
@@ -116,46 +100,36 @@ describe("CreatePrincipalModal model picker (RP7)", () => {
     expect(createMut).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "alice",
-        preferredProviderId: "openai",
-        preferredModelId: "gpt-4o-mini",
+        description: "Personal coding assistant",
+        modelId: "anthropic",
       }),
       expect.any(Object),
     );
   });
 
-  it("submits without preferredModelId when the provider default is kept", () => {
+  it("submits without description when empty", () => {
     renderModal();
-    fireEvent.change(screen.getByPlaceholderText("alice"), {
+    fireEvent.change(screen.getByLabelText(/name/i), {
       target: { value: "bob" },
     });
-    fireEvent.click(screen.getByText("OpenAI"));
+    fireEvent.change(screen.getByLabelText(/model/i), {
+      target: { value: "openai" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /create/i }));
 
-    expect(createMut).toHaveBeenCalledTimes(1);
     expect(createMut).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "bob",
-        preferredProviderId: "openai",
-        preferredModelId: undefined,
+        description: undefined,
+        modelId: "openai",
       }),
       expect.any(Object),
     );
   });
 
-  it("submits without provider or model when none are selected", () => {
+  it("shows a helper when no models are configured", () => {
+    modelsSignal.value = [];
     renderModal();
-    fireEvent.change(screen.getByPlaceholderText("alice"), {
-      target: { value: "carol" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /create/i }));
-
-    expect(createMut).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "carol",
-        preferredProviderId: undefined,
-        preferredModelId: undefined,
-      }),
-      expect.any(Object),
-    );
+    expect(screen.getByText(/No configured models yet/i)).toBeInTheDocument();
   });
 });

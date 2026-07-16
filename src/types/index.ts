@@ -194,45 +194,83 @@ export interface StreamEvent {
   timestamp?: string;
 }
 
-export interface ModelInfo {
+// ─── Model-first catalog (model-first migration) ─────────────────
+//
+// The runtime's provider catalog was replaced by a catalog of
+// configured models. Each ModelSummary is a self-contained endpoint
+// configuration: base URL, API format, wire model id, headers, and
+// an optional credential reference.
+
+export interface ModelSummary {
+  id: string;
+  displayName: string;
+  templateId?: string;
+  apiFormat: string;
+  baseUrl: string;
+  modelId: string;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  capabilities: string[];
+  headers: Record<string, string>;
+  credentialId?: string;
+  requiresKey: boolean;
+  isLocal: boolean;
+  enabled: boolean;
+}
+
+export interface ModelTemplateInfo {
   id: string;
   displayName?: string;
   contextLength?: number;
   maxOutputTokens?: number;
-  capabilities?: string[];
 }
 
-export interface ProviderInfo {
+export interface ModelPresetInfo {
   id: string;
   displayName: string;
   apiType: string;
-  defaultModel: string;
-  requiresKey: boolean;
-  isLocal: boolean;
-  /** Base URL configured for this provider. Empty for providers where the user must supply a deployment URL. */
   baseUrl: string;
-  /** Catalog `enabled` flag. Disabled entries still appear in the list. */
-  enabled: boolean;
-  /** Declared models for this provider. */
-  models: ModelInfo[];
-  /** Optional extra HTTP headers (e.g. `OpenAI-Organization`). */
-  headers: Record<string, string>;
-  /** True if this entry is the runtime's current default provider. */
-  isDefault?: boolean;
+  requiresKey: boolean;
+  defaultModel: string;
+  models: ModelTemplateInfo[];
 }
 
-// RP6: Arguments for `provider_update`. Every field except `id` is optional;
-// omitted fields leave the existing catalog entry untouched.
-export interface ProviderUpdateArgs {
+export interface ModelAddArgs {
+  template?: string;
+  name?: string;
+  displayName?: string;
+  custom: boolean;
+  apiFormat?: string;
+  baseUrl?: string;
+  requiresKey?: boolean;
+  model: string[];
+  key?: string;
+  credentialId?: string;
+}
+
+export interface ModelUpdateArgs {
   id: string;
   displayName?: string;
-  baseUrl?: string;
   apiFormat?: string;
-  models?: ModelInfo[];
-  defaultModelId?: string;
+  baseUrl?: string;
+  modelId?: string;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  capabilities?: string[];
   headers?: Record<string, string>;
+  credentialId?: string;
   requiresKey?: boolean;
   enabled?: boolean;
+}
+
+export interface ModelTestResult {
+  id: string;
+  ok: boolean;
+  message: string;
+  latencyMs: number;
+  httpStatus?: number;
+  modelUsed?: string;
+  testedAt: string;
 }
 
 export interface Setting {
@@ -243,20 +281,12 @@ export interface Setting {
   category: string;
 }
 
-// ─── Credential (keychain-only) ─────────────────────────────────
+// ─── Credential (generic vault) ──────────────────────────────────
 //
-// Credentials are owned by the runtime's OS keychain (`peko credential
-// set/list/test/delete`). The desktop never holds the secret beyond
-// the IPC call. The shape here mirrors what `credential_test` and
-// `credential_list` return over IPC.
-
-export interface Credential {
-  provider: string;
-  hasKey: boolean;
-  lastTested?: string;
-}
-
-// ─── RP4 Generic vault credentials (RP5 desktop IPC) ──────────────
+// Credentials are owned by the runtime's OS keychain / vault.
+// The desktop never holds the secret beyond the IPC call. The shape
+// mirrors what `credential_test_by_id` and `credential_list_generic`
+// return over IPC.
 
 export type CredentialKind =
   | "api_key"
@@ -277,66 +307,6 @@ export interface CredentialDetail {
   metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
-}
-
-export interface RotationBinding {
-  key: string;
-  strategy: "round_robin" | "last_resort" | "random";
-  order: string[];
-}
-
-export interface BindingTestResult {
-  id: string;
-  success: boolean;
-  message: string;
-  httpStatus?: number;
-}
-
-// T-109b: One model declared by a built-in provider template.
-// Mirrors the runtime's `ModelTemplateInfo` (snake_case on the
-// wire; the Tauri command at `commands/provider_admin.rs`
-// projects to camelCase before this type sees it).
-export interface ModelTemplate {
-  id: string;
-  displayName?: string;
-  contextLength?: number;
-  maxOutputTokens?: number;
-}
-
-// T-109b: One built-in provider template the runtime ships with.
-// Shape consumed by the "Add Provider" modal's template picker.
-// Richer than `ProviderInfo` (which is the catalog-summary view)
-// so the picker can render the curated model list + context
-// lengths in one screen.
-export interface ProviderTemplate {
-  id: string;
-  displayName: string;
-  /** "openai" or "anthropic" — matches `ProviderInfo.apiType`. */
-  apiType: string;
-  /** Empty string for templates that need a deployment URL. */
-  baseUrl: string;
-  requiresKey: boolean;
-  defaultModel: string;
-  models: ModelTemplate[];
-}
-
-// T-109b: Arguments for `provider_add`. Mirrors the runtime's
-// `ProviderAddArgs` 1:1 (camelCase on the Tauri command side).
-// `template` and `custom` are mutually exclusive; sending neither
-// produces a `ResponsePacket::Error` from the runtime, which the
-// Tauri command surfaces as a thrown error.
-export interface ProviderAddArgs {
-  template?: string;
-  name?: string;
-  displayName?: string;
-  custom?: boolean;
-  apiFormat?: "openai_completions" | "anthropic_messages" | string;
-  baseUrl?: string;
-  requiresKey?: boolean;
-  model?: string[];
-  key?: string;
-  setDefault?: boolean;
-  defaultModel?: string;
 }
 
 export interface AccessiblePrincipal {

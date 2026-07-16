@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, RefreshCw, X } from "lucide-react";
 
-import { useAddProvider, useProviderTemplates } from "../../hooks/useProviders";
-import type { ProviderAddArgs, ProviderTemplate } from "../../types";
+import { useAddModel, useModelTemplates } from "../../hooks/useModels";
+import { useGenericCredentialList } from "../../hooks/useSettings";
+import type { ModelAddArgs, ModelPresetInfo } from "../../types";
 
 type Mode = "template" | "custom";
 
@@ -11,16 +12,17 @@ interface CustomForm {
   displayName: string;
   apiFormat: "openai_completions" | "anthropic_messages" | "";
   baseUrl: string;
-  model: string;
+  modelId: string;
   requiresKey: boolean;
-  apiKey: string;
-  setDefault: boolean;
+  key: string;
+  credentialId: string;
 }
 
 interface TemplateForm {
   nameOverride: string;
-  apiKey: string;
-  setDefault: boolean;
+  modelId: string;
+  key: string;
+  credentialId: string;
 }
 
 const INITIAL_CUSTOM: CustomForm = {
@@ -28,69 +30,59 @@ const INITIAL_CUSTOM: CustomForm = {
   displayName: "",
   apiFormat: "openai_completions",
   baseUrl: "",
-  model: "",
+  modelId: "",
   requiresKey: true,
-  apiKey: "",
-  setDefault: false,
+  key: "",
+  credentialId: "",
 };
 
 const INITIAL_TEMPLATE: TemplateForm = {
   nameOverride: "",
-  apiKey: "",
-  setDefault: false,
+  modelId: "",
+  key: "",
+  credentialId: "",
 };
 
+const API_FORMAT_OPTIONS = [
+  { value: "openai_completions", label: "OpenAI Completions" },
+  { value: "anthropic_messages", label: "Anthropic Messages" },
+];
+
 /**
- * Add a provider to the runtime catalog without leaving the desktop.
+ * Add a configured model to the runtime catalog.
  *
- * T-109b ships two paths:
- * - **Template**: pick one of the built-in templates from
- *   `provider_templates` (`anthropic`, `openai`, `groq`, `ollama`, …).
- *   Optional `name` override, optional `apiKey` (shown only when
- *   `requiresKey`), and "set as runtime default".
+ * - **Template**: pick one of the built-in presets from
+ *   `model_templates()` and a wire model from its curated list.
  * - **Custom**: define an OpenAI-compatible or Anthropic-compatible
- *   endpoint from scratch (id, displayName, apiFormat, baseUrl, model,
- *   requiresKey).
+ *   endpoint from scratch.
  *
- * Submitting drives the runtime's `RequestPacket::ProviderAdd` →
- * `ResponsePacket::ProviderAdded` over IPC. `useAddProvider` invalidates
- * the catalog + credentials + template caches so the new pill shows
- * green immediately (or appears unconfigured, if no key was supplied).
- *
- * The bare-invocation guard mirrors the CLI: sending neither `template`
- * nor `custom: true` produces a `ResponsePacket::Error` from the
- * runtime, surfaced as the error banner — keeping desktop ↔ CLI
- * behavior aligned (per-memory `cli-catalog-vs-vault-disagreement`).
+ * Either a fresh API key (`key`) or an existing vault credential id
+ * (`credentialId`) may be supplied when the model requires a key.
  */
-export default function AddProviderModal({
+export default function AddModelModal({
   open,
   onClose,
   onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
-  onSuccess?: (providerId: string) => void;
+  onSuccess?: (modelId: string) => void;
 }) {
-  // Pull error/loading too — the previous "No built-in templates are
-  // available." message fired when IPC returned `[]` OR silently
-  // failed, which left the user with no signal about *why* the picker
-  // was empty. Now we surface the runtime error directly so the user
-  // can see whether it's "IPC is down" vs "you have no templates"
-  // (and they can switch to Custom in either case).
   const {
     data: templates,
     isLoading: templatesLoading,
     error: templatesError,
     refetch: refetchTemplates,
-  } = useProviderTemplates();
-  const addMut = useAddProvider();
+  } = useModelTemplates();
+  const { data: credentials } = useGenericCredentialList();
+  const addMut = useAddModel();
 
   const [mode, setMode] = useState<Mode>("template");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [templateForm, setTemplateForm] = useState<TemplateForm>(INITIAL_TEMPLATE);
   const [customForm, setCustomForm] = useState<CustomForm>(INITIAL_CUSTOM);
 
-  const selectedTemplate = useMemo<ProviderTemplate | null>(
+  const selectedTemplate = useMemo<ModelPresetInfo | null>(
     () => (templates ?? []).find((t) => t.id === selectedTemplateId) ?? null,
     [templates, selectedTemplateId],
   );
@@ -104,9 +96,28 @@ export default function AddProviderModal({
       setCustomForm(INITIAL_CUSTOM);
       addMut.reset();
     }
-    // Excluding `addMut` is intentional — only on open transitions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Pre-select the template's default model when the template changes.
+  useEffect(() => {
+    if (selectedTemplate) {
+      setTemplateForm((prev) => ({
+        ...prev,
+        modelId: selectedTemplate.defaultModel,
+      }));
+    } else {
+      setTemplateForm((prev) => ({ ...prev, modelId: "" }));
+    }
+  }, [selectedTemplate]);
+
+  const credentialOptions = useMemo(
+    () =>
+      (credentials ?? [])
+        .filter((c) => c.hasKey && (c.kind === "api_key" || c.kind === "bearer_token"))
+        .map((c) => ({ value: c.id, label: `${c.namespace}/${c.name}` })),
+    [credentials],
+  );
 
   const templateValid = isTemplateValid(selectedTemplate, templateForm);
   const customValid = isCustomValid(customForm);
@@ -137,18 +148,18 @@ export default function AddProviderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-2xl flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <Plus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-              Add a Provider
+              Add a Model
             </h2>
           </div>
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-            data-testid="add-provider-close"
+            data-testid="add-model-close"
           >
             <X className="h-4 w-4" />
           </button>
@@ -156,10 +167,8 @@ export default function AddProviderModal({
 
         <div className="space-y-4 overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-300">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Pick a built-in template or define a custom OpenAI / Anthropic-compatible
-            endpoint. The runtime stores the entry in its catalog
-            (<code>providers.toml</code>); any API key you enter here is handed off
-            to the OS keychain immediately.
+            Pick a built-in preset or define a custom OpenAI / Anthropic-compatible
+            endpoint. Each entry becomes one configured model in the runtime catalog.
           </p>
 
           {/* Mode toggle */}
@@ -169,7 +178,7 @@ export default function AddProviderModal({
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                data-testid={`add-provider-mode-${m}`}
+                data-testid={`add-model-mode-${m}`}
                 className={[
                   "flex-1 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
                   mode === m
@@ -177,7 +186,7 @@ export default function AddProviderModal({
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
                 ].join(" ")}
               >
-                {m === "template" ? "From template" : "Custom endpoint"}
+                {m === "template" ? "From preset" : "Custom endpoint"}
               </button>
             ))}
           </div>
@@ -186,15 +195,11 @@ export default function AddProviderModal({
           {mode === "template" && (
             <div className="space-y-3">
               {templatesLoading && (
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Loading templates…
-                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Loading presets…</p>
               )}
               {templatesError && !templatesLoading && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
-                  <div className="mb-1 font-medium">
-                    Could not load built-in templates
-                  </div>
+                  <div className="mb-1 font-medium">Could not load built-in presets</div>
                   <div className="font-mono text-[11px]">
                     {templatesError instanceof Error
                       ? templatesError.message
@@ -216,14 +221,13 @@ export default function AddProviderModal({
                   data-testid="templates-empty-state"
                   className="text-xs text-slate-500 dark:text-slate-400"
                 >
-                  No built-in templates are available. Switch to{" "}
-                  <strong>Custom endpoint</strong> to add an OpenAI- or
-                  Anthropic-compatible provider manually.
+                  No built-in presets are available. Switch to{" "}
+                  <strong>Custom endpoint</strong> to add a model manually.
                 </p>
               )}
               <div
                 className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800"
-                data-testid="add-provider-template-list"
+                data-testid="add-model-template-list"
               >
                 {(templates ?? []).map((t) => {
                   const selected = t.id === selectedTemplateId;
@@ -234,7 +238,7 @@ export default function AddProviderModal({
                       onClick={() =>
                         setSelectedTemplateId(selected ? null : t.id)
                       }
-                      data-testid={`add-provider-template-${t.id}`}
+                      data-testid={`add-model-template-${t.id}`}
                       className={[
                         "flex w-full flex-col gap-1 border-b px-3 py-2 text-left text-xs last:border-b-0",
                         selected
@@ -275,7 +279,8 @@ export default function AddProviderModal({
                       </div>
                       {t.defaultModel && (
                         <span className="ml-4 text-[11px] text-slate-500 dark:text-slate-400">
-                          default: <span className="font-mono">{t.defaultModel}</span>
+                          default:{" "}
+                          <span className="font-mono">{t.defaultModel}</span>
                         </span>
                       )}
                     </button>
@@ -287,34 +292,35 @@ export default function AddProviderModal({
                 <div className="space-y-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                   {selectedTemplate.models.length > 0 && (
                     <div>
-                      <span className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                        Models
-                      </span>
-                      <ul className="grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
+                      <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                        Model
+                      </label>
+                      <select
+                        value={templateForm.modelId}
+                        onChange={(e) =>
+                          setTemplateForm({
+                            ...templateForm,
+                            modelId: e.target.value,
+                          })
+                        }
+                        data-testid="add-model-template-model"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                      >
                         {selectedTemplate.models.map((m) => (
-                          <li
-                            key={m.id}
-                            className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-800 dark:bg-slate-900"
-                          >
-                            <span className="font-mono text-slate-700 dark:text-slate-300">
-                              {m.id}
-                            </span>
-                            {m.contextLength !== undefined && (
-                              <span className="ml-2 text-slate-500 dark:text-slate-400">
-                                {m.contextLength.toLocaleString()} ctx
-                                {m.maxOutputTokens !== undefined
-                                  ? ` / ${m.maxOutputTokens.toLocaleString()} out`
-                                  : ""}
-                              </span>
-                            )}
-                          </li>
+                          <option key={m.id} value={m.id}>
+                            {m.displayName ?? m.id}
+                            {m.contextLength !== undefined
+                              ? ` (${m.contextLength.toLocaleString()} ctx)`
+                              : ""}
+                          </option>
                         ))}
-                      </ul>
+                      </select>
                     </div>
                   )}
                   <div>
                     <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                      Name override (optional — defaults to <code>{selectedTemplate.id}</code>)
+                      Configured model id (optional — defaults to{" "}
+                      <code>{selectedTemplate.id}</code>)
                     </label>
                     <input
                       value={templateForm.nameOverride}
@@ -325,43 +331,24 @@ export default function AddProviderModal({
                         })
                       }
                       placeholder={selectedTemplate.id}
-                      data-testid="add-provider-name-override"
+                      data-testid="add-model-name-override"
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                     />
                   </div>
                   {selectedTemplate.requiresKey && (
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                        API key
-                      </label>
-                      <input
-                        type="password"
-                        value={templateForm.apiKey}
-                        onChange={(e) =>
-                          setTemplateForm({
-                            ...templateForm,
-                            apiKey: e.target.value,
-                          })
-                        }
-                        placeholder="sk-..."
-                        data-testid="add-provider-api-key"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                      />
-                    </div>
-                  )}
-                  <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={templateForm.setDefault}
-                      onChange={(e) =>
-                        setTemplateForm({
-                          ...templateForm,
-                          setDefault: e.target.checked,
-                        })
+                    <CredentialKeyInputs
+                      keyValue={templateForm.key}
+                      onKeyChange={(key) =>
+                        setTemplateForm({ ...templateForm, key })
                       }
+                      credentialId={templateForm.credentialId}
+                      onCredentialIdChange={(credentialId) =>
+                        setTemplateForm({ ...templateForm, credentialId })
+                      }
+                      credentialOptions={credentialOptions}
+                      testid="add-model"
                     />
-                    Set as runtime default
-                  </label>
+                  )}
                 </div>
               )}
             </div>
@@ -373,7 +360,7 @@ export default function AddProviderModal({
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Provider ID <span className="text-red-500">*</span>
+                    Model ID <span className="text-red-500">*</span>
                   </label>
                   <input
                     value={customForm.id}
@@ -381,7 +368,7 @@ export default function AddProviderModal({
                       setCustomForm({ ...customForm, id: e.target.value })
                     }
                     placeholder="my-llama"
-                    data-testid="add-provider-custom-id"
+                    data-testid="add-model-custom-id"
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                   />
                 </div>
@@ -398,7 +385,7 @@ export default function AddProviderModal({
                       })
                     }
                     placeholder="My Llama"
-                    data-testid="add-provider-custom-display-name"
+                    data-testid="add-model-custom-display-name"
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                   />
                 </div>
@@ -416,11 +403,14 @@ export default function AddProviderModal({
                         apiFormat: e.target.value as CustomForm["apiFormat"],
                       })
                     }
-                    data-testid="add-provider-custom-api-format"
+                    data-testid="add-model-custom-api-format"
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                   >
-                    <option value="openai_completions">openai_completions</option>
-                    <option value="anthropic_messages">anthropic_messages</option>
+                    {API_FORMAT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -430,28 +420,25 @@ export default function AddProviderModal({
                   <input
                     value={customForm.baseUrl}
                     onChange={(e) =>
-                      setCustomForm({
-                        ...customForm,
-                        baseUrl: e.target.value,
-                      })
+                      setCustomForm({ ...customForm, baseUrl: e.target.value })
                     }
                     placeholder="https://api.example.com/v1"
-                    data-testid="add-provider-custom-base-url"
+                    data-testid="add-model-custom-base-url"
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                   />
                 </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                  Model ID <span className="text-red-500">*</span>
+                  Wire model ID <span className="text-red-500">*</span>
                 </label>
                 <input
-                  value={customForm.model}
+                  value={customForm.modelId}
                   onChange={(e) =>
-                    setCustomForm({ ...customForm, model: e.target.value })
+                    setCustomForm({ ...customForm, modelId: e.target.value })
                   }
                   placeholder="llama-3.1-70b"
-                  data-testid="add-provider-custom-model"
+                  data-testid="add-model-custom-model-id"
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                 />
               </div>
@@ -465,39 +452,22 @@ export default function AddProviderModal({
                       requiresKey: e.target.checked,
                     })
                   }
-                  data-testid="add-provider-custom-requires-key"
+                  data-testid="add-model-custom-requires-key"
                 />
                 Requires API key
               </label>
               {customForm.requiresKey && (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                    API key
-                  </label>
-                  <input
-                    type="password"
-                    value={customForm.apiKey}
-                    onChange={(e) =>
-                      setCustomForm({ ...customForm, apiKey: e.target.value })
-                    }
-                    placeholder="sk-..."
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                  />
-                </div>
-              )}
-              <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={customForm.setDefault}
-                  onChange={(e) =>
-                    setCustomForm({
-                      ...customForm,
-                      setDefault: e.target.checked,
-                    })
+                <CredentialKeyInputs
+                  keyValue={customForm.key}
+                  onKeyChange={(key) => setCustomForm({ ...customForm, key })}
+                  credentialId={customForm.credentialId}
+                  onCredentialIdChange={(credentialId) =>
+                    setCustomForm({ ...customForm, credentialId })
                   }
+                  credentialOptions={credentialOptions}
+                  testid="add-model-custom"
                 />
-                Set as runtime default
-              </label>
+              )}
             </div>
           )}
 
@@ -518,7 +488,7 @@ export default function AddProviderModal({
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            data-testid="add-provider-submit"
+            data-testid="add-model-submit"
             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
             <Check className="h-3.5 w-3.5" />
@@ -530,13 +500,107 @@ export default function AddProviderModal({
   );
 }
 
+function CredentialKeyInputs({
+  keyValue,
+  onKeyChange,
+  credentialId,
+  onCredentialIdChange,
+  credentialOptions,
+  testid,
+}: {
+  keyValue: string;
+  onKeyChange: (v: string) => void;
+  credentialId: string;
+  onCredentialIdChange: (v: string) => void;
+  credentialOptions: { value: string; label: string }[];
+  testid: string;
+}) {
+  const hasOptions = credentialOptions.length > 0;
+  const [source, setSource] = useState<"new" | "existing">(
+    credentialId ? "existing" : "new",
+  );
+
+  return (
+    <div className="space-y-3">
+      {hasOptions && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setSource("new")}
+            className={[
+              "rounded-lg border px-3 py-1 text-xs font-medium transition-colors",
+              source === "new"
+                ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
+            ].join(" ")}
+          >
+            New key
+          </button>
+          <button
+            type="button"
+            onClick={() => setSource("existing")}
+            className={[
+              "rounded-lg border px-3 py-1 text-xs font-medium transition-colors",
+              source === "existing"
+                ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
+            ].join(" ")}
+          >
+            Existing credential
+          </button>
+        </div>
+      )}
+      {source === "new" || !hasOptions ? (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+            API key
+          </label>
+          <input
+            type="password"
+            value={keyValue}
+            onChange={(e) => onKeyChange(e.target.value)}
+            placeholder="sk-..."
+            data-testid={`${testid}-api-key`}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+          />
+        </div>
+      ) : (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+            Credential
+          </label>
+          <select
+            value={credentialId}
+            onChange={(e) => onCredentialIdChange(e.target.value)}
+            data-testid={`${testid}-credential-id`}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+          >
+            <option value="">— Select a credential —</option>
+            {credentialOptions.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function isTemplateValid(
-  template: ProviderTemplate | null,
+  template: ModelPresetInfo | null,
   form: TemplateForm,
 ): boolean {
   if (!template) return false;
+  if (!form.modelId) return false;
   if (form.nameOverride && !/^[A-Za-z0-9_-]+$/.test(form.nameOverride)) {
     return false;
+  }
+  if (template.requiresKey) {
+    const hasKey = form.key.trim().length > 0;
+    const hasCredential = form.credentialId.trim().length > 0;
+    if (!hasKey && !hasCredential) return false;
   }
   return true;
 }
@@ -545,9 +609,14 @@ function isCustomValid(form: CustomForm): boolean {
   if (!form.id.trim()) return false;
   if (!/^[A-Za-z0-9_-]+$/.test(form.id.trim())) return false;
   if (!form.baseUrl.trim()) return false;
-  if (!form.model.trim()) return false;
+  if (!form.modelId.trim()) return false;
   if (form.apiFormat !== "openai_completions" && form.apiFormat !== "anthropic_messages") {
     return false;
+  }
+  if (form.requiresKey) {
+    const hasKey = form.key.trim().length > 0;
+    const hasCredential = form.credentialId.trim().length > 0;
+    if (!hasKey && !hasCredential) return false;
   }
   return true;
 }
@@ -557,36 +626,37 @@ function buildArgs(
   templateId: string | null,
   templateForm: TemplateForm,
   customForm: CustomForm,
-): ProviderAddArgs | null {
+): ModelAddArgs | null {
   if (mode === "template") {
     if (!templateId) return null;
-    const trimmedKey = templateForm.apiKey.trim();
-    const args: ProviderAddArgs = {
+    const trimmedKey = templateForm.key.trim();
+    const trimmedCredentialId = templateForm.credentialId.trim();
+    const args: ModelAddArgs = {
       template: templateId,
       custom: false,
+      model: templateForm.modelId ? [templateForm.modelId] : [],
       ...(templateForm.nameOverride.trim() && {
         name: templateForm.nameOverride.trim(),
       }),
       ...(trimmedKey && { key: trimmedKey }),
-      ...(templateForm.setDefault && { setDefault: true }),
+      ...(trimmedCredentialId && { credentialId: trimmedCredentialId }),
     };
     return args;
   }
   if (!isCustomValid(customForm)) return null;
-  const trimmedKey = customForm.apiKey.trim();
+  const trimmedKey = customForm.key.trim();
+  const trimmedCredentialId = customForm.credentialId.trim();
   const trimmedDisplayName = customForm.displayName.trim();
-  const args: ProviderAddArgs = {
+  const args: ModelAddArgs = {
     name: customForm.id.trim(),
     custom: true,
     apiFormat: customForm.apiFormat,
     baseUrl: customForm.baseUrl.trim(),
-    model: [customForm.model.trim()],
+    model: [customForm.modelId.trim()],
     requiresKey: customForm.requiresKey,
     ...(trimmedDisplayName && { displayName: trimmedDisplayName }),
-    ...(customForm.setDefault && { setDefault: true }),
+    ...(trimmedKey && { key: trimmedKey }),
+    ...(trimmedCredentialId && { credentialId: trimmedCredentialId }),
   };
-  if (customForm.requiresKey && trimmedKey) {
-    args.key = trimmedKey;
-  }
   return args;
 }

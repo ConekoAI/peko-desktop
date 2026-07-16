@@ -2,21 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Sparkles, X } from "lucide-react";
 
 import { usePrincipalCreate } from "../../hooks/usePrincipals";
-import { useProviders } from "../../hooks/useProviders";
+import { useModels } from "../../hooks/useModels";
 
 /**
  * In-app Principal creation. Replaces the old CLI stub (which told
  * the user to run `peko principal new` in a terminal). Wires the
- * desktop to the runtime's `principal_create` IPC variant added in
- * peko-runtime PR #185; the on-success cache invalidation in
- * `usePrincipalCreate` makes the new principal appear in the sidebar
- * without a manual refresh.
+ * desktop to the runtime's `principal_create` IPC variant.
  *
- * The provider picker is optional: principals inherit the global
- * catalog default when none is pinned (see `default_principal_config`
- * in peko-runtime). The modal surfaces validation errors from both
- * the desktop-side pre-flight (`validate_principal_name`) and the
- * runtime (e.g. `AlreadyExists`).
+ * Model-first migration: the modal requires the user to pick a
+ * configured model. The payload sends `modelId`; there is no longer
+ * a separate provider concept.
  */
 export default function CreatePrincipalModal({
   open,
@@ -25,17 +20,20 @@ export default function CreatePrincipalModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { data: providers, isLoading: providersLoading } = useProviders();
-  const providerItems = resolveProviderItems(providers, providersLoading);
+  const { data: models, isLoading: modelsLoading } = useModels();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [providerId, setProviderId] = useState<string | null>(null);
   const [modelId, setModelId] = useState<string | null>(null);
 
-  const selectedProvider = useMemo(
-    () => providers?.find((p) => p.id === providerId),
-    [providers, providerId],
+  const modelItems = useMemo(
+    () => resolveModelItems(models, modelsLoading),
+    [models, modelsLoading],
+  );
+
+  const selectedModel = useMemo(
+    () => models?.find((m) => m.id === modelId),
+    [models, modelId],
   );
 
   const createMut = usePrincipalCreate();
@@ -45,7 +43,6 @@ export default function CreatePrincipalModal({
     if (open) {
       setName("");
       setDescription("");
-      setProviderId(null);
       setModelId(null);
       createMut.reset();
     }
@@ -55,13 +52,12 @@ export default function CreatePrincipalModal({
   }, [open]);
 
   function handleSubmit() {
-    if (!name.trim()) return;
+    if (!name.trim() || !modelId) return;
     createMut.mutate(
       {
         name: name.trim(),
         description: description.trim() || undefined,
-        preferredProviderId: providerId ?? undefined,
-        preferredModelId: modelId ?? undefined,
+        modelId,
       },
       {
         onSuccess: () => {
@@ -114,10 +110,14 @@ export default function CreatePrincipalModal({
           </p>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+            <label
+              htmlFor="principal-name"
+              className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+            >
               Name <span className="text-red-500">*</span>
             </label>
             <input
+              id="principal-name"
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -126,17 +126,21 @@ export default function CreatePrincipalModal({
             />
             {name && !nameValid && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                Use 1–64 chars: letters, digits, &quot;-&quot;, &quot;_&quot;. No
+                Use 1–64 chars: letters, digits, &quot;-"&quot;_, &quot;_&quot;. No
                 leading/trailing hyphen or path separators.
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+            <label
+              htmlFor="principal-description"
+              className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+            >
               Description (optional)
             </label>
             <textarea
+              id="principal-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Personal coding assistant"
@@ -146,57 +150,42 @@ export default function CreatePrincipalModal({
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-400">
-              Provider (optional — inherits global default)
+            <label
+              htmlFor="model-select"
+              className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+            >
+              Model <span className="text-red-500">*</span>
             </label>
-            <div className="flex flex-wrap gap-2">
-              {providerItems.length === 0 && !providersLoading && (
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  No providers available yet.
+            {modelsLoading && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">Loading models…</p>
+            )}
+            {!modelsLoading && modelItems.length === 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                No configured models yet. Add one in Settings → Models first.
+              </p>
+            )}
+            {!modelsLoading && modelItems.length > 0 && (
+              <select
+                id="model-select"
+                value={modelId ?? ""}
+                onChange={(e) => setModelId(e.target.value || null)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+              >
+                <option value="">— Select a model —</option>
+                {modelItems.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.displayName}
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedModel && (
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                  {selectedModel.apiFormat}
                 </span>
-              )}
-              {providerItems.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => {
-                    const nextId = providerId === p.id ? null : p.id;
-                    setProviderId(nextId);
-                    setModelId(null);
-                  }}
-                  className={[
-                    "rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
-                    providerId === p.id
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
-                  ].join(" ")}
-                >
-                  {p.displayName}
-                </button>
-              ))}
-            </div>
-
-            {selectedProvider && selectedProvider.models.length > 0 && (
-              <div className="mt-3">
-                <label
-                  htmlFor="create-principal-model"
-                  className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
-                >
-                  Model (optional — inherits provider default)
-                </label>
-                <select
-                  id="create-principal-model"
-                  value={modelId ?? ""}
-                  onChange={(e) => setModelId(e.target.value || null)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                >
-                  <option value="">— Provider default —</option>
-                  {selectedProvider.models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.displayName ?? m.id}
-                    </option>
-                  ))}
-                </select>
+                <span className="font-mono">{selectedModel.modelId}</span>
+                <span>{selectedModel.baseUrl}</span>
               </div>
             )}
           </div>
@@ -217,7 +206,7 @@ export default function CreatePrincipalModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!nameValid || createMut.isPending}
+            disabled={!nameValid || !modelId || createMut.isPending}
             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
             <Check className="h-3.5 w-3.5" />
@@ -230,31 +219,28 @@ export default function CreatePrincipalModal({
 }
 
 /**
- * Provider items compatible with the modal's pill UI. Mirrors the
- * pattern in `Settings.tsx::CredentialsTab` so the desktop's
- * provider catalogue is a single visual idiom. Defensive: an
- * unknown `providers` shape renders as "no providers" rather than
- * crashing.
+ * Model items compatible with the modal's picker. Defensive: an
+ * unknown `models` shape renders as "no models" rather than crashing.
  */
-interface ProviderItem {
+interface ModelItem {
   id: string;
   displayName: string;
 }
 
-function resolveProviderItems(
-  providers: unknown,
+function resolveModelItems(
+  models: unknown,
   loading: boolean,
-): ProviderItem[] {
-  if (loading || !Array.isArray(providers)) return [];
-  return providers
-    .map((p) => {
-      if (!p || typeof p !== "object") return null;
-      const obj = p as Record<string, unknown>;
+): ModelItem[] {
+  if (loading || !Array.isArray(models)) return [];
+  return models
+    .map((m) => {
+      if (!m || typeof m !== "object") return null;
+      const obj = m as Record<string, unknown>;
       const id =
         typeof obj.id === "string"
           ? obj.id
-          : typeof obj.provider_id === "string"
-            ? obj.provider_id
+          : typeof obj.model_id === "string"
+            ? obj.model_id
             : null;
       const displayName =
         typeof obj.displayName === "string"
@@ -265,5 +251,5 @@ function resolveProviderItems(
       if (!id) return null;
       return { id, displayName: displayName ?? id };
     })
-    .filter((x): x is ProviderItem => x !== null);
+    .filter((x): x is ModelItem => x !== null);
 }

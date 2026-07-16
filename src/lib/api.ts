@@ -19,20 +19,17 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 import type {
   AccessiblePrincipal,
   AuthStatus,
-  BindingTestResult,
   BundleItem,
   CronJob,
-  Credential,
   CredentialDetail,
   DaemonStatus,
-  DoctorReport,
   ExtensionSummary,
   LogResponse,
-  ProviderAddArgs,
-  ProviderInfo,
-  ProviderTemplate,
-  ProviderUpdateArgs,
-  RotationBinding,
+  ModelAddArgs,
+  ModelPresetInfo,
+  ModelSummary,
+  ModelTestResult,
+  ModelUpdateArgs,
   RuntimeConnection,
   SearchResult,
   Setting,
@@ -154,16 +151,14 @@ export async function principalGet(
  * `principal.toml`, and registers the principal in the in-memory
  * manager.
  *
- * Optional fields flow as `null` over the wire — the runtime has
- * `#[serde(default)]` on each option so a partial request still
- * round-trips cleanly. Used by the desktop's create modal and the
- * first-run walkthrough's last step.
+ * Model-first migration: every new Principal must be pinned to a
+ * configured model. `modelId` is forwarded as `model_id` to the
+ * runtime command.
  */
 export interface PrincipalCreateRequest {
   name: string;
   description?: string;
-  preferredProviderId?: string;
-  preferredModelId?: string;
+  modelId: string;
 }
 
 export async function principalCreate(
@@ -172,8 +167,7 @@ export async function principalCreate(
   return invoke<PrincipalSummary>("principal_create", {
     name: req.name,
     description: req.description ?? null,
-    preferred_provider_id: req.preferredProviderId ?? null,
-    preferred_model_id: req.preferredModelId ?? null,
+    model_id: req.modelId,
   });
 }
 
@@ -230,51 +224,66 @@ export async function principalLog(params: {
   });
 }
 
+// ─── Models (model-first migration) ──────────────────────────────
+
 /**
- * List the runtime's provider catalog. The catalog is referenced by
- * id from `principal.toml`'s `preferred_provider_id` soft hint; the
- * catalog + keychain own all provider wiring.
+ * List configured models from the runtime's `ModelCatalog`. The
+ * runtime reloads `models.toml` + vault before returning so the
+ * desktop always sees the same on-disk reality as the CLI.
  */
-export async function principalProviderList(): Promise<ProviderInfo[]> {
-  return invoke("principal_provider_list");
+export async function modelList(): Promise<ModelSummary[]> {
+  return invoke<ModelSummary[]>("model_list");
 }
 
-// T-109b: list the runtime's built-in provider templates. The picker
-// uses these to seed the "Add Provider" modal — no rounding to
-// `ProviderInfo` (the picker needs `baseUrl`, `requiresKey`, and the
-// curated `models[]` with context lengths, which `ProviderInfo` does
-// not carry).
-export async function providerTemplates(): Promise<ProviderTemplate[]> {
-  return invoke("provider_templates");
+/**
+ * List built-in model presets (formerly provider templates). Each
+ * preset carries a curated model list and default endpoint metadata.
+ */
+export async function modelTemplates(): Promise<ModelPresetInfo[]> {
+  return invoke<ModelPresetInfo[]>("model_templates");
 }
 
-// T-109b: add a provider to the runtime catalog. Either a `template`
-// string (binds to one of `provider_templates()`) or `custom: true` with
-// the full shape (id, apiFormat, baseUrl, model, …). Sending neither
-// produces a `ResponsePacket::Error` from the runtime, which the Tauri
-// command surfaces as a thrown error.
-export async function providerAdd(args: ProviderAddArgs): Promise<ProviderInfo> {
-  return invoke("provider_add", { args });
+/**
+ * Add a configured model. Either a `template` id (binds to one of
+ * `model_templates()`) or `custom: true` with the full endpoint shape.
+ */
+export async function modelAdd(args: ModelAddArgs): Promise<ModelSummary> {
+  return invoke<ModelSummary>("model_add", { args });
 }
 
-// RP6: update/remove/set-default provider catalog mutations.
-
-export async function providerUpdate(args: ProviderUpdateArgs): Promise<ProviderInfo> {
-  return invoke<ProviderInfo>("provider_update", { args });
+/** Update an existing configured model. */
+export async function modelUpdate(args: ModelUpdateArgs): Promise<ModelSummary> {
+  return invoke<ModelSummary>("model_update", { args });
 }
 
-export async function providerRemove(id: string): Promise<boolean> {
-  return invoke<boolean>("provider_remove", { id });
+/** Remove a configured model by id. */
+export async function modelRemove(id: string): Promise<boolean> {
+  return invoke<boolean>("model_remove", { id });
 }
 
-export async function providerSetDefault(
-  provider: string,
-  model?: string,
-): Promise<{ provider: string; model: string }> {
-  return invoke<{ provider: string; model: string }>("provider_set_default", {
-    provider,
-    model,
-  });
+/** Test connectivity for a configured model. */
+export async function modelTest(id: string): Promise<ModelTestResult> {
+  return invoke<ModelTestResult>("model_test", { id });
+}
+
+/**
+ * Reload the runtime's model catalog and vault from disk. Returns
+ * the counts of configured models and vault credentials.
+ */
+export async function modelReload(): Promise<{ modelsCount: number; keysCount: number }> {
+  return invoke<{ modelsCount: number; keysCount: number }>("model_reload");
+}
+
+// ─── Accessible principals ───────────────────────────────────────
+
+export async function accessiblePrincipalsList(): Promise<AccessiblePrincipal[]> {
+  return invoke<AccessiblePrincipal[]>("accessible_principals_list");
+}
+
+// ─── System status ───────────────────────────────────────────────
+
+export async function systemStatus(runtimeId?: string): Promise<SystemStatus> {
+  return invoke<SystemStatus>("system_status", { runtime_id: runtimeId ?? null });
 }
 
 // ─── Extensions ─────────────────────────────────────────────────
@@ -357,68 +366,7 @@ export async function settingsList(): Promise<Setting[]> {
   return invoke("settings_list");
 }
 
-// ─── Credentials (keychain) ─────────────────────────────────────
-
-export async function credentialGet(provider: string): Promise<Credential | null> {
-  return invoke("credential_get", { provider });
-}
-
-export async function credentialSet(
-  provider: string,
-  apiKey: string,
-): Promise<void> {
-  // Tauri 2 default-renames command arg names from Rust snake_case
-  // to JS camelCase for the invoke payload (see `tauri-macros`
-  // `command/wrapper.rs:510`), so the Rust `api_key: String` param
-  // surfaces as `apiKey` on the JS side. Sending `api_key` (snake_case
-  // in the payload) makes the deserializer reject the request with
-  // "missing required key apiKey".
-  return invoke("credential_set", { provider, apiKey });
-}
-
-/**
- * Raw-string credential accessors used by the OAuth2 PKCE flow
- * (`useRuntimes.ts`) to store/retrieve the JSON-serialized token
- * bundle. They bypass the typed `Credential` shape used by Settings
- * (which never holds the secret).
- */
-export async function credentialSetRaw(
-  provider: string,
-  rawValue: string,
-): Promise<void> {
-  // Tauri 2 default-renames Rust snake_case arg names to camelCase for
-  // the invoke payload, so the Rust `raw_value` param surfaces as
-  // `rawValue` on the JS side.
-  return invoke("credential_set_raw", { provider, rawValue });
-}
-
-export async function credentialGetRaw(provider: string): Promise<string | null> {
-  return invoke<string | null>("credential_get_raw", { provider });
-}
-
-export async function credentialDelete(provider: string): Promise<void> {
-  return invoke("credential_delete", { provider });
-}
-
-export type CredentialTestResult = {
-  success: boolean;
-  message: string;
-  latencyMs: number;
-  httpStatus: number | null;
-  modelUsed: string | null;
-};
-
-export async function credentialTest(
-  provider: string,
-): Promise<CredentialTestResult> {
-  return invoke("credential_test", { provider });
-}
-
-export async function credentialList(): Promise<Credential[]> {
-  return invoke("credential_list");
-}
-
-// ─── RP4 Generic vault credentials ────────────────────────────────
+// ─── Generic vault credentials ───────────────────────────────────
 
 export async function credentialGetById(
   id: string,
@@ -447,10 +395,18 @@ export async function credentialDeleteById(id: string): Promise<void> {
   return invoke("credential_delete_by_id", { id });
 }
 
+export type CredentialTestResult = {
+  success: boolean;
+  message: string;
+  latencyMs: number;
+  httpStatus: number | null;
+  modelUsed: string | null;
+};
+
 export async function credentialTestById(
   id: string,
 ): Promise<CredentialTestResult> {
-  return invoke("credential_test_by_id", { id });
+  return invoke<CredentialTestResult>("credential_test_by_id", { id });
 }
 
 export async function credentialListGeneric(
@@ -463,48 +419,34 @@ export async function credentialListGeneric(
   });
 }
 
-// ─── RP4 Rotation bindings ───────────────────────────────────────
-
-export async function bindingList(): Promise<RotationBinding[]> {
-  return invoke<RotationBinding[]>("binding_list");
+/**
+ * Store an arbitrary raw secret in the vault under a namespace/name key.
+ * Used by OAuth flows that manage their own serialization format.
+ */
+export async function credentialSetRaw(
+  namespace: string,
+  material: string,
+  name = "default",
+): Promise<string> {
+  return invoke<string>("credential_set_raw", {
+    namespace,
+    name,
+    material,
+  });
 }
 
-export async function bindingGet(key: string): Promise<RotationBinding | null> {
-  return invoke<RotationBinding | null>("binding_get", { key });
-}
-
-export async function bindingSet(
-  key: string,
-  strategy: string,
-  order: string[],
-): Promise<void> {
-  return invoke("binding_set", { key, strategy, order });
-}
-
-export async function bindingDelete(key: string): Promise<void> {
-  return invoke("binding_delete", { key });
-}
-
-export async function bindingTestRotation(
-  key: string,
-): Promise<BindingTestResult[]> {
-  return invoke<BindingTestResult[]>("binding_test_rotation", { key });
-}
-
-// ─── System ─────────────────────────────────────────────────────
-
-export async function systemStatus(runtimeId?: string): Promise<SystemStatus> {
-  return invoke("system_status", { runtime_id: runtimeId });
-}
-
-export async function systemDoctor(runtimeId?: string): Promise<DoctorReport> {
-  return invoke("system_doctor", { runtime_id: runtimeId });
-}
-
-// ─── Accessible Principals ──────────────────────────────────
-
-export async function accessiblePrincipalsList(): Promise<AccessiblePrincipal[]> {
-  return invoke("accessible_principals_list");
+/**
+ * Retrieve a raw secret from the vault by namespace/name.
+ * Returns an empty string when no credential is present.
+ */
+export async function credentialGetRaw(
+  namespace: string,
+  name = "default",
+): Promise<string | null> {
+  return invoke<string | null>("credential_get_raw", {
+    namespace,
+    name,
+  });
 }
 
 // ─── OAuth / PekoHub (frontend-side) ────────────────────────────
