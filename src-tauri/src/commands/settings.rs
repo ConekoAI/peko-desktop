@@ -322,6 +322,8 @@ pub struct CredentialDetail {
     #[serde(alias = "last_tested_ok")]
     pub last_tested_ok: Option<bool>,
     #[serde(default)]
+    pub system_owned: bool,
+    #[serde(default)]
     pub metadata: serde_json::Value,
     #[serde(alias = "created_at")]
     pub created_at: Option<String>,
