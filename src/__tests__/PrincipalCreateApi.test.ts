@@ -48,7 +48,7 @@ describe("principalCreate wire shape", () => {
     expect(payload).toEqual({
       name: "alice",
       description: null,
-      model_id: "openai",
+      modelId: "openai",
     });
   });
 
@@ -59,12 +59,13 @@ describe("principalCreate wire shape", () => {
       modelId: "openai",
     });
     const [, payload] = mockedInvoke.mock.calls[0] as [string, Record<string, unknown>];
-    // snake_case keys match the runtime's serde rename; model_id is the
-    // configured model reference in the model-first architecture.
+    // camelCase keys match Tauri's default JS-side argument naming;
+    // modelId is the configured model reference in the model-first
+    // architecture.
     expect(payload).toEqual({
       name: "alice",
       description: "personal assistant",
-      model_id: "openai",
+      modelId: "openai",
     });
   });
 
