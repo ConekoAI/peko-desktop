@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { usePrincipals } from "../hooks/usePrincipals";
 import { useRuntimes } from "../hooks/useRuntimes";
+import PrincipalProfileModal from "./modals/PrincipalProfileModal";
 import {
   Search,
   Bot,
@@ -11,6 +12,7 @@ import {
   Monitor,
   Globe,
   Plus,
+  Settings,
 } from "lucide-react";
 
 function PrincipalContextMenu({
@@ -18,11 +20,13 @@ function PrincipalContextMenu({
   onClose,
   onOpenChat,
   onOpenLog,
+  onOpenProfile,
 }: {
   position: { x: number; y: number };
   onClose: () => void;
   onOpenChat: () => void;
   onOpenLog: () => void;
+  onOpenProfile: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -63,6 +67,17 @@ function PrincipalContextMenu({
         <Activity className="h-4 w-4" />
         View Activity
       </button>
+      <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+      <button
+        onClick={() => {
+          onOpenProfile();
+          onClose();
+        }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        <Settings className="h-4 w-4" />
+        Settings
+      </button>
     </div>
   );
 }
@@ -90,6 +105,7 @@ export default function PrincipalSidebar({
   const { data: principals, isLoading } = usePrincipals();
   const { data: runtimes } = useRuntimes();
   const [search, setSearch] = useState("");
+  const [profilePrincipal, setProfilePrincipal] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     principalName: string;
     x: number;
@@ -213,6 +229,19 @@ export default function PrincipalSidebar({
               params: { principalName: contextMenu.principalName },
             })
           }
+          onOpenProfile={() => setProfilePrincipal(contextMenu.principalName)}
+        />
+      )}
+
+      {profilePrincipal && (
+        <PrincipalProfileModal
+          open={!!profilePrincipal}
+          principalName={profilePrincipal}
+          onClose={() => setProfilePrincipal(null)}
+          onRemoved={() => {
+            setProfilePrincipal(null);
+            navigate({ to: "/chat" });
+          }}
         />
       )}
     </div>

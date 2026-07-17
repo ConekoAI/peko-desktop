@@ -14,6 +14,8 @@ use std::time::Duration;
 use tauri::Emitter;
 use thiserror::Error;
 
+use crate::sidecar::sync_probe;
+
 /// Current IPC protocol version
 pub const PROTOCOL_VERSION: u16 = 1;
 
@@ -108,6 +110,32 @@ pub fn is_version_mismatch(response: &serde_json::Value) -> bool {
             .unwrap_or(false)
 }
 
+/// Convert a peer string from the desktop's Display form
+/// (`"user:alice"`, `"principal:<did>"`, `"public"`) into the tagged
+/// Subject wire form (`{"kind":"user","id":"alice"}`,
+/// `{"kind":"principal","id":"<did>"}`, `{"kind":"public"}`) that
+/// `RequestPacket::PrincipalLog.peer: Option<Subject>` expects.
+///
+/// `None` would not be valid for `Subject::Public` — the runtime
+/// returns it as `{"kind":"public"}` with no `id` field
+/// (`observability/audit.rs:185-198`). Bare strings without a
+/// `kind:id` prefix are returned as `None` so the request payload
+/// surfaces the malformed peer to the daemon rather than silently
+/// succeeding.
+#[cfg_attr(not(test), allow(dead_code))]
+fn peer_str_to_subject_value(peer: &str) -> serde_json::Value {
+    if peer == "public" {
+        return serde_json::json!({ "kind": "public" });
+    }
+    if let Some(id) = peer.strip_prefix("user:") {
+        return serde_json::json!({ "kind": "user", "id": id });
+    }
+    if let Some(id) = peer.strip_prefix("principal:") {
+        return serde_json::json!({ "kind": "principal", "id": id });
+    }
+    serde_json::Value::Null
+}
+
 /// Async IPC client for communicating with the peko daemon.
 pub struct IpcClient {
     #[cfg(windows)]
@@ -122,7 +150,44 @@ async fn ensure_daemon() -> Result<()> {
     crate::daemon::ensure_running_async().await.map_err(|e| {
         IpcError::ConnectionFailed(format!("daemon not running and auto-start failed: {}", e))
     })?;
+    // Block until the daemon's IPC socket is actually responding.
+    // The supervisor's `Running` state is misleadingly early — it
+    // transitions on `PEKO_VERSION` which the runtime emits before
+    // `AppState::new` does its heavy disk I/O (vault, identity,
+    // principal scan, peer registry, model catalog, extension
+    // store). The authoritative readiness signal is the socket
+    // bind inside `IpcServer::new`, which fires ~2 s after spawn
+    // on a populated vault. Without this wait, the first IPC call
+    // after a cold boot hits `send_to` → `ENOENT` → `SendFailed`,
+    // and React Query silently shows an empty list (the sidebar
+    // has no error UI). Each iteration of `sync_probe` already
+    // caps at its 200 ms `read_timeout`, so this loop is cheap
+    // when the daemon is already up (one instant success) and
+    // bounded when it isn't. Matches the IPC client's 10 s
+    // `recv_from` timeout below so a hung daemon surfaces the
+    // same `IpcError::Timeout` either way.
+    wait_for_socket_ready(Duration::from_secs(10)).await?;
     Ok(())
+}
+
+/// Async wait until `sync_probe` succeeds, or `budget` elapses.
+/// Spawn-blocking because `sync_probe` uses `std::os::unix::net::
+/// UnixDatagram` (sync); the runtime cost is one ~200 ms-blocking
+/// syscall per iteration, but the surrounding `tokio::time::sleep`
+/// yields the async task. Keep this on `spawn_blocking` so a busy
+/// runtime doesn't starve other IPC calls.
+async fn wait_for_socket_ready(budget: Duration) -> Result<()> {
+    let deadline = std::time::Instant::now() + budget;
+    loop {
+        let probe_result = tokio::task::spawn_blocking(sync_probe).await;
+        if let Ok(Some(_)) = probe_result {
+            return Ok(());
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(IpcError::Timeout);
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
 }
 
 /// Raise the kernel-side `SO_RCVBUF` on the freshly-bound client
@@ -855,6 +920,16 @@ impl IpcClient {
     /// desktop passes through `peer` as the Subject parse result
     /// (`user:alice`, `principal:<did>`, or `public`) — or `None` for
     /// the owner-root default view.
+    ///
+    /// **Wire shape (audit H7):** `peer` is re-encoded from the
+    /// Display form (`"user:local"`) into the tagged Subject form
+    /// (`{"kind":"user","id":"local"}`) before sending. The runtime's
+    /// `RequestPacket::PrincipalLog.peer` is `Option<Subject>` with
+    /// `#[serde(tag = "kind", content = "id")]` — sending a bare
+    /// string causes serde to reject the entire envelope before the
+    /// handler runs, so the chat-history view silently returns
+    /// empty. This helper centralizes the conversion so callers can
+    /// keep using the Display form.
     pub async fn principal_log(
         &self,
         name: &str,
@@ -868,7 +943,7 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
-            "peer": peer,
+            "peer": peer.map(peer_str_to_subject_value),
             "limit": limit,
             "since_secs": since_secs,
         });
@@ -924,6 +999,46 @@ impl IpcClient {
             "name": name,
             "description": description,
             "model_id": model_id,
+        });
+        self.request_response(req).await
+    }
+
+    /// Update an existing Principal's mutable config. Mirror of
+    /// `RequestPacket::PrincipalUpdate`. All fields except `name` are
+    /// optional; omitted fields are left unchanged. The daemon checks
+    /// `Permission::ManageSettings` before mutating `principal.toml`.
+    pub async fn principal_update(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        status: Option<&str>,
+        exposure: Option<&str>,
+        preferred_model_id: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_update",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "description": description,
+            "status": status,
+            "exposure": exposure,
+            "preferred_model_id": preferred_model_id,
+        });
+        self.request_response(req).await
+    }
+
+    /// Remove a Principal and its on-disk workspace. Mirror of
+    /// `RequestPacket::PrincipalRemove`. The daemon checks
+    /// `Permission::ManageSettings` before deleting.
+    pub async fn principal_remove(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_remove",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
         });
         self.request_response(req).await
     }
@@ -1041,5 +1156,54 @@ mod tests {
             "user": "local",
         });
         assert_eq!(req.get("user").and_then(|v| v.as_str()), Some("local"));
+    }
+
+    /// The runtime's `RequestPacket::PrincipalLog.peer` is
+    /// `Option<Subject>` with `#[serde(tag = "kind", content = "id")]`
+    /// — sending a bare `"user:local"` string causes the entire
+    /// envelope to fail serde deserialization BEFORE the handler
+    /// runs, so `principal_log` silently returns an empty event list
+    /// and the chat history never loads on cold boot. Lock the
+    /// conversion from Display form to tagged Subject form here.
+    #[test]
+    fn peer_str_to_subject_value_user() {
+        assert_eq!(
+            peer_str_to_subject_value("user:local"),
+            serde_json::json!({ "kind": "user", "id": "local" })
+        );
+        assert_eq!(
+            peer_str_to_subject_value("user:alice"),
+            serde_json::json!({ "kind": "user", "id": "alice" })
+        );
+    }
+
+    #[test]
+    fn peer_str_to_subject_value_principal() {
+        assert_eq!(
+            peer_str_to_subject_value("principal:did:peko:abc123"),
+            serde_json::json!({ "kind": "principal", "id": "did:peko:abc123" })
+        );
+    }
+
+    /// `Subject::Public` is a unit variant — the runtime serializes it
+    /// as `{"kind": "public"}` with no `id` field (verified in
+    /// `observability/audit.rs:185-198`). Mirror that exactly so the
+    /// deserializer accepts it.
+    #[test]
+    fn peer_str_to_subject_value_public() {
+        assert_eq!(
+            peer_str_to_subject_value("public"),
+            serde_json::json!({ "kind": "public" })
+        );
+    }
+
+    /// A bare id with no prefix (e.g. legacy owner strings, or
+    /// `subject_id` values surfaced via Display of stripped forms)
+    /// shouldn't be silently mapped to `User` — surface it as `null`
+    /// so the request fails loudly instead of returning a misleading
+    /// privacy-gated empty list.
+    #[test]
+    fn peer_str_to_subject_value_unknown_prefix_is_null() {
+        assert_eq!(peer_str_to_subject_value("alice"), serde_json::Value::Null);
     }
 }
