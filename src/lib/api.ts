@@ -125,6 +125,7 @@ export interface PrincipalSummary {
   exposure: string;
   status: string;
   description?: string;
+  preferredModelId?: string;
   owner: string;
   runtimeId: string;
 }
@@ -169,6 +170,30 @@ export async function principalCreate(
     description: req.description ?? null,
     modelId: req.modelId,
   });
+}
+
+export interface PrincipalUpdateRequest {
+  name: string;
+  description?: string;
+  status?: string;
+  exposure?: string;
+  preferredModelId?: string;
+}
+
+export async function principalUpdate(
+  req: PrincipalUpdateRequest,
+): Promise<PrincipalSummary> {
+  return invoke<PrincipalSummary>("principal_update", {
+    name: req.name,
+    description: req.description ?? null,
+    status: req.status ?? null,
+    exposure: req.exposure ?? null,
+    preferredModelId: req.preferredModelId ?? null,
+  });
+}
+
+export async function principalRemove(name: string): Promise<boolean> {
+  return invoke<boolean>("principal_remove", { name });
 }
 
 /**

@@ -5,10 +5,13 @@ import {
   principalGet,
   principalList,
   principalLog,
+  principalRemove,
   principalSend,
   principalSendStream,
+  principalUpdate,
   type PrincipalCreateRequest,
   type PrincipalSummary,
+  type PrincipalUpdateRequest,
 } from "../lib/api";
 
 export type { PrincipalSummary };
@@ -46,6 +49,37 @@ export function usePrincipalCreate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (req: PrincipalCreateRequest) => principalCreate(req),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["principals"] });
+    },
+  });
+}
+
+/**
+ * Update an existing Principal's mutable config. Invalidates both
+ * the principal list and the detail query so all surfaces reflect
+ * the change immediately.
+ */
+export function usePrincipalUpdate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: PrincipalUpdateRequest) => principalUpdate(req),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["principals"] });
+      qc.invalidateQueries({ queryKey: ["principals", "local", vars.name] });
+    },
+  });
+}
+
+/**
+ * Remove a Principal and its on-disk workspace. Invalidates the
+ * principal list; callers should navigate away from any route that
+ * references the removed principal.
+ */
+export function usePrincipalRemove() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => principalRemove(name),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["principals"] });
     },

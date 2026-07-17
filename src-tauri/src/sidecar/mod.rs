@@ -317,6 +317,18 @@ impl Supervisor {
             drive_events(inner, app_for_task, rx).await;
         });
 
+        // Note: the supervisor used to block here until the IPC
+        // socket responded, but that doesn't help concurrent IPC
+        // callers — `ensure_running_async`'s fast-path matches
+        // `Starting`/`Running` and returns Ok WITHOUT re-entering
+        // `start()`, so the IPC client can still send to a not-yet-
+        // bound socket. The real readiness gate lives in
+        // `ipc::ensure_daemon` (`peko-desktop/src-tauri/src/ipc/mod.rs`),
+        // which polls the socket on every IPC call regardless of
+        // supervisor state. Keep `start()` fast so setup() doesn't
+        // stall the Tauri runtime — the IPC client pays the wait
+        // on its first `principalList` call instead.
+
         Ok(pid)
     }
 
@@ -877,7 +889,7 @@ pub fn parse_peko_version(line: &str) -> Option<String> {
 /// response type mismatch. Callers treat any `None` as "no foreign
 /// daemon listening".
 #[cfg(unix)]
-fn sync_probe() -> Option<StatusSnapshot> {
+pub(crate) fn sync_probe() -> Option<StatusSnapshot> {
     use std::os::unix::net::UnixDatagram;
     use std::time::Duration;
 
@@ -938,7 +950,7 @@ fn sync_probe() -> Option<StatusSnapshot> {
 }
 
 #[cfg(windows)]
-fn sync_probe() -> Option<StatusSnapshot> {
+pub(crate) fn sync_probe() -> Option<StatusSnapshot> {
     // Windows uses UDP (see `IpcClient::probe_status`). The same
     // Send-cycle rationale applies; the sync probe uses
     // `std::net::UdpSocket` with `set_read_timeout` for the short

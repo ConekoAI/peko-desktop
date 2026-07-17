@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router";
-import { usePrincipals, usePrincipalSend } from "../hooks/usePrincipals";
+import {
+  usePrincipals,
+  usePrincipalSend,
+  usePrincipalLog,
+  useCallerSubject,
+} from "../hooks/usePrincipals";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import {
   Send,
@@ -15,7 +20,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
-import type { StreamEvent } from "../types";
+import type { HistoryEvent, StreamEvent } from "../types";
 
 interface ChatItem {
   event: StreamEvent;
@@ -105,6 +110,33 @@ function mergeAssistantChunks(items: ChatItem[]): ChatItem[] {
   return merged;
 }
 
+/**
+ * Project `principal_log`'s `HistoryEvent[]` into the chat's
+ * `ChatItem[]` shape. Only `kind: "message"` events render as
+ * user / assistant bubbles — tool calls, thinking, compactions,
+ * and session markers stay on the dedicated Activity route
+ * (PrincipalLog.tsx) where they get richer rendering.
+ *
+ * Exported for unit testing so the projection logic stays
+ * decoupled from React rendering.
+ */
+export function historyEventsToChatItems(events: HistoryEvent[]): ChatItem[] {
+  const out: ChatItem[] = [];
+  for (const ev of events) {
+    if (ev.kind !== "message") continue;
+    if (!ev.content) continue;
+    out.push({
+      event: {
+        type: "chunk",
+        content: ev.content,
+        timestamp: ev.timestamp,
+      } as StreamEvent,
+      isUser: ev.role === "user",
+    });
+  }
+  return out;
+}
+
 function PrincipalToolbar({ principalName }: { principalName: string }) {
   const navigate = useNavigate();
   return (
@@ -118,7 +150,7 @@ function PrincipalToolbar({ principalName }: { principalName: string }) {
             {principalName}
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            ADR-041 · conversation is a private stream
+            Private conversation
           </p>
         </div>
       </div>
@@ -155,7 +187,6 @@ export default function Chat() {
   const runtimeId = search.runtimeId ?? "local";
 
   const { data: principals, isLoading } = usePrincipals();
-  const sendMut = usePrincipalSend();
 
   let principalName: string | undefined;
   if (pathname === "/" || pathname === "/chat") {
@@ -169,6 +200,18 @@ export default function Chat() {
 
   const selectedPrincipal = principalName ?? principals?.[0]?.name ?? "";
 
+  const sendMut = usePrincipalSend();
+  const callerSubject = useCallerSubject();
+  // ADR-042: scope the chat-history read to the caller's peer thread so
+  // the desktop shows only the conversation between `selectedPrincipal`
+  // and the active user. The runtime enforces ownership / Chat grants;
+  // if the caller is the owner it returns the merged thread, otherwise
+  // just the caller's own thread.
+  const { data: logData } = usePrincipalLog(
+    selectedPrincipal || undefined,
+    callerSubject,
+  );
+
   useEffect(() => {
     if ((pathname === "/" || pathname === "/chat") && selectedPrincipal) {
       navigate({
@@ -180,11 +223,17 @@ export default function Chat() {
   }, [pathname, selectedPrincipal, navigate, runtimeId]);
 
   const [input, setInput] = useState("");
+  // `chatItems` holds live items (sends + streamed chunks) added during
+  // the current session. Historical messages from `principal_log` are
+  // merged in `displayItems` below so they survive principal switches
+  // and don't clobber in-flight streaming.
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Reset live items when the selected principal changes; the historical
+  // half is re-derived from `logData` in the `displayItems` memo.
   useEffect(() => {
     setChatItems([]);
     setError(null);
@@ -194,7 +243,19 @@ export default function Chat() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatItems, isStreaming]);
+  }, [chatItems, isStreaming, logData]);
+
+  // Project `principal_log`'s `HistoryEvent[]` into the chat's
+  // `ChatItem[]` shape. Only `kind: "message"` events render as
+  // user / assistant bubbles — tool calls, thinking, compactions,
+  // and session markers stay on the dedicated Activity route
+  // (PrincipalLog.tsx) where they get richer rendering. Skip
+  // empty assistant messages so we don't render a blank bubble
+  // when a streamed reply collapses to "".
+  const historyItems = useMemo<ChatItem[]>(
+    () => (logData?.events ? historyEventsToChatItems(logData.events) : []),
+    [logData],
+  );
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -255,7 +316,10 @@ export default function Chat() {
     }
   }
 
-  const displayItems = useMemo(() => mergeAssistantChunks(chatItems), [chatItems]);
+  const displayItems = useMemo(
+    () => mergeAssistantChunks([...historyItems, ...chatItems]),
+    [historyItems, chatItems],
+  );
 
   if (isLoading) {
     return (

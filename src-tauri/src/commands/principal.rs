@@ -23,6 +23,7 @@ pub struct PrincipalSummary {
     pub exposure: String,
     pub status: String,
     pub description: Option<String>,
+    pub preferred_model_id: Option<String>,
     pub owner: String,
     pub runtime_id: String,
 }
@@ -72,6 +73,10 @@ pub async fn principal_list(
                 .to_string(),
             description: v
                 .get("description")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string()),
+            preferred_model_id: v
+                .get("preferred_model_id")
                 .and_then(|s| s.as_str())
                 .map(|s| s.to_string()),
             owner: v
@@ -138,6 +143,10 @@ fn project_principal_get_envelope(
             .to_string(),
         description: p
             .get("description")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string()),
+        preferred_model_id: p
+            .get("preferred_model_id")
             .and_then(|s| s.as_str())
             .map(|s| s.to_string()),
         owner: p
@@ -255,6 +264,10 @@ fn project_principal_create_envelope(
             .get("description")
             .and_then(|s| s.as_str())
             .map(|s| s.to_string()),
+        preferred_model_id: p
+            .get("preferred_model_id")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string()),
         owner: p
             .get("owner")
             .and_then(|s| s.as_str())
@@ -262,6 +275,130 @@ fn project_principal_create_envelope(
             .to_string(),
         runtime_id: "local".to_string(),
     })
+}
+
+/// Update an existing Principal's mutable config (description, status,
+/// exposure, and pinned model). Mirror of the runtime's
+/// `RequestPacket::PrincipalUpdate`. The daemon checks
+/// `Permission::ManageSettings`; for the local desktop caller this is
+/// always satisfied for principals it owns.
+#[derive(serde::Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PrincipalUpdateRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub exposure: Option<String>,
+    pub preferred_model_id: Option<String>,
+}
+
+#[tauri::command]
+pub async fn principal_update(req: PrincipalUpdateRequest) -> Result<PrincipalSummary, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_update(
+            &req.name,
+            req.description.as_deref(),
+            req.status.as_deref(),
+            req.exposure.as_deref(),
+            req.preferred_model_id.as_deref(),
+        )
+        .await
+        .map_err(|e| format!("principal_update failed: {e}"))?;
+    project_principal_update_envelope(&value, "local")
+}
+
+/// Remove a Principal and its on-disk workspace. Mirror of the runtime's
+/// `RequestPacket::PrincipalRemove`. Returns `true` if the principal was
+/// actually deleted, `false` if it was already gone.
+#[tauri::command]
+pub async fn principal_remove(name: String) -> Result<bool, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_remove(&name)
+        .await
+        .map_err(|e| format!("principal_remove failed: {e}"))?;
+    project_principal_remove_envelope(&value)
+}
+
+/// Project the runtime's `principal_updated` envelope down to the
+/// desktop's `PrincipalSummary`. Reuses the same field defaults as
+/// `principal_list` so the sidebar and detail views stay consistent.
+fn project_principal_update_envelope(
+    value: &serde_json::Value,
+    runtime_id: &str,
+) -> Result<PrincipalSummary, String> {
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        let message = value
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown runtime error");
+        return Err(format!("principal_update failed: {message}"));
+    }
+    let p = value
+        .get("principal")
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| {
+            format!(
+                "principal_update response missing `principal` (got envelope: {})",
+                value
+            )
+        })?;
+    Ok(PrincipalSummary {
+        name: p
+            .get("name")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string(),
+        exposure: p
+            .get("exposure")
+            .and_then(|s| s.as_str())
+            .unwrap_or("unexposed")
+            .to_string(),
+        status: p
+            .get("status")
+            .and_then(|s| s.as_str())
+            .unwrap_or("offline")
+            .to_string(),
+        description: p
+            .get("description")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string()),
+        preferred_model_id: p
+            .get("preferred_model_id")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string()),
+        owner: p
+            .get("owner")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string(),
+        runtime_id: runtime_id.to_string(),
+    })
+}
+
+/// Project the runtime's `principal_removed` envelope down to a boolean.
+fn project_principal_remove_envelope(value: &serde_json::Value) -> Result<bool, String> {
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        let message = value
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown runtime error");
+        return Err(format!("principal_remove failed: {message}"));
+    }
+    value
+        .get("removed")
+        .and_then(|v| v.as_bool())
+        .ok_or_else(|| {
+            format!(
+                "principal_remove response missing `removed` (got envelope: {})",
+                value
+            )
+        })
 }
 
 /// Send a non-streaming principal message and return the final content.
