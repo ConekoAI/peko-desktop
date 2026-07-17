@@ -198,7 +198,7 @@ describe("AddModelModal", () => {
     expect(args.custom).toBe(true);
     expect(args.name).toBe("my-llama");
     expect(args.displayName).toBe("My Llama");
-    expect(args.apiFormat).toBe("openai_completions");
+    expect(args.apiFormat).toBe("openai");
     expect(args.baseUrl).toBe("https://api.example.com/v1");
     expect(args.model).toEqual(["llama-3.1-70b"]);
     expect(args.requiresKey).toBe(false);

@@ -32,8 +32,6 @@ pub struct ModelSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
     #[serde(default)]
-    pub capabilities: Vec<String>,
-    #[serde(default)]
     pub headers: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credential_id: Option<String>,
@@ -107,6 +105,8 @@ pub struct ModelAddArgs {
     pub model: Vec<String>,
     #[serde(default)]
     pub key: Option<String>,
+    #[serde(default)]
+    pub credential_id: Option<String>,
 }
 
 impl ModelAddArgs {
@@ -141,6 +141,9 @@ impl ModelAddArgs {
         if let Some(v) = self.key {
             value["key"] = v.into();
         }
+        if let Some(v) = self.credential_id {
+            value["credential_id"] = v.into();
+        }
         value
     }
 }
@@ -163,8 +166,6 @@ pub struct ModelUpdateArgs {
     pub context_window: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub capabilities: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub headers: Option<BTreeMap<String, String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -198,9 +199,6 @@ impl ModelUpdateArgs {
         if let Some(v) = self.max_output_tokens {
             value["max_output_tokens"] = v.into();
         }
-        if let Some(v) = self.capabilities {
-            value["capabilities"] = v.into();
-        }
         if let Some(headers) = self.headers {
             value["headers"] = serde_json::Value::Object(
                 headers.into_iter().map(|(k, v)| (k, v.into())).collect(),
@@ -233,16 +231,6 @@ fn check_runtime_error(resp: &serde_json::Value) -> Result<(), String> {
 }
 
 fn project_model(m: &serde_json::Value) -> Option<ModelSummary> {
-    let capabilities = m
-        .get("capabilities")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(std::string::ToString::to_string))
-                .collect()
-        })
-        .unwrap_or_default();
-
     let headers = m
         .get("headers")
         .and_then(|v| v.as_object())
@@ -287,7 +275,6 @@ fn project_model(m: &serde_json::Value) -> Option<ModelSummary> {
             .get("max_output_tokens")
             .and_then(|v| v.as_u64())
             .and_then(|n| u32::try_from(n).ok()),
-        capabilities,
         headers,
         credential_id: m
             .get("credential_id")
@@ -541,6 +528,7 @@ mod tests {
             requires_key: Some(true),
             model: vec!["claude-3-5-haiku-latest".to_string()],
             key: Some("secret".to_string()),
+            credential_id: None,
         };
         let value = args.into_runtime_value();
         assert_eq!(value["template"].as_str(), Some("anthropic"));
@@ -564,7 +552,6 @@ mod tests {
             model_id: Some("claude-3-5-haiku-latest".to_string()),
             context_window: Some(200000),
             max_output_tokens: Some(4096),
-            capabilities: Some(vec!["tool_use".to_string(), "vision".to_string()]),
             headers: Some(BTreeMap::from([(
                 "Anthropic-Version".to_string(),
                 "2023-06-01".to_string(),
@@ -589,11 +576,6 @@ mod tests {
         assert_eq!(value["max_output_tokens"].as_u64(), Some(4096));
         assert_eq!(value["credential_id"].as_str(), Some("cred-1"));
         assert_eq!(value["enabled"].as_bool(), Some(false));
-
-        let caps = value["capabilities"]
-            .as_array()
-            .expect("capabilities array");
-        assert_eq!(caps.len(), 2);
 
         let headers = value["headers"].as_object().expect("headers object");
         assert_eq!(
@@ -627,7 +609,6 @@ mod tests {
             "model_id": "claude-3-5-haiku-latest",
             "context_window": 200000u64,
             "max_output_tokens": 4096u64,
-            "capabilities": ["tool_use"],
             "headers": { "Anthropic-Version": "2023-06-01" },
             "credential_id": "cred-1",
             "requires_key": true,
@@ -641,7 +622,6 @@ mod tests {
         assert_eq!(m.model_id, "claude-3-5-haiku-latest");
         assert_eq!(m.context_window, Some(200000));
         assert_eq!(m.max_output_tokens, Some(4096));
-        assert_eq!(m.capabilities, vec!["tool_use".to_string()]);
         assert_eq!(m.credential_id.as_deref(), Some("cred-1"));
         assert!(m.enabled);
     }

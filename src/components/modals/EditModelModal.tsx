@@ -6,8 +6,8 @@ import { useGenericCredentialList } from "../../hooks/useSettings";
 import type { ModelSummary, ModelUpdateArgs } from "../../types";
 
 const API_FORMAT_OPTIONS = [
-  { value: "openai_completions", label: "OpenAI Completions" },
-  { value: "anthropic_messages", label: "Anthropic Messages" },
+  { value: "openai", label: "OpenAI" },
+  { value: "anthropic", label: "Anthropic" },
 ];
 
 interface HeaderRow {
@@ -19,8 +19,8 @@ interface HeaderRow {
  * Edit an existing configured model.
  *
  * Edits the public metadata only (display name, base URL, API format,
- * wire model id, context window, max output tokens, capabilities,
- * headers, credential reference, requires-key and enabled flags).
+ * wire model id, context window, max output tokens, headers,
+ * credential reference, requires-key and enabled flags).
  * Secrets themselves live in the vault and are managed in Settings →
  * Credentials.
  */
@@ -46,9 +46,6 @@ export default function EditModelModal({
   const [maxOutputTokens, setMaxOutputTokens] = useState<number | "">(
     model.maxOutputTokens ?? "",
   );
-  const [capabilities, setCapabilities] = useState(() =>
-    model.capabilities.join(", "),
-  );
   const [requiresKey, setRequiresKey] = useState(model.requiresKey);
   const [enabled, setEnabled] = useState(model.enabled);
   const [credentialId, setCredentialId] = useState(model.credentialId ?? "");
@@ -65,7 +62,6 @@ export default function EditModelModal({
       setModelId(model.modelId);
       setContextWindow(model.contextWindow ?? "");
       setMaxOutputTokens(model.maxOutputTokens ?? "");
-      setCapabilities(model.capabilities.join(", "));
       setRequiresKey(model.requiresKey);
       setEnabled(model.enabled);
       setCredentialId(model.credentialId ?? "");
@@ -107,11 +103,6 @@ export default function EditModelModal({
       }
     }
 
-    const caps = capabilities
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
     const args: ModelUpdateArgs = {
       id: model.id,
       displayName: displayName.trim() || undefined,
@@ -122,7 +113,6 @@ export default function EditModelModal({
         typeof contextWindow === "number" ? contextWindow : undefined,
       maxOutputTokens:
         typeof maxOutputTokens === "number" ? maxOutputTokens : undefined,
-      capabilities: caps.length > 0 ? caps : undefined,
       headers: Object.keys(headersMap).length > 0 ? headersMap : undefined,
       credentialId: credentialId.trim() || undefined,
       requiresKey,
@@ -243,17 +233,6 @@ export default function EditModelModal({
                   setMaxOutputTokens(v ? Number(v) : "");
                 }}
                 placeholder="4096"
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Capabilities
-              </label>
-              <input
-                value={capabilities}
-                onChange={(e) => setCapabilities(e.target.value)}
-                placeholder="tool_use, vision"
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
               />
             </div>

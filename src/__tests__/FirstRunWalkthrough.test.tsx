@@ -84,8 +84,8 @@ describe("FirstRunWalkthrough visibility (T-105)", () => {
 
   it("lists configured models in step 1", () => {
     modelsSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiFormat: "openai_completions", modelId: "gpt-4o" },
-      { id: "anthropic", displayName: "Anthropic", apiFormat: "anthropic_messages", modelId: "claude-sonnet-4-6" },
+      { id: "openai", displayName: "OpenAI", apiFormat: "openai", modelId: "gpt-4o" },
+      { id: "anthropic", displayName: "Anthropic", apiFormat: "anthropic", modelId: "claude-sonnet-4-6" },
     ];
     renderWalkthrough();
     expect(screen.getByText(/Pick a configured model/i)).toBeInTheDocument();
@@ -95,8 +95,8 @@ describe("FirstRunWalkthrough visibility (T-105)", () => {
 
   it("pre-selects the first configured model", () => {
     modelsSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiFormat: "openai_completions", modelId: "gpt-4o" },
-      { id: "anthropic", displayName: "Anthropic", apiFormat: "anthropic_messages", modelId: "claude-sonnet-4-6" },
+      { id: "openai", displayName: "OpenAI", apiFormat: "openai", modelId: "gpt-4o" },
+      { id: "anthropic", displayName: "Anthropic", apiFormat: "anthropic", modelId: "claude-sonnet-4-6" },
     ];
     renderWalkthrough();
     expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();

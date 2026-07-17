@@ -210,7 +210,6 @@ export interface ModelSummary {
   modelId: string;
   contextWindow?: number;
   maxOutputTokens?: number;
-  capabilities: string[];
   headers: Record<string, string>;
   credentialId?: string;
   requiresKey: boolean;
@@ -256,7 +255,6 @@ export interface ModelUpdateArgs {
   modelId?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
-  capabilities?: string[];
   headers?: Record<string, string>;
   credentialId?: string;
   requiresKey?: boolean;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, RefreshCw, X } from "lucide-react";
 
-import { useAddModel, useModelTemplates } from "../../hooks/useModels";
+import { useAddModel, useModelTemplates, useModels } from "../../hooks/useModels";
 import { useGenericCredentialList } from "../../hooks/useSettings";
 import type { ModelAddArgs, ModelPresetInfo } from "../../types";
 
@@ -10,7 +10,7 @@ type Mode = "template" | "custom";
 interface CustomForm {
   id: string;
   displayName: string;
-  apiFormat: "openai_completions" | "anthropic_messages" | "";
+  apiFormat: "openai" | "anthropic" | "";
   baseUrl: string;
   modelId: string;
   requiresKey: boolean;
@@ -28,7 +28,7 @@ interface TemplateForm {
 const INITIAL_CUSTOM: CustomForm = {
   id: "",
   displayName: "",
-  apiFormat: "openai_completions",
+  apiFormat: "openai",
   baseUrl: "",
   modelId: "",
   requiresKey: true,
@@ -44,8 +44,8 @@ const INITIAL_TEMPLATE: TemplateForm = {
 };
 
 const API_FORMAT_OPTIONS = [
-  { value: "openai_completions", label: "OpenAI Completions" },
-  { value: "anthropic_messages", label: "Anthropic Messages" },
+  { value: "openai", label: "OpenAI" },
+  { value: "anthropic", label: "Anthropic" },
 ];
 
 /**
@@ -76,6 +76,7 @@ export default function AddModelModal({
   } = useModelTemplates();
   const { data: credentials } = useGenericCredentialList();
   const addMut = useAddModel();
+  const { data: existingModels } = useModels();
 
   const [mode, setMode] = useState<Mode>("template");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -121,8 +122,37 @@ export default function AddModelModal({
 
   const templateValid = isTemplateValid(selectedTemplate, templateForm);
   const customValid = isCustomValid(customForm);
+
+  const existingIds = useMemo(
+    () => new Set((existingModels ?? []).map((m) => m.id)),
+    [existingModels],
+  );
+
+  const resolvedTemplateId = useMemo(() => {
+    if (mode !== "template" || !selectedTemplate) return null;
+    const override = templateForm.nameOverride.trim();
+    if (override) return override;
+    const wire = templateForm.modelId.trim() || selectedTemplate.defaultModel;
+    return `${selectedTemplate.id}-${wire}`;
+  }, [mode, selectedTemplate, templateForm.nameOverride, templateForm.modelId]);
+
+  const resolvedCustomId = useMemo(() => {
+    if (mode !== "custom") return null;
+    return customForm.id.trim() || null;
+  }, [mode, customForm.id]);
+
+  const conflictId =
+    mode === "template"
+      ? resolvedTemplateId && existingIds.has(resolvedTemplateId)
+        ? resolvedTemplateId
+        : null
+      : resolvedCustomId && existingIds.has(resolvedCustomId)
+        ? resolvedCustomId
+        : null;
+
   const canSubmit =
     !addMut.isPending &&
+    conflictId === null &&
     ((mode === "template" && templateValid) ||
       (mode === "custom" && customValid));
 
@@ -319,9 +349,17 @@ export default function AddModelModal({
                   )}
                   <div>
                     <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                      Configured model id (optional — defaults to{" "}
-                      <code>{selectedTemplate.id}</code>)
+                      Catalog id (optional)
                     </label>
+                    <p className="mb-1 text-[11px] text-slate-500 dark:text-slate-400">
+                      How this model is referenced from{" "}
+                      <code className="font-mono">peko send --model &lt;id&gt;</code>{" "}
+                      and from principals. Defaults to{" "}
+                      <code className="font-mono">
+                        {selectedTemplate.id}-{templateForm.modelId || selectedTemplate.defaultModel}
+                      </code>
+                      .
+                    </p>
                     <input
                       value={templateForm.nameOverride}
                       onChange={(e) =>
@@ -330,7 +368,7 @@ export default function AddModelModal({
                           nameOverride: e.target.value,
                         })
                       }
-                      placeholder={selectedTemplate.id}
+                      placeholder={`${selectedTemplate.id}-${templateForm.modelId || selectedTemplate.defaultModel}`}
                       data-testid="add-model-name-override"
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                     />
@@ -468,6 +506,17 @@ export default function AddModelModal({
                   testid="add-model-custom"
                 />
               )}
+            </div>
+          )}
+
+          {conflictId && (
+            <div
+              data-testid="add-model-conflict"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+            >
+              A model with id <code className="font-mono">{conflictId}</code>{" "}
+              already exists. Pick a different Catalog id, or open Edit Model
+              to change the existing entry.
             </div>
           )}
 
@@ -610,7 +659,7 @@ function isCustomValid(form: CustomForm): boolean {
   if (!/^[A-Za-z0-9_-]+$/.test(form.id.trim())) return false;
   if (!form.baseUrl.trim()) return false;
   if (!form.modelId.trim()) return false;
-  if (form.apiFormat !== "openai_completions" && form.apiFormat !== "anthropic_messages") {
+  if (form.apiFormat !== "openai" && form.apiFormat !== "anthropic") {
     return false;
   }
   if (form.requiresKey) {
