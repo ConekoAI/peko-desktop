@@ -167,7 +167,7 @@ export async function principalCreate(
   return invoke<PrincipalSummary>("principal_create", {
     name: req.name,
     description: req.description ?? null,
-    model_id: req.modelId,
+    modelId: req.modelId,
   });
 }
 
@@ -283,7 +283,7 @@ export async function accessiblePrincipalsList(): Promise<AccessiblePrincipal[]>
 // ─── System status ───────────────────────────────────────────────
 
 export async function systemStatus(runtimeId?: string): Promise<SystemStatus> {
-  return invoke<SystemStatus>("system_status", { runtime_id: runtimeId ?? null });
+  return invoke<SystemStatus>("system_status", { runtimeId: runtimeId ?? null });
 }
 
 // ─── Extensions ─────────────────────────────────────────────────
