@@ -51,13 +51,12 @@ describe("useModels hooks", () => {
       {
         id: "anthropic",
         displayName: "Anthropic",
-        apiFormat: "anthropic_messages",
+        apiFormat: "anthropic",
         baseUrl: "https://api.anthropic.com",
         modelId: "claude-haiku-4-5",
         requiresKey: true,
         isLocal: false,
         enabled: true,
-        capabilities: ["tool_use"],
         headers: {},
       },
     ]);

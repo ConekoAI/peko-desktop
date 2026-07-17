@@ -133,12 +133,11 @@ function modelFixture(overrides?: Partial<ModelSummary>): ModelSummary {
   return {
     id: "openai",
     displayName: "OpenAI",
-    apiFormat: "openai_completions",
+    apiFormat: "openai",
     baseUrl: "https://api.openai.com",
     modelId: "gpt-4o",
     contextWindow: 128_000,
     maxOutputTokens: 4096,
-    capabilities: ["tool_use", "vision"],
     headers: {},
     requiresKey: true,
     isLocal: false,
@@ -261,7 +260,7 @@ describe("Settings → Credentials & Models tabs", () => {
         modelFixture({
           id: "anthropic",
           displayName: "Anthropic",
-          apiFormat: "anthropic_messages",
+          apiFormat: "anthropic",
           modelId: "claude-sonnet-4-6",
           enabled: false,
         }),
