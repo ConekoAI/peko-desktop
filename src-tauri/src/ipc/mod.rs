@@ -707,7 +707,21 @@ impl IpcClient {
             "request_id": 1u64,
             "name": name,
             "message": message,
-            "user": "desktop",
+            // The runtime's IPC layer attaches `CallerContext::local()`
+            // (subject `Subject::User("local")`) to socket-based requests,
+            // and the `PrincipalCreate` handler uses that caller subject
+            // for the principal's owner. Sending a different string here
+            // would make the chat peer (`Subject::User(this string)`)
+            // diverge from the owner, failing the `check_permission`
+            // owner-equality check (`user:desktop cannot perform Chat on
+            // principal:Test`). Mirror the local-trust identity so a
+            // desktop-created principal is chat-able from the same
+            // desktop. The runtime's session-key for this peer will be
+            // `local`, which is also what the CLI's local invocations use
+            // (their `_paths.user()` defaults to "default" but the IPC
+            // caller's subject is still `local`; CLI sessions are keyed
+            // by `--user`, this single-thread desktop is keyed by `local`).
+            "user": "local",
         });
 
         let bytes =
@@ -810,7 +824,9 @@ impl IpcClient {
     /// Send a Principal message via the non-streaming IPC path. The
     /// daemon returns a single `principal_sent` packet with the full
     /// final answer. Used by code paths that don't need live tokens
-    /// (e.g. CLI-style bulk operations).
+    /// (e.g. CLI-style bulk operations). The `user` field mirrors the
+    /// streaming variant — see `principal_send_stream` for the rationale
+    /// on `Subject::User("local")` alignment.
     pub async fn principal_send(&self, name: String, message: String) -> Result<String> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -819,7 +835,7 @@ impl IpcClient {
             "request_id": 1u64,
             "name": name,
             "message": message,
-            "user": "desktop",
+            "user": "local",
         });
         let value = self.request_response(req).await?;
         // The daemon may return either a `principal_sent` packet or
@@ -980,5 +996,50 @@ mod tests {
         let deserialized: PongResponse = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.request_id, 123);
         assert_eq!(deserialized.version, "1.0.0");
+    }
+
+    /// Lock the wire-level alignment between the desktop's
+    /// `principal_send_stream` peer and the runtime's `caller.subject()`
+    /// (see `principal_send_stream` for the rationale). Without this
+    /// pin a future "use a friendlier label" change would silently
+    /// break chat for desktop-created principals — owner =
+    /// `Subject::User("local")` (from `CallerContext::local()` over the
+    /// local socket) but peer would be `Subject::User("desktop")`,
+    /// failing `check_permission`'s owner-equality rule and surfacing
+    /// `user:desktop cannot perform Chat on principal:<name>`.
+    #[test]
+    fn principal_send_stream_request_uses_local_peer() {
+        let req = serde_json::json!({
+            "type": "principal_send_stream",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": "alice",
+            "message": "hello",
+            "user": "local",
+        });
+        assert_eq!(
+            req.get("user").and_then(|v| v.as_str()),
+            Some("local"),
+            "chat peer must match the IPC caller's local-trust subject \
+             (Subject::User(\"local\")) so the principal's owner check passes"
+        );
+    }
+
+    /// Same alignment pin for the non-streaming `principal_send` path —
+    /// the streaming variant above is the hot path, but the one-shot
+    /// variant shares the same wire-level owner/peer contract and
+    /// would hit the same bug if anyone "fixes" the user string back
+    /// to "desktop".
+    #[test]
+    fn principal_send_request_uses_local_peer() {
+        let req = serde_json::json!({
+            "type": "principal_send",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": "alice",
+            "message": "hello",
+            "user": "local",
+        });
+        assert_eq!(req.get("user").and_then(|v| v.as_str()), Some("local"));
     }
 }
