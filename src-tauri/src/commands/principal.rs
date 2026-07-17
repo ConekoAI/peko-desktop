@@ -205,14 +205,36 @@ fn validate_principal_name(name: &str) -> Result<(), String> {
 /// desktop's lightweight `PrincipalSummary`. Extracted so the
 /// projection logic is unit-testable without spinning up the IPC
 /// stack (same shape as `project_principal_get_envelope`).
+///
+/// The runtime can also send `{"type": "error", "message": "..."}`
+/// when the create fails (e.g. the model's preferred model id is
+/// unknown after PR #204 removed default providers, or the disk is
+/// read-only). Without the early check below those errors surfaced as
+/// the misleading "principal_create response missing `principal`" —
+/// a user could not tell whether the request never reached the
+/// runtime, the runtime returned a malformed envelope, or the
+/// runtime rejected the request. Surface the runtime's message so
+/// the React form can show the real reason.
 fn project_principal_create_envelope(
     value: &serde_json::Value,
     fallback_name: &str,
 ) -> Result<PrincipalSummary, String> {
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        let message = value
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown runtime error");
+        return Err(format!("principal_create failed: {message}"));
+    }
     let p = value
         .get("principal")
         .and_then(|v| v.as_object())
-        .ok_or_else(|| "principal_create response missing `principal`".to_string())?;
+        .ok_or_else(|| {
+            format!(
+                "principal_create response missing `principal` (got envelope: {})",
+                value
+            )
+        })?;
     Ok(PrincipalSummary {
         name: p
             .get("name")
@@ -402,11 +424,36 @@ mod tests {
         // caller surfaces the error in the form rather than silently
         // creating a row with empty fields.
         let envelope = serde_json::json!({
-            "type": "error",
+            "type": "principal_created",
             "request_id": 1,
-            "message": "principal already exists"
         });
         assert!(project_principal_create_envelope(&envelope, "alice").is_err());
+    }
+
+    /// Runtime returns a `ResponsePacket::Error` envelope when the
+    /// create fails (e.g. unknown model id after PR #204, disk full,
+    /// permission denied). Surface its `message` so the React form
+    /// shows the real reason instead of the misleading "missing
+    /// `principal`" sentinel.
+    #[test]
+    fn test_project_principal_create_envelope_runtime_error_surfaces_message() {
+        let envelope = serde_json::json!({
+            "type": "error",
+            "request_id": 1,
+            "message": "principal_create failed: model id 'gpt-x' is not configured"
+        });
+        let err = project_principal_create_envelope(&envelope, "alice")
+            .expect_err("error envelope should fail projection");
+        assert!(
+            err.contains("model id 'gpt-x' is not configured"),
+            "runtime error message must be surfaced verbatim, got: {err}"
+        );
+        // And it's clearly framed as a runtime failure, not a
+        // wire-shape complaint.
+        assert!(
+            err.starts_with("principal_create failed"),
+            "error must be prefixed to distinguish from protocol errors, got: {err}"
+        );
     }
 
     #[test]
