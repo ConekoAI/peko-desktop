@@ -315,6 +315,25 @@ export default function PrincipalCapabilities() {
     new Set([...granted, ...detected]),
   ).filter((cap) => !extensionCapSet.has(cap));
 
+  // Companion to the runtime fix in peko-runtime PR #216: the system prompt
+  // now hides tool entries the principal doesn't have granted, so revoking
+  // every `tool:*` grant silently leaves the agent without callable tools.
+  // Surface the broken state here so the operator understands the chat will
+  // fail with `tool not available`/`<tool_call>` raw text symptoms rather
+  // than having to discover the cause from log scraping.
+  const toolCapsOffered = Array.from(extensionCapSet).filter((cap) =>
+    cap.toLowerCase().startsWith("tool:"),
+  );
+  const toolCapsGranted = granted.filter((cap) =>
+    cap.toLowerCase().startsWith("tool:"),
+  );
+  const isWildcardToolGrant = (cap: string) =>
+    cap.toLowerCase().endsWith("*") &&
+    cap.toLowerCase().startsWith("tool") &&
+    cap.length > "tool".length;
+  const hasToolWildcard = granted.some(isWildcardToolGrant);
+  const toolsRevoked = toolCapsOffered.length > 0 && toolCapsGranted.length === 0;
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
@@ -362,6 +381,23 @@ export default function PrincipalCapabilities() {
 
       {!isLoading && !extensionsLoading && principalName && (
         <>
+          {toolsRevoked && !hasToolWildcard && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="text-sm">
+                <div className="font-medium">All tool capabilities revoked</div>
+                <p className="mt-1 text-amber-700 dark:text-amber-400">
+                  The principal has every <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">tool:*</code> grant revoked.
+                  The agent will respond without any callable tools and may emit
+                  raw <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">&lt;tool_call&gt;</code>{" "}
+                  tags that fail to invoke. Grant at least{" "}
+                  <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">tool:*</code>{" "}
+                  or the specific tools the principal needs.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             {(extensions ?? []).map((ext) =>
               ext.provides.length > 0 ? (
