@@ -4,19 +4,15 @@ import {
   Puzzle,
   Globe,
   Clock,
-  Radio,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
-  Users,
 } from "lucide-react";
 
 const navItems = [
   { to: "/extensions", label: "Extensions", icon: Puzzle },
   { to: "/registry", label: "Registry", icon: Globe },
-  { to: "/shared", label: "Shared", icon: Users },
   { to: "/cron", label: "Cron", icon: Clock },
-  { to: "/event-bus", label: "Event Bus", icon: Radio },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -38,16 +34,10 @@ export default function Sidebar() {
         collapsed ? "w-16" : "w-48",
       ].join(" ")}
     >
-      <div className="flex h-14 items-center gap-2 px-4">
-        {!collapsed && (
-          <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Tools</span>
-        )}
+      <div className="flex h-14 items-center justify-end px-4">
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className={[
-            "ml-auto rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300",
-            collapsed ? "mx-auto" : "",
-          ].join(" ")}
+          className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}

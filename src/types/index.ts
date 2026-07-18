@@ -112,6 +112,16 @@ export interface ExtensionSummary {
   enabled: boolean;
   source: string;
   extType: string;
+  /** Capabilities this extension declares it provides (e.g. `tool:Read`). */
+  provides: string[];
+  /** Capabilities this extension requires to function. */
+  requires: string[];
+}
+
+export interface CapabilityList {
+  granted: string[];
+  detected: string[];
+  active: string[];
 }
 
 export interface SearchResult {
@@ -306,19 +316,3 @@ export interface CredentialDetail {
   updatedAt?: string;
 }
 
-export interface AccessiblePrincipal {
-  id: string;
-  ownerId: number;
-  ownerName: string;
-  principalName: string;
-  publicName?: string;
-  status: "online" | "offline" | "busy" | "error";
-  runtimeId?: string;
-  runtimeDisplayName?: string;
-  description?: string;
-  exposure?: "unexposed" | "private" | "public";
-  capabilities?: string[];
-  metadata?: Record<string, unknown>;
-  createdAt?: string;
-  updatedAt?: string;
-}

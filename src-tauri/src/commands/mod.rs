@@ -1,3 +1,4 @@
+pub mod capability;
 pub mod cron;
 pub mod daemon;
 pub mod engine;
@@ -29,6 +30,9 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_send,
         principal::principal_send_stream,
         principal::principal_log,
+        capability::capability_list,
+        capability::capability_grant,
+        capability::capability_revoke,
         model_admin::model_list,
         model_admin::model_templates,
         model_admin::model_add,
@@ -44,7 +48,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         registry::registry_auth_status,
         registry::registry_login,
         registry::registry_logout,
-        registry::accessible_principals_list,
         cron::cron_list,
         cron::cron_add,
         cron::cron_remove,

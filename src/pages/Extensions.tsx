@@ -79,6 +79,7 @@ function InstallModal({ open, onClose }: { open: boolean; onClose: () => void })
 export default function Extensions() {
   const { data: extensions, isLoading } = useExtensions();
   const uninstall = useUninstallExtension();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState<string | null>(null);
   const [installOpen, setInstallOpen] = useState(false);
 
@@ -89,6 +90,14 @@ export default function Extensions() {
       sortable: true,
       render: (row: ExtensionSummary) => (
         <span className="font-medium text-slate-900 dark:text-white">{row.name}</span>
+      ),
+    },
+    {
+      key: "version",
+      header: "Version",
+      sortable: true,
+      render: (row: ExtensionSummary) => (
+        <span className="text-xs text-slate-600 dark:text-slate-400">{row.version}</span>
       ),
     },
     {
@@ -119,6 +128,16 @@ export default function Extensions() {
       ),
     },
     {
+      key: "description",
+      header: "Description",
+      sortable: false,
+      render: (row: ExtensionSummary) => (
+        <span className="max-w-xs truncate text-xs text-slate-600 dark:text-slate-400">
+          {row.description || "—"}
+        </span>
+      ),
+    },
+    {
       key: "enabled",
       header: "Status",
       sortable: true,
@@ -136,15 +155,46 @@ export default function Extensions() {
       ),
     },
     {
+      key: "capabilities",
+      header: "Capabilities",
+      sortable: false,
+      render: (row: ExtensionSummary) => (
+        <div className="flex max-w-xs flex-wrap gap-1">
+          {row.provides.length === 0 ? (
+            <span className="text-xs text-slate-400 dark:text-slate-600">—</span>
+          ) : (
+            row.provides.slice(0, 6).map((cap) => (
+              <span
+                key={cap}
+                className="inline-flex max-w-[8rem] truncate rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                title={cap}
+              >
+                {cap}
+              </span>
+            ))
+          )}
+          {row.provides.length > 6 && (
+            <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              +{row.provides.length - 6}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
       key: "actions",
       header: "",
       sortable: false,
       render: (row: ExtensionSummary) => (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setConfirmName(row.name)}
-            className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-            title="Uninstall"
+            onClick={() => {
+              setConfirmId(row.id);
+              setConfirmName(row.name);
+            }}
+            disabled={row.source === "built-in"}
+            className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+            title={row.source === "built-in" ? "Built-in extensions cannot be uninstalled" : "Uninstall"}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -159,7 +209,7 @@ export default function Extensions() {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">Extensions</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Manage installed extensions
+            Manage installed and built-in extensions
           </p>
         </div>
         <button
@@ -177,22 +227,26 @@ export default function Extensions() {
         <DataTable
           columns={columns}
           rows={extensions ?? []}
-          keyExtractor={(r) => r.name}
+          keyExtractor={(r) => r.id}
           emptyText="No extensions installed"
         />
       )}
 
       <ConfirmModal
-        open={!!confirmName}
+        open={!!confirmId}
         title="Uninstall Extension"
         message={`Are you sure you want to uninstall "${confirmName ?? ""}"?`}
         variant="danger"
         confirmText="Uninstall"
         onConfirm={() => {
-          if (confirmName) uninstall.mutate(confirmName);
+          if (confirmId) uninstall.mutate(confirmId);
+          setConfirmId(null);
           setConfirmName(null);
         }}
-        onCancel={() => setConfirmName(null)}
+        onCancel={() => {
+          setConfirmId(null);
+          setConfirmName(null);
+        }}
       />
 
       <InstallModal open={installOpen} onClose={() => setInstallOpen(false)} />

@@ -533,6 +533,54 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    // ── Capability (per-Principal grants) ───────────────────────────
+
+    /// List granted, detected, and active capabilities for a Principal.
+    pub async fn capability_list(&self, principal: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "capability_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "principal": principal,
+        });
+        self.request_response(req).await
+    }
+
+    /// Grant a capability to a Principal.
+    pub async fn capability_grant(
+        &self,
+        principal: &str,
+        capability: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "capability_grant",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "principal": principal,
+            "capability": capability,
+        });
+        self.request_response(req).await
+    }
+
+    /// Revoke a capability from a Principal.
+    pub async fn capability_revoke(
+        &self,
+        principal: &str,
+        capability: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "capability_revoke",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "principal": principal,
+            "capability": capability,
+        });
+        self.request_response(req).await
+    }
+
     // ── Registry ──────────────────────────────────────────────────
 
     /// Pull a Principal bundle from a registry. Maps to runtime's
