@@ -1,5 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+fn as_string_vec(value: &serde_json::Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtensionSummary {
@@ -10,6 +22,8 @@ pub struct ExtensionSummary {
     pub enabled: bool,
     pub source: String,
     pub ext_type: String,
+    pub provides: Vec<String>,
+    pub requires: Vec<String>,
 }
 
 #[cfg(test)]
@@ -63,6 +77,8 @@ mod tests {
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown")
                         .to_string(),
+                    provides: as_string_vec(e, "provides"),
+                    requires: as_string_vec(e, "requires"),
                 })
             })
             .collect();
@@ -73,11 +89,15 @@ mod tests {
         assert_eq!(extensions[0].description, Some("Does math".to_string()));
         assert_eq!(extensions[0].source, "builtin");
         assert_eq!(extensions[0].ext_type, "tool");
+        assert!(extensions[0].provides.is_empty());
+        assert!(extensions[0].requires.is_empty());
 
         assert_eq!(extensions[1].id, "ext-2");
         assert_eq!(extensions[1].version, "n/a");
         assert_eq!(extensions[1].source, "unknown");
         assert_eq!(extensions[1].ext_type, "unknown");
+        assert!(extensions[1].provides.is_empty());
+        assert!(extensions[1].requires.is_empty());
     }
 }
 
@@ -120,6 +140,8 @@ pub async fn extension_list() -> Result<Vec<ExtensionSummary>, String> {
                             .and_then(|v| v.as_str())
                             .unwrap_or("unknown")
                             .to_string(),
+                        provides: as_string_vec(e, "provides"),
+                        requires: as_string_vec(e, "requires"),
                     })
                 })
                 .collect()

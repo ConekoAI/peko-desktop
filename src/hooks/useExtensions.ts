@@ -9,6 +9,8 @@ export function useExtensions() {
   return useQuery({
     queryKey: ["extensions"],
     queryFn: extensionList,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }
 

@@ -9,23 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SharedRouteImport } from './routes/shared'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RegistryRouteImport } from './routes/registry'
 import { Route as ExtensionsRouteImport } from './routes/extensions'
-import { Route as EventBusRouteImport } from './routes/event-bus'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CronRouteImport } from './routes/cron'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PrincipalPrincipalNameRouteImport } from './routes/principal.$principalName'
 import { Route as LogPrincipalNameRouteImport } from './routes/log.$principalName'
 import { Route as ChatPrincipalNameRouteImport } from './routes/chat.$principalName'
 
-const SharedRoute = SharedRouteImport.update({
-  id: '/shared',
-  path: '/shared',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -39,11 +33,6 @@ const RegistryRoute = RegistryRouteImport.update({
 const ExtensionsRoute = ExtensionsRouteImport.update({
   id: '/extensions',
   path: '/extensions',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EventBusRoute = EventBusRouteImport.update({
-  id: '/event-bus',
-  path: '/event-bus',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -66,6 +55,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrincipalPrincipalNameRoute = PrincipalPrincipalNameRouteImport.update({
+  id: '/principal/$principalName',
+  path: '/principal/$principalName',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LogPrincipalNameRoute = LogPrincipalNameRouteImport.update({
   id: '/log/$principalName',
   path: '/log/$principalName',
@@ -82,26 +76,24 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
-  '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
-  '/shared': typeof SharedRoute
   '/chat/$principalName': typeof ChatPrincipalNameRoute
   '/log/$principalName': typeof LogPrincipalNameRoute
+  '/principal/$principalName': typeof PrincipalPrincipalNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
-  '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
-  '/shared': typeof SharedRoute
   '/chat/$principalName': typeof ChatPrincipalNameRoute
   '/log/$principalName': typeof LogPrincipalNameRoute
+  '/principal/$principalName': typeof PrincipalPrincipalNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -109,13 +101,12 @@ export interface FileRoutesById {
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
-  '/event-bus': typeof EventBusRoute
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
-  '/shared': typeof SharedRoute
   '/chat/$principalName': typeof ChatPrincipalNameRoute
   '/log/$principalName': typeof LogPrincipalNameRoute
+  '/principal/$principalName': typeof PrincipalPrincipalNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -124,39 +115,36 @@ export interface FileRouteTypes {
     | '/chat'
     | '/cron'
     | '/dashboard'
-    | '/event-bus'
     | '/extensions'
     | '/registry'
     | '/settings'
-    | '/shared'
     | '/chat/$principalName'
     | '/log/$principalName'
+    | '/principal/$principalName'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/chat'
     | '/cron'
     | '/dashboard'
-    | '/event-bus'
     | '/extensions'
     | '/registry'
     | '/settings'
-    | '/shared'
     | '/chat/$principalName'
     | '/log/$principalName'
+    | '/principal/$principalName'
   id:
     | '__root__'
     | '/'
     | '/chat'
     | '/cron'
     | '/dashboard'
-    | '/event-bus'
     | '/extensions'
     | '/registry'
     | '/settings'
-    | '/shared'
     | '/chat/$principalName'
     | '/log/$principalName'
+    | '/principal/$principalName'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -164,23 +152,15 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
   CronRoute: typeof CronRoute
   DashboardRoute: typeof DashboardRoute
-  EventBusRoute: typeof EventBusRoute
   ExtensionsRoute: typeof ExtensionsRoute
   RegistryRoute: typeof RegistryRoute
   SettingsRoute: typeof SettingsRoute
-  SharedRoute: typeof SharedRoute
   LogPrincipalNameRoute: typeof LogPrincipalNameRoute
+  PrincipalPrincipalNameRoute: typeof PrincipalPrincipalNameRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/shared': {
-      id: '/shared'
-      path: '/shared'
-      fullPath: '/shared'
-      preLoaderRoute: typeof SharedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -200,13 +180,6 @@ declare module '@tanstack/react-router' {
       path: '/extensions'
       fullPath: '/extensions'
       preLoaderRoute: typeof ExtensionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/event-bus': {
-      id: '/event-bus'
-      path: '/event-bus'
-      fullPath: '/event-bus'
-      preLoaderRoute: typeof EventBusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -235,6 +208,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/principal/$principalName': {
+      id: '/principal/$principalName'
+      path: '/principal/$principalName'
+      fullPath: '/principal/$principalName'
+      preLoaderRoute: typeof PrincipalPrincipalNameRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/log/$principalName': {
@@ -269,12 +249,11 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
   CronRoute: CronRoute,
   DashboardRoute: DashboardRoute,
-  EventBusRoute: EventBusRoute,
   ExtensionsRoute: ExtensionsRoute,
   RegistryRoute: RegistryRoute,
   SettingsRoute: SettingsRoute,
-  SharedRoute: SharedRoute,
   LogPrincipalNameRoute: LogPrincipalNameRoute,
+  PrincipalPrincipalNameRoute: PrincipalPrincipalNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

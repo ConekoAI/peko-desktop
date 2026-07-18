@@ -17,9 +17,9 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 
 import type {
-  AccessiblePrincipal,
   AuthStatus,
   BundleItem,
+  CapabilityList,
   CronJob,
   CredentialDetail,
   DaemonStatus,
@@ -299,12 +299,6 @@ export async function modelReload(): Promise<{ modelsCount: number; keysCount: n
   return invoke<{ modelsCount: number; keysCount: number }>("model_reload");
 }
 
-// ─── Accessible principals ───────────────────────────────────────
-
-export async function accessiblePrincipalsList(): Promise<AccessiblePrincipal[]> {
-  return invoke<AccessiblePrincipal[]>("accessible_principals_list");
-}
-
 // ─── System status ───────────────────────────────────────────────
 
 export async function systemStatus(runtimeId?: string): Promise<SystemStatus> {
@@ -323,6 +317,26 @@ export async function extensionInstall(path: string): Promise<ExtensionSummary> 
 
 export async function extensionUninstall(name: string): Promise<void> {
   return invoke("extension_uninstall", { name });
+}
+
+// ─── Capabilities (per-Principal grants) ─────────────────────────
+
+export async function capabilityList(principal: string): Promise<CapabilityList> {
+  return invoke<CapabilityList>("capability_list", { principal });
+}
+
+export async function capabilityGrant(
+  principal: string,
+  capability: string,
+): Promise<string> {
+  return invoke<string>("capability_grant", { principal, capability });
+}
+
+export async function capabilityRevoke(
+  principal: string,
+  capability: string,
+): Promise<string> {
+  return invoke<string>("capability_revoke", { principal, capability });
 }
 
 // ─── Registry ───────────────────────────────────────────────────

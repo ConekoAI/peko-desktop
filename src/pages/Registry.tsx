@@ -12,10 +12,7 @@ import {
   LogIn,
   LogOut,
   X,
-  Download,
 } from "lucide-react";
-
-type FilterTab = "search" | "popular" | "recent";
 
 function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { login } = useAuthStatus();
@@ -102,7 +99,6 @@ function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
 export default function Registry() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<FilterTab>("search");
   const [loginOpen, setLoginOpen] = useState(false);
   const perPage = 12;
 
@@ -116,12 +112,6 @@ export default function Registry() {
   }
 
   const totalPages = data ? Math.ceil(data.total / perPage) : 0;
-
-  const tabs: { key: FilterTab; label: string }[] = [
-    { key: "search", label: "Search" },
-    { key: "popular", label: "Popular" },
-    { key: "recent", label: "Recent" },
-  ];
 
   return (
     <div className="space-y-4">
@@ -162,60 +152,27 @@ export default function Registry() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={[
-              "relative px-3 py-2 text-sm font-medium transition-colors",
-              activeTab === tab.key
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300",
-            ].join(" ")}
-          >
-            {tab.label}
-            {activeTab === tab.key && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t bg-emerald-500 dark:bg-emerald-400" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "search" && (
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search bundles..."
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:placeholder-slate-600"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
-          </button>
-        </form>
-      )}
-
-      {activeTab !== "search" && (
-        <div className="rounded-lg border border-dashed border-slate-200 bg-white py-12 text-center dark:border-slate-800 dark:bg-slate-900">
-          <Download className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-700" />
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            {activeTab === "popular"
-              ? "Popular bundles coming soon"
-              : "Recent uploads coming soon"}
-          </p>
+      <form onSubmit={handleSearch} className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search bundles..."
+            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:placeholder-slate-600"
+          />
         </div>
-      )}
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+        </button>
+      </form>
 
-      {activeTab === "search" && data && data.items.length > 0 ? (
+      {data && data.items.length > 0 ? (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data.items.map((item) => (
@@ -250,7 +207,7 @@ export default function Registry() {
             </div>
           )}
         </>
-      ) : activeTab === "search" && query.length > 0 && !isLoading ? (
+      ) : query.length > 0 && !isLoading ? (
         <div className="py-12 text-center text-sm text-slate-400 dark:text-slate-600">
           No results found for "{query}"
         </div>
