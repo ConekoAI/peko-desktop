@@ -22,6 +22,13 @@ export function usePrincipals() {
   return useQuery({
     queryKey: ["principals", "local"],
     queryFn: principalList,
+    // The runtime list call is ~5 ms via CLI, but the desktop path goes
+    // through Tauri -> IPC ensure_daemon probe -> daemon roundtrip, so
+    // each fetch is tens-to-hundreds of milliseconds. Keep the list fresh
+    // enough without re-running that path on every mount or window focus.
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 }
 
