@@ -10,6 +10,7 @@
 //! registry, credential, settings).
 
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tauri::Emitter;
 use thiserror::Error;
@@ -18,6 +19,11 @@ use crate::sidecar::sync_probe;
 
 /// Current IPC protocol version
 pub const PROTOCOL_VERSION: u16 = 1;
+
+/// Unique identifier for per-request Unix-domain socket paths so that
+/// concurrent IPC clients in the same process do not bind to the same
+/// filesystem entry and trample each other's responses.
+static IPC_CLIENT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Every request packet includes this header
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -275,8 +281,12 @@ impl IpcClient {
 
     #[cfg(unix)]
     pub async fn new() -> Result<Self> {
-        let tmp =
-            std::env::temp_dir().join(format!("peko_desktop_ipc_{}.sock", std::process::id()));
+        let counter = IPC_CLIENT_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let tmp = std::env::temp_dir().join(format!(
+            "peko_desktop_ipc_{}_{}.sock",
+            std::process::id(),
+            counter
+        ));
         let _ = tokio::fs::remove_file(&tmp).await;
         let socket = tokio::net::UnixDatagram::bind(&tmp)
             .map_err(|e| IpcError::ConnectionFailed(e.to_string()))?;
@@ -1089,6 +1099,13 @@ impl IpcClient {
             "name": name,
         });
         self.request_response(req).await
+    }
+}
+
+#[cfg(unix)]
+impl Drop for IpcClient {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self._tmp_path);
     }
 }
 
