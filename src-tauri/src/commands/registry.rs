@@ -129,4 +129,3 @@ pub fn registry_logout() -> Result<(), String> {
         Err(e) => Err(e.to_string()),
     }
 }
-

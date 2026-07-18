@@ -548,7 +548,11 @@ impl IpcClient {
     }
 
     /// Grant a capability to a Principal.
-    pub async fn capability_grant(&self, principal: &str, capability: &str) -> Result<serde_json::Value> {
+    pub async fn capability_grant(
+        &self,
+        principal: &str,
+        capability: &str,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "capability_grant",
@@ -561,7 +565,11 @@ impl IpcClient {
     }
 
     /// Revoke a capability from a Principal.
-    pub async fn capability_revoke(&self, principal: &str, capability: &str) -> Result<serde_json::Value> {
+    pub async fn capability_revoke(
+        &self,
+        principal: &str,
+        capability: &str,
+    ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "capability_revoke",

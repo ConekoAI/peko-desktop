@@ -54,10 +54,7 @@ pub async fn capability_list(principal: String) -> Result<CapabilityList, String
 }
 
 #[tauri::command]
-pub async fn capability_grant(
-    principal: String,
-    capability: String,
-) -> Result<String, String> {
+pub async fn capability_grant(principal: String, capability: String) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
@@ -78,10 +75,7 @@ pub async fn capability_grant(
 }
 
 #[tauri::command]
-pub async fn capability_revoke(
-    principal: String,
-    capability: String,
-) -> Result<String, String> {
+pub async fn capability_revoke(principal: String, capability: String) -> Result<String, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
