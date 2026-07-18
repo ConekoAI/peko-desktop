@@ -16,7 +16,7 @@ import {
   Bot as BotIcon,
   Plus,
   Activity,
-  Settings2,
+  Shield,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -160,10 +160,11 @@ function PrincipalToolbar({ principalName }: { principalName: string }) {
           onClick={() =>
             navigate({ to: "/principal/$principalName", params: { principalName } })
           }
+          title={`Manage what ${principalName} is allowed to do`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
         >
-          <Settings2 className="h-3.5 w-3.5" />
-          Capabilities
+          <Shield className="h-3.5 w-3.5" />
+          Permissions
         </button>
         <button
           onClick={() =>
