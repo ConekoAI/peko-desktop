@@ -7,7 +7,7 @@ import {
 import DataTable from "../components/DataTable";
 import ConfirmModal from "../components/modals/ConfirmModal";
 
-import { Plus, Trash2, X, Loader2 } from "lucide-react";
+import { Plus, Trash2, X, Loader2, Info } from "lucide-react";
 import type { ExtensionSummary } from "../types";
 
 function InstallModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -76,12 +76,128 @@ function InstallModal({ open, onClose }: { open: boolean; onClose: () => void })
   );
 }
 
+function DetailModal({
+  ext,
+  open,
+  onClose,
+}: {
+  ext: ExtensionSummary | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!open || !ext) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-950">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              {ext.name}
+            </h2>
+            <span
+              className={[
+                "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
+                ext.source === "built-in"
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+              ].join(" ")}
+            >
+              {ext.source}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-xs text-slate-500 dark:text-slate-400">ID</span>
+              <p className="font-mono text-slate-900 dark:text-white">{ext.id}</p>
+            </div>
+            <div>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Version</span>
+              <p className="text-slate-900 dark:text-white">{ext.version}</p>
+            </div>
+            <div>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Type</span>
+              <p className="text-slate-900 dark:text-white">{ext.extType}</p>
+            </div>
+            <div>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Source</span>
+              <p className="text-slate-900 dark:text-white">{ext.source}</p>
+            </div>
+          </div>
+
+          <div>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Description</span>
+            <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
+              {ext.description || "No description provided."}
+            </p>
+          </div>
+
+          <div>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Provides capabilities</span>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {ext.provides.length === 0 ? (
+                <span className="text-sm text-slate-500 dark:text-slate-400">None declared.</span>
+              ) : (
+                ext.provides.map((cap) => (
+                  <span
+                    key={cap}
+                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    {cap}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Requires capabilities</span>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {ext.requires.length === 0 ? (
+                <span className="text-sm text-slate-500 dark:text-slate-400">None declared.</span>
+              ) : (
+                ext.requires.map((req) => (
+                  <span
+                    key={req}
+                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    {req}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Extensions() {
   const { data: extensions, isLoading } = useExtensions();
   const uninstall = useUninstallExtension();
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [confirmName, setConfirmName] = useState<string | null>(null);
   const [installOpen, setInstallOpen] = useState(false);
+  const [detailExt, setDetailExt] = useState<ExtensionSummary | null>(null);
 
   const columns = [
     {
@@ -138,23 +254,6 @@ export default function Extensions() {
       ),
     },
     {
-      key: "enabled",
-      header: "Status",
-      sortable: true,
-      render: (row: ExtensionSummary) => (
-        <span
-          className={[
-            "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-            row.enabled
-              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-              : "bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-          ].join(" ")}
-        >
-          {row.enabled ? "Enabled" : "Disabled"}
-        </span>
-      ),
-    },
-    {
       key: "capabilities",
       header: "Capabilities",
       sortable: false,
@@ -174,9 +273,12 @@ export default function Extensions() {
             ))
           )}
           {row.provides.length > 6 && (
-            <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            <button
+              onClick={() => setDetailExt(row)}
+              className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+            >
               +{row.provides.length - 6}
-            </span>
+            </button>
           )}
         </div>
       ),
@@ -186,7 +288,14 @@ export default function Extensions() {
       header: "",
       sortable: false,
       render: (row: ExtensionSummary) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setDetailExt(row)}
+            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            title="View details"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
           <button
             onClick={() => {
               setConfirmId(row.id);
@@ -250,6 +359,11 @@ export default function Extensions() {
       />
 
       <InstallModal open={installOpen} onClose={() => setInstallOpen(false)} />
+      <DetailModal
+        ext={detailExt}
+        open={!!detailExt}
+        onClose={() => setDetailExt(null)}
+      />
     </div>
   );
 }

@@ -32,31 +32,45 @@ function coveringWildcard(
   );
 }
 
+type CapabilityState = "active" | "granted-inactive" | "covered" | "missing";
+
+function capabilityState(
+  cap: string,
+  activeSet: Set<string>,
+  granted: string[],
+): CapabilityState {
+  if (activeSet.has(cap)) return "active";
+  const wild = coveringWildcard(granted, cap);
+  if (wild) return "covered";
+  if (granted.includes(cap)) return "granted-inactive";
+  return "missing";
+}
+
 function CapabilityToggle({
   capability,
-  granted,
+  state,
   coveredBy,
   pending,
   onGrant,
   onRevoke,
 }: {
   capability: string;
-  granted: boolean;
+  state: CapabilityState;
   coveredBy?: string;
   pending?: boolean;
   onGrant?: () => void;
   onRevoke?: () => void;
 }) {
-  if (granted || coveredBy) {
+  if (state === "active") {
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-        title={coveredBy ? `Covered by ${coveredBy}` : undefined}
+        title="Granted and currently usable"
       >
         {pending && <Loader2 className="h-3 w-3 animate-spin" />}
         <Check className="h-3 w-3" />
         {capability}
-        {onRevoke && !coveredBy && (
+        {onRevoke && (
           <button
             onClick={onRevoke}
             disabled={pending}
@@ -66,6 +80,41 @@ function CapabilityToggle({
             <X className="h-3 w-3" />
           </button>
         )}
+      </span>
+    );
+  }
+
+  if (state === "granted-inactive") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+        title="Granted, but the extension is not active"
+      >
+        {pending && <Loader2 className="h-3 w-3 animate-spin" />}
+        <AlertCircle className="h-3 w-3" />
+        {capability}
+        {onRevoke && (
+          <button
+            onClick={onRevoke}
+            disabled={pending}
+            className="ml-0.5 rounded-full p-0.5 hover:bg-amber-100 disabled:opacity-50 dark:hover:bg-amber-900/50"
+            title="Revoke"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </span>
+    );
+  }
+
+  if (state === "covered") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+        title={coveredBy ? `Covered by ${coveredBy}` : "Covered by a wildcard grant"}
+      >
+        <Check className="h-3 w-3" />
+        {capability}
       </span>
     );
   }
@@ -87,10 +136,12 @@ function ExtensionCard({
   ext,
   principalName,
   granted,
+  activeSet,
 }: {
   ext: ExtensionSummary;
   principalName: string;
   granted: string[];
+  activeSet: Set<string>;
 }) {
   const grant = useGrantCapability();
   const revoke = useRevokeCapability();
@@ -188,7 +239,7 @@ function ExtensionCard({
       ) : (
         <div className="flex flex-wrap gap-2">
           {caps.map((cap) => {
-            const grantedState = isGranted(granted, cap);
+            const state = capabilityState(cap, activeSet, granted);
             const covered = coveringWildcard(granted, cap);
             const pending =
               (grant.isPending && grant.variables?.capability === cap) ||
@@ -197,7 +248,7 @@ function ExtensionCard({
               <CapabilityToggle
                 key={cap}
                 capability={cap}
-                granted={grantedState}
+                state={state}
                 coveredBy={covered}
                 pending={pending}
                 onGrant={() => toggle(cap)}
@@ -254,6 +305,8 @@ export default function PrincipalCapabilities() {
 
   const granted = data?.granted ?? [];
   const detected = data?.detected ?? [];
+  const active = data?.active ?? [];
+  const activeSet = new Set(active);
 
   const extensionCapSet = new Set(
     (extensions ?? []).flatMap((ext) => ext.provides),
@@ -285,9 +338,9 @@ export default function PrincipalCapabilities() {
           {principalName ? principalName : "Principal"} capabilities
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Enable or disable capabilities for this principal. Each extension is a
-          bundle of capabilities; you can grant or revoke the whole bundle or
-          toggle individual capabilities.
+          Grant or revoke capabilities for this principal. Green = active and
+          usable; amber = granted but the extension is not active; blue = covered
+          by a wildcard grant.
         </p>
       </div>
 
@@ -317,6 +370,7 @@ export default function PrincipalCapabilities() {
                   ext={ext}
                   principalName={principalName}
                   granted={granted}
+                  activeSet={activeSet}
                 />
               ) : null,
             )}
@@ -333,7 +387,7 @@ export default function PrincipalCapabilities() {
               </p>
               <div className="flex flex-wrap gap-2">
                 {otherCaps.map((cap) => {
-                  const grantedState = isGranted(granted, cap);
+                  const state = capabilityState(cap, activeSet, granted);
                   const covered = coveringWildcard(granted, cap);
                   const pending =
                     (grant.isPending && grant.variables?.capability === cap) ||
@@ -342,7 +396,7 @@ export default function PrincipalCapabilities() {
                     <CapabilityToggle
                       key={cap}
                       capability={cap}
-                      granted={grantedState}
+                      state={state}
                       coveredBy={covered}
                       pending={pending}
                       onGrant={() => handleGrant(cap)}
