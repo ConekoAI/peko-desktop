@@ -234,18 +234,25 @@ export async function principalSendStream(
  * `undefined` to read the principal's owner-root view. The runtime
  * enforces the privacy contract — see
  * `peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md`.
+ *
+ * Pass `cursor` (returned as `nextCursor` on a prior call) to walk
+ * older messages; combine with `limit` for paging. The runtime
+ * caps `limit` at 1000; the desktop reads one page at a time so
+ * the chat UI can reconcile streamed replies with persisted history.
  */
 export async function principalLog(params: {
   name: string;
   peer?: string;
   limit?: number;
   sinceSecs?: number;
+  cursor?: string | null;
 }): Promise<LogResponse> {
   return invoke("principal_log", {
     name: params.name,
     peer: params.peer ?? null,
     limit: params.limit ?? null,
     since_secs: params.sinceSecs ?? null,
+    cursor: params.cursor ?? null,
   });
 }
 

@@ -83,24 +83,65 @@ export interface EngineVersionMismatch {
 // (ADR-041) — the runtime does not currently expose per-principal
 // agent-prompt lists or config snapshots over IPC.
 
-// ─── peko log / HistoryEvent (ADR-042) ──────────────────────────
+// ─── peko log / ChatLogMessage (ADR-042, post-F30) ──────────────
 
-export type HistoryEvent =
-  | { kind: "session"; sessionId: string; startedAt: string }
-  | { kind: "message"; role: string; content: string; timestamp: string }
-  | { kind: "tool_call"; toolName: string; args: string; toolCallId: string; timestamp: string }
-  | { kind: "tool_result"; toolCallId: string; output: string; error?: string; timestamp: string }
-  | { kind: "thinking"; content: string; timestamp: string }
-  | { kind: "compaction"; timestamp: string }
-  | { kind: "custom"; customType: string; timestamp: string };
+/**
+ * One consumer-visible chat message from the runtime-owned chat log.
+ *
+ * The runtime splits principal session JSONL (mutable working memory,
+ * internal execution detail) from chat logs (runtime-owned,
+ * append-only, the only user-visible record of what was actually
+ * exchanged). A `ChatLogMessage` is the only shape the desktop ever
+ * projects onto a chat bubble — no session ids, tool calls,
+ * thinking, compactions, or provider roles.
+ *
+ * `sender` is a `Subject` string the runtime renders in tagged form
+ * on the wire (`user:<id>` for end users, `principal:<did>` for
+ * principal-to-principal exchanges). The Chat page treats any
+ * non-`user:*` sender as the principal; the PrincipalLog page shows
+ * the sender verbatim.
+ */
+export interface ChatLogMessage {
+  /** Chat-log schema version; always `1` for now. */
+  schemaVersion: number;
+  /** Stable per-message id (UUID, formatted as `chat_<simple>`). */
+  id: string;
+  /** Subject string of the message sender. */
+  sender: string;
+  /** RFC 3339 timestamp. */
+  timestamp: string;
+  /** Plain-text message body. Markdown is rendered at the bubble. */
+  text: string;
+  /** Optional A2A correlation id pairing request and response lines. */
+  correlationId?: string;
+}
 
-export interface LogResponse {
-  sessionId: string | null;
-  events: HistoryEvent[];
-  truncated: boolean;
+/**
+ * Bounded, oldest-to-newest page of chat messages returned by
+ * `principal_log`. `nextCursor` is opaque; pass it back as
+ * `--cursor` (CLI) or `cursor` (IPC) to read the next older page.
+ */
+export interface ChatLogPage {
+  principal: string;
   /** Subject string the response was scoped to (owner-root or peer). */
   peer: string;
+  messages: ChatLogMessage[];
+  /** Opaque token for the next older page; absent on the final page. */
+  nextCursor: string | null;
+  /** True when older pages remain (i.e. `nextCursor` is usable). */
+  hasMore: boolean;
 }
+
+/**
+ * Legacy alias. The runtime no longer returns session-event arrays
+ * over IPC; this name was kept so callers built before the
+ * chat-session split (e.g. older Storybook stories) still typecheck.
+ * The Chat and PrincipalLog pages now consume `ChatLogPage`
+ * directly. New code should not reference `LogResponse`.
+ *
+ * @deprecated Use `ChatLogPage`.
+ */
+export type LogResponse = ChatLogPage;
 
 // ─── Extension / Registry / Cron / System ────────────────────────
 

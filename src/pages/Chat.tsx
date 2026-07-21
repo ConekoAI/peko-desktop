@@ -21,7 +21,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
-import type { HistoryEvent, StreamEvent } from "../types";
+import type { ChatLogMessage, StreamEvent } from "../types";
 
 interface ChatItem {
   event: StreamEvent;
@@ -112,27 +112,34 @@ function mergeAssistantChunks(items: ChatItem[]): ChatItem[] {
 }
 
 /**
- * Project `principal_log`'s `HistoryEvent[]` into the chat's
- * `ChatItem[]` shape. Only `kind: "message"` events render as
- * user / assistant bubbles — tool calls, thinking, compactions,
- * and session markers stay on the dedicated Activity route
- * (PrincipalLog.tsx) where they get richer rendering.
+ * Map the runtime-owned chat log directly onto chat bubbles. Each
+ * `ChatLogMessage` is one immutable line, so the projection is a
+ * flat map — no session-internal `kind` filter, no `role` mapping,
+ * no merging across `kind` boundaries. The chat log is the only
+ * source of truth for what the user and the principal exchanged.
  *
- * Exported for unit testing so the projection logic stays
- * decoupled from React rendering.
+ * Sender identity: a `user:*` sender renders as a user bubble;
+ * anything else (typically `principal:<did>`) renders as the
+ * principal's bubble. This matches the runtime's `Subject` tagging
+ * and keeps the projection safe even for principal-to-principal
+ * exchanges the chat page renders as a single timeline.
+ *
+ * Exported for unit testing so the mapping stays decoupled from
+ * React rendering.
  */
-export function historyEventsToChatItems(events: HistoryEvent[]): ChatItem[] {
+export function chatLogMessagesToChatItems(
+  messages: ChatLogMessage[],
+): ChatItem[] {
   const out: ChatItem[] = [];
-  for (const ev of events) {
-    if (ev.kind !== "message") continue;
-    if (!ev.content) continue;
+  for (const m of messages) {
+    if (!m.text) continue;
     out.push({
       event: {
         type: "chunk",
-        content: ev.content,
-        timestamp: ev.timestamp,
+        content: m.text,
+        timestamp: m.timestamp,
       } as StreamEvent,
-      isUser: ev.role === "user",
+      isUser: m.sender.startsWith("user:"),
     });
   }
   return out;
@@ -258,15 +265,15 @@ export default function Chat() {
     }
   }, [chatItems, isStreaming, logData]);
 
-  // Project `principal_log`'s `HistoryEvent[]` into the chat's
-  // `ChatItem[]` shape. Only `kind: "message"` events render as
-  // user / assistant bubbles — tool calls, thinking, compactions,
-  // and session markers stay on the dedicated Activity route
-  // (PrincipalLog.tsx) where they get richer rendering. Skip
-  // empty assistant messages so we don't render a blank bubble
-  // when a streamed reply collapses to "".
+  // Map the runtime's chat log directly onto chat bubbles. The
+  // chat log is the only consumer-visible source of truth — no
+  // session internals (tool calls, thinking, compactions) leak
+  // into this view because the runtime doesn't expose them on the
+  // `principal_log` IPC anymore. Empty messages are filtered so
+  // a streamed reply that collapses to "" doesn't render a blank
+  // bubble.
   const historyItems = useMemo<ChatItem[]>(
-    () => (logData?.events ? historyEventsToChatItems(logData.events) : []),
+    () => (logData?.messages ? chatLogMessagesToChatItems(logData.messages) : []),
     [logData],
   );
 
