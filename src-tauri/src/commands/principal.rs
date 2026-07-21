@@ -464,12 +464,13 @@ pub async fn principal_log(
     peer: Option<String>,
     limit: Option<usize>,
     since_secs: Option<u64>,
+    cursor: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     client
-        .principal_log(&name, peer.as_deref(), limit, since_secs)
+        .principal_log(&name, peer.as_deref(), limit, since_secs, cursor.as_deref())
         .await
         .map_err(|e| format!("principal_log failed: {e}"))
 }

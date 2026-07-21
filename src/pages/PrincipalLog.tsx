@@ -4,18 +4,16 @@ import {
   usePrincipal,
   usePrincipalLog,
   useCallerSubject,
+  fetchOlderPrincipalLog,
 } from "../hooks/usePrincipals";
-import type { HistoryEvent } from "../types";
+import type { ChatLogMessage } from "../types";
 import {
   Activity,
   AlertTriangle,
-  Clock,
-  Hash,
   Loader2,
   MessageSquare,
   ShieldOff,
   User as UserIcon,
-  Wrench,
 } from "lucide-react";
 
 function EventTime({ ts }: { ts: string }) {
@@ -28,118 +26,40 @@ function EventTime({ ts }: { ts: string }) {
   );
 }
 
-function EventRow({ event }: { event: HistoryEvent }) {
-  switch (event.kind) {
-    case "message":
-      return (
-        <div className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-          <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                {event.role}
-              </span>
-              <EventTime ts={event.timestamp} />
-            </div>
-            <pre className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-800 dark:text-slate-200">
-              {event.content}
-            </pre>
-          </div>
+function isUserSender(sender: string): boolean {
+  return sender.startsWith("user:");
+}
+
+function MessageRow({ message }: { message: ChatLogMessage }) {
+  const userSide = isUserSender(message.sender);
+  return (
+    <div className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+      <MessageSquare
+        className={[
+          "mt-0.5 h-4 w-4 shrink-0",
+          userSide ? "text-indigo-500" : "text-emerald-500",
+        ].join(" ")}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <span
+            className={[
+              "text-xs font-semibold uppercase tracking-wide",
+              userSide
+                ? "text-indigo-700 dark:text-indigo-400"
+                : "text-emerald-700 dark:text-emerald-400",
+            ].join(" ")}
+          >
+            {message.sender}
+          </span>
+          <EventTime ts={message.timestamp} />
         </div>
-      );
-    case "tool_call":
-      return (
-        <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/40">
-          <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                tool call · {event.toolName}
-              </span>
-              <EventTime ts={event.timestamp} />
-            </div>
-            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all text-[11px] text-slate-600 dark:text-slate-400">
-              {event.args}
-            </pre>
-          </div>
-        </div>
-      );
-    case "tool_result":
-      return (
-        <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/40">
-          <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3">
-              <span
-                className={[
-                  "text-xs font-semibold",
-                  event.error
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-slate-700 dark:text-slate-300",
-                ].join(" ")}
-              >
-                tool result {event.error ? "· error" : ""}
-              </span>
-              <EventTime ts={event.timestamp} />
-            </div>
-            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all text-[11px] text-slate-600 dark:text-slate-400">
-              {event.output}
-            </pre>
-          </div>
-        </div>
-      );
-    case "thinking":
-      return (
-        <div className="flex gap-3 rounded-lg border border-dashed border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-          <Hash className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                thinking
-              </span>
-              <EventTime ts={event.timestamp} />
-            </div>
-            <pre className="mt-1 whitespace-pre-wrap break-words text-sm italic text-slate-600 dark:text-slate-400">
-              {event.content}
-            </pre>
-          </div>
-        </div>
-      );
-    case "compaction":
-      return (
-        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
-          <Activity className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <div className="flex-1">
-            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-              context compacted
-            </span>
-          </div>
-          <EventTime ts={event.timestamp} />
-        </div>
-      );
-    case "session":
-      // Per ADR-042 the `(principal, peer)`-keyed memory thread is an
-      // internal storage noun — `sessionId` is the runtime's JSONL
-      // boundary marker, not a user-actionable handle. We render a
-      // human label and a timestamp; the id stays on the wire only.
-      return (
-        <div className="flex items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30">
-          <Clock className="h-4 w-4 shrink-0 text-indigo-600 dark:text-indigo-400" />
-          <div className="flex-1">
-            <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400">
-              thread memory resumed
-            </span>
-          </div>
-          <EventTime ts={event.startedAt} />
-        </div>
-      );
-    case "custom":
-      return (
-        <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900">
-          [{event.customType}] · <EventTime ts={event.timestamp} />
-        </div>
-      );
-  }
+        <pre className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-800 dark:text-slate-200">
+          {message.text}
+        </pre>
+      </div>
+    </div>
+  );
 }
 
 function PermissionDenied({ principalName }: { principalName: string }) {
@@ -177,6 +97,12 @@ function PermissionDenied({ principalName }: { principalName: string }) {
  * The runtime enforces the same privacy contract; this UI just
  * narrows the surface so it cannot be used to read another peer's
  * thread under the owner's authority.
+ *
+ * Paging: the page reads the latest 100 messages on mount and
+ * prepends older pages on demand. Paging uses the runtime's
+ * opaque `nextCursor`; pages are reconciled by message id to
+ * prevent duplicates if the principal logs a new message between
+ * two `fetchOlderPrincipalLog` calls.
  */
 export default function PrincipalLog() {
   const params = useParams({ strict: false });
@@ -207,6 +133,53 @@ export default function PrincipalLog() {
     peer === null ? undefined : peer,
   );
 
+  // Paging state: `messages` is the canonical, id-deduped list;
+  // `nextCursor` is the runtime's opaque token for the next older
+  // page (null when none remains). Reset on principal/peer change.
+  const [messages, setMessages] = useState<ChatLogMessage[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState<string | null>(null);
+
+  // Sync the initial page into local state whenever a fresh log
+  // query resolves. We dedupe by message id so a subsequent
+  // refetch after a streamed send doesn't show a duplicate bubble.
+  useMemo(() => {
+    if (!log) return;
+    setMessages(log.messages);
+    setNextCursor(log.nextCursor ?? null);
+    setHasMore(log.hasMore);
+    setOlderError(null);
+  }, [log]);
+
+  async function loadOlder() {
+    if (!nextCursor || loadingOlder || !principalName) return;
+    setLoadingOlder(true);
+    setOlderError(null);
+    try {
+      const page = await fetchOlderPrincipalLog({
+        name: principalName,
+        peer: peer ?? undefined,
+        cursor: nextCursor,
+      });
+      setMessages((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        const older = page.messages.filter((m) => !seen.has(m.id));
+        // Older pages arrive oldest-to-newest and slot above the
+        // existing list. Reverse so the final ordering still walks
+        // oldest -> newest from top to bottom.
+        return [...older, ...prev];
+      });
+      setNextCursor(page.nextCursor ?? null);
+      setHasMore(page.hasMore);
+    } catch (err) {
+      setOlderError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
   if (principalLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -229,8 +202,6 @@ export default function PrincipalLog() {
   if (!isOwner && !hasChatGrant) {
     return <PermissionDenied principalName={principal.name} />;
   }
-
-  const events = log?.events ?? [];
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -285,27 +256,46 @@ export default function PrincipalLog() {
           {logLoading ? (
             <div className="flex items-center justify-center py-12 text-sm text-slate-400">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading activity...
+              Loading chat...
             </div>
           ) : error ? (
             <div className="mx-auto max-w-md rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
               {error instanceof Error ? error.message : String(error)}
             </div>
-          ) : events.length === 0 ? (
+          ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-600">
               <Activity className="h-10 w-10" />
-              <p className="mt-2 text-sm">No activity yet.</p>
+              <p className="mt-2 text-sm">No messages yet.</p>
             </div>
           ) : (
             <ol className="mx-auto max-w-2xl space-y-3">
-              {events.map((event, idx) => (
-                <li key={idx}>
-                  <EventRow event={event} />
+              {messages.map((message) => (
+                <li key={message.id}>
+                  <MessageRow message={message} />
                 </li>
               ))}
-              {log?.truncated && (
-                <li className="text-center text-xs text-slate-400 dark:text-slate-500">
-                  ... truncated at {events.length} events
+              {olderError && (
+                <li className="mx-auto max-w-md rounded-lg border border-red-200 bg-red-50 p-3 text-center text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+                  {olderError}
+                </li>
+              )}
+              {hasMore && (
+                <li className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={loadOlder}
+                    disabled={loadingOlder || !nextCursor}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    {loadingOlder ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Loading older...
+                      </>
+                    ) : (
+                      "Load older"
+                    )}
+                  </button>
                 </li>
               )}
             </ol>

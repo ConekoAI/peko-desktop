@@ -150,6 +150,10 @@ export function usePrincipalSend() {
  * undefined` for the principal's owner-root view (default
  * `peko log <PRINCIPAL>`); pass `peer = "user:<self>"` for peer
  * self-read. The runtime enforces the privacy contract.
+ *
+ * Returns the latest `limit` (default 100) messages plus paging
+ * state. Callers that need older messages should use
+ * `fetchOlderPrincipalLog` to walk pages without overlap or gaps.
  */
 export function usePrincipalLog(
   name: string | undefined,
@@ -162,5 +166,26 @@ export function usePrincipalLog(
       return principalLog({ name, peer, limit: 100 });
     },
     enabled: !!name,
+  });
+}
+
+/**
+ * Manually fetch the next older page of chat-log messages for a
+ * principal / peer pair. Returns the raw page envelope so callers
+ * can reconcile (e.g. by message id) against their in-memory
+ * history. Throws on daemon errors; the caller should treat the
+ * thrown error as "stop paging".
+ */
+export async function fetchOlderPrincipalLog(params: {
+  name: string;
+  peer?: string;
+  limit?: number;
+  cursor: string;
+}) {
+  return principalLog({
+    name: params.name,
+    peer: params.peer,
+    limit: params.limit ?? 100,
+    cursor: params.cursor,
   });
 }

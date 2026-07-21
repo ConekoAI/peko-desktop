@@ -994,6 +994,7 @@ impl IpcClient {
         peer: Option<&str>,
         limit: Option<usize>,
         since_secs: Option<u64>,
+        cursor: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1004,6 +1005,7 @@ impl IpcClient {
             "peer": peer.map(peer_str_to_subject_value),
             "limit": limit,
             "since_secs": since_secs,
+            "cursor": cursor,
         });
         self.request_response(req).await
     }
