@@ -227,6 +227,29 @@ export async function principalSendStream(
   });
 }
 
+type WireSubject =
+  | string
+  | { kind?: string; id?: string; did?: string; value?: string };
+
+/** Normalize runtime Subject values to the tagged strings used by the UI. */
+function subjectToString(subject: WireSubject): string {
+  if (typeof subject === "string") return subject;
+  const kind = subject.kind ?? "subject";
+  const id = subject.id ?? subject.did ?? subject.value ?? "";
+  return id ? `${kind}:${id}` : kind;
+}
+
+function normalizePrincipalLog(response: LogResponse): LogResponse {
+  return {
+    ...response,
+    peer: subjectToString(response.peer as WireSubject),
+    messages: response.messages.map((message) => ({
+      ...message,
+      sender: subjectToString(message.sender as WireSubject),
+    })),
+  };
+}
+
 /**
  * Read a peer's conversation thread with a Principal (ADR-042).
  *
@@ -247,13 +270,15 @@ export async function principalLog(params: {
   sinceSecs?: number;
   cursor?: string | null;
 }): Promise<LogResponse> {
-  return invoke("principal_log", {
-    name: params.name,
-    peer: params.peer ?? null,
-    limit: params.limit ?? null,
-    since_secs: params.sinceSecs ?? null,
-    cursor: params.cursor ?? null,
-  });
+  return normalizePrincipalLog(
+    await invoke<LogResponse>("principal_log", {
+      name: params.name,
+      peer: params.peer ?? null,
+      limit: params.limit ?? null,
+      since_secs: params.sinceSecs ?? null,
+      cursor: params.cursor ?? null,
+    }),
+  );
 }
 
 // ─── Models (model-first migration) ──────────────────────────────
