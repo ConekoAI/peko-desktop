@@ -458,30 +458,37 @@ export default function Chat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              isStreaming && sendMut.activeRequestIdRef.current != null
-                ? "Steer the in-flight run…"
-                : "Type a message..."
-            }
+            placeholder="Type a message..."
             // The input stays editable while a stream is in flight so
-            // the user can type a follow-up and submit to steer. The
-            // submit handler branches on `isStreaming` + an active
-            // request id; a fresh send still requires `!isStreaming`,
-            // so this never lets two streams run in parallel from the
-            // same input.
+            // the user can type a follow-up and submit to inject new
+            // context into the in-flight run via `Steer` under the
+            // hood. The submit handler branches on `isStreaming` +
+            // an active request id; a fresh send still requires
+            // `!isStreaming`, so this never lets two streams run in
+            // parallel from the same input. The button stays labeled
+            // "Send" in both cases — non-technical users shouldn't
+            // have to know "Steer" is a verb that means "redirect
+            // mid-stream"; the model's behaviour change is invisible.
             className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
           />
           <button
             type="submit"
             disabled={!input.trim()}
+            // The button stays labeled "Send" in both branches
+            // (fresh send vs. mid-stream steer) — "Steer" is jargon
+            // for non-technical users. Under the hood, `handleSend`
+            // branches on `isStreaming` + an active request id to
+            // route through `principalSendControl(Steer)` instead
+            // of `principalSendStream`; the visible behaviour is
+            // just "your text gets added to the conversation".
+            // Reload-spinner state means a fresh send is in flight
+            // (no stream yet, just sending); we never show the
+            // spinner while a stream is running, so the user sees
+            // an explicit "Send" affordance whenever they can hit
+            // it.
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
-            {isStreaming && sendMut.activeRequestIdRef.current != null ? (
-              <>
-                <Send className="h-4 w-4" />
-                Steer
-              </>
-            ) : isStreaming ? (
+            {isStreaming && sendMut.activeRequestIdRef.current == null ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
