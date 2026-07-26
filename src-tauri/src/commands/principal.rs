@@ -474,7 +474,10 @@ pub async fn principal_send_stream(
         .await
         .map_err(|e| format!("principal_send_stream failed: {e}"))?;
     let content = rx.await.map_err(|e| format!("supervisor task died: {e}"))?;
-    Ok(PrincipalSendStreamResult { request_id, content })
+    Ok(PrincipalSendStreamResult {
+        request_id,
+        content,
+    })
 }
 
 /// Send a control packet targeting an in-flight `principal_send_stream`
@@ -503,9 +506,7 @@ pub async fn principal_send_control(
             let text = mode
                 .get("text")
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| {
-                    "principal_send_control: `steer` mode requires `text`".to_string()
-                })?
+                .ok_or_else(|| "principal_send_control: `steer` mode requires `text`".to_string())?
                 .to_string();
             crate::ipc::PrincipalSendControlMode::Steer { text }
         }
