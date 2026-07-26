@@ -413,20 +413,44 @@ pub async fn principal_send(name: String, message: String) -> Result<String, Str
         .map_err(|e| format!("principal_send failed: {e}"))
 }
 
+/// Result envelope returned by the `principal_send_stream` Tauri
+/// command. `request_id` is the runtime's correlation id for the
+/// in-flight run (also minted by `IpcClient::next_request_id` on the
+/// desktop side); the frontend holds onto it so a subsequent
+/// `principal_send_control(steer)` call can target the same run. The
+/// runtime's `streaming_runs` registry is keyed by this id, so a
+/// mismatch silently drops the control packet as `UnknownRun`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PrincipalSendStreamResult {
+    pub request_id: u64,
+    pub content: String,
+}
+
 /// Stream a principal message via the `principal_send_stream` IPC
 /// path. Each `PrincipalSentChunk` delta is pushed to the supplied
-/// Tauri `Channel<String>`; the resolved `Promise<string>` on the
-/// JS side returns the final full content on completion. The
-/// desktop's `useIpcStream` hook also listens on the `peko-stream`
-/// Tauri event channel for chunks so legacy listeners see the live
-/// tokens during the migration window.
+/// Tauri `Channel<String>`; the resolved `Promise<PrincipalSendStreamResult>`
+/// on the JS side returns the final full content plus the runtime
+/// correlation id once the run settles. The desktop's `useIpcStream`
+/// hook also listens on the `peko-stream` Tauri event channel for
+/// chunks so legacy listeners see the live tokens during the
+/// migration window.
+///
+/// The `request_id` is supplied by the JS caller (see
+/// `nextRequestId` in `src/hooks/usePrincipals.ts`). The JS side
+/// stashes it in a ref BEFORE awaiting the IPC call, so a subsequent
+/// `principal_send_control(steer)` can target the in-flight run by
+/// id — the runtime's `streaming_runs` registry is keyed by it. If
+/// we minted the id here on the Rust side, the JS caller would not
+/// learn it until the run settled (the result envelope is only
+/// populated on `principal_sent_done`), which is too late to steer.
 #[tauri::command]
 pub async fn principal_send_stream(
     app: AppHandle,
     name: String,
     message: String,
+    request_id: u64,
     on_chunk: Channel<String>,
-) -> Result<String, String> {
+) -> Result<PrincipalSendStreamResult, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -434,6 +458,7 @@ pub async fn principal_send_stream(
     client
         .principal_send_stream(
             &app,
+            request_id,
             name,
             message,
             {
@@ -448,7 +473,52 @@ pub async fn principal_send_stream(
         )
         .await
         .map_err(|e| format!("principal_send_stream failed: {e}"))?;
-    rx.await.map_err(|e| format!("supervisor task died: {e}"))
+    let content = rx.await.map_err(|e| format!("supervisor task died: {e}"))?;
+    Ok(PrincipalSendStreamResult { request_id, content })
+}
+
+/// Send a control packet targeting an in-flight `principal_send_stream`
+/// run. Used by the desktop's chat input when a stream is already
+/// running and the user wants to either interrupt it (`Interrupt`) or
+/// push new context that the next agentic iteration will drain
+/// (`Steer { text }`). `target_request_id` is the id returned by the
+/// originating `principal_send_stream` call. Returns the runtime's
+/// `principal_send_control_done` envelope verbatim so the JS caller
+/// can surface `status: "applied" | "unknown_run"` to the user.
+#[tauri::command]
+pub async fn principal_send_control(
+    target_request_id: u64,
+    mode: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let ipc_mode = match mode
+        .get("mode")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "principal_send_control: missing `mode` discriminator".to_string())?
+    {
+        "interrupt" => crate::ipc::PrincipalSendControlMode::Interrupt,
+        "steer" => {
+            let text = mode
+                .get("text")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    "principal_send_control: `steer` mode requires `text`".to_string()
+                })?
+                .to_string();
+            crate::ipc::PrincipalSendControlMode::Steer { text }
+        }
+        other => {
+            return Err(format!(
+                "principal_send_control: unknown mode `{other}` (expected `interrupt` or `steer`)"
+            ));
+        }
+    };
+    client
+        .principal_send_control(target_request_id, ipc_mode)
+        .await
+        .map_err(|e| format!("principal_send_control failed: {e}"))
 }
 
 /// Read a peer's conversation thread with a Principal.

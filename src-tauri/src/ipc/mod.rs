@@ -116,6 +116,16 @@ pub fn is_version_mismatch(response: &serde_json::Value) -> bool {
             .unwrap_or(false)
 }
 
+/// Variant of the runtime's `PrincipalSendControlMode`. The wire shape
+/// is the same `tag = "mode"` enum the runtime deserializes; we keep a
+/// mirror here so `IpcClient::principal_send_control` can build the
+/// payload without re-implementing the discriminator inline.
+#[derive(Debug, Clone)]
+pub enum PrincipalSendControlMode {
+    Interrupt,
+    Steer { text: String },
+}
+
 /// Convert a peer string from the desktop's Display form
 /// (`"user:alice"`, `"principal:<did>"`, `"public"`) into the tagged
 /// Subject wire form (`{"kind":"user","id":"alice"}`,
@@ -820,9 +830,19 @@ impl IpcClient {
     /// Each delta is forwarded through the supplied `on_chunk`
     /// closure; the `on_done` closure receives the final `content`
     /// string once the supervisor has settled.
+    ///
+    /// `request_id` is the caller's pre-minted correlation id (see
+    /// `next_request_id`). The runtime's `streaming_runs` registry is
+    /// keyed by this id — the desktop tracks it so a follow-up
+    /// `principal_send_control(steer)` call can target the right run.
+    /// Hardcoded `1` would collide if two streams ever ran in parallel
+    /// (e.g. two tabs); the runtime caps successor ids at 2^63 (see
+    /// `next_successor_request_id` in the IPC handler), so capping ours
+    /// at 2^62 - 1 keeps the namespaces disjoint.
     pub async fn principal_send_stream<F, G>(
         &self,
         app: &tauri::AppHandle,
+        request_id: u64,
         name: String,
         message: String,
         on_chunk: F,
@@ -837,7 +857,7 @@ impl IpcClient {
         let request = serde_json::json!({
             "type": "principal_send_stream",
             "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
+            "request_id": request_id,
             "name": name,
             "message": message,
             // The runtime's IPC layer attaches `CallerContext::local()`
@@ -952,6 +972,49 @@ impl IpcClient {
                 }
             }
         }
+    }
+
+    /// Send a control message targeting an in-flight `principal_send_stream`
+    /// run. `mode` is one of:
+    ///
+    /// - `"interrupt"` — soft-cancel: aborts the run at the next
+    ///   agentic-loop seam and returns the partial assistant text.
+    ///   Mirrors the runtime's `PrincipalSendControlMode::Interrupt`.
+    /// - `"steer"` — user-added text is pushed onto the run's inbox
+    ///   (`AsyncInboxItem::Steering`) and the next agentic iteration
+    ///   drains it as new context. Used by the desktop's chat input
+    ///   when a stream is already running and the user wants to
+    ///   redirect mid-flight. Mirrors
+    ///   `PrincipalSendControlMode::Steer { text }`.
+    ///
+    /// `target_request_id` is the `request_id` returned by the
+    /// originating `principal_send_stream` call. The runtime's
+    /// `streaming_runs` registry is keyed by it — sending the wrong
+    /// id results in `UnknownRun` and the control packet is dropped.
+    ///
+    /// Returns the runtime's single-shot `principal_sent_control_done`
+    /// envelope, which carries a `status: "applied" | "unknown_run"`
+    /// discriminator the caller can surface to the user.
+    pub async fn principal_send_control(
+        &self,
+        target_request_id: u64,
+        mode: PrincipalSendControlMode,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let mode_payload = match &mode {
+            PrincipalSendControlMode::Interrupt => serde_json::json!({ "mode": "interrupt" }),
+            PrincipalSendControlMode::Steer { text } => {
+                serde_json::json!({ "mode": "steer", "text": text })
+            }
+        };
+        let req = serde_json::json!({
+            "type": "principal_send_control",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": target_request_id,
+            "target_request_id": target_request_id,
+            "mode": mode_payload,
+        });
+        self.request_response(req).await
     }
 
     /// Send a Principal message via the non-streaming IPC path. The
