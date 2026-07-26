@@ -1,3 +1,4 @@
+import { useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -7,9 +8,11 @@ import {
   principalLog,
   principalRemove,
   principalSend,
+  principalSendControl,
   principalSendStream,
   principalUpdate,
   type PrincipalCreateRequest,
+  type PrincipalSendControlArgs,
   type PrincipalSummary,
   type PrincipalUpdateRequest,
 } from "../lib/api";
@@ -121,26 +124,102 @@ export interface PrincipalSendOptions {
 }
 
 /**
+ * Monotonically increasing `requestId` source for streaming sends.
+ *
+ * Caps at `2^62 - 1` then wraps to 1 so the desktop's namespace
+ * stays disjoint from the runtime's successor ids, which the
+ * `PrincipalSendControl` handler salts with `2^63` for collision
+ * avoidance. Without the cap a long-lived desktop session could
+ * drift into the runtime's namespace after ~292 years of continuous
+ * use — the cap also documents the invariant so future readers don't
+ * "fix" the wrap by switching the modulo.
+ */
+let nextRequestIdCounter = 1;
+const REQUEST_ID_CAP = (1n << 62n) - 1n;
+function nextRequestId(): number {
+  const cur = nextRequestIdCounter++;
+  if (BigInt(cur) >= REQUEST_ID_CAP) {
+    nextRequestIdCounter = 2;
+    return 1;
+  }
+  return cur;
+}
+
+/**
  * Send a message to a principal. Returns the supervisor's final
  * response as a string.
  *
  * If `onChunk` is provided, the supervisor's streaming deltas are
  * pushed through the callback as the response unfolds. The `Channel`
  * wire type is required by Tauri's IPC layer for streaming.
+ *
+ * The hook also exposes `sendControl({mode: "steer" | "interrupt"})`
+ * so the chat input can redirect an in-flight stream instead of
+ * blocking on it. The active streaming `requestId` is tracked in a
+ * ref so the caller can pass it as `targetRequestId` without a
+ * React re-render.
  */
 export function usePrincipalSend() {
-  return useMutation({
+  const activeRequestIdRef = useRef<number | null>(null);
+  const mutation = useMutation({
     mutationFn: async (vars: {
       name: string;
       message: string;
       onChunk?: (delta: string) => void;
     }): Promise<string> => {
       if (!vars.onChunk) {
+        // Non-streaming path: no correlation id is needed for
+        // follow-up control since there's no in-flight run to
+        // target.
+        activeRequestIdRef.current = null;
         return principalSend(vars.name, vars.message);
       }
-      return principalSendStream(vars.name, vars.message, vars.onChunk);
+      // JS owns the request_id lifecycle — mint BEFORE the call so
+      // `sendControl` can target the right run during streaming.
+      // Mirrors the runtime-side cap so the two namespaces stay
+      // disjoint from the runtime's successor-id space (2^63+).
+      const requestId = nextRequestId();
+      activeRequestIdRef.current = requestId;
+      try {
+        const result = await principalSendStream(
+          vars.name,
+          vars.message,
+          requestId,
+          vars.onChunk,
+        );
+        return result.content;
+      } finally {
+        // Clear once settled — a follow-up steer would target a run
+        // that's already drained and the runtime would reject it as
+        // `unknown_run`.
+        if (activeRequestIdRef.current === requestId) {
+          activeRequestIdRef.current = null;
+        }
+      }
     },
   });
+
+  /**
+   * Send a control packet (interrupt / steer) targeting the
+   * currently-active streaming run, if any. Returns `null` if no
+   * stream is active — the caller should silently no-op in that
+   * case (button click races with stream completion). Throws on
+   * transport failures so the caller can surface them inline.
+   */
+  const sendControl = useCallback(
+    async (args: Omit<PrincipalSendControlArgs, "targetRequestId">) => {
+      const id = activeRequestIdRef.current;
+      if (id == null) return null;
+      return principalSendControl({ ...args, targetRequestId: id });
+    },
+    [],
+  );
+
+  return {
+    ...mutation,
+    sendControl,
+    activeRequestIdRef,
+  };
 }
 
 // ─── Principal log (peko log, ADR-042) ──────────────────────────

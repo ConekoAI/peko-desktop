@@ -279,8 +279,43 @@ export default function Chat() {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isStreaming || !selectedPrincipal) return;
+    if (!input.trim() || !selectedPrincipal) return;
     const message = input.trim();
+
+    // Mid-stream steering: if a streaming run is already in flight,
+    // send the typed text as a `Steer` control packet instead of
+    // kicking off a fresh send. The runtime's
+    // `PrincipalSendControlMode::Steer` pushes the text onto the
+    // run's `AsyncInboxItem::Steering` queue and the next agentic
+    // iteration drains it as new context — the existing run
+    // continues, the user just redirected. Falls through to a fresh
+    // send if no run is active (race between submit click and stream
+    // completion).
+    if (isStreaming && sendMut.activeRequestIdRef.current != null) {
+      setError(null);
+      try {
+        // Explicit discriminant so TS narrows the discriminated
+        // union member rather than widening `"steer"` to `string`.
+        await sendMut.sendControl({
+          mode: { mode: "steer", text: message },
+        });
+        // Optimistically echo the steered text into the chat so the
+        // user sees their redirect acknowledged; the runtime will
+        // append the steered text as a `user` message in the chat
+        // log on the next iteration.
+        const userEvent: StreamEvent = {
+          type: "chunk",
+          content: message,
+          timestamp: Date.now().toString(),
+        };
+        setChatItems((prev) => [...prev, { event: userEvent, isUser: true }]);
+        setInput("");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+      return;
+    }
+
     setError(null);
     setInput("");
 
@@ -423,17 +458,37 @@ export default function Chat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            disabled={isStreaming}
-            className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            placeholder={
+              isStreaming && sendMut.activeRequestIdRef.current != null
+                ? "Steer the in-flight run…"
+                : "Type a message..."
+            }
+            // The input stays editable while a stream is in flight so
+            // the user can type a follow-up and submit to steer. The
+            // submit handler branches on `isStreaming` + an active
+            // request id; a fresh send still requires `!isStreaming`,
+            // so this never lets two streams run in parallel from the
+            // same input.
+            className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
           />
           <button
             type="submit"
-            disabled={isStreaming || !input.trim()}
+            disabled={!input.trim()}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
-            {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send
+            {isStreaming && sendMut.activeRequestIdRef.current != null ? (
+              <>
+                <Send className="h-4 w-4" />
+                Steer
+              </>
+            ) : isStreaming ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                Send
+              </>
+            )}
           </button>
         </form>
       </div>

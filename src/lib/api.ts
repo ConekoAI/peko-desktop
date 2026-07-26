@@ -208,22 +208,74 @@ export async function principalSend(
 }
 
 /**
+ * Result of a streaming send. `requestId` is the runtime correlation
+ * id for the in-flight run; the caller holds onto it so a follow-up
+ * `principalSendControl({mode: "steer"})` can target the same run.
+ * The runtime's `streaming_runs` registry is keyed by this id, so a
+ * mismatch silently drops the control packet as `UnknownRun`.
+ */
+export interface PrincipalSendStreamResult {
+  requestId: number;
+  content: string;
+}
+
+/**
  * Send a streaming message to a Principal. Each supervisor chunk
  * is pushed to `onChunk` as it arrives; the resolved promise carries
- * the full final answer (identical content to the non-streaming
- * `principalSend` would have returned).
+ * the full final answer plus the runtime correlation id.
+ *
+ * `requestId` is supplied by the caller (see `nextRequestId` in
+ * `usePrincipals`) so the JS side can stash it in a ref BEFORE the
+ * call — that way a subsequent `principalSendControl({mode: "steer"})`
+ * can target the in-flight run. The runtime registers the run keyed
+ * by this id; if the JS caller did not mint it themselves the value
+ * in the result envelope would only be visible after settle, which
+ * is too late to steer.
  */
 export async function principalSendStream(
   name: string,
   message: string,
+  requestId: number,
   onChunk: (delta: string) => void,
-): Promise<string> {
+): Promise<PrincipalSendStreamResult> {
   const channel = new Channel<string>();
   channel.onmessage = onChunk;
-  return invoke<string>("principal_send_stream", {
+  return invoke<PrincipalSendStreamResult>("principal_send_stream", {
     name,
     message,
+    requestId,
     onChunk: channel,
+  });
+}
+
+/**
+ * Send a control packet targeting an in-flight streaming send.
+ *
+ * - `mode: "interrupt"` — soft-cancel: the run aborts at the next
+ *   agentic-loop seam and returns the partial assistant text.
+ * - `mode: "steer"` — `text` is pushed onto the run's inbox and the
+ *   next agentic iteration drains it as new context. Used by the
+ *   chat input when a stream is already running and the user wants
+ *   to redirect mid-flight.
+ *
+ * `targetRequestId` must equal the `requestId` returned by the
+ * originating `principalSendStream` call. The runtime returns
+ * `{status: "applied"}` on success or `{status: "unknown_run"}` if
+ * the id has already settled.
+ */
+export interface PrincipalSendControlArgs {
+  targetRequestId: number;
+  mode:
+    | { mode: "interrupt" }
+    | { mode: "steer"; text: string };
+}
+
+export async function principalSendControl(
+  args: PrincipalSendControlArgs,
+): Promise<{ status: string }> {
+  return invoke<{ status: string }>("principal_send_control", {
+    targetRequestId: args.targetRequestId,
+    mode: args.mode,
   });
 }
 

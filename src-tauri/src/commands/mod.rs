@@ -28,6 +28,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_remove,
         principal::principal_send,
         principal::principal_send_stream,
+        principal::principal_send_control,
         principal::principal_log,
         capability::capability_list,
         capability::capability_grant,
