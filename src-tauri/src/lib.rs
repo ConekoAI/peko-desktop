@@ -2,7 +2,6 @@ use tauri::{AppHandle, Emitter, Listener, Manager};
 
 pub mod clients;
 pub mod commands;
-pub mod daemon;
 pub mod fs;
 pub mod ipc;
 pub mod sidecar;

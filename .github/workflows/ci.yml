@@ -85,12 +85,15 @@ jobs:
       # not need a real peko runtime for these jobs — an empty stub at
       # the host-triple-suffixed path is enough to satisfy the check.
       # The real binary only matters for `tauri build`/release.yml.
+      # The desktop bundles `peko-daemon` (the long-running engine),
+      # NOT the `peko` CLI — see `src-tauri/tauri.conf.json` and
+      # `scripts/fetch-peko-sidecar.sh`.
       - name: Stub sidecar binary for Tauri build
         run: |
           TRIPLE="$(rustc -vV | awk '/^host:/ {print $2}')"
           mkdir -p binaries
-          touch "binaries/peko-${TRIPLE}"
-          echo "Stubbed binaries/peko-${TRIPLE}"
+          touch "binaries/peko-daemon-${TRIPLE}"
+          echo "Stubbed binaries/peko-daemon-${TRIPLE}"
 
       - name: Check formatting
         run: cargo fmt -- --check
@@ -126,13 +129,15 @@ jobs:
       # See Rust (Linux) for rationale; same stub needed for Tauri's
       # build-script validation of `bundle.externalBin`. Tauri's
       # Windows manifest expects `.exe` suffix on externalBin paths.
+      # The desktop bundles `peko-daemon` (the long-running engine),
+      # NOT the `peko` CLI.
       - name: Stub sidecar binary for Tauri build
         run: |
           $line = rustc -vV | Where-Object { $_ -match '^host:' }
           if ($line -match '^host:\s+(\S+)') { $TRIPLE = $matches[1] }
           New-Item -ItemType Directory -Force -Path binaries | Out-Null
-          New-Item -ItemType File -Force -Path "binaries/peko-$TRIPLE.exe" | Out-Null
-          Write-Host "Stubbed binaries/peko-$TRIPLE.exe"
+          New-Item -ItemType File -Force -Path "binaries/peko-daemon-$TRIPLE.exe" | Out-Null
+          Write-Host "Stubbed binaries/peko-daemon-$TRIPLE.exe"
 
       - name: Cargo check
         run: cargo check
@@ -170,13 +175,15 @@ jobs:
 
       # See Rust (Linux) for rationale; same stub needed for Tauri's
       # build-script validation of `bundle.externalBin`. Apple Silicon
-      # runners currently report aarch64-apple-darwin.
+      # runners currently report aarch64-apple-darwin. The desktop
+      # bundles `peko-daemon` (the long-running engine), NOT the
+      # `peko` CLI.
       - name: Stub sidecar binary for Tauri build
         run: |
           TRIPLE="$(rustc -vV | awk '/^host:/ {print $2}')"
           mkdir -p binaries
-          touch "binaries/peko-${TRIPLE}"
-          echo "Stubbed binaries/peko-${TRIPLE}"
+          touch "binaries/peko-daemon-${TRIPLE}"
+          echo "Stubbed binaries/peko-daemon-${TRIPLE}"
 
       - name: Cargo check
         run: cargo check

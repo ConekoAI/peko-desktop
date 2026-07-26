@@ -284,17 +284,26 @@ impl Supervisor {
         let app_handle = self.app_handle.clone();
         let (rx, child) = app_handle
             .shell()
-            .sidecar("peko")
+            .sidecar("peko-daemon")
             .map_err(|e| SupervisorError::Spawn(e.to_string()))?
-            // `--foreground` is critical: without it the peko CLI's
-            // `daemon start` handler calls `spawn_daemon_with`,
-            // which spawns a *grandchild* and exits — leaving our
-            // `CommandChild` pointing at a wrapper that immediately
-            // terminates. The grandchild gets reparented to launchd
-            // when the desktop dies, and `CommandChild::kill()` on
-            // the (already-dead) wrapper is a no-op. With
-            // `--foreground`, peko runs in-process as our child.
-            .args(["daemon", "start", "--sidecar-mode", "--foreground"])
+            // Invoke `peko-daemon` directly. Phase 0.Z-C removed the
+            // in-process `Daemon::new + Daemon::run` fallback the CLI
+            // used to provide when its `peko-daemon` sibling was
+            // missing, so going through `peko daemon start --foreground`
+            // would bail immediately unless we also bundled the daemon
+            // binary beside `peko` — which we now do (see
+            // `externalBin` + `scripts/fetch-peko-sidecar.sh`). Calling
+            // the daemon binary directly also avoids the CLI's
+            // foreground banner polluting the supervisor's stderr
+            // reader before `PEKO_VERSION=` arrives.
+            //
+            // `--foreground` is accepted by `peko-daemon` as a no-op
+            // (the binary is foreground by definition). `PEKO_HOME` /
+            // `PEKO_CONFIG_DIR` are inherited from the desktop's own
+            // env, so the resolver inside the daemon lands on the
+            // same `~/.peko` (or user-overridden) dir the desktop
+            // already points at.
+            .args(["--foreground", "--sidecar-mode"])
             .spawn()
             .map_err(|e| SupervisorError::Spawn(e.to_string()))?;
 

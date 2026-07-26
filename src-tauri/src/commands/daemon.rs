@@ -6,8 +6,22 @@
 //! them; they are now thin proxies that route through the
 //! supervisor instead of spawning a separate child process.
 
-use crate::daemon::DaemonStatus;
 use crate::sidecar::{self, EngineState};
+
+/// Status projected from the sidecar supervisor into the legacy
+/// `DaemonStatus` shape so the existing `useDaemonStatus` hook keeps
+/// working until PR #27 swaps it for `useEngineStatus`.
+///
+/// Lives in this file (not the deleted `daemon` module) because the
+/// type is only consumed by the daemon_* Tauri commands below.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DaemonStatus {
+    pub running: bool,
+    pub version: String,
+    pub uptime_secs: u64,
+    pub jobs_checked: u64,
+    pub jobs_executed: u64,
+}
 
 #[tauri::command]
 pub fn daemon_start() -> Result<String, String> {
@@ -39,9 +53,6 @@ pub fn daemon_restart() -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Status of the sidecar supervisor, projected into the legacy
-/// `DaemonStatus` shape so the existing `useDaemonStatus` hook keeps
-/// working until PR #27 swaps it for `useEngineStatus`.
 #[tauri::command]
 pub fn daemon_status() -> Result<DaemonStatus, String> {
     let app =
@@ -70,8 +81,19 @@ pub fn daemon_status() -> Result<DaemonStatus, String> {
 
 #[tauri::command]
 pub async fn daemon_ensure_running() -> Result<DaemonStatus, String> {
-    crate::daemon::ensure_running_async()
-        .await
-        .map_err(|e| e.to_string())?;
+    // The supervisor is the canonical owner of the engine process;
+    // the IPC client defers to it so every IPC call goes through the
+    // same child handle.
+    let app =
+        sidecar::current_app_handle().ok_or_else(|| "supervisor not installed".to_string())?;
+    let sup = sidecar::get(&app);
+    match sup.state() {
+        EngineState::Running { pid, .. } => {
+            let _ = pid;
+        }
+        _ => {
+            sup.start().map_err(|e| e.to_string())?;
+        }
+    }
     daemon_status()
 }
