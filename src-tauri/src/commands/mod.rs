@@ -9,7 +9,6 @@ pub mod registry;
 pub mod runtime;
 pub mod settings;
 pub mod system;
-pub mod util;
 
 pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static
 {

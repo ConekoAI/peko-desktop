@@ -153,9 +153,19 @@ pub struct IpcClient {
 }
 
 async fn ensure_daemon() -> Result<()> {
-    crate::daemon::ensure_running_async().await.map_err(|e| {
-        IpcError::ConnectionFailed(format!("daemon not running and auto-start failed: {}", e))
-    })?;
+    // ADR-043: route through the supervisor so the IPC client shares
+    // the same child handle as every other consumer of the engine
+    // (Tauri commands, tray menu, status bridge). The supervisor is
+    // the canonical owner of the lifecycle; this call site has no
+    // business reaching for `peko` CLI shortcuts.
+    let app = crate::sidecar::current_app_handle()
+        .ok_or_else(|| IpcError::ConnectionFailed("supervisor not installed".to_string()))?;
+    let sup = crate::sidecar::get(&app);
+    if !sup.is_running() {
+        sup.start().map_err(|e| {
+            IpcError::ConnectionFailed(format!("daemon not running and auto-start failed: {}", e))
+        })?;
+    }
     // Block until the daemon's IPC socket is actually responding.
     // The supervisor's `Running` state is misleadingly early — it
     // transitions on `PEKO_VERSION` which the runtime emits before

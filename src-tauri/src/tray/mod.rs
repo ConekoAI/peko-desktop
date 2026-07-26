@@ -5,8 +5,6 @@ use tauri::{
 };
 use thiserror::Error;
 
-use crate::daemon::DaemonStatus;
-
 #[derive(Error, Debug)]
 pub enum TrayError {
     #[error("tray build failed: {0}")]
@@ -50,11 +48,18 @@ pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
                     let _ = window.set_focus();
                 }
             }
+            // ADR-043: route through the supervisor so the tray's
+            // "Start Daemon" / "Stop Daemon" buttons share the same
+            // child handle as the Tauri commands. The previous
+            // `crate::daemon::start()`/`stop()` path spawned a
+            // separate `peko daemon start` child and tracked it in
+            // `DAEMON_CHILD` — orphaned when the supervisor adopted
+            // or restarted the engine under the same IPC socket.
             "start_daemon" => {
-                let _ = crate::daemon::start();
+                let _ = crate::sidecar::get(app).start();
             }
             "stop_daemon" => {
-                let _ = crate::daemon::stop();
+                let _ = crate::sidecar::get(app).stop();
             }
             "quit" => {
                 app.exit(0);
@@ -78,8 +83,4 @@ pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
         .build(app)
         .map_err(|e: tauri::Error| TrayError::BuildFailed(e.to_string()))?;
     Ok(tray)
-}
-
-pub fn update_tray_status(_status: DaemonStatus) {
-    // Placeholder: update tray tooltip or icon based on daemon status
 }
