@@ -3,6 +3,7 @@ import { Check, Sparkles, X } from "lucide-react";
 
 import { usePrincipalCreate } from "../../hooks/usePrincipals";
 import { useModels } from "../../hooks/useModels";
+import { isValidPrincipalName } from "../../lib/validatePrincipalName";
 
 /**
  * In-app Principal creation. Replaces the old CLI stub (which told
@@ -70,13 +71,7 @@ export default function CreatePrincipalModal({
   if (!open) return null;
 
   const trimmedName = name.trim();
-  const nameValid =
-    trimmedName.length > 0 &&
-    trimmedName.length <= 64 &&
-    !trimmedName.startsWith("-") &&
-    !trimmedName.endsWith("-") &&
-    !/[\\/]/.test(trimmedName) &&
-    /^[A-Za-z0-9_-]+$/.test(trimmedName);
+  const nameValid = isValidPrincipalName(trimmedName);
   const errorMessage =
     createMut.error instanceof Error
       ? createMut.error.message
@@ -126,8 +121,8 @@ export default function CreatePrincipalModal({
             />
             {name && !nameValid && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                Use 1–64 chars: letters, digits, &quot;-"&quot;_, &quot;_&quot;. No
-                leading/trailing hyphen or path separators.
+                Use 1–64 chars: letters, digits, &quot;-&quot;, &quot;_&quot;. No
+                leading/trailing hyphen, &quot;..&quot;, or path separators.
               </p>
             )}
           </div>

@@ -131,3 +131,53 @@ describe("CreatePrincipalModal model picker", () => {
     expect(screen.getByText(/No configured models yet/i)).toBeInTheDocument();
   });
 });
+
+describe("CreatePrincipalModal name validation (path-traversal defense)", () => {
+  beforeEach(() => {
+    createMut.mockReset();
+    resetMut.mockReset();
+    modelsSignal.value = [
+      {
+        id: "openai",
+        displayName: "OpenAI",
+        apiFormat: "openai",
+        modelId: "gpt-4o",
+        baseUrl: "https://api.openai.com",
+        requiresKey: true,
+        isLocal: false,
+        enabled: true,
+        headers: {},
+      },
+    ];
+  });
+
+  it.each([
+    "..", // double-dot (path traversal)
+    ".", // single dot
+    "../escape", // embedded traversal
+    "foo..bar", // embedded double-dot segment
+    "-leading-hyphen",
+    "trailing-hyphen-",
+    "has/slash",
+  ])(
+    "disables Create button and surfaces hint when name is %s",
+    (badName) => {
+      renderModal();
+      const nameInput = screen.getByLabelText(/name/i);
+      fireEvent.change(nameInput, { target: { value: badName } });
+      fireEvent.change(screen.getByLabelText(/model/i), {
+        target: { value: "openai" },
+      });
+      const createBtn = screen.getByRole("button", { name: /create/i });
+      expect(createBtn).toBeDisabled();
+      expect(
+        screen.getByText(/leading\/trailing hyphen|path separators|\.\./i),
+      ).toBeInTheDocument();
+      // And the mutation must not be invoked even if the disabled
+      // attribute is bypassed (e.g. via direct click in older
+      // testing-library versions that ignored `disabled`).
+      fireEvent.click(createBtn);
+      expect(createMut).not.toHaveBeenCalled();
+    },
+  );
+});

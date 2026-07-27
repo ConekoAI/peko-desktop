@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Mock all the data hooks the walkthrough consumes. Returning a
@@ -106,5 +106,55 @@ describe("FirstRunWalkthrough visibility (T-105)", () => {
     modelsSignal.value = [];
     renderWalkthrough();
     expect(screen.getByText(/No models configured yet/i)).toBeInTheDocument();
+  });
+});
+
+describe("FirstRunWalkthrough step-2 name validation (path-traversal defense)", () => {
+  beforeEach(() => {
+    principalsSignal.value = [];
+    modelsSignal.value = [
+      { id: "openai", displayName: "OpenAI", apiFormat: "openai", modelId: "gpt-4o" },
+    ];
+    localStorage.removeItem(ONBOARDING_KEY);
+  });
+
+  function advanceToStep2() {
+    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+  }
+
+  // The step-2 input has no htmlFor/id association, so reach it
+  // via its unique placeholder ("alice"). The description textarea
+  // has placeholder "Personal coding assistant" so the two are
+  // disambiguated by role+placeholder.
+  function getStep2NameInput() {
+    return screen.getByPlaceholderText("alice") as HTMLInputElement;
+  }
+
+  it.each([
+    "..", // double-dot (path traversal)
+    ".", // single dot
+    "../escape",
+    "foo..bar",
+    "-leading-hyphen",
+    "trailing-hyphen-",
+  ])("disables Create button when name is %s", (badName) => {
+    renderWalkthrough();
+    advanceToStep2();
+    fireEvent.change(getStep2NameInput(), { target: { value: badName } });
+    const createBtn = screen.getByRole("button", { name: /create/i });
+    expect(createBtn).toBeDisabled();
+    // And the hint copy surfaces the `..` exclusion (or the
+    // path-separator / leading-trailing hyphen line — the regex
+    // is shared with CreatePrincipalModal).
+    expect(
+      screen.getByText(/leading\/trailing hyphen|path separators|\.\./i),
+    ).toBeInTheDocument();
+  });
+
+  it("enables Create when name is a valid principal name", () => {
+    renderWalkthrough();
+    advanceToStep2();
+    fireEvent.change(getStep2NameInput(), { target: { value: "alice" } });
+    expect(screen.getByRole("button", { name: /create/i })).not.toBeDisabled();
   });
 });

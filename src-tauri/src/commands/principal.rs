@@ -188,11 +188,18 @@ pub async fn principal_create(
 }
 
 /// Mirror of the runtime's `validate_agent_name` rules
-/// (`peko-runtime/src/common/identifiers.rs:49`). Pre-IPC nicety so
-/// obviously-bad input fails fast; the daemon re-validates so this is
-/// only a UX win, not a security boundary.
+/// (`peko-runtime/peko-rs/core/src/common/identifiers.rs:49`). Pre-IPC
+/// nicety so obviously-bad input fails fast; the daemon re-validates
+/// so this is only a UX win, not a security boundary.
 fn validate_principal_name(name: &str) -> Result<(), String> {
     if name.is_empty() || name.len() > 64 {
+        return Err(format!("invalid principal name: {name:?}"));
+    }
+    // Mirror the runtime's explicit `..` rule (PR #241). The
+    // per-char alphanumeric check below incidentally rejects "."
+    // and "..", but the explicit check makes the intent obvious and
+    // survives a future regex loosening.
+    if name == ".." || name == "." || name.contains("..") {
         return Err(format!("invalid principal name: {name:?}"));
     }
     if name.starts_with('-') || name.ends_with('-') {
@@ -686,6 +693,11 @@ mod tests {
             "has\\backslash",
             "has space",
             "has.dot",
+            ".",        // single dot
+            "..",       // double dot (path-traversal defense)
+            "foo..bar", // embedded ".." segment
+            "..foo",
+            "foo..",
             &"a".repeat(65),
         ] {
             assert!(
