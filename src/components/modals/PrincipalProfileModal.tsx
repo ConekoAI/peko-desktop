@@ -6,6 +6,7 @@ import {
   usePrincipalUpdate,
 } from "../../hooks/usePrincipals";
 import { useModels } from "../../hooks/useModels";
+import { useSettings } from "../../hooks/useSettings";
 import {
   X,
   Bot,
@@ -15,6 +16,9 @@ import {
   Settings,
   Trash2,
   AlertTriangle,
+  Link2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface PrincipalProfileModalProps {
@@ -60,6 +64,25 @@ export default function PrincipalProfileModal({
   const [status, setStatus] = useState("");
   const [exposure, setExposure] = useState("");
   const [modelId, setModelId] = useState<string>("");
+  // Toggles `Copy` → `Check` icon for 2s after a successful clipboard
+  // write. Lives in local component state — the icon swap is purely
+  // cosmetic and resetting on remount is fine (no need to lift).
+  const [copied, setCopied] = useState(false);
+
+  const { data: settings } = useSettings();
+  const pekohubBaseUrl = useMemo(
+    () =>
+      settings?.find((s) => s.key === "pekohub.base_url")?.value ??
+      "https://pekohub.org",
+    [settings],
+  );
+  const shareUrl = useMemo(() => {
+    if (!principal) return null;
+    if (principal.exposure !== "public") return null;
+    return `${pekohubBaseUrl.replace(/\/+$/, "")}/p/${encodeURIComponent(
+      principal.owner,
+    )}/${encodeURIComponent(principal.name)}`;
+  }, [principal, pekohubBaseUrl]);
 
   const modelItems = useMemo(() => resolveModelItems(models), [models]);
   const selectedModel = useMemo(
@@ -75,6 +98,7 @@ export default function PrincipalProfileModal({
       setStatus("");
       setExposure("");
       setModelId("");
+      setCopied(false);
       updateMut.reset();
       removeMut.reset();
       return;
@@ -113,6 +137,34 @@ export default function PrincipalProfileModal({
         onClose();
       },
     });
+  }
+
+  async function handleCopyShareLink() {
+    if (!shareUrl) return;
+    // navigator.clipboard is unavailable in older WebViews and some
+    // Tauri permission profiles; fall back to a hidden-textarea
+    // selection so the action still works in either environment.
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = shareUrl;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "absolute";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Swallow: clipboard write failed (permissions / non-secure
+      // context). The button is non-destructive — user can still copy
+      // by selecting the URL bar text manually.
+    }
   }
 
   const updateError =
@@ -191,6 +243,43 @@ export default function PrincipalProfileModal({
               />
               <Row label="Owner" value={principal.owner} />
               <Row label="Runtime" value={principal.runtimeId} />
+              {/* Public share link (PR-D). Only meaningful when exposure
+                  is `public` — otherwise the link would 404 on the
+                  hub. Mirrors the BundleCard copy-install-command
+                  pattern: read-only URL + a click-to-copy button that
+                  briefly swaps to a check mark. */}
+              {shareUrl !== null && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+                  <div className="flex items-start gap-2">
+                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200">
+                        Share link
+                      </p>
+                      <p className="mt-0.5 break-all font-mono text-[11px] text-emerald-700 dark:text-emerald-300">
+                        {shareUrl}
+                      </p>
+                      <button
+                        onClick={handleCopyShareLink}
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                        data-testid="copy-share-link"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            Copy link
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
