@@ -13,6 +13,7 @@ import {
 
 import { usePrincipals, usePrincipalCreate } from "../hooks/usePrincipals";
 import { useModels } from "../hooks/useModels";
+import { isValidPrincipalName } from "../lib/validatePrincipalName";
 
 /**
  * First-run walkthrough overlay (T-105 Phase D, model-first).
@@ -161,17 +162,8 @@ function WalkthroughCard({
     switch (step) {
       case 1:
         return modelId !== null;
-      case 2: {
-        const trimmed = principalName.trim();
-        return (
-          trimmed.length > 0 &&
-          trimmed.length <= 64 &&
-          !trimmed.startsWith("-") &&
-          !trimmed.endsWith("-") &&
-          !/[\\/]/.test(trimmed) &&
-          /^[A-Za-z0-9_-]+$/.test(trimmed)
-        );
-      }
+      case 2:
+        return isValidPrincipalName(principalName);
     }
   })();
 
@@ -425,13 +417,7 @@ function Step2({
   modelLabel: string | null;
 }) {
   const trimmed = name.trim();
-  const nameValid =
-    trimmed.length > 0 &&
-    trimmed.length <= 64 &&
-    !trimmed.startsWith("-") &&
-    !trimmed.endsWith("-") &&
-    !/[\\/]/.test(trimmed) &&
-    /^[A-Za-z0-9_-]+$/.test(trimmed);
+  const nameValid = isValidPrincipalName(trimmed);
 
   return (
     <div className="space-y-3">
@@ -461,7 +447,7 @@ function Step2({
         {name && !nameValid && (
           <p className="mt-1 text-xs text-red-600 dark:text-red-400">
             Use 1–64 chars: letters, digits, &quot;-&quot;, &quot;_&quot;. No
-            leading/trailing hyphen or path separators.
+            leading/trailing hyphen, &quot;..&quot;, or path separators.
           </p>
         )}
       </div>
