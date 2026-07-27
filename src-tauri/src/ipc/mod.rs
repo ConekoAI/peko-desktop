@@ -79,6 +79,28 @@ pub struct StatusSnapshot {
 }
 
 /// Stream event emitted to the frontend via Tauri events.
+/// Streamed event payload forwarded to the React frontend over a Tauri
+/// `Channel` for `principal_send_stream`. This is the shape the Chat UI
+/// consumes directly; `StreamEvent` is the legacy `peko-stream` emit
+/// shape kept for migration-window compatibility and carries more
+/// fields (timestamp, tool call/result, etc.) that the new UI does not
+/// surface.
+///
+/// `Iteration` is a content-free boundary marker emitted by the
+/// runtime at the start of each agentic loop iteration; the frontend
+/// uses it to (a) break chat bubbles between iterations and (b) drive
+/// the "Thinking…" pill while a new iteration's first token is in
+/// flight. Tool-call / thinking / retry / usage events stay backend-
+/// only and are not surfaced through this channel.
+#[derive(Serialize, Debug, Clone)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ChatStreamMsg {
+    /// A streamed assistant text delta.
+    Chunk { delta: String },
+    /// Agentic-iteration boundary marker (iteration counter starts at 1).
+    Iteration { iteration: u32 },
+}
+
 /// This is the desktop's unified shape — the daemon uses different
 /// packet shapes (ResponsePacket) which get mapped into this.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -825,9 +847,10 @@ impl IpcClient {
     // ── Principal operations (ADR-041) ───────────────────────────────
 
     /// Send a Principal message via the streaming IPC path. The
-    /// daemon emits `principal_sent_chunk` deltas followed by a
+    /// daemon emits `principal_sent_chunk` deltas (and content-free
+    /// `principal_sent_iteration` boundary markers) followed by a
     /// `principal_sent_done` packet carrying the full final answer.
-    /// Each delta is forwarded through the supplied `on_chunk`
+    /// Each message is forwarded through the supplied `on_event`
     /// closure; the `on_done` closure receives the final `content`
     /// string once the supervisor has settled.
     ///
@@ -845,11 +868,11 @@ impl IpcClient {
         request_id: u64,
         name: String,
         message: String,
-        on_chunk: F,
+        on_event: F,
         on_done: G,
     ) -> Result<()>
     where
-        F: Fn(String) + Send + Sync + 'static,
+        F: Fn(ChatStreamMsg) + Send + Sync + 'static,
         G: FnOnce(String) + Send + 'static,
     {
         ensure_daemon().await?;
@@ -930,7 +953,9 @@ impl IpcClient {
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
-                    on_chunk(delta.clone());
+                    on_event(ChatStreamMsg::Chunk {
+                        delta: delta.clone(),
+                    });
                     let _ = app.emit(
                         "peko-stream",
                         &StreamEvent::Chunk {
@@ -938,6 +963,15 @@ impl IpcClient {
                             timestamp,
                         },
                     );
+                }
+                "principal_sent_iteration" => {
+                    // Content-free boundary marker. Iteration counter
+                    // starts at 1 (first `Lifecycle{Running}` after the
+                    // run starts). Missing/invalid defaults to 0 so the
+                    // frontend can still drive its pill.
+                    let iteration =
+                        raw.get("iteration").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                    on_event(ChatStreamMsg::Iteration { iteration });
                 }
                 "principal_sent_done" => {
                     let content = raw
