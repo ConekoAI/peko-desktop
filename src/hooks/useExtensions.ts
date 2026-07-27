@@ -25,7 +25,7 @@ export function useInstallExtension() {
 export function useUninstallExtension() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => extensionUninstall(name),
+    mutationFn: (id: string) => extensionUninstall(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["extensions"] }),
   });
 }

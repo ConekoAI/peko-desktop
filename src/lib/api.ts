@@ -410,12 +410,12 @@ export async function extensionList(): Promise<ExtensionSummary[]> {
   return invoke("extension_list");
 }
 
-export async function extensionInstall(path: string): Promise<ExtensionSummary> {
-  return invoke("extension_install", { path });
+export async function extensionInstall(path: string): Promise<string> {
+  return invoke<string>("extension_install", { path });
 }
 
-export async function extensionUninstall(name: string): Promise<void> {
-  return invoke("extension_uninstall", { name });
+export async function extensionUninstall(id: string): Promise<string> {
+  return invoke<string>("extension_uninstall", { id });
 }
 
 // ─── Capabilities (per-Principal grants) ─────────────────────────
