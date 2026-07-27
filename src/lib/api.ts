@@ -220,9 +220,24 @@ export interface PrincipalSendStreamResult {
 }
 
 /**
- * Send a streaming message to a Principal. Each supervisor chunk
- * is pushed to `onChunk` as it arrives; the resolved promise carries
- * the full final answer plus the runtime correlation id.
+ * Stream event payload from `principalSendStream`. Mirrors the Rust
+ * `ChatStreamMsg` enum (tagged `kind: "chunk" | "iteration"`):
+ *
+ * - `chunk`     — assistant text delta for the current iteration.
+ * - `iteration` — content-free boundary marker; emitted at the start
+ *                 of every agentic loop iteration. The frontend uses
+ *                 it to break chat bubbles between iterations and
+ *                 drive the "Thinking…" pill. The counter starts at 1.
+ */
+export type ChatStreamMsg =
+  | { kind: "chunk"; delta: string }
+  | { kind: "iteration"; iteration: number };
+
+/**
+ * Send a streaming message to a Principal. Each supervisor event
+ * (chunk delta or iteration boundary) is pushed to `onEvent` as it
+ * arrives; the resolved promise carries the full final answer plus
+ * the runtime correlation id.
  *
  * `requestId` is supplied by the caller (see `nextRequestId` in
  * `usePrincipals`) so the JS side can stash it in a ref BEFORE the
@@ -236,15 +251,15 @@ export async function principalSendStream(
   name: string,
   message: string,
   requestId: number,
-  onChunk: (delta: string) => void,
+  onEvent: (msg: ChatStreamMsg) => void,
 ): Promise<PrincipalSendStreamResult> {
-  const channel = new Channel<string>();
-  channel.onmessage = onChunk;
+  const channel = new Channel<ChatStreamMsg>();
+  channel.onmessage = onEvent;
   return invoke<PrincipalSendStreamResult>("principal_send_stream", {
     name,
     message,
     requestId,
-    onChunk: channel,
+    onEvent: channel,
   });
 }
 

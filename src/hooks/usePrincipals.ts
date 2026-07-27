@@ -11,6 +11,7 @@ import {
   principalSendControl,
   principalSendStream,
   principalUpdate,
+  type ChatStreamMsg,
   type PrincipalCreateRequest,
   type PrincipalSendControlArgs,
   type PrincipalSummary,
@@ -120,7 +121,7 @@ export function useCallerSubject(): string {
 // ─── Principal send (chat) ──────────────────────────────────────
 
 export interface PrincipalSendOptions {
-  onChunk?: (delta: string) => void;
+  onEvent?: (msg: ChatStreamMsg) => void;
 }
 
 /**
@@ -149,9 +150,10 @@ function nextRequestId(): number {
  * Send a message to a principal. Returns the supervisor's final
  * response as a string.
  *
- * If `onChunk` is provided, the supervisor's streaming deltas are
- * pushed through the callback as the response unfolds. The `Channel`
- * wire type is required by Tauri's IPC layer for streaming.
+ * If `onEvent` is provided, the supervisor's streaming events
+ * (chunk deltas and agentic-iteration boundary markers) are pushed
+ * through the callback as the response unfolds. The `Channel` wire
+ * type is required by Tauri's IPC layer for streaming.
  *
  * The hook also exposes `sendControl({mode: "steer" | "interrupt"})`
  * so the chat input can redirect an in-flight stream instead of
@@ -165,9 +167,9 @@ export function usePrincipalSend() {
     mutationFn: async (vars: {
       name: string;
       message: string;
-      onChunk?: (delta: string) => void;
+      onEvent?: (msg: ChatStreamMsg) => void;
     }): Promise<string> => {
-      if (!vars.onChunk) {
+      if (!vars.onEvent) {
         // Non-streaming path: no correlation id is needed for
         // follow-up control since there's no in-flight run to
         // target.
@@ -185,7 +187,7 @@ export function usePrincipalSend() {
           vars.name,
           vars.message,
           requestId,
-          vars.onChunk,
+          vars.onEvent,
         );
         return result.content;
       } finally {

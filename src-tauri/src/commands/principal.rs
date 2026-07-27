@@ -427,8 +427,9 @@ pub struct PrincipalSendStreamResult {
 }
 
 /// Stream a principal message via the `principal_send_stream` IPC
-/// path. Each `PrincipalSentChunk` delta is pushed to the supplied
-/// Tauri `Channel<String>`; the resolved `Promise<PrincipalSendStreamResult>`
+/// path. Each `PrincipalSentChunk` delta and `PrincipalSentIteration`
+/// boundary marker is pushed to the supplied Tauri
+/// `Channel<ChatStreamMsg>`; the resolved `Promise<PrincipalSendStreamResult>`
 /// on the JS side returns the final full content plus the runtime
 /// correlation id once the run settles. The desktop's `useIpcStream`
 /// hook also listens on the `peko-stream` Tauri event channel for
@@ -449,7 +450,7 @@ pub async fn principal_send_stream(
     name: String,
     message: String,
     request_id: u64,
-    on_chunk: Channel<String>,
+    on_event: Channel<crate::ipc::ChatStreamMsg>,
 ) -> Result<PrincipalSendStreamResult, String> {
     let client = crate::ipc::IpcClient::new()
         .await
@@ -462,9 +463,9 @@ pub async fn principal_send_stream(
             name,
             message,
             {
-                let channel = on_chunk.clone();
-                move |delta| {
-                    let _ = channel.send(delta);
+                let channel = on_event.clone();
+                move |msg| {
+                    let _ = channel.send(msg);
                 }
             },
             move |content| {

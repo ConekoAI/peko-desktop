@@ -22,10 +22,22 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
 import type { ChatLogMessage, StreamEvent } from "../types";
+import type { ChatStreamMsg } from "../lib/api";
 
 interface ChatItem {
   event: StreamEvent;
   isUser: boolean;
+  /**
+   * Agentic-iteration number that produced this chunk (1-based, set
+   * by the runtime's `principal_sent_iteration` boundary marker).
+   * Only present on streamed assistant chunks — historical chunks
+   * loaded from the chat log have `undefined` because the runtime
+   * persists assistant turns as one flat record per turn and the
+   * chat-log projection cannot recover iteration boundaries. The
+   * merge predicate treats `undefined` as a single value so all
+   * historical chunks in a turn collapse into one bubble.
+   */
+  iteration?: number;
 }
 
 function formatTime(ts?: string) {
@@ -98,7 +110,13 @@ function mergeAssistantChunks(items: ChatItem[]): ChatItem[] {
       item.event.type === "chunk" &&
       last &&
       !last.isUser &&
-      last.event.type === "chunk"
+      last.event.type === "chunk" &&
+      // Only merge consecutive assistant chunks that share the same
+      // agentic iteration. A different `iteration` (or one missing
+      // and the other present) means a new LLM turn started — emit
+      // a separate bubble. Two `undefined` iterations merge (this
+      // is how historical chat-log items collapse into one bubble).
+      last.iteration === item.iteration
     ) {
       last.event = {
         ...last.event,
@@ -249,6 +267,17 @@ export default function Chat() {
   // and don't clobber in-flight streaming.
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  // `awaitingToken` drives the "Thinking…" pill: it stays `true` from
+  // send until the first chunk of the current iteration lands, and
+  // flips back to `true` whenever a new `principal_sent_iteration`
+  // boundary marker arrives (e.g. between a tool call and the next
+  // assistant reply). This makes the pill reflect the real state of
+  // "we don't have a token yet" rather than the whole stream window.
+  const [awaitingToken, setAwaitingToken] = useState(true);
+  // Tracks the iteration number most recently stamped by the runtime
+  // via `principal_sent_iteration`. Used to tag outgoing chunks so
+  // `mergeAssistantChunks` can break bubbles at iteration boundaries.
+  const currentIterationRef = useRef<number>(0);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -327,18 +356,41 @@ export default function Chat() {
     setChatItems((prev) => [...prev, { event: userEvent, isUser: true }]);
 
     setIsStreaming(true);
+    // Reset per-run iteration tracking so a fresh send starts a new
+    // bubble series (prevents the first chunk from collapsing into a
+    // historical bubble whose `iteration` is `undefined`).
+    currentIterationRef.current = 0;
+    setAwaitingToken(true);
     try {
       await sendMut.mutateAsync({
         name: selectedPrincipal,
         message,
-        onChunk: (delta) => {
+        onEvent: (msg: ChatStreamMsg) => {
+          if (msg.kind === "iteration") {
+            // Boundary marker from the runtime — a new agentic
+            // iteration started. Stash the iteration number on a ref
+            // (no re-render) so the next chunk can tag itself and
+            // the pill flips back to "Thinking…" until the first
+            // token lands.
+            currentIterationRef.current = msg.iteration;
+            setAwaitingToken(true);
+            return;
+          }
+          // msg.kind === "chunk"
+          setAwaitingToken(false);
+          const delta = msg.delta;
+          const iteration = currentIterationRef.current;
           setChatItems((prev) => {
             const last = prev[prev.length - 1];
             if (
               last &&
               !last.isUser &&
               last.event.type === "chunk" &&
-              (last.event as { toolCallId?: string }).toolCallId === undefined
+              (last.event as { toolCallId?: string }).toolCallId === undefined &&
+              // Append to the trailing bubble only when it belongs to
+              // the SAME agentic iteration; otherwise break a new
+              // bubble. This is the visible iteration boundary.
+              last.iteration === iteration
             ) {
               const updated = [...prev];
               updated[updated.length - 1] = {
@@ -347,6 +399,7 @@ export default function Chat() {
                   content: (last.event.content ?? "") + delta,
                 },
                 isUser: false,
+                iteration: last.iteration ?? iteration,
               };
               return updated;
             }
@@ -359,6 +412,7 @@ export default function Chat() {
                   timestamp: Date.now().toString(),
                 } as StreamEvent,
                 isUser: false,
+                iteration,
               },
             ];
           });
@@ -368,6 +422,8 @@ export default function Chat() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsStreaming(false);
+      setAwaitingToken(true);
+      currentIterationRef.current = 0;
     }
   }
 
@@ -434,11 +490,11 @@ export default function Chat() {
             {displayItems.map((item, idx) => (
               <ChatMessage key={item.event.timestamp ?? idx} item={item} />
             ))}
-            {isStreaming && (
+            {isStreaming && awaitingToken && (
               <div className="flex justify-start">
                 <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Thinking...</span>
+                  <span>...</span>
                 </div>
               </div>
             )}
