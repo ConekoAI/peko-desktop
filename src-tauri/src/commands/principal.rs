@@ -693,9 +693,9 @@ mod tests {
             "has\\backslash",
             "has space",
             "has.dot",
-            ".",          // single dot
-            "..",         // double dot (path-traversal defense)
-            "foo..bar",   // embedded ".." segment
+            ".",        // single dot
+            "..",       // double dot (path-traversal defense)
+            "foo..bar", // embedded ".." segment
             "..foo",
             "foo..",
             &"a".repeat(65),
