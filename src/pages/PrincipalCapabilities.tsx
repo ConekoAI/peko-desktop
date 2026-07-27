@@ -307,6 +307,12 @@ export default function PrincipalCapabilities() {
   const detected = data?.detected ?? [];
   const active = data?.active ?? [];
   const activeSet = new Set(active);
+  // Runtime-sourced "currently authoritative" enabled-extension set
+  // (ExtensionCatalog::active_extensions()). Falls back to an empty set
+  // for older daemon builds that don't populate the field. `useExtensions()`
+  // is still used below for per-extension metadata (`provides`,
+  // `description`, etc.) — that data isn't on the capability payload.
+  const runtimeActiveExtensions = data?.activeExtensions ?? [];
 
   const extensionCapSet = new Set(
     (extensions ?? []).flatMap((ext) => ext.provides),
@@ -361,6 +367,13 @@ export default function PrincipalCapabilities() {
           usable; amber = granted but the extension is not active; blue = covered
           by a wildcard grant.
         </p>
+        {runtimeActiveExtensions.length > 0 && (
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {runtimeActiveExtensions.length} extension
+            {runtimeActiveExtensions.length === 1 ? "" : "s"} currently active
+            per the runtime.
+          </p>
+        )}
       </div>
 
       {isError && (

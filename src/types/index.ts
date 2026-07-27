@@ -163,6 +163,14 @@ export interface CapabilityList {
   granted: string[];
   detected: string[];
   active: string[];
+  /**
+   * IDs of extensions the principal currently has enabled (built-ins,
+   * agents, installed extensions). Sourced from the runtime's
+   * `ExtensionCatalog::active_extensions()` so the desktop does not need
+   * to join extension `provides` client-side. Newer daemon builds
+   * populate this field; older builds leave it `undefined`.
+   */
+  activeExtensions?: string[];
 }
 
 export interface SearchResult {
