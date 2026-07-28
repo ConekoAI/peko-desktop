@@ -26,8 +26,51 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
+        // PR #6: deep-link plugin. Wires the platform-specific URL
+        // handler (macOS Event Mgr, Windows registry, Linux .desktop).
+        // The actual scheme list comes from the runtime `register_all`
+        // call in the setup closure below + the OS-side metadata
+        // (Info.plist `CFBundleURLTypes`, NSIS installer, deb metadata).
+        .plugin(tauri_plugin_deep_link::init())
         .manage(tauri::async_runtime::block_on(state::init_state()))
         .setup(|app| {
+            // PR #6: register the desktop scheme(s) so the OS routes
+            // share links into the running app. `register_all`
+            // re-registers every scheme listed in `tauri.conf.json`'s
+            // `plugins.deep-link.desktop.schemes` plus `peko://` for
+            // the explicit "share with peko-desktop" link form.
+            // Without this, macOS will hand the URL to the default
+            // browser because no bundle handler is registered. The
+            // call is idempotent on re-launch.
+            #[cfg(desktop)]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register_all() {
+                    eprintln!("[peko-desktop] deep-link register_all failed: {e}");
+                }
+            }
+
+            // PR #6: forward incoming URLs from the OS to the React
+            // layer as a `deep-link-received` event. The handler on
+            // the JS side parses the URL, distinguishes
+            // `peko://add-principal?url=...` from
+            // `https://${hub}/p/${owner}/${name}?token=...`, and
+            // either calls `remotePrincipalAdd` directly or opens
+            // the AddRemotePrincipalModal pre-filled. The runtime
+            // path keeps both shapes routed through one parser so
+            // the JS contract is uniform.
+            #[cfg(desktop)]
+            {
+                use tauri::Emitter;
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let deep_link_handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    for url in event.urls() {
+                        let _ = deep_link_handle.emit("deep-link-received", url.as_str());
+                    }
+                });
+            }
+
             // Build system tray
             let _ = tray::build_tray(app.handle())?;
 

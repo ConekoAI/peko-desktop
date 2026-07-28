@@ -39,5 +39,12 @@
       "icons/icon.ico"
     ],
     "externalBin": ["binaries/peko-daemon"]
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["peko"]
+      }
+    }
   }
 }

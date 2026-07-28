@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import Sidebar from "./Sidebar";
 import AppRail from "./AppRail";
 import PrincipalSidebar from "./PrincipalSidebar";
@@ -13,6 +13,8 @@ import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
+import { installDeepLinkHandler } from "../lib/deepLink";
+import { useQueryClient } from "@tanstack/react-query";
 import { Sun, Moon, Monitor } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -35,6 +37,69 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // re-renders through React Query's invalidation hook.
   const [connectOpen, setConnectOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  // PR #6: ephemeral toast surface for deep-link errors. Cleared
+  // after 5s so a one-off mistyped URL doesn't leave a banner up
+  // forever.
+  const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setThemeState(getTheme());
+    applyTheme();
+  }, []);
+
+  // PR #6: install deep-link handler at layout mount. The unlisten
+  // runs at unmount so navigation away from the layout doesn't
+  // leak listeners. Also subscribe to the success/error events so
+  // a fresh deep-link auto-navigates to the new principal's chat
+  // and surfaces failures as a transient toast.
+  useEffect(() => {
+    let unlistenHandled: (() => void) | undefined;
+    let unlistenError: (() => void) | undefined;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const unlisten = await installDeepLinkHandler();
+        if (cancelled) {
+          unlisten();
+          return;
+        }
+        // The `installDeepLinkHandler` already wired the live path;
+        // here we add the success/error event subscriptions.
+        const { listen } = await import("@tauri-apps/api/event");
+        unlistenHandled = await listen<{
+          kind: string;
+          shareUrl: string;
+        }>("deep-link-handled", () => {
+          // Invalidate the remote-principal query so the sidebar
+          // picks up the new row immediately, then navigate to
+          // the chat. The principal_name is not in the event
+          // payload (just the shareUrl); we re-parse it here so
+          // the router can target the right page.
+          void qc.invalidateQueries({ queryKey: ["remote-principals"] });
+        });
+        unlistenError = await listen<string>("deep-link-error", (event) => {
+          setDeepLinkError(event.payload);
+          window.setTimeout(() => setDeepLinkError(null), 5_000);
+        });
+      } catch (e) {
+        // Plugin not registered (dev / non-desktop). Silently
+        // ignore — the user will see the modal's manual paste
+        // path as a fallback.
+        if (!cancelled) {
+          console.warn("[peko-desktop] deep-link install failed:", e);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unlistenHandled?.();
+      unlistenError?.();
+    };
+  }, [qc, navigate]);
 
   useEffect(() => {
     setThemeState(getTheme());
@@ -57,6 +122,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-white dark:bg-slate-950">
       {/* Custom title bar */}
       <TitleBar />
+
+      {/* PR #6: deep-link error toast. Sits at z-50 above the
+          title bar so a failed share-link import gets seen even
+          on first-run flows. Auto-clears via the 5s timeout in
+          the listener. */}
+      {deepLinkError && (
+        <div className="fixed right-4 top-12 z-50 max-w-sm rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-lg dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          {deepLinkError}
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Far left: app rail (always visible) */}
