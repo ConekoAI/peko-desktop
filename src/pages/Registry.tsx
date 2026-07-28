@@ -1,110 +1,15 @@
 import { useState } from "react";
-import {
-  useRegistrySearch,
-  useRegistryPull,
-  useAuthStatus,
-} from "../hooks/useRegistry";
+import { useRegistrySearch, useRegistryPull } from "../hooks/useRegistry";
 import BundleCard from "../components/BundleCard";
-import {
-  Search,
-  Loader2,
-  User,
-  LogIn,
-  LogOut,
-  X,
-} from "lucide-react";
-
-function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { login } = useAuthStatus();
-  const [username, setUsername] = useState("");
-  const [token, setToken] = useState("");
-
-  if (!open) return null;
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!username.trim() || !token.trim()) return;
-    login.mutate(
-      { username: username.trim(), token: token.trim() },
-      { onSuccess: onClose }
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-950">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Registry Login
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="username"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Token
-            </label>
-            <input
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="personal access token"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-              required
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={login.isPending || !username.trim() || !token.trim()}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {login.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Log In
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
+import { Search, Loader2 } from "lucide-react";
 
 export default function Registry() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [loginOpen, setLoginOpen] = useState(false);
   const perPage = 12;
 
   const { data, isLoading } = useRegistrySearch(query, page, perPage);
   const pull = useRegistryPull();
-  const { data: auth, isLoading: authLoading, logout } = useAuthStatus();
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -121,34 +26,6 @@ export default function Registry() {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Search and install bundles from PekoHub
           </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {authLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-          ) : auth?.authenticated ? (
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-                <User className="h-3 w-3" />
-                {auth.username ?? "Authenticated"}
-              </span>
-              <button
-                onClick={() => logout.mutate()}
-                className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                title="Log out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setLoginOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              <LogIn className="h-4 w-4" />
-              Log In
-            </button>
-          )}
         </div>
       </div>
 
@@ -213,7 +90,13 @@ export default function Registry() {
         </div>
       ) : null}
 
-      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+      {pull.isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+          {pull.error instanceof Error
+            ? pull.error.message
+            : "Failed to install bundle."}
+        </div>
+      )}
     </div>
   );
 }

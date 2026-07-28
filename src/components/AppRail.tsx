@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { Settings, MessageCircle } from "lucide-react";
+import ProfileMenu from "./ProfileMenu";
 
 export default function AppRail() {
   const navigate = useNavigate();
@@ -12,6 +13,11 @@ export default function AppRail() {
 
   return (
     <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-slate-200 bg-slate-50 py-3 dark:border-slate-800 dark:bg-slate-900">
+      {/* PekoHub account — chrome-level sign-in / sign-out, accessible
+          from any route. Owns the OAuth flow (ProfileMenu reuses
+          useRuntimes hooks; no auth code lives here). */}
+      <ProfileMenu />
+
       {/* Home / Direct Messages */}
       <button
         onClick={() => navigate({ to: "/chat" })}

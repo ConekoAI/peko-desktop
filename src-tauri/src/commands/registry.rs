@@ -17,12 +17,6 @@ pub struct SearchResult {
     pub per_page: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AuthStatus {
-    pub authenticated: bool,
-    pub username: Option<String>,
-}
-
 #[tauri::command]
 pub async fn registry_search(
     query: String,
@@ -45,12 +39,24 @@ pub async fn registry_search(
     Ok(result)
 }
 
+/// Pull a bundle from the PekoHub registry.
+///
+/// Auth: read the OAuth access token from the runtime credential
+/// vault (`provider:pekohub/default` slot, kind `oauth_token`). The
+/// SPA's `ProfileMenu` is the single sign-in entry point — when no
+/// bundle is stored the desktop must surface a "sign in to install"
+/// error rather than sending an unauthenticated request.
+///
+/// The legacy PAT path (OS keychain `("peko","pekohub")`) was deleted
+/// alongside the `vault::*` module in PR "Profile menu + drop legacy
+/// registry login" — there is no fallback to "anonymous pull".
 #[tauri::command]
 pub async fn registry_pull(ref_str: String) -> Result<String, String> {
-    // Get registry token from vault
-    let token = crate::vault::get_credential("peko", "pekohub")
-        .ok()
-        .flatten();
+    let token = crate::clients::pekohub::PekohubClient::access_token().await;
+    let token = token.ok_or_else(|| {
+        "not signed in to PekoHub — open the profile menu (top-left) and sign in to install bundles"
+            .to_string()
+    })?;
 
     let client = crate::ipc::IpcClient::new()
         .await
@@ -60,7 +66,7 @@ pub async fn registry_pull(ref_str: String) -> Result<String, String> {
     // desktop pre-confirms because the user has already accepted
     // the preview in the registry search UI.
     let resp = client
-        .principal_pull(&ref_str, None, false, false, token.as_deref(), None)
+        .principal_pull(&ref_str, None, false, false, Some(&token), None)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -81,51 +87,4 @@ pub async fn registry_pull(ref_str: String) -> Result<String, String> {
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
     Ok(format!("Pulled {}:{}", name, version))
-}
-
-#[tauri::command]
-pub fn registry_auth_status() -> Result<AuthStatus, String> {
-    match crate::vault::get_credential("peko", "pekohub") {
-        Ok(Some(stored)) => {
-            // Stored as `username:token` so login can preserve the
-            // username. Status callers only care about whether auth is
-            // set up, not the token itself.
-            let username = stored.split(':').next().map(|s| s.to_string());
-            Ok(AuthStatus {
-                authenticated: true,
-                username,
-            })
-        }
-        Ok(None) => Ok(AuthStatus {
-            authenticated: false,
-            username: None,
-        }),
-        Err(e) => Err(e.to_string()),
-    }
-}
-
-/// Persist PekoHub auth credentials. The token is stored in the OS
-/// keychain under `("peko", "pekohub")` as `username:token` so the
-/// existing `registry_auth_status` can recover the username on
-/// subsequent reads.
-#[tauri::command]
-pub fn registry_login(username: String, token: String) -> Result<AuthStatus, String> {
-    let stored = format!("{username}:{token}");
-    crate::vault::set_credential("peko", "pekohub", &stored)
-        .map_err(|e| format!("failed to store PekoHub credentials: {e}"))?;
-    Ok(AuthStatus {
-        authenticated: true,
-        username: Some(username),
-    })
-}
-
-/// Forget PekoHub auth credentials. Idempotent — succeeds whether or
-/// not a credential was previously stored.
-#[tauri::command]
-pub fn registry_logout() -> Result<(), String> {
-    match crate::vault::delete_credential("peko", "pekohub") {
-        Ok(()) => Ok(()),
-        Err(crate::vault::VaultError::Keyring(keyring_core::error::Error::NoEntry)) => Ok(()),
-        Err(e) => Err(e.to_string()),
-    }
 }

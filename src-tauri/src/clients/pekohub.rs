@@ -43,6 +43,15 @@ impl PekohubClient {
         self
     }
 
+    /// Public lookup of the OAuth access token for callers outside
+    /// this module (e.g. `commands::registry::registry_pull`). The
+    /// private `token()` method is the implementation; this wrapper
+    /// just exposes it under the production `DEFAULT_BASE_URL`. The
+    /// auto-refresh on skew and the IPC lookup are inherited as-is.
+    pub async fn access_token() -> Option<String> {
+        Self::token(DEFAULT_BASE_URL).await
+    }
+
     /// Retrieve the stored OAuth access token from the runtime's
     /// credential vault. Auto-refreshes via the OAuth refresh_token
     /// grant when the access token is within `REFRESH_SKEW_SECS` of
@@ -387,6 +396,16 @@ fn format_unix_seconds(secs: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `access_token()` is the public wrapper used by
+    /// `commands::registry::registry_pull`. In the unit-test env
+    /// (no daemon) `IpcClient::new()` returns Err, which `token()`
+    /// already short-circuits to `None`. The wrapper inherits that
+    /// behaviour — verify the wrapper compiles + returns Option<String>.
+    #[tokio::test]
+    async fn access_token_returns_none_when_no_runtime() {
+        assert!(PekohubClient::access_token().await.is_none());
+    }
 
     /// Pin: a stored OAuth bundle (JSON with `access_token`) parses to
     /// the access token string. The IPC lookup is wired through

@@ -13,7 +13,7 @@ import {
   useRemoveModel,
   useTestModel,
 } from "../hooks/useModels";
-import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime, usePekohubLogout, usePekohubBundle, runOAuthFlow } from "../hooks/useRuntimes";
+import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime } from "../hooks/useRuntimes";
 import { setTheme } from "../lib/theme";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddModelModal from "../components/modals/AddModelModal";
@@ -37,8 +37,6 @@ import {
   X,
   RefreshCw,
   Edit3,
-  LogIn,
-  LogOut,
   Cpu,
   Eye,
   EyeOff,
@@ -615,19 +613,11 @@ function ModelCard({ model }: { model: ModelSummary }) {
 }
 
 function RuntimesTab() {
-  const { data: settings } = useSettings();
   const { data: runtimes, isLoading } = useRuntimes();
   const addRuntime = useAddRuntime();
   const removeRuntime = useRemoveRuntime();
   const reconnectRuntime = useReconnectRuntime();
   const renameRuntime = useRenameRuntime();
-  // D6: the OAuth flow now runs end-to-end via `runOAuthFlow`
-  // (Rust listener + browser open). `useOAuthConnect` is still
-  // exported from the hook module for any caller that needs the
-  // manual-paste fallback (e.g. a CLI-style integration test).
-  const pekohubLogout = usePekohubLogout();
-  const { data: pekohubBundle } = usePekohubBundle();
-  const pekohubSignedIn = pekohubBundle !== null && pekohubBundle !== undefined;
 
   const [showAdd, setShowAdd] = useState(false);
   const [newRuntimeId, setNewRuntimeId] = useState("");
@@ -636,18 +626,10 @@ function RuntimesTab() {
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
 
-  // OAuth flow state — D6: a single in-flight flag replaces the
-  // manual code/state paste UI. The Rust-side
-  // `start_oauth_callback_listener` resolves once PekoHub's
-  // browser redirect lands; we only need to know whether the
-  // flow is in progress so the button can show a spinner.
-  const [oauthInFlight, setOauthInFlight] = useState(false);
-  const [oauthError, setOauthError] = useState<string | null>(null);
-
-  const pekohubBaseUrl =
-    settings?.find((s) => s.key === "pekohub.base_url")?.value ?? "https://pekohub.org";
-  const oauthScope =
-    settings?.find((s) => s.key === "pekohub.oauth_scope")?.value ?? "runtimes:read";
+  // PekoHub OAuth sign-in / sign-out now lives in the AppRail's
+  // ProfileMenu component (chrome-level, accessible from any route).
+  // The base URL / scope settings are read there; this tab only
+  // needs the runtime list + add/remove flows.
 
   function handleAdd() {
     if (!newRuntimeId.trim() || !newRuntimeName.trim()) return;
@@ -680,68 +662,16 @@ function RuntimesTab() {
     setEditingName(null);
   }
 
-  // D6: open the browser, the Tauri command catches the redirect.
-  // No more manual copy-paste of `code`+`state` from the URL bar.
-  async function handleStartOAuth() {
-    setOauthError(null);
-    setOauthInFlight(true);
-    try {
-      const result = await runOAuthFlow({
-        baseUrl: pekohubBaseUrl,
-        scope: oauthScope,
-      });
-      if (result.added === 0) {
-        setOauthError("Signed in to PekoHub, but no runtimes were found for this account.");
-      }
-    } catch (err) {
-      setOauthError(
-        err instanceof Error
-          ? err.message
-          : "Sign-in failed. Check your browser and try again.",
-      );
-    } finally {
-      setOauthInFlight(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Connected Runtimes</h3>
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Runtimes</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Manage local and remote runtimes
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleStartOAuth}
-            disabled={oauthInFlight}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {oauthInFlight ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <LogIn className="h-4 w-4" />
-            )}
-            {pekohubSignedIn ? "Re-link PekoHub" : "Sign in with PekoHub"}
-          </button>
-          {pekohubSignedIn && (
-            <button
-              onClick={() => pekohubLogout.mutate()}
-              disabled={pekohubLogout.isPending}
-              data-testid="pekohub-signout"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-red-950/30 dark:hover:text-red-400"
-              title="Forget PekoHub OAuth bundle"
-            >
-              {pekohubLogout.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <LogOut className="h-4 w-4" />
-              )}
-              Sign out
-            </button>
-          )}
           <button
             onClick={() => setShowAdd(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
@@ -751,26 +681,6 @@ function RuntimesTab() {
           </button>
         </div>
       </div>
-
-      {/* OAuth in-flight indicator (D6).
-          The actual code/state capture happens Rust-side via the
-          localhost listener — the SPA only needs to surface that
-          the flow is in progress + any final error. */}
-      {(oauthInFlight || oauthError) && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
-          {oauthInFlight && (
-            <p className="text-sm text-indigo-800 dark:text-indigo-200">
-              Waiting for PekoHub to redirect you back… complete the
-              sign-in in your browser to continue.
-            </p>
-          )}
-          {oauthError && (
-            <p className="text-sm text-red-600 dark:text-red-400">
-              {oauthError}
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Manual add form */}
       {showAdd && (
