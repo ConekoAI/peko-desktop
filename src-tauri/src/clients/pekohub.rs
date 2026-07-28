@@ -62,9 +62,7 @@ impl PekohubClient {
                 arr.iter().find_map(|row| {
                     let name = row.get("name").and_then(|n| n.as_str())?;
                     if name == OAUTH_NAME {
-                        row.get("id")
-                            .and_then(|id| id.as_str())
-                            .map(String::from)
+                        row.get("id").and_then(|id| id.as_str()).map(String::from)
                     } else {
                         None
                     }
@@ -78,10 +76,7 @@ impl PekohubClient {
         // Bundle format: JSON with `access_token`. If parsing fails
         // the stored row was a legacy plain token — return it as-is.
         if let Ok(bundle) = serde_json::from_str::<serde_json::Value>(material) {
-            if let Some(access) = bundle
-                .get("access_token")
-                .and_then(|v| v.as_str())
-            {
+            if let Some(access) = bundle.get("access_token").and_then(|v| v.as_str()) {
                 return Some(access.to_string());
             }
         }
