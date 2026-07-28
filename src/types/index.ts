@@ -194,12 +194,6 @@ export interface BundleItem {
   checksum?: string;
 }
 
-export interface AuthStatus {
-  authenticated: boolean;
-  username?: string;
-  tokenExpiry?: string;
-}
-
 export interface CronJob {
   id: string;
   name: string;

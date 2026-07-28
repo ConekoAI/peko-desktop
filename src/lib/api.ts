@@ -17,7 +17,6 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 
 import type {
-  AuthStatus,
   BundleItem,
   CapabilityList,
   CronJob,
@@ -450,21 +449,6 @@ export async function registrySearch(
 
 export async function registryPull(ref: string): Promise<BundleItem> {
   return invoke("registry_pull", { ref });
-}
-
-export async function registryAuthStatus(): Promise<AuthStatus> {
-  return invoke("registry_auth_status");
-}
-
-export async function registryLogin(
-  username: string,
-  token: string,
-): Promise<AuthStatus> {
-  return invoke("registry_login", { username, token });
-}
-
-export async function registryLogout(): Promise<void> {
-  return invoke("registry_logout");
 }
 
 // ─── Cron ───────────────────────────────────────────────────────

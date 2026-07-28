@@ -8,7 +8,6 @@ pub mod sidecar;
 pub mod state;
 pub mod tray;
 pub mod updater;
-pub mod vault;
 
 /// Best-effort lookup of the engine version this desktop bundle was
 /// built against. For now this is the desktop's own `Cargo.toml`
