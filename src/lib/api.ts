@@ -585,6 +585,29 @@ export async function pekohubLogout(): Promise<void> {
   return invoke<void>("pekohub_logout");
 }
 
+/**
+ * Wait for an OAuth callback redirect on `127.0.0.1:<port>`.
+ *
+ * D6: the Tauri command spawns a localhost HTTP server and resolves
+ * with `{code, state}` once PekoHub's browser redirect lands, or
+ * rejects after the 2-minute timeout baked into the Rust side. The
+ * SPA calls this in parallel with the `startOAuthConnect` redirect
+ * so the user never has to copy-paste the authorization code.
+ */
+export interface OAuthCallbackPayload {
+  code: string;
+  state: string;
+}
+export async function startOAuthCallbackListener(
+  port: number,
+  path?: string,
+): Promise<OAuthCallbackPayload> {
+  return invoke<OAuthCallbackPayload>("start_oauth_callback_listener", {
+    port,
+    path: path ?? null,
+  });
+}
+
 // ─── OAuth / PekoHub (frontend-side) ────────────────────────────
 
 export interface OAuthTokenResponse {

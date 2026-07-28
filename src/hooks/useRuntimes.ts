@@ -11,6 +11,7 @@ import {
   credentialSetRaw,
   credentialGetRaw,
   pekohubLogout,
+  startOAuthCallbackListener,
   type StoredTokenBundle,
   type OAuthTokenResponse,
 } from "../lib/api";
@@ -139,6 +140,9 @@ export interface OAuthConnectResult {
  * The caller is responsible for collecting the authorization code
  * (via manual paste, local HTTP server, or custom protocol) and
  * passing it to `exchangeOAuthCode`.
+ *
+ * D6 deprecated the manual-paste path: prefer `runOAuthFlow` which
+ * spawns a localhost listener and captures the redirect server-side.
  */
 export async function startOAuthConnect(
   input: OAuthConnectInput,
@@ -164,6 +168,62 @@ export async function startOAuthConnect(
 
   await openUrl(authorizeUrl);
   return authorizeUrl;
+}
+
+/**
+ * Default port the OAuth callback listener binds to. Hard-coded
+ * because the PekoHub `redirect_uri` must be registered in advance
+ * (it's a static OAuth client config) — using 0 / random would
+ * fail server-side validation.
+ */
+const PEKOHUB_CALLBACK_PORT = 19876;
+const PEKOHUB_CALLBACK_PATH = "/callback";
+
+/**
+ * End-to-end OAuth sign-in: bind the localhost listener, open
+ * the authorize URL, capture the redirect, exchange, and discover
+ * runtimes. The Rust-side `start_oauth_callback_listener` resolves
+ * once the browser hits the redirect, or rejects after 2 minutes.
+ *
+ * Listener and browser-redirect are started in parallel so the
+ * browser doesn't beat the listener to the bind (race-free; the
+ * Tauri command is awaitable and returns once the connection is
+ * accepted, not once the request is read).
+ */
+export async function runOAuthFlow(
+  input: OAuthConnectInput,
+): Promise<OAuthConnectResult> {
+  const baseUrl = input.baseUrl.replace(/\/+$/, "");
+  const clientId = input.clientId ?? "peko-desktop";
+  const redirectUri =
+    input.redirectUri ?? `http://localhost:${PEKOHUB_CALLBACK_PORT}${PEKOHUB_CALLBACK_PATH}`;
+
+  const verifier = generateCodeVerifier();
+  const state = generateState();
+  const challenge = await generateCodeChallenge(verifier);
+  writeActiveFlow({ verifier, state, redirectUri, baseUrl });
+
+  // Start the listener + open the browser in parallel. Whichever
+  // finishes second, the listener will catch the redirect (the
+  // browser has to round-trip through PekoHub, so the listener
+  // bind is always first).
+  const listenerPromise = startOAuthCallbackListener(
+    PEKOHUB_CALLBACK_PORT,
+    PEKOHUB_CALLBACK_PATH,
+  );
+
+  const authorizeUrl = buildAuthorizeUrl({
+    baseUrl,
+    clientId,
+    redirectUri,
+    codeChallenge: challenge,
+    state,
+    scope: input.scope,
+  });
+  await openUrl(authorizeUrl);
+
+  const { code, state: returnedState } = await listenerPromise;
+  return exchangeOAuthCode(code, returnedState, clientId);
 }
 
 /**

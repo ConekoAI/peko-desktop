@@ -4,6 +4,7 @@ pub mod daemon;
 pub mod engine;
 pub mod extension;
 pub mod model_admin;
+pub mod oauth_callback;
 pub mod principal;
 pub mod registry;
 pub mod runtime;
@@ -71,5 +72,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         runtime::runtime_remove,
         runtime::runtime_reconnect,
         runtime::runtime_rename,
+        oauth_callback::start_oauth_callback_listener,
     ]
 }
