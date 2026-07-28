@@ -6,6 +6,11 @@ import {
   useRemotePrincipals,
   useRemotePrincipalRemove,
 } from "../hooks/useRemotePrincipals";
+import {
+  usePrincipalStatus,
+  statusBadge,
+  type PrincipalStatusValue,
+} from "../hooks/usePrincipalStatus";
 import PrincipalProfileModal from "./modals/PrincipalProfileModal";
 import {
   Search,
@@ -20,6 +25,7 @@ import {
   Link as LinkIcon,
   Trash2,
   Compass,
+  Circle,
 } from "lucide-react";
 import type { PrincipalSummary, RemotePrincipalSummary } from "../lib/api";
 
@@ -116,15 +122,54 @@ function PrincipalContextMenu({
   );
 }
 
-function RuntimeIndicator({ type, status }: { type: "local" | "remote"; status: string }) {
-  const color =
-    status === "connected"
-      ? "text-emerald-500"
-      : status === "connecting"
-        ? "text-amber-500"
-        : "text-slate-400";
+/**
+ * PR #9: per-row status indicator. Subscribes to `usePrincipalStatus`
+ * for THIS principal's runtime/name pair so the sidebar pill matches
+ * what the principal actually reports — not the runtime's generic
+ * `connectionType`/`status` (which used to be the same thing for
+ * every row and never updated).
+ *
+ * The `runtime` prop is kept around purely so we can pick the right
+ * icon shape (Monitor vs Globe) and pass the hub URL down for the
+ * remote polling path. If the runtime row isn't registered (e.g.
+ * the principal record is stale), we fall back to "unknown".
+ */
+function PrincipalStatusIndicator({
+  runtimeId,
+  principalName,
+  ownerForRemote,
+  hubUrlForRemote,
+  type,
+}: {
+  runtimeId: string;
+  principalName: string;
+  ownerForRemote?: string;
+  hubUrlForRemote?: string;
+  type: "local" | "remote";
+}) {
+  const { data } = usePrincipalStatus(
+    runtimeId,
+    principalName,
+    ownerForRemote,
+    hubUrlForRemote,
+  );
+  const status: PrincipalStatusValue = data?.status ?? "unknown";
+  const badge = statusBadge(status);
   const Icon = type === "local" ? Monitor : Globe;
-  return <Icon className={`h-3 w-3 shrink-0 ${color}`} aria-label={`${type} — ${status}`} />;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 ${badge.color}`}
+      data-testid={`principal-status-${principalName}`}
+      title={`${badge.label} · ${type}`}
+    >
+      <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+      <Circle
+        className="h-1.5 w-1.5 fill-current"
+        aria-hidden="true"
+      />
+      <span className="sr-only">{badge.label}</span>
+    </span>
+  );
 }
 
 /**
@@ -305,6 +350,7 @@ export default function PrincipalSidebar({
               {items.map((p) => {
             const active = p.name === principalName;
             const runtime = runtimes?.find((r) => r.id === p.runtimeId);
+            const isLocal = p.runtimeId === "local";
             return (
               <button
                 key={`${p.runtimeId}-${p.name}`}
@@ -322,12 +368,26 @@ export default function PrincipalSidebar({
               >
                 <Bot className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
                 <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
-                {runtime && (
-                  <RuntimeIndicator
-                    type={runtime.connectionType}
-                    status={runtime.status}
-                  />
-                )}
+                {/* PR #9: per-row live status indicator. For remote
+                    principals we forward `owner` + `pekohubUrl` from
+                    the registered runtime; if the runtime row hasn't
+                    been registered, we fall back to the cached
+                    remote-principal record's hub URL so polling
+                    still works. */}
+                <PrincipalStatusIndicator
+                  runtimeId={p.runtimeId}
+                  principalName={p.name}
+                  ownerForRemote={isLocal ? undefined : p.owner}
+                  hubUrlForRemote={
+                    isLocal
+                      ? undefined
+                      : runtime?.pekohubUrl ??
+                        remotePrincipals?.find(
+                          (rp) => rp.principalName === p.name && rp.runtimeId === p.runtimeId,
+                        )?.hubUrl
+                  }
+                  type={isLocal ? "local" : "remote"}
+                />
                 {active && (
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                 )}

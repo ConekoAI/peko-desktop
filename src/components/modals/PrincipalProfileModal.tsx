@@ -5,8 +5,14 @@ import {
   usePrincipalRemove,
   usePrincipalUpdate,
 } from "../../hooks/usePrincipals";
+import {
+  usePrincipalStatus,
+  statusBadge,
+  type PrincipalStatusValue,
+} from "../../hooks/usePrincipalStatus";
 import { useModels } from "../../hooks/useModels";
 import { useSettings } from "../../hooks/useSettings";
+import { principalSetStatus } from "../../lib/api";
 import {
   X,
   Bot,
@@ -19,6 +25,7 @@ import {
   Link2,
   Copy,
   Check,
+  Circle,
 } from "lucide-react";
 
 interface PrincipalProfileModalProps {
@@ -28,7 +35,7 @@ interface PrincipalProfileModalProps {
   onRemoved?: () => void;
 }
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS: Array<{ value: PrincipalStatusValue; label: string }> = [
   { value: "online", label: "Online" },
   { value: "offline", label: "Offline" },
   { value: "busy", label: "Busy" },
@@ -61,6 +68,32 @@ export default function PrincipalProfileModal({
   const navigate = useNavigate();
   const { data: principal, isLoading } = usePrincipal(principalName);
   const { data: models, isLoading: modelsLoading } = useModels();
+  const { data: settings } = useSettings();
+  const pekohubBaseUrl = useMemo(
+    () =>
+      settings?.find((s) => s.key === "pekohub.base_url")?.value ??
+      "https://pekohub.org",
+    [settings],
+  );
+
+  // PR #9: the displayed status is the LIVE runtime/hub heartbeat,
+  // not the snapshot captured in `principal.status`. The hook splits
+  // local vs remote by `principal.runtimeId`: local → principal_get
+  // IPC at 10s; remote → hub /v1/public/principals poll at 30s.
+  // `hubUrlForRemote` is forwarded only when the runtime is a hub
+  // remote, and resolved from the persisted pekohub.base_url setting
+  // (same source the share-link panel uses below) so polling lands
+  // on the same hub that minted the share URL.
+  const isRemote = !!principal && principal.runtimeId !== "local" && !!principal.runtimeId;
+  const statusQuery = usePrincipalStatus(
+    principal?.runtimeId ?? "local",
+    principalName,
+    isRemote ? principal?.owner : undefined,
+    isRemote ? pekohubBaseUrl : undefined,
+  );
+  const liveStatus = statusQuery.data;
+  const currentStatus: PrincipalStatusValue = liveStatus?.status ?? "unknown";
+
   const updateMut = usePrincipalUpdate();
   const removeMut = usePrincipalRemove();
 
@@ -75,13 +108,6 @@ export default function PrincipalProfileModal({
   // cosmetic and resetting on remount is fine (no need to lift).
   const [copied, setCopied] = useState(false);
 
-  const { data: settings } = useSettings();
-  const pekohubBaseUrl = useMemo(
-    () =>
-      settings?.find((s) => s.key === "pekohub.base_url")?.value ??
-      "https://pekohub.org",
-    [settings],
-  );
   const shareUrl = useMemo(() => {
     if (!principal) return null;
     if (principal.exposure !== "public") return null;
@@ -133,6 +159,26 @@ export default function PrincipalProfileModal({
     };
     updateMut.mutate(payload, {
       onSuccess: () => setIsEditing(false),
+    });
+  }
+
+  // PR #9: status is a single-action edit (no other fields to bundle).
+  // Fire-and-forget through `principalSetStatus` so the heartbeat
+  // picks up the new value on the next poll cycle (~10s for local).
+  // Only valid for local principals — the Rust IPC rejects non-local
+  // runtime_ids, and the dropdown is hidden for remotes above.
+  function handleQuickStatusChange(next: string) {
+    setStatus(next);
+    if (!principal) return;
+    principalSetStatus({
+      name: principalName,
+      status: next,
+      runtimeId: principal.runtimeId,
+    }).catch((err: unknown) => {
+      // The Save flow surfaces its own error; for the inline status
+      // edit we just log so the modal doesn't deadlock on Save
+      // failure.
+      console.error("principalSetStatus failed", err);
     });
   }
 
@@ -240,7 +286,17 @@ export default function PrincipalProfileModal({
           {principal && !isEditing && (
             <>
               <Row label="Description" value={principal.description || "—"} />
-              <Row label="Status" value={principal.status || "—"} />
+              {/* PR #9: live status badge, polled via usePrincipalStatus.
+                  For local principals we also surface a "Quick status"
+                  dropdown inside `isEditing` (PR #3 added the
+                  `principalSetStatus` IPC arm). For remote principals,
+                  status is owner-controlled via the pekohub dashboard
+                  and we deliberately don't expose the editor here. */}
+              <StatusBadgeRow
+                status={currentStatus}
+                loading={statusQuery.isLoading && !liveStatus}
+                isRemote={isRemote}
+              />
               <Row label="Exposure" value={principal.exposure || "—"} />
               <Row
                 label="Preferred model"
@@ -312,27 +368,38 @@ export default function PrincipalProfileModal({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor="principal-status"
-                    className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
-                  >
-                    Status
-                  </label>
-                  <select
-                    id="principal-status"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                  >
-                    <option value="">—</option>
-                    {STATUS_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* PR #9: live status badge is shown above in the
+                    read-only view. The "Quick status" dropdown here
+                    is local-only — remote principals' status is
+                    owner-controlled from the pekohub dashboard (PR
+                    #7) and the runtime IPC doesn't accept
+                    `set-status` for a hub remote. Keeping the field
+                    out of the layout also avoids the empty-cell
+                    rendering trap that would otherwise shift the
+                    exposure select to a 1/2 grid by itself. */}
+                {!isRemote && (
+                  <div>
+                    <label
+                      htmlFor="principal-status"
+                      className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                    >
+                      Quick status
+                    </label>
+                    <select
+                      id="principal-status"
+                      value={status}
+                      onChange={(e) => handleQuickStatusChange(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                    >
+                      <option value="">—</option>
+                      {STATUS_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label
@@ -537,6 +604,47 @@ function Row({ label, value }: { label: string; value: string }) {
         {label}
       </span>
       <span className="font-medium text-slate-900 dark:text-white">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * PR #9: live status badge row. Replaces the old `Row label="Status"
+ * value={principal.status || "—"}` which always rendered the
+ * at-load-time snapshot — a value that drifts out of date as soon as
+ * the runtime's heartbeat updates.
+ *
+ * `loading` is `true` only until the first polled value lands; after
+ * that we keep the last-known badge visible (no skeleton flicker
+ * between polls). The icon is selected by `statusBadge(value)` so the
+ * color and shape stay in lockstep with the sidebar's
+ * `RuntimeIndicator` in PR #61.
+ */
+function StatusBadgeRow({
+  status,
+  loading,
+  isRemote,
+}: {
+  status: PrincipalStatusValue;
+  loading: boolean;
+  isRemote: boolean;
+}) {
+  const badge = statusBadge(status);
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        Status
+      </span>
+      <span className="inline-flex items-center gap-1.5 font-medium text-slate-900 dark:text-white">
+        <Circle
+          className={`h-2.5 w-2.5 fill-current ${badge.color}`}
+          aria-hidden="true"
+        />
+        <span data-testid="live-status-label">{loading ? "…" : badge.label}</span>
+        <span className="ml-1 text-[10px] font-normal text-slate-400 dark:text-slate-500">
+          {isRemote ? "hub heartbeat" : "runtime heartbeat"}
+        </span>
+      </span>
     </div>
   );
 }
