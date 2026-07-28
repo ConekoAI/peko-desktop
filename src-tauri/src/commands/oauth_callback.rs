@@ -36,6 +36,11 @@ pub struct OAuthCallbackPayload {
     pub state: String,
 }
 
+/// Callback sender: oneshot channel wrapped in an `Arc<Mutex<Option<_>>>`
+/// so the accept loop can call `.take()` to ensure fire-once semantics
+/// even if multiple requests land on the same port.
+type CallbackSender = Arc<Mutex<Option<oneshot::Sender<Result<OAuthCallbackPayload, String>>>>>;
+
 /// Start listening for the OAuth redirect on `127.0.0.1:port`.
 ///
 /// Returns the captured `code`/`state` once PekoHub's browser
@@ -74,11 +79,7 @@ pub async fn start_oauth_callback_listener(
     }
 }
 
-async fn accept_loop(
-    listener: TcpListener,
-    path: &str,
-    tx: Arc<Mutex<Option<oneshot::Sender<Result<OAuthCallbackPayload, String>>>>>,
-) {
+async fn accept_loop(listener: TcpListener, path: &str, tx: CallbackSender) {
     loop {
         let (mut socket, _peer) = match listener.accept().await {
             Ok(s) => s,
@@ -302,9 +303,9 @@ mod tests {
 
         // Fake a PekoHub redirect using std::net so we don't pull
         // in reqwest as a dev-dep just for this test.
-        let url = format!(
+        let url =
             "GET /callback?code=real-code&state=real-state HTTP/1.1\r\nHost: localhost\r\n\r\n"
-        );
+                .to_string();
         let mut stream = tokio::net::TcpStream::connect(("127.0.0.1", port))
             .await
             .expect("connect");
