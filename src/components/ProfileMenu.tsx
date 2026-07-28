@@ -138,7 +138,7 @@ export default function ProfileMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute left-full top-0 z-50 ml-2 w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-950"
+          className="absolute bottom-0 left-full z-50 ml-2 w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-950"
         >
           <div className="px-3 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">
             {signedIn ? "PekoHub · signed in" : "PekoHub · not signed in"}

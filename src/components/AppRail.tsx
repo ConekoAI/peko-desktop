@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { Settings, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import ProfileMenu from "./ProfileMenu";
 
 export default function AppRail() {
@@ -13,11 +13,6 @@ export default function AppRail() {
 
   return (
     <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-slate-200 bg-slate-50 py-3 dark:border-slate-800 dark:bg-slate-900">
-      {/* PekoHub account — chrome-level sign-in / sign-out, accessible
-          from any route. Owns the OAuth flow (ProfileMenu reuses
-          useRuntimes hooks; no auth code lives here). */}
-      <ProfileMenu />
-
       {/* Home / Direct Messages */}
       <button
         onClick={() => navigate({ to: "/chat" })}
@@ -34,13 +29,11 @@ export default function AppRail() {
 
       <div className="flex-1" />
 
-      <button
-        onClick={() => navigate({ to: "/settings" })}
-        className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-        title="Settings"
-      >
-        <Settings className="h-5 w-5" />
-      </button>
+      {/* PekoHub account — chrome-level sign-in / sign-out, accessible
+          from any route. Owns the OAuth flow (ProfileMenu reuses
+          useRuntimes hooks; no auth code lives here). The Settings
+          link still lives inside the dropdown for navigation. */}
+      <ProfileMenu />
     </aside>
   );
 }
