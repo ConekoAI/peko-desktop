@@ -62,6 +62,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         settings::credential_set_generic,
         settings::credential_delete_by_id,
         settings::credential_list_generic,
+        settings::pekohub_logout,
         system::system_status,
         system::system_doctor,
         system::system_clean,

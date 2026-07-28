@@ -10,6 +10,7 @@ import {
   pekohubListRuntimes,
   credentialSetRaw,
   credentialGetRaw,
+  pekohubLogout,
   type StoredTokenBundle,
   type OAuthTokenResponse,
 } from "../lib/api";
@@ -309,6 +310,52 @@ export function useOAuthConnect() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["runtimes"] });
       qc.invalidateQueries({ queryKey: ["credentials", "pekohub"] });
+      qc.invalidateQueries({ queryKey: ["pekohub-bundle"] });
     },
+  });
+}
+
+/**
+ * Forget the PekoHub OAuth bundle + clear the in-flight PKCE flow.
+ *
+ * Server-side (`pekohub_logout` Tauri command) deletes the
+ * `provider:pekohub/default` credential. The runtime's
+ * `RuntimeConnection` rows with `connectionType === "pekohub"` are
+ * the user's discovered-runtimes list and are NOT touched by the
+ * server — the SPA simply invalidates the `runtimes` query so the
+ * user re-lists from a clean slate on the next "Sign in with
+ * PekoHub" click. Cached `pekohub` credential entries are also
+ * invalidated so the UI re-fetches and reflects the empty state.
+ *
+ * Also clears any in-flight PKCE flow state from sessionStorage — a
+ * stale verifier from a prior aborted sign-in is dead state.
+ */
+export function usePekohubLogout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => pekohubLogout(),
+    onSuccess: () => {
+      writeActiveFlow(null);
+      qc.invalidateQueries({ queryKey: ["runtimes"] });
+      qc.invalidateQueries({ queryKey: ["credentials", "pekohub"] });
+      qc.invalidateQueries({ queryKey: ["pekohub-bundle"] });
+    },
+  });
+}
+
+/**
+ * Reactive check: is a PekoHub OAuth bundle currently stored?
+ *
+ * Used by the Settings UI to decide whether to render the
+ * "Sign out of PekoHub" affordance — without it, the button would
+ * either lie ("you're signed out!") or no-op silently. The query
+ * mirrors the `credentials/pekohub` cache key the OAuth flow
+ * invalidates on success, so signing in flips the result live.
+ */
+export function usePekohubBundle() {
+  return useQuery({
+    queryKey: ["pekohub-bundle"],
+    queryFn: () => loadOAuthBundle(),
+    staleTime: 30_000,
   });
 }

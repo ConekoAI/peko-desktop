@@ -399,6 +399,63 @@ pub async fn credential_delete_by_id(id: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Resolve a `provider:<provider>/default` credential by name+namespace
+/// regardless of `kind`. `find_default_credential_id` filters by
+/// `api_key`; the PekoHub OAuth bundle is stored as `oauth_token` so
+/// it would never match. D4 needs a kind-agnostic lookup.
+async fn find_credential_id_by_namespace_and_name(
+    client: &crate::ipc::IpcClient,
+    namespace: &str,
+    name: &str,
+) -> Result<Option<String>, String> {
+    let resp = client
+        .credential_list(Some(namespace), None)
+        .await
+        .map_err(|e| e.to_string())?;
+    check_runtime_error(&resp)?;
+    Ok(resp
+        .get("providers")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| {
+            arr.iter().find_map(|row| {
+                let row_name = row.get("name").and_then(|n| n.as_str())?;
+                if row_name == name {
+                    row.get("id").and_then(|id| id.as_str()).map(String::from)
+                } else {
+                    None
+                }
+            })
+        }))
+}
+
+/// Forget the PekoHub OAuth bundle.
+///
+/// Deletes the `provider:pekohub/default` credential. Returns Ok
+/// even if no credential was stored — sign-out is idempotent. The
+/// frontend is responsible for clearing locally-cached
+/// `RuntimeConnection` rows with `connectionType === "pekohub"`.
+#[tauri::command]
+pub async fn pekohub_logout() -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| e.to_string())?;
+    let namespace = provider_namespace("pekohub");
+    let id = find_credential_id_by_namespace_and_name(&client, &namespace, "default").await?;
+    match id {
+        Some(cred_id) => {
+            let resp = client
+                .credential_delete(&cred_id)
+                .await
+                .map_err(|e| e.to_string())?;
+            check_runtime_error(&resp)?;
+        }
+        None => {
+            // Nothing to delete — sign-out is idempotent.
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn credential_list_generic(
     namespace: Option<String>,

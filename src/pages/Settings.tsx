@@ -13,7 +13,7 @@ import {
   useRemoveModel,
   useTestModel,
 } from "../hooks/useModels";
-import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime, useOAuthConnect, startOAuthConnect } from "../hooks/useRuntimes";
+import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime, useOAuthConnect, usePekohubLogout, usePekohubBundle, startOAuthConnect } from "../hooks/useRuntimes";
 import { setTheme } from "../lib/theme";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddModelModal from "../components/modals/AddModelModal";
@@ -38,6 +38,7 @@ import {
   RefreshCw,
   Edit3,
   LogIn,
+  LogOut,
   ExternalLink,
   Cpu,
   Eye,
@@ -622,6 +623,9 @@ function RuntimesTab() {
   const reconnectRuntime = useReconnectRuntime();
   const renameRuntime = useRenameRuntime();
   const oauthConnect = useOAuthConnect();
+  const pekohubLogout = usePekohubLogout();
+  const { data: pekohubBundle } = usePekohubBundle();
+  const pekohubSignedIn = pekohubBundle !== null && pekohubBundle !== undefined;
 
   const [showAdd, setShowAdd] = useState(false);
   const [newRuntimeId, setNewRuntimeId] = useState("");
@@ -731,8 +735,24 @@ function RuntimesTab() {
             ) : (
               <LogIn className="h-4 w-4" />
             )}
-            Sign in with PekoHub
+            {pekohubSignedIn ? "Re-link PekoHub" : "Sign in with PekoHub"}
           </button>
+          {pekohubSignedIn && (
+            <button
+              onClick={() => pekohubLogout.mutate()}
+              disabled={pekohubLogout.isPending}
+              data-testid="pekohub-signout"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+              title="Forget PekoHub OAuth bundle"
+            >
+              {pekohubLogout.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
+              Sign out
+            </button>
+          )}
           <button
             onClick={() => setShowAdd(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"

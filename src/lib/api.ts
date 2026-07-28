@@ -573,6 +573,18 @@ export async function credentialGetRaw(
   });
 }
 
+/**
+ * Forget the PekoHub OAuth bundle.
+ *
+ * Deletes the `provider:pekohub/default` credential from the OS
+ * keychain. Idempotent — returns Ok if no credential is stored.
+ * The SPA is responsible for clearing locally-cached
+ * `RuntimeConnection` rows with `connectionType === "pekohub"`.
+ */
+export async function pekohubLogout(): Promise<void> {
+  return invoke<void>("pekohub_logout");
+}
+
 // ─── OAuth / PekoHub (frontend-side) ────────────────────────────
 
 export interface OAuthTokenResponse {
