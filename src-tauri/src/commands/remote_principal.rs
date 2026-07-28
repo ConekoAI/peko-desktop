@@ -10,8 +10,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::clients::hub_remote_client::HubRemoteClient;
 use crate::state::AppState;
-use crate::storage::{self, RemotePrincipalRecord};
+use crate::storage::remote_principals::{self, RemotePrincipalRecord};
 
 /// Lightweight summary sent to the JS layer. The `runtime_id` is
 /// always of the form `hub:<hub_url>` so the multi-runtime IPC
@@ -153,7 +154,7 @@ fn urlparse_simple(raw: &str) -> Option<SimpleUrl> {
 
 #[tauri::command]
 pub async fn remote_principal_list() -> Result<Vec<RemotePrincipalSummary>, String> {
-    let records = storage::read_all()?;
+    let records = remote_principals::read_all()?;
     Ok(records.iter().map(RemotePrincipalSummary::from_record).collect())
 }
 
@@ -226,7 +227,7 @@ pub async fn remote_principal_add(
         added_at_unix_ms,
         invite_token: resolved.invite_token.clone(),
     };
-    let mut records = storage::read_all().unwrap_or_default();
+    let mut records = remote_principals::read_all().unwrap_or_default();
     // Dedupe on (hub_url, owner, principal_name) — adding the same
     // share link twice is a noop that updates the existing record.
     records.retain(|r| {
@@ -235,13 +236,20 @@ pub async fn remote_principal_add(
             && r.principal_name == record.principal_name)
     });
     records.push(record.clone());
-    storage::write_all(&records)?;
-    // PR #4: keep the AppState's runtime registry in sync so the
-    // PR #3 routing layer (`state.resolve_runtime`) finds the
-    // `hub:<hub_url>` runtime. The runtime's `peko_hub_url` field
-    // is the canonical contract; we stamp it here so PR #5 can
-    // resolve through the registry.
-    let _ = state; // mark state parameter as used (no mutation yet — PR #5 will use it).
+    remote_principals::write_all(&records)?;
+    // PR #5: build a HubRemoteClient pinned to this hub and register
+    // it with AppState so `resolve_runtime` returns `HubRemote(client)`
+    // for the new `hub:<hub_url>` runtime_id. Without this, the IPC
+    // routing layer falls back to the local IPC client and every
+    // chat request returns "daemon unreachable".
+    let client = HubRemoteClient::new(
+        record.hub_url.clone(),
+        record.owner.clone(),
+        record.principal_name.clone(),
+        record.invite_token.clone(),
+        state.http.clone(),
+    );
+    let _ = state.register_hub_remote(client).await;
     Ok(RemotePrincipalSummary {
         hub_url: record.hub_url.clone(),
         owner: record.owner.clone(),
@@ -258,11 +266,12 @@ pub async fn remote_principal_add(
 
 #[tauri::command]
 pub async fn remote_principal_remove(
+    state: tauri::State<'_, AppState>,
     hub_url: String,
     owner: String,
     principal_name: String,
 ) -> Result<bool, String> {
-    let mut records = storage::read_all().unwrap_or_default();
+    let mut records = remote_principals::read_all().unwrap_or_default();
     let before = records.len();
     records.retain(|r| {
         !(r.hub_url == hub_url
@@ -271,7 +280,12 @@ pub async fn remote_principal_remove(
     });
     let removed = records.len() != before;
     if removed {
-        storage::write_all(&records)?;
+        remote_principals::write_all(&records)?;
+        // PR #5: drop the in-memory HubRemoteClient so subsequent
+        // IPC commands don't try to stream to a no-longer-added
+        // principal. The runtime_id format is `hub:<hub_url>`.
+        let runtime_id = format!("hub:{}", hub_url.trim_end_matches('/'));
+        let _ = state.unregister_hub_remote(&runtime_id).await;
     }
     Ok(removed)
 }

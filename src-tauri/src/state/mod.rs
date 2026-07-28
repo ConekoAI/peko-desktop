@@ -4,7 +4,10 @@
 //! provides dispatch to the correct transport layer.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::RwLock;
+
+use crate::clients::hub_remote_client::HubRemoteClient;
 
 /// Connection type for a runtime.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -57,6 +60,14 @@ impl RuntimeConnection {
 pub struct AppState {
     pub runtimes: RwLock<HashMap<String, RuntimeConnection>>,
     pub pekohub_client: crate::clients::pekohub::PekohubClient,
+    /// PR #5: shared HTTP client used to build new HubRemoteClient
+    /// instances. Re-using a single client keeps the connection pool
+    /// warm and matches the rest of the desktop's HTTP surface.
+    pub http: reqwest::Client,
+    /// PR #5: HubRemoteClient instances keyed by `hub:<hub_url>` so
+    /// `resolve_runtime` can hand a clone to any IPC command without
+    /// rebuilding the client per request.
+    pub hub_remotes: RwLock<HashMap<String, Arc<HubRemoteClient>>>,
 }
 
 /// Resolved transport for a principal command. Returned by
@@ -69,13 +80,10 @@ pub(crate) enum ResolvedRuntime {
     /// Local IPC client. The arced handle is dropped after the
     /// command finishes — `IpcClient::new()` is the existing pattern.
     Local,
-    /// Remote principal reachable via pekohub HTTPS + SSE. PR #5
-    /// fills this in with `Arc<crate::clients::hub_remote_client::HubRemoteClient>`.
-    /// For PR #3 this variant is never constructed (the routing
-    /// helper only returns `Local`); the dead-code warning is
-    /// suppressed by the `#[allow(dead_code)]` on the variant.
-    #[allow(dead_code)]
-    HubRemote,
+    /// Remote principal reachable via pekohub HTTPS + SSE. Carries an
+    /// `Arc<HubRemoteClient>` so commands can call `send_stream`
+    /// without re-resolving through the runtime-id registry.
+    HubRemote(Arc<HubRemoteClient>),
 }
 
 impl AppState {
@@ -83,6 +91,8 @@ impl AppState {
         Self {
             runtimes: RwLock::new(HashMap::new()),
             pekohub_client,
+            http: reqwest::Client::new(),
+            hub_remotes: RwLock::new(HashMap::new()),
         }
     }
 
@@ -106,22 +116,42 @@ impl AppState {
         self.runtimes.read().await.values().cloned().collect()
     }
 
-    /// Resolve a `runtime_id` to a transport. PR #3 always returns
-    /// `Local` (the only registered runtime is `"local"`); PR #5
-    /// extends the match to return `HubRemote` for IDs that match the
-    /// `hub:<url>` pattern registered by the remote-principal add flow.
-    ///
-    /// `runtime_id` of `None` or `Some("local")` both resolve to the
-    /// local IPC client. This is the desktop-side default that keeps
-    /// every existing JS caller backward-compatible — they pass
-    /// `runtimeId` only when they intentionally want a remote
-    /// principal.
+    /// PR #5: register a `HubRemoteClient` for a `hub:<hub_url>` id.
+    /// Subsequent calls to `resolve_runtime` with that id return
+    /// `ResolvedRuntime::HubRemote(client.clone())`.
+    pub async fn register_hub_remote(&self, client: HubRemoteClient) -> Arc<HubRemoteClient> {
+        let arc = Arc::new(client);
+        let id = arc.runtime_id.clone();
+        self.hub_remotes.write().await.insert(id, arc.clone());
+        arc
+    }
+
+    /// PR #5: drop a registered `HubRemoteClient`. Called when the
+    /// user removes the principal from the sidebar (PR #4).
+    pub async fn unregister_hub_remote(&self, runtime_id: &str) -> Option<Arc<HubRemoteClient>> {
+        self.hub_remotes.write().await.remove(runtime_id)
+    }
+
+    /// Resolve a `runtime_id` to a transport. `None` / `Some("local")`
+    /// both resolve to the local IPC client. Any `hub:<hub_url>` id
+    /// resolves to the registered `HubRemoteClient` if one is present;
+    /// otherwise we fall back to `Local` and let the IPC command
+    /// surface the missing-principal error to the user.
     pub(crate) async fn resolve_runtime(&self, runtime_id: Option<&str>) -> ResolvedRuntime {
         let id = runtime_id.unwrap_or("local");
-        // PR #5: detect `hub:<hub_url>` style IDs and return
-        // `HubRemote` with the corresponding client. Until then, any
-        // ID that is not "local" is an error: the desktop only has
-        // the local runtime registered.
+        if id == "local" {
+            return ResolvedRuntime::Local;
+        }
+        // PR #5: hub:<url> ids return the registered HubRemoteClient.
+        // Unknown ids fall through to Local so the IPC layer returns
+        // its existing "daemon unreachable" error path rather than
+        // a Tauri-level 500 — this matches the PR #3 contract that
+        // every `runtime_id` is addressable.
+        if let Some(client) = self.hub_remotes.read().await.get(id).cloned() {
+            return ResolvedRuntime::HubRemote(client);
+        }
+        // Touch the runtime-id registry so we still surface a fresh
+        // `RuntimeConnection` for callers that introspect it later.
         let _ = self.get_runtime(id).await;
         ResolvedRuntime::Local
     }

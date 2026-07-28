@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::AppHandle;
+use tauri::Manager;
 
 use crate::state::AppState;
 
@@ -446,25 +447,39 @@ fn project_principal_remove_envelope(value: &serde_json::Value) -> Result<bool, 
 /// Send a non-streaming principal message and return the final content.
 #[tauri::command]
 pub async fn principal_send(
+    state: tauri::State<'_, AppState>,
     name: String,
     message: String,
     runtime_id: Option<String>,
 ) -> Result<String, String> {
-    // PR #3: route by runtime_id. PR #5 fills the remote branch with
-    // a `HubRemoteClient::send` call.
-    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
-    if runtime_id != "local" {
-        return Err(format!(
-            "principal_send: remote runtime_id {runtime_id:?} not yet supported (PR #5)"
-        ));
+    // PR #5: route by runtime_id. Remote principals use
+    // `HubRemoteClient::send_stream` and discard the per-chunk
+    // events — the chat UI consumes the streaming path; this is
+    // the legacy non-streaming entrypoint kept for headless callers.
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    match resolved {
+        crate::state::ResolvedRuntime::Local => {
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+            client
+                .principal_send(name, message)
+                .await
+                .map_err(|e| format!("principal_send failed: {e}"))
+        }
+        crate::state::ResolvedRuntime::HubRemote(client) => {
+            let user_entry = crate::storage::local_chat_log::user_entry(message.clone());
+            let _ = crate::storage::local_chat_log::append_entry(
+                &client.runtime_id,
+                &name,
+                &user_entry,
+            );
+            client
+                .send_stream(&message, |_msg| {})
+                .await
+                .map_err(|e| format!("hub remote send failed: {e}"))
+        }
     }
-    let client = crate::ipc::IpcClient::new()
-        .await
-        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
-    client
-        .principal_send(name, message)
-        .await
-        .map_err(|e| format!("principal_send failed: {e}"))
 }
 
 /// Result envelope returned by the `principal_send_stream` Tauri
@@ -507,36 +522,61 @@ pub async fn principal_send_stream(
     on_event: Channel<crate::ipc::ChatStreamMsg>,
     runtime_id: Option<String>,
 ) -> Result<PrincipalSendStreamResult, String> {
-    // PR #3: route by runtime_id. PR #5 fills the remote branch.
-    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
-    if runtime_id != "local" {
-        return Err(format!(
-            "principal_send_stream: remote runtime_id {runtime_id:?} not yet supported (PR #5)"
-        ));
-    }
-    let client = crate::ipc::IpcClient::new()
-        .await
-        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
-    let (tx, rx) = tokio::sync::oneshot::channel::<String>();
-    client
-        .principal_send_stream(
-            &app,
-            request_id,
-            name,
-            message,
-            {
-                let channel = on_event.clone();
-                move |msg| {
-                    let _ = channel.send(msg);
-                }
-            },
-            move |content| {
-                let _ = tx.send(content);
-            },
-        )
-        .await
-        .map_err(|e| format!("principal_send_stream failed: {e}"))?;
-    let content = rx.await.map_err(|e| format!("supervisor task died: {e}"))?;
+    // PR #5: route by runtime_id. Local → IpcClient; HubRemote →
+    // HubRemoteClient::send_stream. The local arm keeps the legacy
+    // (tx, rx) channel dance that the daemon supervisor drives; the
+    // remote arm pushes events directly into the supplied Tauri
+    // Channel.
+    let resolved = {
+        let state = app.state::<AppState>();
+        state.resolve_runtime(runtime_id.as_deref()).await
+    };
+
+    let content = match resolved {
+        crate::state::ResolvedRuntime::Local => {
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+            let (tx, rx) = tokio::sync::oneshot::channel::<String>();
+            client
+                .principal_send_stream(
+                    &app,
+                    request_id,
+                    name,
+                    message,
+                    {
+                        let channel = on_event.clone();
+                        move |msg| {
+                            let _ = channel.send(msg);
+                        }
+                    },
+                    move |content| {
+                        let _ = tx.send(content);
+                    },
+                )
+                .await
+                .map_err(|e| format!("principal_send_stream failed: {e}"))?;
+            rx.await
+                .map_err(|e| format!("supervisor task died: {e}"))?
+        }
+        crate::state::ResolvedRuntime::HubRemote(client) => {
+            // Persist the user message optimistically so the local
+            // chat log mirrors what the UI already shows.
+            let user_entry = crate::storage::local_chat_log::user_entry(message.clone());
+            let _ = crate::storage::local_chat_log::append_entry(
+                &client.runtime_id,
+                &name,
+                &user_entry,
+            );
+            client
+                .send_stream(&message, move |msg| {
+                    let _ = on_event.send(msg);
+                })
+                .await
+                .map_err(|e| format!("hub remote stream failed: {e}"))?
+        }
+    };
+
     Ok(PrincipalSendStreamResult {
         request_id,
         content,
@@ -553,16 +593,20 @@ pub async fn principal_send_stream(
 /// can surface `status: "applied" | "unknown_run"` to the user.
 #[tauri::command]
 pub async fn principal_send_control(
+    state: tauri::State<'_, AppState>,
     target_request_id: u64,
     mode: serde_json::Value,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    // PR #3: route by runtime_id. PR #5 fills the remote branch.
-    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
-    if runtime_id != "local" {
-        return Err(format!(
-            "principal_send_control: remote runtime_id {runtime_id:?} not yet supported (PR #5)"
-        ));
+    // PR #5: only the local runtime supports steering — the hub's
+    // SSE bridge is fire-and-forget, so we surface a clear error
+    // rather than silently dropping the control packet.
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    if matches!(resolved, crate::state::ResolvedRuntime::HubRemote(_)) {
+        return Err(
+            "principal_send_control: steering is not supported for remote principals"
+                .to_string(),
+        );
     }
     let client = crate::ipc::IpcClient::new()
         .await
@@ -602,6 +646,7 @@ pub async fn principal_send_control(
 /// principal's `Chat` grant before returning anything.
 #[tauri::command]
 pub async fn principal_log(
+    state: tauri::State<'_, AppState>,
     name: String,
     peer: Option<String>,
     limit: Option<usize>,
@@ -609,22 +654,25 @@ pub async fn principal_log(
     cursor: Option<String>,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    // PR #3: route by runtime_id. PR #5 fills the remote branch with
-    // a `HubRemoteClient::list_chat_log` call. The local path is
-    // unchanged.
-    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
-    if runtime_id != "local" {
-        return Err(format!(
-            "principal_log: remote runtime_id {runtime_id:?} not yet supported (PR #5)"
-        ));
+    // PR #5: route by runtime_id. The remote branch reads the
+    // desktop's local JSONL appender (HubRemoteClient writes to it
+    // during send_stream); pekohub has no read API yet so we don't
+    // attempt to forward.
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    match resolved {
+        crate::state::ResolvedRuntime::Local => {
+            let client = crate::ipc::IpcClient::new()
+                .await
+                .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+            client
+                .principal_log(&name, peer.as_deref(), limit, since_secs, cursor.as_deref())
+                .await
+                .map_err(|e| format!("principal_log failed: {e}"))
+        }
+        crate::state::ResolvedRuntime::HubRemote(client) => {
+            client.list_chat_log(limit, since_secs, cursor).await
+        }
     }
-    let client = crate::ipc::IpcClient::new()
-        .await
-        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
-    client
-        .principal_log(&name, peer.as_deref(), limit, since_secs, cursor.as_deref())
-        .await
-        .map_err(|e| format!("principal_log failed: {e}"))
 }
 
 // ── PR #3: new status / exposure / permission commands ──────────────────────
