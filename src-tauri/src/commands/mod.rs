@@ -7,6 +7,7 @@ pub mod model_admin;
 pub mod oauth_callback;
 pub mod principal;
 pub mod registry;
+pub mod remote_principal;
 pub mod runtime;
 pub mod settings;
 pub mod system;
@@ -31,6 +32,11 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_send_stream,
         principal::principal_send_control,
         principal::principal_log,
+        principal::principal_set_status,
+        principal::principal_set_exposure,
+        principal::principal_grant_permission,
+        principal::principal_revoke_permission,
+        principal::principal_permissions,
         capability::capability_list,
         capability::capability_grant,
         capability::capability_revoke,
@@ -69,6 +75,10 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         runtime::runtime_remove,
         runtime::runtime_reconnect,
         runtime::runtime_rename,
+        remote_principal::remote_principal_list,
+        remote_principal::remote_principal_resolve,
+        remote_principal::remote_principal_add,
+        remote_principal::remote_principal_remove,
         oauth_callback::start_oauth_callback_listener,
     ]
 }

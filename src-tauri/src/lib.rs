@@ -6,6 +6,7 @@ pub mod fs;
 pub mod ipc;
 pub mod sidecar;
 pub mod state;
+pub mod storage;
 pub mod tray;
 pub mod updater;
 

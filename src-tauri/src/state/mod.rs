@@ -59,6 +59,25 @@ pub struct AppState {
     pub pekohub_client: crate::clients::pekohub::PekohubClient,
 }
 
+/// Resolved transport for a principal command. Returned by
+/// [`AppState::resolve_runtime`] so commands can branch on the
+/// transport without re-implementing the routing logic. PR #3 only
+/// fills the `Local` arm; PR #5 adds `HubRemote` for principals that
+/// live behind a pekohub URL.
+#[derive(Clone)]
+pub(crate) enum ResolvedRuntime {
+    /// Local IPC client. The arced handle is dropped after the
+    /// command finishes — `IpcClient::new()` is the existing pattern.
+    Local,
+    /// Remote principal reachable via pekohub HTTPS + SSE. PR #5
+    /// fills this in with `Arc<crate::clients::hub_remote_client::HubRemoteClient>`.
+    /// For PR #3 this variant is never constructed (the routing
+    /// helper only returns `Local`); the dead-code warning is
+    /// suppressed by the `#[allow(dead_code)]` on the variant.
+    #[allow(dead_code)]
+    HubRemote,
+}
+
 impl AppState {
     pub fn new(pekohub_client: crate::clients::pekohub::PekohubClient) -> Self {
         Self {
@@ -85,6 +104,26 @@ impl AppState {
     /// List all configured runtimes.
     pub async fn list_runtimes(&self) -> Vec<RuntimeConnection> {
         self.runtimes.read().await.values().cloned().collect()
+    }
+
+    /// Resolve a `runtime_id` to a transport. PR #3 always returns
+    /// `Local` (the only registered runtime is `"local"`); PR #5
+    /// extends the match to return `HubRemote` for IDs that match the
+    /// `hub:<url>` pattern registered by the remote-principal add flow.
+    ///
+    /// `runtime_id` of `None` or `Some("local")` both resolve to the
+    /// local IPC client. This is the desktop-side default that keeps
+    /// every existing JS caller backward-compatible — they pass
+    /// `runtimeId` only when they intentionally want a remote
+    /// principal.
+    pub(crate) async fn resolve_runtime(&self, runtime_id: Option<&str>) -> ResolvedRuntime {
+        let id = runtime_id.unwrap_or("local");
+        // PR #5: detect `hub:<hub_url>` style IDs and return
+        // `HubRemote` with the corresponding client. Until then, any
+        // ID that is not "local" is an error: the desktop only has
+        // the local runtime registered.
+        let _ = self.get_runtime(id).await;
+        ResolvedRuntime::Local
     }
 
     /// Check whether the local runtime is currently reachable.

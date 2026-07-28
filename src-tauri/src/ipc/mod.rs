@@ -1209,6 +1209,97 @@ impl IpcClient {
         });
         self.request_response(req).await
     }
+
+    /// PR #3: mirror of `RequestPacket::PrincipalSetStatus`. The
+    /// daemon validates the status enum and re-announces the
+    /// instance tunnel message so the hub reflects the new state.
+    pub async fn principal_set_status(
+        &self,
+        name: &str,
+        status: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_set_status",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "status": status,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR #3: mirror of `RequestPacket::PrincipalSetExposure`. The
+    /// daemon validates the exposure enum and re-announces the
+    /// instance tunnel message.
+    pub async fn principal_set_exposure(
+        &self,
+        name: &str,
+        exposure: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_set_exposure",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "exposure": exposure,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR #3: mirror of `RequestPacket::PrincipalGrantPermission`.
+    /// `permission` is a serialized `PermissionGrant` (the runtime's
+    /// own shape — `{principal, capabilities, expires_at?}`); the
+    /// daemon validates against the principal's `permissions: Vec<PermissionGrant>`
+    /// authoritative ACL.
+    pub async fn principal_grant_permission(
+        &self,
+        name: &str,
+        permission: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_grant_permission",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "permission": permission,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR #3: mirror of `RequestPacket::PrincipalRevokePermission`.
+    /// `grant_id` is the runtime's stable id for the grant (UUID v4).
+    pub async fn principal_revoke_permission(
+        &self,
+        name: &str,
+        grant_id: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_revoke_permission",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "grant_id": grant_id,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR #3: mirror of `RequestPacket::PrincipalPermissions`. Returns
+    /// the full `permissions: Vec<PermissionGrant>` array so the
+    /// desktop can render the access list inline.
+    pub async fn principal_permissions(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_permissions",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
 }
 
 #[cfg(unix)]

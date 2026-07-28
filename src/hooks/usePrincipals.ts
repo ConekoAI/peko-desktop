@@ -16,16 +16,27 @@ import {
   type PrincipalSendControlArgs,
   type PrincipalSummary,
   type PrincipalUpdateRequest,
+  type RuntimeId,
 } from "../lib/api";
 
 export type { PrincipalSummary };
 
+const DEFAULT_RUNTIME_ID = "local";
+
+/** PR #3: tiny helper that normalizes `RuntimeId` to `"local"`. */
+function effectiveRuntimeId(runtimeId?: RuntimeId): string {
+  return runtimeId ?? DEFAULT_RUNTIME_ID;
+}
+
 // ─── Principal list / detail ─────────────────────────────────────
 
-export function usePrincipals() {
+export function usePrincipals(runtimeId?: RuntimeId) {
+  const rid = effectiveRuntimeId(runtimeId);
   return useQuery({
-    queryKey: ["principals", "local"],
-    queryFn: principalList,
+    // PR #3: query key now varies by runtimeId so the React Query
+    // cache routes correctly across local + remote principals.
+    queryKey: ["principals", rid],
+    queryFn: () => principalList(rid),
     // The runtime list call is ~5 ms via CLI, but the desktop path goes
     // through Tauri -> IPC ensure_daemon probe -> daemon roundtrip, so
     // each fetch is tens-to-hundreds of milliseconds. Keep the list fresh
@@ -36,12 +47,13 @@ export function usePrincipals() {
   });
 }
 
-export function usePrincipal(name: string | undefined) {
+export function usePrincipal(name: string | undefined, runtimeId?: RuntimeId) {
+  const rid = effectiveRuntimeId(runtimeId);
   return useQuery({
-    queryKey: ["principals", "local", name],
+    queryKey: ["principals", rid, name],
     queryFn: () => {
       if (!name) throw new Error("principal name required");
-      return principalGet(name);
+      return principalGet(name, rid);
     },
     enabled: !!name,
   });
@@ -76,8 +88,9 @@ export function usePrincipalUpdate() {
   return useMutation({
     mutationFn: (req: PrincipalUpdateRequest) => principalUpdate(req),
     onSuccess: (_data, vars) => {
+      const rid = effectiveRuntimeId(vars.runtimeId);
       qc.invalidateQueries({ queryKey: ["principals"] });
-      qc.invalidateQueries({ queryKey: ["principals", "local", vars.name] });
+      qc.invalidateQueries({ queryKey: ["principals", rid, vars.name] });
     },
   });
 }
@@ -90,7 +103,8 @@ export function usePrincipalUpdate() {
 export function usePrincipalRemove() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => principalRemove(name),
+    mutationFn: (vars: { name: string; runtimeId?: RuntimeId }) =>
+      principalRemove(vars.name, vars.runtimeId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["principals"] });
     },
@@ -111,6 +125,10 @@ export function usePrincipalRemove() {
  * `principal_log` when the caller is not the principal's owner.
  */
 export function useCallerSubject(): string {
+  // Caller identity is always local — the dot keystore / vault key
+  // identity is the desktop user's own. Remote principals live in
+  // pekohub's identity space; their `owner` field comes back as a
+  // pekohub user id, not this desktop's identity.
   const { data: principals } = usePrincipals();
   if (!principals || principals.length === 0) return "user:local";
   // Pick any owned principal — every owned principal shares an owner.
@@ -168,13 +186,15 @@ export function usePrincipalSend() {
       name: string;
       message: string;
       onEvent?: (msg: ChatStreamMsg) => void;
+      runtimeId?: RuntimeId;
     }): Promise<string> => {
+      const rid = effectiveRuntimeId(vars.runtimeId);
       if (!vars.onEvent) {
         // Non-streaming path: no correlation id is needed for
         // follow-up control since there's no in-flight run to
         // target.
         activeRequestIdRef.current = null;
-        return principalSend(vars.name, vars.message);
+        return principalSend(vars.name, vars.message, rid);
       }
       // JS owns the request_id lifecycle — mint BEFORE the call so
       // `sendControl` can target the right run during streaming.
@@ -188,6 +208,7 @@ export function usePrincipalSend() {
           vars.message,
           requestId,
           vars.onEvent,
+          rid,
         );
         return result.content;
       } finally {
@@ -209,10 +230,18 @@ export function usePrincipalSend() {
    * transport failures so the caller can surface them inline.
    */
   const sendControl = useCallback(
-    async (args: Omit<PrincipalSendControlArgs, "targetRequestId">) => {
+    async (
+      args: Omit<PrincipalSendControlArgs, "targetRequestId"> & {
+        runtimeId?: RuntimeId;
+      },
+    ) => {
       const id = activeRequestIdRef.current;
       if (id == null) return null;
-      return principalSendControl({ ...args, targetRequestId: id });
+      const rid = effectiveRuntimeId(args.runtimeId);
+      return principalSendControl(
+        { ...args, targetRequestId: id },
+        rid,
+      );
     },
     [],
   );
@@ -239,12 +268,14 @@ export function usePrincipalSend() {
 export function usePrincipalLog(
   name: string | undefined,
   peer: string | undefined,
+  runtimeId?: RuntimeId,
 ) {
+  const rid = effectiveRuntimeId(runtimeId);
   return useQuery({
-    queryKey: ["principal-log", name, peer ?? "owner"],
+    queryKey: ["principal-log", rid, name, peer ?? "owner"],
     queryFn: () => {
       if (!name) throw new Error("principal name required");
-      return principalLog({ name, peer, limit: 100 });
+      return principalLog({ name, peer, limit: 100, runtimeId: rid });
     },
     enabled: !!name,
   });
@@ -262,11 +293,13 @@ export async function fetchOlderPrincipalLog(params: {
   peer?: string;
   limit?: number;
   cursor: string;
+  runtimeId?: RuntimeId;
 }) {
   return principalLog({
     name: params.name,
     peer: params.peer,
     limit: params.limit ?? 100,
     cursor: params.cursor,
+    runtimeId: params.runtimeId,
   });
 }

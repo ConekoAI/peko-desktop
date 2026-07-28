@@ -49,6 +49,7 @@ describe("principalCreate wire shape", () => {
       name: "alice",
       description: null,
       modelId: "openai",
+      runtimeId: null,
     });
   });
 
@@ -61,11 +62,13 @@ describe("principalCreate wire shape", () => {
     const [, payload] = mockedInvoke.mock.calls[0] as [string, Record<string, unknown>];
     // camelCase keys match Tauri's default JS-side argument naming;
     // modelId is the configured model reference in the model-first
-    // architecture.
+    // architecture. PR #3: runtimeId is forwarded as null when
+    // omitted so the Rust side defaults to "local".
     expect(payload).toEqual({
       name: "alice",
       description: "personal assistant",
       modelId: "openai",
+      runtimeId: null,
     });
   });
 

@@ -31,14 +31,16 @@ pub struct PrincipalSummary {
 #[tauri::command]
 pub async fn principal_list(
     state: tauri::State<'_, AppState>,
+    runtime_id: Option<String>,
 ) -> Result<Vec<PrincipalSummary>, String> {
-    // Pull the local default runtime. The runtime_id field on the
-    // returned summary is the runtime that owns the principal, so the
-    // multi-runtime UI can route messages correctly.
-    let runtime = state
-        .get_runtime("local")
-        .await
-        .ok_or_else(|| "Local runtime not found".to_string())?;
+    // PR #3: route on the supplied runtime_id. `None` / `Some("local")`
+    // both resolve to the local IPC client; PR #5 will route
+    // `hub:<url>` style IDs to the HubRemoteClient. The runtime's
+    // id is stamped on the returned summary so the React sidebar
+    // can group entries by owning runtime.
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
+    let _ = resolved; // PR #5 will branch on `resolved`.
 
     let client = crate::ipc::IpcClient::new()
         .await
@@ -84,7 +86,7 @@ pub async fn principal_list(
                 .and_then(|s| s.as_str())
                 .unwrap_or("")
                 .to_string(),
-            runtime_id: runtime.id.clone(),
+            runtime_id: runtime_id.clone(),
         });
     }
     Ok(out)
@@ -99,11 +101,11 @@ pub async fn principal_list(
 pub async fn principal_get(
     state: tauri::State<'_, AppState>,
     name: String,
+    runtime_id: Option<String>,
 ) -> Result<Option<PrincipalSummary>, String> {
-    let runtime = state
-        .get_runtime("local")
-        .await
-        .ok_or_else(|| "Local runtime not found".to_string())?;
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let _ = resolved; // PR #5 will branch on `resolved`.
+    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
 
     let client = crate::ipc::IpcClient::new()
         .await
@@ -113,7 +115,7 @@ pub async fn principal_get(
         .await
         .map_err(|e| format!("principal_get failed: {e}"))?;
 
-    Ok(project_principal_get_envelope(&value, &runtime.id))
+    Ok(project_principal_get_envelope(&value, &runtime_id))
 }
 
 /// Project the runtime's `principal_get` response envelope down to
@@ -172,10 +174,20 @@ pub async fn principal_create(
     name: String,
     description: Option<String>,
     model_id: String,
+    runtime_id: Option<String>,
 ) -> Result<PrincipalSummary, String> {
     validate_principal_name(&name)?;
     if model_id.is_empty() {
         return Err("model id must not be empty".to_string());
+    }
+    // PR #3: creation is local-only. Reject any remote runtime_id
+    // explicitly so the JS form surfaces a clear error rather than
+    // silently sending a create packet to a remote hub.
+    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
+    if runtime_id != "local" {
+        return Err(format!(
+            "principal_create is only available on the local runtime (got runtime_id={runtime_id:?})"
+        ));
     }
     let client = crate::ipc::IpcClient::new()
         .await
@@ -297,10 +309,23 @@ pub struct PrincipalUpdateRequest {
     pub status: Option<String>,
     pub exposure: Option<String>,
     pub preferred_model_id: Option<String>,
+    /// PR #3: defaults to `"local"`. Forwarded through the
+    /// `RuntimeConnection` registry; only "local" is accepted in
+    /// PR #3, PR #5 will add remote support.
+    pub runtime_id: Option<String>,
 }
 
 #[tauri::command]
 pub async fn principal_update(req: PrincipalUpdateRequest) -> Result<PrincipalSummary, String> {
+    // PR #3: update is local-only. The Shape mirrors `principal_create`:
+    // a remote runtime_id is rejected up front so the desktop exposes
+    // a clear failure rather than silently forwarding to a remote hub.
+    let runtime_id = req.runtime_id.clone().unwrap_or_else(|| "local".to_string());
+    if runtime_id != "local" {
+        return Err(format!(
+            "principal_update is only available on the local runtime (got runtime_id={runtime_id:?})"
+        ));
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -314,14 +339,24 @@ pub async fn principal_update(req: PrincipalUpdateRequest) -> Result<PrincipalSu
         )
         .await
         .map_err(|e| format!("principal_update failed: {e}"))?;
-    project_principal_update_envelope(&value, "local")
+    project_principal_update_envelope(&value, &runtime_id)
 }
 
 /// Remove a Principal and its on-disk workspace. Mirror of the runtime's
 /// `RequestPacket::PrincipalRemove`. Returns `true` if the principal was
 /// actually deleted, `false` if it was already gone.
 #[tauri::command]
-pub async fn principal_remove(name: String) -> Result<bool, String> {
+pub async fn principal_remove(
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<bool, String> {
+    // PR #3: remove is local-only (mirrors create / update).
+    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
+    if runtime_id != "local" {
+        return Err(format!(
+            "principal_remove is only available on the local runtime (got runtime_id={runtime_id:?})"
+        ));
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -410,7 +445,19 @@ fn project_principal_remove_envelope(value: &serde_json::Value) -> Result<bool, 
 
 /// Send a non-streaming principal message and return the final content.
 #[tauri::command]
-pub async fn principal_send(name: String, message: String) -> Result<String, String> {
+pub async fn principal_send(
+    name: String,
+    message: String,
+    runtime_id: Option<String>,
+) -> Result<String, String> {
+    // PR #3: route by runtime_id. PR #5 fills the remote branch with
+    // a `HubRemoteClient::send` call.
+    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
+    if runtime_id != "local" {
+        return Err(format!(
+            "principal_send: remote runtime_id {runtime_id:?} not yet supported (PR #5)"
+        ));
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -458,7 +505,15 @@ pub async fn principal_send_stream(
     message: String,
     request_id: u64,
     on_event: Channel<crate::ipc::ChatStreamMsg>,
+    runtime_id: Option<String>,
 ) -> Result<PrincipalSendStreamResult, String> {
+    // PR #3: route by runtime_id. PR #5 fills the remote branch.
+    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
+    if runtime_id != "local" {
+        return Err(format!(
+            "principal_send_stream: remote runtime_id {runtime_id:?} not yet supported (PR #5)"
+        ));
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -500,7 +555,15 @@ pub async fn principal_send_stream(
 pub async fn principal_send_control(
     target_request_id: u64,
     mode: serde_json::Value,
+    runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
+    // PR #3: route by runtime_id. PR #5 fills the remote branch.
+    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
+    if runtime_id != "local" {
+        return Err(format!(
+            "principal_send_control: remote runtime_id {runtime_id:?} not yet supported (PR #5)"
+        ));
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -544,7 +607,17 @@ pub async fn principal_log(
     limit: Option<usize>,
     since_secs: Option<u64>,
     cursor: Option<String>,
+    runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
+    // PR #3: route by runtime_id. PR #5 fills the remote branch with
+    // a `HubRemoteClient::list_chat_log` call. The local path is
+    // unchanged.
+    let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
+    if runtime_id != "local" {
+        return Err(format!(
+            "principal_log: remote runtime_id {runtime_id:?} not yet supported (PR #5)"
+        ));
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -554,9 +627,152 @@ pub async fn principal_log(
         .map_err(|e| format!("principal_log failed: {e}"))
 }
 
+// ── PR #3: new status / exposure / permission commands ──────────────────────
+//
+// These wrap the corresponding runtime IPC packets added in the same
+// PR-series. None of them accept a `runtime_id` — they only operate
+// on the local runtime because ACL grants and exposure flips are
+// owner-only RPCs that the hub does not yet proxy. The local-only
+// rejection lives in the dedicated `reject_if_remote` helper below.
+
+// ── PR #3: new status / exposure / permission commands ──────────────────────
+//
+// These wrap the corresponding runtime IPC packets added in the same
+// PR-series. None of them accept a `runtime_id` — they only operate
+// on the local runtime because ACL grants and exposure flips are
+// owner-only RPCs that the hub does not yet proxy. The local-only
+// rejection lives in the upfront check.
+
+fn reject_if_remote(runtime_id: Option<String>) -> Result<String, String> {
+    let id = runtime_id.unwrap_or_else(|| "local".to_string());
+    if id != "local" {
+        return Err(format!(
+            "this command is local-only (got runtime_id={id:?})"
+        ));
+    }
+    Ok(id)
+}
+
+/// Set the local principal's runtime status (`online` / `offline` /
+/// `busy` / `error`). Mirror of `RequestPacket::PrincipalSetStatus`.
+#[tauri::command]
+pub async fn principal_set_status(
+    name: String,
+    status: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    client
+        .principal_set_status(&name, &status)
+        .await
+        .map_err(|e| format!("principal_set_status failed: {e}"))
+}
+
+/// Set the local principal's exposure (`unexposed` / `private` /
+/// `public` / `unlisted`). Mirror of `RequestPacket::PrincipalSetExposure`.
+#[tauri::command]
+pub async fn principal_set_exposure(
+    name: String,
+    exposure: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    client
+        .principal_set_exposure(&name, &exposure)
+        .await
+        .map_err(|e| format!("principal_set_exposure failed: {e}"))
+}
+
+/// Grant a permission on a local principal. Mirror of
+/// `RequestPacket::PrincipalGrantPermission`. The `permission` shape
+/// is the runtime's `PermissionGrant` JSON (`{principal, capabilities, expires_at?}`).
+#[tauri::command]
+pub async fn principal_grant_permission(
+    name: String,
+    permission: serde_json::Value,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    client
+        .principal_grant_permission(&name, &permission)
+        .await
+        .map_err(|e| format!("principal_grant_permission failed: {e}"))
+}
+
+/// Revoke a previously-granted permission on a local principal.
+/// Mirror of `RequestPacket::PrincipalRevokePermission` — `grant_id`
+/// is the stable id returned in the prior `principal_grant_permission`
+/// response.
+#[tauri::command]
+pub async fn principal_revoke_permission(
+    name: String,
+    grant_id: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    client
+        .principal_revoke_permission(&name, &grant_id)
+        .await
+        .map_err(|e| format!("principal_revoke_permission failed: {e}"))
+}
+
+/// List the permissions currently granted on a local principal.
+/// Mirror of `RequestPacket::PrincipalPermissions`. Returns the
+/// `permissions: Vec<PermissionGrant>` envelope verbatim so the
+/// `PrincipalProfileModal` can render the access list inline.
+#[tauri::command]
+pub async fn principal_permissions(
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    client
+        .principal_permissions(&name)
+        .await
+        .map_err(|e| format!("principal_permissions failed: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // PR #3: the local-only gate rejects any non-`"local"` runtime_id
+    // before the IPC client is instantiated. Pin the contract so a
+    // future refactor that loosens the check catches in CI.
+    #[test]
+    fn test_reject_if_remote_accepts_local() {
+        assert_eq!(reject_if_remote(None).unwrap(), "local");
+        assert_eq!(reject_if_remote(Some("local".to_string())).unwrap(), "local");
+    }
+
+    #[test]
+    fn test_reject_if_remote_rejects_remote_runtime_id() {
+        let err = reject_if_remote(Some("hub:pekohub.org".to_string()))
+            .expect_err("remote runtime_id must be rejected");
+        assert!(
+            err.contains("local-only"),
+            "error should clearly say local-only, got: {err}"
+        );
+        assert!(
+            err.contains("hub:pekohub.org"),
+            "error should echo the supplied runtime_id, got: {err}"
+        );
+    }
 
     #[test]
     fn test_project_principal_get_envelope_hit() {

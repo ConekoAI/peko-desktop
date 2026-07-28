@@ -9,6 +9,7 @@ import EngineFailureCard from "./EngineFailureCard";
 import VersionMismatchBanner from "./VersionMismatchBanner";
 import FirstRunWalkthrough from "./FirstRunWalkthrough";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
+import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
@@ -28,6 +29,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // their own local instances (each already wired before the hoist);
   // only one modal is open at a time so the duplication is harmless.
   const [createOpen, setCreateOpen] = useState(false);
+  // PR #4: layout-level AddRemotePrincipalModal so the sidebar's
+  // "Connect" button can open it. Modal mutates the
+  // remote-principals JSON table on the desktop; the sidebar
+  // re-renders through React Query's invalidation hook.
+  const [connectOpen, setConnectOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -58,7 +64,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Context sidebar: principal list on chat routes, tools elsewhere */}
         {isChatRoute ? (
-          <PrincipalSidebar onCreateClick={() => setCreateOpen(true)} />
+          <PrincipalSidebar
+            onCreateClick={() => setCreateOpen(true)}
+            onConnectClick={() => setConnectOpen(true)}
+          />
         ) : (
           <Sidebar />
         )}
@@ -126,6 +135,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           empty-state CTA can open it. Chat and Dashboard keep their
           own local instances; only one is open at a time. */}
       <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <AddRemotePrincipalModal open={connectOpen} onClose={() => setConnectOpen(false)} />
 
       {/* T-105: first-run walkthrough. Auto-appears when there are
           zero principals and the dismiss flag is unset. Renders its

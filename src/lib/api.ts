@@ -129,8 +129,21 @@ export interface PrincipalSummary {
   runtimeId: string;
 }
 
-export async function principalList(): Promise<PrincipalSummary[]> {
-  return invoke<PrincipalSummary[]>("principal_list");
+/**
+ * PR #3: thread `runtimeId` through every principal invoke so the
+ * multi-runtime IPC layer can route to the correct transport. The
+ * desktop-side default keeps every existing JS caller
+ * backward-compatible — `runtimeId` is optional; omitted / undefined
+ * / `"local"` all resolve to the local IPC client.
+ */
+export type RuntimeId = string | null | undefined;
+
+export async function principalList(
+  runtimeId?: RuntimeId,
+): Promise<PrincipalSummary[]> {
+  return invoke<PrincipalSummary[]>("principal_list", {
+    runtimeId: runtimeId ?? null,
+  });
 }
 
 /**
@@ -140,8 +153,12 @@ export async function principalList(): Promise<PrincipalSummary[]> {
  */
 export async function principalGet(
   name: string,
+  runtimeId?: RuntimeId,
 ): Promise<PrincipalSummary | null> {
-  return invoke<PrincipalSummary | null>("principal_get", { name });
+  return invoke<PrincipalSummary | null>("principal_get", {
+    name,
+    runtimeId: runtimeId ?? null,
+  });
 }
 
 /**
@@ -159,6 +176,7 @@ export interface PrincipalCreateRequest {
   name: string;
   description?: string;
   modelId: string;
+  runtimeId?: RuntimeId;
 }
 
 export async function principalCreate(
@@ -168,6 +186,7 @@ export async function principalCreate(
     name: req.name,
     description: req.description ?? null,
     modelId: req.modelId,
+    runtimeId: req.runtimeId ?? null,
   });
 }
 
@@ -177,6 +196,7 @@ export interface PrincipalUpdateRequest {
   status?: string;
   exposure?: string;
   preferredModelId?: string;
+  runtimeId?: RuntimeId;
 }
 
 export async function principalUpdate(
@@ -188,11 +208,18 @@ export async function principalUpdate(
     status: req.status ?? null,
     exposure: req.exposure ?? null,
     preferredModelId: req.preferredModelId ?? null,
+    runtimeId: req.runtimeId ?? null,
   });
 }
 
-export async function principalRemove(name: string): Promise<boolean> {
-  return invoke<boolean>("principal_remove", { name });
+export async function principalRemove(
+  name: string,
+  runtimeId?: RuntimeId,
+): Promise<boolean> {
+  return invoke<boolean>("principal_remove", {
+    name,
+    runtimeId: runtimeId ?? null,
+  });
 }
 
 /**
@@ -202,8 +229,13 @@ export async function principalRemove(name: string): Promise<boolean> {
 export async function principalSend(
   name: string,
   message: string,
+  runtimeId?: RuntimeId,
 ): Promise<string> {
-  return invoke<string>("principal_send", { name, message });
+  return invoke<string>("principal_send", {
+    name,
+    message,
+    runtimeId: runtimeId ?? null,
+  });
 }
 
 /**
@@ -251,6 +283,7 @@ export async function principalSendStream(
   message: string,
   requestId: number,
   onEvent: (msg: ChatStreamMsg) => void,
+  runtimeId?: RuntimeId,
 ): Promise<PrincipalSendStreamResult> {
   const channel = new Channel<ChatStreamMsg>();
   channel.onmessage = onEvent;
@@ -259,6 +292,7 @@ export async function principalSendStream(
     message,
     requestId,
     onEvent: channel,
+    runtimeId: runtimeId ?? null,
   });
 }
 
@@ -286,10 +320,12 @@ export interface PrincipalSendControlArgs {
 
 export async function principalSendControl(
   args: PrincipalSendControlArgs,
+  runtimeId?: RuntimeId,
 ): Promise<{ status: string }> {
   return invoke<{ status: string }>("principal_send_control", {
     targetRequestId: args.targetRequestId,
     mode: args.mode,
+    runtimeId: runtimeId ?? null,
   });
 }
 
@@ -335,6 +371,7 @@ export async function principalLog(params: {
   limit?: number;
   sinceSecs?: number;
   cursor?: string | null;
+  runtimeId?: RuntimeId;
 }): Promise<LogResponse> {
   return normalizePrincipalLog(
     await invoke<LogResponse>("principal_log", {
@@ -343,8 +380,141 @@ export async function principalLog(params: {
       limit: params.limit ?? null,
       since_secs: params.sinceSecs ?? null,
       cursor: params.cursor ?? null,
+      runtimeId: params.runtimeId ?? null,
     }),
   );
+}
+
+// ─── PR #3: new status / exposure / permission commands ──────────────────────
+//
+// These mirror the Rust `principal_set_status` / `principal_set_exposure`
+// / `principal_grant_permission` / `principal_revoke_permission` /
+// `principal_permissions` commands. They are local-only — passing a
+// remote runtime_id returns an error from the Rust side.
+
+export async function principalSetStatus(
+  args: { name: string; status: string; runtimeId?: RuntimeId },
+): Promise<unknown> {
+  return invoke("principal_set_status", {
+    name: args.name,
+    status: args.status,
+    runtimeId: args.runtimeId ?? null,
+  });
+}
+
+export async function principalSetExposure(
+  args: { name: string; exposure: string; runtimeId?: RuntimeId },
+): Promise<unknown> {
+  return invoke("principal_set_exposure", {
+    name: args.name,
+    exposure: args.exposure,
+    runtimeId: args.runtimeId ?? null,
+  });
+}
+
+export interface PermissionGrant {
+  grantId: string;
+  principal: string;
+  capabilities: string[];
+  expiresAt?: string | null;
+}
+
+export async function principalGrantPermission(
+  args: {
+    name: string;
+    permission: Omit<PermissionGrant, "grantId">;
+    runtimeId?: RuntimeId;
+  },
+): Promise<PermissionGrant> {
+  return invoke<PermissionGrant>("principal_grant_permission", {
+    name: args.name,
+    permission: args.permission,
+    runtimeId: args.runtimeId ?? null,
+  });
+}
+
+export async function principalRevokePermission(
+  args: { name: string; grantId: string; runtimeId?: RuntimeId },
+): Promise<{ removed: boolean }> {
+  return invoke<{ removed: boolean }>("principal_revoke_permission", {
+    name: args.name,
+    grantId: args.grantId,
+    runtimeId: args.runtimeId ?? null,
+  });
+}
+
+export async function principalPermissions(
+  args: { name: string; runtimeId?: RuntimeId },
+): Promise<{ permissions: PermissionGrant[] }> {
+  return invoke<{ permissions: PermissionGrant[] }>("principal_permissions", {
+    name: args.name,
+    runtimeId: args.runtimeId ?? null,
+  });
+}
+
+// ─── Remote principals (PR #4) ──────────────────────────────────
+//
+// Shared-link flow: a user pastes `${hubUrl}/p/${owner}/${name}`
+// (with optional `?token=...`) and the desktop resolves the
+// principal via pekohub's anonymous
+// `/v1/public/principals/:owner/:name` endpoint, then persists the
+// verified record to `~/.peko/remote-principals.json`. The sidebar
+// renders the table as a "Remote" section (PR #3).
+
+export interface RemotePrincipalSummary {
+  hubUrl: string;
+  owner: string;
+  principalName: string;
+  displayName: string;
+  description?: string | null;
+  exposure: string;
+  status: string;
+  runtimeId: string;
+  addedAtUnixMs: number;
+  hasInviteToken: boolean;
+}
+
+export interface RemotePrincipalResolveResult {
+  hubUrl: string;
+  owner: string;
+  principalName: string;
+  displayName: string;
+  description?: string | null;
+  exposure: string;
+  status: string;
+  inviteToken?: string | null;
+}
+
+export async function remotePrincipalList(): Promise<RemotePrincipalSummary[]> {
+  return invoke<RemotePrincipalSummary[]>("remote_principal_list");
+}
+
+export async function remotePrincipalResolve(
+  shareUrl: string,
+): Promise<RemotePrincipalResolveResult> {
+  return invoke<RemotePrincipalResolveResult>("remote_principal_resolve", {
+    shareUrl,
+  });
+}
+
+export async function remotePrincipalAdd(
+  shareUrl: string,
+): Promise<RemotePrincipalSummary> {
+  return invoke<RemotePrincipalSummary>("remote_principal_add", {
+    req: { shareUrl },
+  });
+}
+
+export async function remotePrincipalRemove(args: {
+  hubUrl: string;
+  owner: string;
+  principalName: string;
+}): Promise<boolean> {
+  return invoke<boolean>("remote_principal_remove", {
+    hubUrl: args.hubUrl,
+    owner: args.owner,
+    principalName: args.principalName,
+  });
 }
 
 // ─── Models (model-first migration) ──────────────────────────────

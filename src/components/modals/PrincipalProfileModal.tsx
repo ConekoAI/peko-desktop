@@ -38,6 +38,12 @@ const STATUS_OPTIONS = [
 const EXPOSURE_OPTIONS = [
   { value: "unexposed", label: "Unexposed" },
   { value: "private", label: "Private" },
+  // PR #4 / PR #2: `unlisted` ships in the runtime's Exposure enum
+  // (peko-rs/auth/src/host.rs). It means "chat-reachable by URL but
+  // not discoverable" — the recommended default when sharing with a
+  // specific friend who has a share link but you don't want to be
+  // in the public directory.
+  { value: "unlisted", label: "Unlisted" },
   { value: "public", label: "Public" },
 ];
 
@@ -131,12 +137,15 @@ export default function PrincipalProfileModal({
   }
 
   function handleRemove() {
-    removeMut.mutate(principalName, {
-      onSuccess: () => {
-        onRemoved?.();
-        onClose();
+    removeMut.mutate(
+      { name: principalName },
+      {
+        onSuccess: () => {
+          onRemoved?.();
+          onClose();
+        },
       },
-    });
+    );
   }
 
   async function handleCopyShareLink() {

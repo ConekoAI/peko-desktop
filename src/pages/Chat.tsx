@@ -248,6 +248,7 @@ export default function Chat() {
   const { data: logData } = usePrincipalLog(
     selectedPrincipal || undefined,
     callerSubject,
+    runtimeId,
   );
 
   useEffect(() => {
@@ -365,6 +366,7 @@ export default function Chat() {
       await sendMut.mutateAsync({
         name: selectedPrincipal,
         message,
+        runtimeId,
         onEvent: (msg: ChatStreamMsg) => {
           if (msg.kind === "iteration") {
             // Boundary marker from the runtime — a new agentic

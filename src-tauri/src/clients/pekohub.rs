@@ -7,6 +7,12 @@ use reqwest::header::AUTHORIZATION;
 
 const DEFAULT_BASE_URL: &str = "https://pekohub.org/api";
 
+/// URL-encode a single query-string value. Avoids pulling a
+/// different crate just for this one helper.
+fn urlencode(value: &str) -> String {
+    urlencoding::encode(value).into_owned()
+}
+
 /// Provider-namespace + name used by the OAuth flow to store the token
 /// bundle in the runtime's credential vault. Must match
 /// `useRuntimes.ts::storeOAuthBundle` which writes via
@@ -246,6 +252,52 @@ impl PekohubClient {
         let resp = req.send().await.map_err(|e| e.to_string())?;
         if !resp.status().is_success() {
             return Err(format!("pekohub error: {}", resp.status()));
+        }
+        resp.json().await.map_err(|e| e.to_string())
+    }
+
+    // ------------------------------------------------------------------
+    // Public principal lookup (PR #4)
+    // ------------------------------------------------------------------
+
+    /// Resolve a public (or unlisted, post-PR #2) principal by
+    /// `${owner}/${name}` against the hub's anonymous
+    /// `/v1/public/principals/:owner/:name` endpoint. Returns the
+    /// `liveInstance` envelope verbatim so the caller can decide
+    /// which fields to persist. `invite_token` is forwarded as a
+    /// query string (?token=...) for share-with-URL flows; PR #11
+    /// surfaces the token in the wide UI.
+    ///
+    /// The endpoint is anonymous by contract — we never attach the
+    /// OAuth token here so a user's anonymous share-link round-trip
+    /// works without requiring them to be signed in.
+    pub async fn get_public_principal(
+        &self,
+        owner: &str,
+        name: &str,
+        invite_token: Option<&str>,
+    ) -> Result<serde_json::Value, String> {
+        let mut url = format!(
+            "{}/v1/public/principals/{}/{}",
+            self.base_url, owner, name
+        );
+        if let Some(token) = invite_token {
+            url.push_str(&format!("?token={}", urlencode(token)));
+        }
+        let resp = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| format!("public principal lookup failed: {e}"))?;
+        if resp.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err("principal not found".to_string());
+        }
+        if !resp.status().is_success() {
+            return Err(format!(
+                "pekohub error: {}",
+                resp.status()
+            ));
         }
         resp.json().await.map_err(|e| e.to_string())
     }
