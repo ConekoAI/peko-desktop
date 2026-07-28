@@ -10,6 +10,8 @@ import {
   pekohubListRuntimes,
   credentialSetRaw,
   credentialGetRaw,
+  pekohubLogout,
+  startOAuthCallbackListener,
   type StoredTokenBundle,
   type OAuthTokenResponse,
 } from "../lib/api";
@@ -65,13 +67,56 @@ export function useRenameRuntime() {
 
 // ─── OAuth2 PKCE Flow ───────────────────────────────────────
 
-/** In-memory storage for the current OAuth flow (verifier + state). */
-let activeOAuthFlow: {
+/**
+ * In-flight OAuth flow state (verifier + state + endpoints).
+ *
+ * Persisted to `sessionStorage` so that an accidental page reload
+ * between `startOAuthConnect` and `exchangeOAuthCode` doesn't drop
+ * the PKCE verifier — the user would otherwise have to restart the
+ * whole flow. `sessionStorage` is scoped to the current tab and is
+ * cleared when the tab closes, which matches the OAuth flow's
+ * natural lifetime: a flow that survives a tab close is suspect
+ * anyway (the browser redirect went somewhere unexpected).
+ *
+ * Implementation note (D3): the original code held this in a
+ * module-level `let`. Module state is reset on Vite HMR and lost on
+ * reload. sessionStorage is reload-survivable without a new
+ * dependency — adding zustand for one piece of state would be
+ * over-engineering.
+ */
+const OAUTH_FLOW_KEY = "peko:oauth-flow";
+
+interface OAuthFlowState {
   verifier: string;
   state: string;
   redirectUri: string;
   baseUrl: string;
-} | null = null;
+}
+
+export function readActiveFlow(): OAuthFlowState | null {
+  try {
+    const raw = sessionStorage.getItem(OAUTH_FLOW_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as OAuthFlowState;
+  } catch {
+    return null;
+  }
+}
+
+export function writeActiveFlow(flow: OAuthFlowState | null): void {
+  try {
+    if (flow === null) {
+      sessionStorage.removeItem(OAUTH_FLOW_KEY);
+    } else {
+      sessionStorage.setItem(OAUTH_FLOW_KEY, JSON.stringify(flow));
+    }
+  } catch {
+    // sessionStorage may throw in private mode or when quota is
+    // exhausted — fall back to the previous in-memory behaviour by
+    // silently dropping persistence. The flow still works within the
+    // current page.
+  }
+}
 
 export interface OAuthConnectInput {
   /** PekoHub base URL (e.g. https://pekohub.org) */
@@ -95,6 +140,9 @@ export interface OAuthConnectResult {
  * The caller is responsible for collecting the authorization code
  * (via manual paste, local HTTP server, or custom protocol) and
  * passing it to `exchangeOAuthCode`.
+ *
+ * D6 deprecated the manual-paste path: prefer `runOAuthFlow` which
+ * spawns a localhost listener and captures the redirect server-side.
  */
 export async function startOAuthConnect(
   input: OAuthConnectInput,
@@ -107,7 +155,7 @@ export async function startOAuthConnect(
   const state = generateState();
   const challenge = await generateCodeChallenge(verifier);
 
-  activeOAuthFlow = { verifier, state, redirectUri, baseUrl };
+  writeActiveFlow({ verifier, state, redirectUri, baseUrl });
 
   const authorizeUrl = buildAuthorizeUrl({
     baseUrl,
@@ -120,6 +168,62 @@ export async function startOAuthConnect(
 
   await openUrl(authorizeUrl);
   return authorizeUrl;
+}
+
+/**
+ * Default port the OAuth callback listener binds to. Hard-coded
+ * because the PekoHub `redirect_uri` must be registered in advance
+ * (it's a static OAuth client config) — using 0 / random would
+ * fail server-side validation.
+ */
+const PEKOHUB_CALLBACK_PORT = 19876;
+const PEKOHUB_CALLBACK_PATH = "/callback";
+
+/**
+ * End-to-end OAuth sign-in: bind the localhost listener, open
+ * the authorize URL, capture the redirect, exchange, and discover
+ * runtimes. The Rust-side `start_oauth_callback_listener` resolves
+ * once the browser hits the redirect, or rejects after 2 minutes.
+ *
+ * Listener and browser-redirect are started in parallel so the
+ * browser doesn't beat the listener to the bind (race-free; the
+ * Tauri command is awaitable and returns once the connection is
+ * accepted, not once the request is read).
+ */
+export async function runOAuthFlow(
+  input: OAuthConnectInput,
+): Promise<OAuthConnectResult> {
+  const baseUrl = input.baseUrl.replace(/\/+$/, "");
+  const clientId = input.clientId ?? "peko-desktop";
+  const redirectUri =
+    input.redirectUri ?? `http://localhost:${PEKOHUB_CALLBACK_PORT}${PEKOHUB_CALLBACK_PATH}`;
+
+  const verifier = generateCodeVerifier();
+  const state = generateState();
+  const challenge = await generateCodeChallenge(verifier);
+  writeActiveFlow({ verifier, state, redirectUri, baseUrl });
+
+  // Start the listener + open the browser in parallel. Whichever
+  // finishes second, the listener will catch the redirect (the
+  // browser has to round-trip through PekoHub, so the listener
+  // bind is always first).
+  const listenerPromise = startOAuthCallbackListener(
+    PEKOHUB_CALLBACK_PORT,
+    PEKOHUB_CALLBACK_PATH,
+  );
+
+  const authorizeUrl = buildAuthorizeUrl({
+    baseUrl,
+    clientId,
+    redirectUri,
+    codeChallenge: challenge,
+    state,
+    scope: input.scope,
+  });
+  await openUrl(authorizeUrl);
+
+  const { code, state: returnedState } = await listenerPromise;
+  return exchangeOAuthCode(code, returnedState, clientId);
 }
 
 /**
@@ -203,10 +307,11 @@ export async function exchangeOAuthCode(
   returnedState: string,
   clientId = "peko-desktop",
 ): Promise<OAuthConnectResult> {
-  if (!activeOAuthFlow) {
+  const activeFlow = readActiveFlow();
+  if (!activeFlow) {
     throw new Error("No active OAuth flow. Start the flow first.");
   }
-  const { verifier, state, redirectUri, baseUrl } = activeOAuthFlow;
+  const { verifier, state, redirectUri, baseUrl } = activeFlow;
 
   if (returnedState !== state) {
     throw new Error("OAuth state mismatch. Possible CSRF attack.");
@@ -244,7 +349,10 @@ export async function exchangeOAuthCode(
     }
   }
 
-  activeOAuthFlow = null;
+  // Clear the persisted flow now that we've successfully exchanged.
+  // Leaving it would let a stale verifier be replayed against a
+  // future OAuth flow (low impact, but unnecessary surface).
+  writeActiveFlow(null);
   return { added: added.length, runtimes: added };
 }
 
@@ -262,6 +370,52 @@ export function useOAuthConnect() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["runtimes"] });
       qc.invalidateQueries({ queryKey: ["credentials", "pekohub"] });
+      qc.invalidateQueries({ queryKey: ["pekohub-bundle"] });
     },
+  });
+}
+
+/**
+ * Forget the PekoHub OAuth bundle + clear the in-flight PKCE flow.
+ *
+ * Server-side (`pekohub_logout` Tauri command) deletes the
+ * `provider:pekohub/default` credential. The runtime's
+ * `RuntimeConnection` rows with `connectionType === "pekohub"` are
+ * the user's discovered-runtimes list and are NOT touched by the
+ * server — the SPA simply invalidates the `runtimes` query so the
+ * user re-lists from a clean slate on the next "Sign in with
+ * PekoHub" click. Cached `pekohub` credential entries are also
+ * invalidated so the UI re-fetches and reflects the empty state.
+ *
+ * Also clears any in-flight PKCE flow state from sessionStorage — a
+ * stale verifier from a prior aborted sign-in is dead state.
+ */
+export function usePekohubLogout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => pekohubLogout(),
+    onSuccess: () => {
+      writeActiveFlow(null);
+      qc.invalidateQueries({ queryKey: ["runtimes"] });
+      qc.invalidateQueries({ queryKey: ["credentials", "pekohub"] });
+      qc.invalidateQueries({ queryKey: ["pekohub-bundle"] });
+    },
+  });
+}
+
+/**
+ * Reactive check: is a PekoHub OAuth bundle currently stored?
+ *
+ * Used by the Settings UI to decide whether to render the
+ * "Sign out of PekoHub" affordance — without it, the button would
+ * either lie ("you're signed out!") or no-op silently. The query
+ * mirrors the `credentials/pekohub` cache key the OAuth flow
+ * invalidates on success, so signing in flips the result live.
+ */
+export function usePekohubBundle() {
+  return useQuery({
+    queryKey: ["pekohub-bundle"],
+    queryFn: () => loadOAuthBundle(),
+    staleTime: 30_000,
   });
 }
