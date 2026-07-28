@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RegistryRouteImport } from './routes/registry'
 import { Route as ExtensionsRouteImport } from './routes/extensions'
+import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CronRouteImport } from './routes/cron'
 import { Route as ChatRouteImport } from './routes/chat'
@@ -33,6 +34,11 @@ const RegistryRoute = RegistryRouteImport.update({
 const ExtensionsRoute = ExtensionsRouteImport.update({
   id: '/extensions',
   path: '/extensions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
+  '/discover': typeof DiscoverRoute
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
+  '/discover': typeof DiscoverRoute
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
+  '/discover': typeof DiscoverRoute
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/cron'
     | '/dashboard'
+    | '/discover'
     | '/extensions'
     | '/registry'
     | '/settings'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/cron'
     | '/dashboard'
+    | '/discover'
     | '/extensions'
     | '/registry'
     | '/settings'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/cron'
     | '/dashboard'
+    | '/discover'
     | '/extensions'
     | '/registry'
     | '/settings'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRouteWithChildren
   CronRoute: typeof CronRoute
   DashboardRoute: typeof DashboardRoute
+  DiscoverRoute: typeof DiscoverRoute
   ExtensionsRoute: typeof ExtensionsRoute
   RegistryRoute: typeof RegistryRoute
   SettingsRoute: typeof SettingsRoute
@@ -180,6 +193,13 @@ declare module '@tanstack/react-router' {
       path: '/extensions'
       fullPath: '/extensions'
       preLoaderRoute: typeof ExtensionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -249,6 +269,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRouteWithChildren,
   CronRoute: CronRoute,
   DashboardRoute: DashboardRoute,
+  DiscoverRoute: DiscoverRoute,
   ExtensionsRoute: ExtensionsRoute,
   RegistryRoute: RegistryRoute,
   SettingsRoute: SettingsRoute,

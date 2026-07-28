@@ -19,6 +19,7 @@ import {
   Settings,
   Link as LinkIcon,
   Trash2,
+  Compass,
 } from "lucide-react";
 import type { PrincipalSummary, RemotePrincipalSummary } from "../lib/api";
 
@@ -403,6 +404,17 @@ export default function PrincipalSidebar({
               <span>Connect to a remote principal</span>
             </button>
           )}
+          {/* PR #8: in-app discovery button. Always rendered so a
+              user who hasn't added any remote principals can still
+              browse the public hub from inside the desktop. */}
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/discover" })}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <Compass className="h-4 w-4" />
+            <span>Discover public principals</span>
+          </button>
         </div>
       )}
 
