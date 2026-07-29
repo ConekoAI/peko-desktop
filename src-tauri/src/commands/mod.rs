@@ -37,6 +37,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_grant_permission,
         principal::principal_revoke_permission,
         principal::principal_permissions,
+        principal::principal_mint_invite,
+        principal::principal_revoke_invite,
         capability::capability_list,
         capability::capability_grant,
         capability::capability_revoke,

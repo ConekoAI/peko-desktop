@@ -1300,6 +1300,50 @@ impl IpcClient {
         });
         self.request_response(req).await
     }
+
+    /// PR #11: mirror of `RequestPacket::PrincipalMintInvite`. The
+    /// runtime mints a signed invite token, returns it in the
+    /// `principal_invite_minted` response. `scope` is forwarded
+    /// verbatim as a JSON array of permission names; the daemon
+    /// resolves them against `peko_auth::Permission` (matches the
+    /// desktop-side parse in `commands/principal.rs`).
+    pub async fn principal_mint_invite(
+        &self,
+        name: &str,
+        scope: Vec<String>,
+        ttl_secs: u64,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_mint_invite",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "scope": scope,
+            "ttl_secs": ttl_secs,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR #11: mirror of `RequestPacket::PrincipalRevokeInvite`.
+    /// Adds the `jti` to the runtime's in-memory
+    /// `InviteRevocationSet`; the next inbound request presenting
+    /// that token is rejected.
+    pub async fn principal_revoke_invite(
+        &self,
+        name: &str,
+        jti: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_revoke_invite",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "jti": jti,
+        });
+        self.request_response(req).await
+    }
 }
 
 #[cfg(unix)]

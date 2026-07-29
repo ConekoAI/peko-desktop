@@ -452,6 +452,55 @@ export async function principalPermissions(
   });
 }
 
+// ─── PR #11: invite-token mint / revoke ──────────────────────────
+//
+// Owners mint a signed invite link and share it with one friend.
+// The runtime caps the TTL at 30 days; passing larger values
+// rounds down on the daemon side. The returned `jti` is also
+// returned in the response so the desktop can later revoke the
+// token without needing to parse the URL.
+
+export interface InviteClaims {
+  principalDid: string;
+  principalName: string;
+  ownerSubject: string;
+  scope: string[];
+  exp: number; // unix seconds (UTC)
+  jti: string;
+}
+
+export interface MintedInvite {
+  token: string;
+  url: string;
+  claims: InviteClaims;
+}
+
+export async function principalMintInvite(args: {
+  name: string;
+  scope?: string[];
+  ttlSecs?: number;
+  runtimeId?: RuntimeId;
+}): Promise<MintedInvite> {
+  return invoke<MintedInvite>("principal_mint_invite", {
+    name: args.name,
+    scope: args.scope ?? ["chat"],
+    ttlSecs: args.ttlSecs ?? 7 * 24 * 60 * 60,
+    runtimeId: args.runtimeId ?? null,
+  });
+}
+
+export async function principalRevokeInvite(args: {
+  name: string;
+  jti: string;
+  runtimeId?: RuntimeId;
+}): Promise<{ jti: string }> {
+  return invoke<{ jti: string }>("principal_revoke_invite", {
+    name: args.name,
+    jti: args.jti,
+    runtimeId: args.runtimeId ?? null,
+  });
+}
+
 // ─── Remote principals (PR #4) ──────────────────────────────────
 //
 // Shared-link flow: a user pastes `${hubUrl}/p/${owner}/${name}`

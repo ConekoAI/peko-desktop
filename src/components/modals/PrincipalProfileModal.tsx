@@ -12,7 +12,7 @@ import {
 } from "../../hooks/usePrincipalStatus";
 import { useModels } from "../../hooks/useModels";
 import { useSettings } from "../../hooks/useSettings";
-import { principalSetStatus } from "../../lib/api";
+import { principalSetStatus, principalMintInvite, principalRevokeInvite, type MintedInvite } from "../../lib/api";
 import {
   X,
   Bot,
@@ -108,6 +108,58 @@ export default function PrincipalProfileModal({
   // cosmetic and resetting on remount is fine (no need to lift).
   const [copied, setCopied] = useState(false);
 
+  // PR #11: invite-link generation. `mintedInvite` is the most
+  // recent successful `principal_mint_invite` response (carries the
+  // token, the share URL, and the full claims incl. `jti` and
+  // `exp`). `mintingInvite` tracks the in-flight call so the
+  // button shows a spinner. `mintError` is shown inline if the
+  // daemon rejects (e.g. caller lacks `ManageSettings`).
+  const [mintedInvite, setMintedInvite] = useState<MintedInvite | null>(null);
+  const [mintingInvite, setMintingInvite] = useState(false);
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [revokingInvite, setRevokingInvite] = useState(false);
+
+  const handleMintInvite = async () => {
+    if (!principal) return;
+    setMintingInvite(true);
+    setMintError(null);
+    try {
+      const minted = await principalMintInvite({
+        name: principal.name,
+        scope: ["chat"],
+        ttlSecs: 7 * 24 * 60 * 60,
+        runtimeId: principal.runtimeId,
+      });
+      setMintedInvite(minted);
+    } catch (err) {
+      setMintError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMintingInvite(false);
+    }
+  };
+
+  const handleRevokeInvite = async () => {
+    if (!mintedInvite || !principal) return;
+    setRevokingInvite(true);
+    setMintError(null);
+    try {
+      await principalRevokeInvite({
+        name: principal.name,
+        jti: mintedInvite.claims.jti,
+        runtimeId: principal.runtimeId,
+      });
+      // Clear the rendered link so the user sees the burn took
+      // effect. The runtime's in-memory revocation set rejects
+      // any subsequent request carrying this token, but the
+      // token has already been removed from the user's view.
+      setMintedInvite(null);
+    } catch (err) {
+      setMintError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRevokingInvite(false);
+    }
+  };
+
   const shareUrl = useMemo(() => {
     if (!principal) return null;
     if (principal.exposure !== "public") return null;
@@ -131,6 +183,8 @@ export default function PrincipalProfileModal({
       setExposure("");
       setModelId("");
       setCopied(false);
+      setMintedInvite(null);
+      setMintError(null);
       updateMut.reset();
       removeMut.reset();
       return;
@@ -341,6 +395,101 @@ export default function PrincipalProfileModal({
                           </>
                         )}
                       </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PR #11: invite link (share with one friend). A signed
+                  token embedded in the URL — anyone with the URL can
+                  chat until the owner revokes the `jti`. The mint
+                  button is hidden for `unexposed` / `private` (no
+                  point — the recipient would 404 on the hub); for
+                  `public` / `unlisted` we offer it as a one-click
+                  alternative to the world-readable share link above. */}
+              {(principal.exposure === "public" ||
+                principal.exposure === "unlisted") && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/30">
+                  <div className="flex items-start gap-2">
+                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-violet-900 dark:text-violet-200">
+                        Invite link
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-violet-700 dark:text-violet-300">
+                        Share with one friend. Burns immediately on revoke.
+                      </p>
+                      {mintError && (
+                        <p
+                          className="mt-2 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
+                          data-testid="invite-error"
+                        >
+                          {mintError}
+                        </p>
+                      )}
+                      {mintedInvite ? (
+                        <>
+                          <p
+                            className="mt-2 break-all font-mono text-[11px] text-violet-700 dark:text-violet-300"
+                            data-testid="invite-url"
+                          >
+                            {mintedInvite.url}
+                          </p>
+                          <p className="mt-1 text-[10px] text-violet-600/70 dark:text-violet-400/70">
+                            jti {mintedInvite.claims.jti.slice(0, 8)}…
+                            {" · "}
+                            expires{" "}
+                            {new Date(
+                              mintedInvite.claims.exp * 1000,
+                            ).toLocaleString()}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(
+                                    mintedInvite.url,
+                                  );
+                                } catch {
+                                  /* clipboard denied — non-fatal */
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300 dark:hover:bg-violet-950"
+                              data-testid="copy-invite-link"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              Copy
+                            </button>
+                            <button
+                              onClick={handleRevokeInvite}
+                              disabled={revokingInvite}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-950"
+                              data-testid="burn-invite"
+                            >
+                              {revokingInvite ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                              Burn
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <button
+                          onClick={handleMintInvite}
+                          disabled={mintingInvite}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-50 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300 dark:hover:bg-violet-950"
+                          data-testid="generate-invite"
+                        >
+                          {mintingInvite ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Link2 className="h-3.5 w-3.5" />
+                          )}
+                          Generate invite link
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

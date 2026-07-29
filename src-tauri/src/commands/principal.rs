@@ -795,6 +795,71 @@ pub async fn principal_permissions(
         .map_err(|e| format!("principal_permissions failed: {e}"))
 }
 
+/// PR #11: mint a signed invite token for a local principal.
+/// Mirror of `RequestPacket::PrincipalMintInvite`. Returns the
+/// `PrincipalInviteMinted` envelope as JSON (the runtime shapes it
+/// as `{ name, token, url, claims }`). The `scope` is forwarded
+/// as a JSON array of permission name strings; the daemon
+/// deserializes them into `peko_auth::Permission` (snake_case
+/// matches the lowercase names we use here).
+#[tauri::command]
+pub async fn principal_mint_invite(
+    name: String,
+    scope: Vec<String>,
+    ttl_secs: u64,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    // Reject obviously-bad scope names client-side so a typo
+    // produces a clean error instead of a daemon roundtrip +
+    // deserialization failure. The list mirrors
+    // `peko_auth::Permission` exactly (snake_case); if a new
+    // permission is added on the runtime side, this list must be
+    // updated.
+    const ALLOWED: &[&str] = &[
+        "chat",
+        "view_settings",
+        "manage_settings",
+        "manage_extensions",
+        "manage_members",
+        "expose",
+        "delete",
+    ];
+    for s in &scope {
+        if !ALLOWED.contains(&s.as_str()) {
+            return Err(format!("Unknown permission: {s}"));
+        }
+    }
+
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    client
+        .principal_mint_invite(&name, scope, ttl_secs)
+        .await
+        .map_err(|e| format!("principal_mint_invite failed: {e}"))
+}
+
+/// PR #11: revoke a previously-minted invite token. Adds the `jti`
+/// to the runtime's in-memory `InviteRevocationSet`. The next
+/// inbound request presenting that token is rejected by the
+/// runtime's `TunnelDispatcher::check_request_allowed`.
+#[tauri::command]
+pub async fn principal_revoke_invite(
+    name: String,
+    jti: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    client
+        .principal_revoke_invite(&name, &jti)
+        .await
+        .map_err(|e| format!("principal_revoke_invite failed: {e}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
