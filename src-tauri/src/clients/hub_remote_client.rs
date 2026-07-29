@@ -240,10 +240,7 @@ impl SseBuffer {
         let mut out = Vec::new();
         // Split on the SSE record separator (`\n\n`). Each record is
         // processed; partial trailing bytes stay in the buffer.
-        loop {
-            let Some(idx) = find_double_newline(&self.buf) else {
-                break;
-            };
+        while let Some(idx) = find_double_newline(&self.buf) {
             let raw = self.buf.drain(..idx + 2).collect::<Vec<u8>>();
             let s = match std::str::from_utf8(&raw) {
                 Ok(s) => s,

@@ -104,7 +104,6 @@ pub fn append_entry(
 
     let mut file = std::fs::OpenOptions::new()
         .create(true)
-        .write(true)
         .append(true)
         .open(&path)
         .map_err(|e| format!("failed to open chat-log file: {}", e))?;
@@ -266,7 +265,7 @@ mod tests {
         std::fs::create_dir_all(&path).unwrap();
         let good = serde_json::to_string(&user_entry("hi".to_string())).unwrap();
         std::fs::write(
-            &path.join("log.jsonl"),
+            path.join("log.jsonl"),
             format!("{good}\n{{\"kind\":\"user\",\"content\":\"trailin"),
         )
         .unwrap();
