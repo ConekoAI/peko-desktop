@@ -39,9 +39,12 @@ impl ChatLogEntry {
     #[allow(dead_code)] // exposed for future use in log filtering / sorting
     fn timestamp(&self) -> u64 {
         match self {
-            Self::User { timestamp_unix_ms, .. } | Self::Assistant { timestamp_unix_ms, .. } => {
-                *timestamp_unix_ms
+            Self::User {
+                timestamp_unix_ms, ..
             }
+            | Self::Assistant {
+                timestamp_unix_ms, ..
+            } => *timestamp_unix_ms,
         }
     }
 }
@@ -85,7 +88,11 @@ fn now_unix_ms() -> u64 {
 /// the parent directory so a crash mid-write cannot leave a torn
 /// line that confuses the next reader (mirrors the runtime's
 /// [[f30a-session-atomic-append]] pattern).
-pub fn append_entry(runtime_id: &str, principal_name: &str, entry: &ChatLogEntry) -> Result<(), String> {
+pub fn append_entry(
+    runtime_id: &str,
+    principal_name: &str,
+    entry: &ChatLogEntry,
+) -> Result<(), String> {
     let path = log_path(runtime_id, principal_name)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
@@ -150,8 +157,7 @@ pub fn assistant_entry(content: String) -> ChatLogEntry {
 
 #[cfg(unix)]
 fn sync_dir(dir: &Path) -> Result<(), String> {
-    let f = std::fs::File::open(dir)
-        .map_err(|e| format!("failed to open dir for fsync: {}", e))?;
+    let f = std::fs::File::open(dir).map_err(|e| format!("failed to open dir for fsync: {}", e))?;
     f.sync_all()
         .map_err(|e| format!("failed to fsync dir: {}", e))?;
     Ok(())
@@ -243,7 +249,10 @@ mod tests {
     /// Stable segment names pass the guard — pins the happy path.
     #[test]
     fn accepts_safe_segments() {
-        assert_eq!(sanitize_segment("hub:pekohub.org").unwrap(), "hub:pekohub.org");
+        assert_eq!(
+            sanitize_segment("hub:pekohub.org").unwrap(),
+            "hub:pekohub.org"
+        );
         assert_eq!(sanitize_segment("alice").unwrap(), "alice");
         assert_eq!(sanitize_segment("helper-1").unwrap(), "helper-1");
     }

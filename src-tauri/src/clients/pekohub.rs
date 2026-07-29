@@ -277,10 +277,7 @@ impl PekohubClient {
         name: &str,
         invite_token: Option<&str>,
     ) -> Result<serde_json::Value, String> {
-        let mut url = format!(
-            "{}/v1/public/principals/{}/{}",
-            self.base_url, owner, name
-        );
+        let mut url = format!("{}/v1/public/principals/{}/{}", self.base_url, owner, name);
         if let Some(token) = invite_token {
             url.push_str(&format!("?token={}", urlencode(token)));
         }
@@ -294,10 +291,7 @@ impl PekohubClient {
             return Err("principal not found".to_string());
         }
         if !resp.status().is_success() {
-            return Err(format!(
-                "pekohub error: {}",
-                resp.status()
-            ));
+            return Err(format!("pekohub error: {}", resp.status()));
         }
         resp.json().await.map_err(|e| e.to_string())
     }

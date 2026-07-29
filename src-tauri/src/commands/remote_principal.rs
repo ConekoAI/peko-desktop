@@ -144,7 +144,13 @@ fn urlparse_simple(raw: &str) -> Option<SimpleUrl> {
     let query_token = query
         .split('&')
         .filter_map(|pair| pair.split_once('='))
-        .find_map(|(k, v)| if k == "token" { Some(v.to_string()) } else { None });
+        .find_map(|(k, v)| {
+            if k == "token" {
+                Some(v.to_string())
+            } else {
+                None
+            }
+        });
     Some(SimpleUrl {
         origin: format!("{scheme}://{origin}"),
         path: path.to_string(),
@@ -155,13 +161,14 @@ fn urlparse_simple(raw: &str) -> Option<SimpleUrl> {
 #[tauri::command]
 pub async fn remote_principal_list() -> Result<Vec<RemotePrincipalSummary>, String> {
     let records = remote_principals::read_all()?;
-    Ok(records.iter().map(RemotePrincipalSummary::from_record).collect())
+    Ok(records
+        .iter()
+        .map(RemotePrincipalSummary::from_record)
+        .collect())
 }
 
 #[tauri::command]
-pub async fn remote_principal_resolve(
-    share_url: String,
-) -> Result<RemotePrincipalResolve, String> {
+pub async fn remote_principal_resolve(share_url: String) -> Result<RemotePrincipalResolve, String> {
     let (hub_url, owner, name, invite_token) = parse_share_url(&share_url)
         .ok_or_else(|| format!("not a valid pekohub share URL: {share_url:?}"))?;
     // Use a PekohubClient pinned to the user-supplied hub URL so
@@ -274,9 +281,7 @@ pub async fn remote_principal_remove(
     let mut records = remote_principals::read_all().unwrap_or_default();
     let before = records.len();
     records.retain(|r| {
-        !(r.hub_url == hub_url
-            && r.owner == owner
-            && r.principal_name == principal_name)
+        !(r.hub_url == hub_url && r.owner == owner && r.principal_name == principal_name)
     });
     let removed = records.len() != before;
     if removed {
@@ -303,10 +308,9 @@ mod tests {
 
     #[test]
     fn test_parse_share_url_canonical_form() {
-        let (hub, owner, name, token) = parse_share_url(
-            "https://pekohub.org/p/alice/coding-assistant",
-        )
-        .expect("canonical form should parse");
+        let (hub, owner, name, token) =
+            parse_share_url("https://pekohub.org/p/alice/coding-assistant")
+                .expect("canonical form should parse");
         assert_eq!(hub, "https://pekohub.org");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
@@ -315,10 +319,9 @@ mod tests {
 
     #[test]
     fn test_parse_share_url_with_token() {
-        let (hub, owner, name, token) = parse_share_url(
-            "https://pekohub.org/p/alice/coding-assistant?token=abc123",
-        )
-        .expect("token-bearing form should parse");
+        let (hub, owner, name, token) =
+            parse_share_url("https://pekohub.org/p/alice/coding-assistant?token=abc123")
+                .expect("token-bearing form should parse");
         assert_eq!(hub, "https://pekohub.org");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
@@ -327,10 +330,9 @@ mod tests {
 
     #[test]
     fn test_parse_share_url_api_form() {
-        let (hub, owner, name, token) = parse_share_url(
-            "https://pekohub.org/v1/public/principals/alice/coding-assistant",
-        )
-        .expect("api form should parse");
+        let (hub, owner, name, token) =
+            parse_share_url("https://pekohub.org/v1/public/principals/alice/coding-assistant")
+                .expect("api form should parse");
         assert_eq!(hub, "https://pekohub.org");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
@@ -350,10 +352,7 @@ mod tests {
         assert!(parse_share_url("ftp://pekohub.org/p/alice/x").is_none());
         // Trailing path segment is rejected — only the owner/name
         // pair is allowed.
-        assert!(
-            parse_share_url("https://pekohub.org/p/alice/coding-assistant/extra")
-                .is_none()
-        );
+        assert!(parse_share_url("https://pekohub.org/p/alice/coding-assistant/extra").is_none());
         // `/p/owner` (no name) is rejected.
         assert!(parse_share_url("https://pekohub.org/p/alice").is_none());
     }

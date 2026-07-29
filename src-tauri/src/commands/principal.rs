@@ -321,7 +321,10 @@ pub async fn principal_update(req: PrincipalUpdateRequest) -> Result<PrincipalSu
     // PR #3: update is local-only. The Shape mirrors `principal_create`:
     // a remote runtime_id is rejected up front so the desktop exposes
     // a clear failure rather than silently forwarding to a remote hub.
-    let runtime_id = req.runtime_id.clone().unwrap_or_else(|| "local".to_string());
+    let runtime_id = req
+        .runtime_id
+        .clone()
+        .unwrap_or_else(|| "local".to_string());
     if runtime_id != "local" {
         return Err(format!(
             "principal_update is only available on the local runtime (got runtime_id={runtime_id:?})"
@@ -347,10 +350,7 @@ pub async fn principal_update(req: PrincipalUpdateRequest) -> Result<PrincipalSu
 /// `RequestPacket::PrincipalRemove`. Returns `true` if the principal was
 /// actually deleted, `false` if it was already gone.
 #[tauri::command]
-pub async fn principal_remove(
-    name: String,
-    runtime_id: Option<String>,
-) -> Result<bool, String> {
+pub async fn principal_remove(name: String, runtime_id: Option<String>) -> Result<bool, String> {
     // PR #3: remove is local-only (mirrors create / update).
     let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
     if runtime_id != "local" {
@@ -556,8 +556,7 @@ pub async fn principal_send_stream(
                 )
                 .await
                 .map_err(|e| format!("principal_send_stream failed: {e}"))?;
-            rx.await
-                .map_err(|e| format!("supervisor task died: {e}"))?
+            rx.await.map_err(|e| format!("supervisor task died: {e}"))?
         }
         crate::state::ResolvedRuntime::HubRemote(client) => {
             // Persist the user message optimistically so the local
@@ -604,8 +603,7 @@ pub async fn principal_send_control(
     let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
     if matches!(resolved, crate::state::ResolvedRuntime::HubRemote(_)) {
         return Err(
-            "principal_send_control: steering is not supported for remote principals"
-                .to_string(),
+            "principal_send_control: steering is not supported for remote principals".to_string(),
         );
     }
     let client = crate::ipc::IpcClient::new()
@@ -870,7 +868,10 @@ mod tests {
     #[test]
     fn test_reject_if_remote_accepts_local() {
         assert_eq!(reject_if_remote(None).unwrap(), "local");
-        assert_eq!(reject_if_remote(Some("local".to_string())).unwrap(), "local");
+        assert_eq!(
+            reject_if_remote(Some("local".to_string())).unwrap(),
+            "local"
+        );
     }
 
     #[test]

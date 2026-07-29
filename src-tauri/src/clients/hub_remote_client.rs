@@ -120,11 +120,7 @@ impl HubRemoteClient {
     /// to the local chat log so `principal_log` returns it on
     /// subsequent visits. The user message is persisted by the caller
     /// (the chat UI knows the optimistic timestamp).
-    pub async fn send_stream<F>(
-        &self,
-        message: &str,
-        on_event: F,
-    ) -> Result<String, String>
+    pub async fn send_stream<F>(&self, message: &str, on_event: F) -> Result<String, String>
     where
         F: Fn(ChatStreamMsg) + Send + Sync + 'static,
     {
@@ -268,7 +264,12 @@ fn find_double_newline(buf: &[u8]) -> Option<usize> {
         if buf[i] == b'\n' && buf[i + 1] == b'\n' {
             return Some(i);
         }
-        if buf[i] == b'\r' && buf[i + 1] == b'\n' && i + 3 < buf.len() && buf[i + 2] == b'\r' && buf[i + 3] == b'\n' {
+        if buf[i] == b'\r'
+            && buf[i + 1] == b'\n'
+            && i + 3 < buf.len()
+            && buf[i + 2] == b'\r'
+            && buf[i + 3] == b'\n'
+        {
             return Some(i);
         }
     }
@@ -344,10 +345,7 @@ mod tests {
     fn parse_iteration_envelope() {
         let raw = "event: iteration\ndata: {\"iteration\":3}\n\n";
         let frame = parse_sse_record(raw).expect("iteration parses");
-        assert_eq!(
-            frame,
-            SseFrame::Iteration { iteration: 3 }
-        );
+        assert_eq!(frame, SseFrame::Iteration { iteration: 3 });
     }
 
     /// Error envelopes carry a user-friendly message that the chat
@@ -389,7 +387,8 @@ mod tests {
     #[test]
     fn buffer_emits_multiple_records() {
         let mut buf = SseBuffer::new();
-        let raw = b"data: {\"chunk\":\"a\",\"done\":false}\n\ndata: {\"chunk\":\"b\",\"done\":false}\n\n";
+        let raw =
+            b"data: {\"chunk\":\"a\",\"done\":false}\n\ndata: {\"chunk\":\"b\",\"done\":false}\n\n";
         let frames = buf.push(raw);
         assert_eq!(frames.len(), 2);
         assert_eq!(
@@ -440,7 +439,9 @@ mod tests {
             url.contains("token=abc%2Fdef%3Dghi"),
             "token must be url-encoded: {url}"
         );
-        assert!(url.starts_with("https://pekohub.org/v1/public/principals/alice/coding-assistant/chat"));
+        assert!(
+            url.starts_with("https://pekohub.org/v1/public/principals/alice/coding-assistant/chat")
+        );
     }
 
     /// No token → no query string. Pin the canonical anonymous path.
