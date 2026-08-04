@@ -23,6 +23,9 @@ import {
   runOAuthFlow,
 } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
+import { resolveSpec } from "../types";
+import { specBadgeList } from "../lib/model-spec";
+import SpecBadge from "./models/SpecBadge";
 import { isValidPrincipalName } from "../lib/validatePrincipalName";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
@@ -488,7 +491,7 @@ function Step1({
   selected,
   onSelect,
 }: {
-  models: { id: string; displayName: string; apiFormat: string; modelId: string }[];
+  models: ModelItem[];
   loading: boolean;
   selected: string | null;
   onSelect: (id: string) => void;
@@ -534,24 +537,45 @@ function Step1({
 
       {!loading && models.length > 0 && (
         <div className="grid gap-2">
-          {models.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => onSelect(m.id)}
-              className={[
-                "flex items-center justify-between rounded-lg border px-3 py-2 text-left text-xs transition-colors",
-                selected === m.id
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
-              ].join(" ")}
-            >
-              <span className="font-medium">{m.displayName}</span>
-              <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
-                {m.apiFormat} · {m.modelId}
-              </span>
-            </button>
-          ))}
+          {models.map((m) => {
+            const badges = specBadgeList(resolveSpec({ spec: m.spec as never }));
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => onSelect(m.id)}
+                data-testid={`walkthrough-model-${m.id}`}
+                className={[
+                  "flex flex-col gap-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors",
+                  selected === m.id
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
+                ].join(" ")}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{m.displayName}</span>
+                  <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                    {m.apiFormat} · {m.modelId}
+                  </span>
+                </div>
+                {badges.length > 0 && (
+                  <div
+                    className="flex flex-wrap gap-1.5"
+                    data-testid={`walkthrough-specs-${m.id}`}
+                  >
+                    {badges.map((b) => (
+                      <SpecBadge
+                        key={b.kind}
+                        kind={b.kind}
+                        label={b.label}
+                        testId={`walkthrough-spec-${b.kind}-${m.id}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -770,12 +794,19 @@ function Step4AddPrincipal({
 /**
  * Model items compatible with the modal's picker. Defensive: an
  * unknown `models` shape renders as "no models" rather than crashing.
+ *
+ * PR 4 / feature/model-first-config: also carries the runtime's
+ * `spec` field so the picker preview can render capability badges.
+ * Specs arrive snake_case (the runtime's IPC envelope is
+ * snake_case end-to-end) — the resolver below mirrors the same
+ * field names so the gallery card stays consistent.
  */
 interface ModelItem {
   id: string;
   displayName: string;
   apiFormat: string;
   modelId: string;
+  spec?: unknown;
 }
 
 function resolveModelItems(
@@ -783,36 +814,42 @@ function resolveModelItems(
   loading: boolean,
 ): ModelItem[] {
   if (loading || !Array.isArray(models)) return [];
-  return models
-    .map((m) => {
-      if (!m || typeof m !== "object") return null;
-      const obj = m as Record<string, unknown>;
-      const id =
-        typeof obj.id === "string"
-          ? obj.id
-          : typeof obj.model_id === "string"
-            ? obj.model_id
-            : null;
-      const displayName =
-        typeof obj.displayName === "string"
-          ? obj.displayName
-          : typeof obj.display_name === "string"
-            ? obj.display_name
-            : id;
-      const apiFormat =
-        typeof obj.apiFormat === "string"
-          ? obj.apiFormat
-          : typeof obj.api_format === "string"
-            ? obj.api_format
-            : "";
-      const modelId =
-        typeof obj.modelId === "string"
-          ? obj.modelId
-          : typeof obj.model_id === "string"
-            ? obj.model_id
-            : "";
-      if (!id) return null;
-      return { id, displayName: displayName ?? id, apiFormat, modelId };
-    })
-    .filter((x): x is ModelItem => x !== null);
+  const items: (ModelItem | null)[] = models.map((m) => {
+    if (!m || typeof m !== "object") return null;
+    const obj = m as Record<string, unknown>;
+    const id =
+      typeof obj.id === "string"
+        ? obj.id
+        : typeof obj.model_id === "string"
+          ? obj.model_id
+          : null;
+    const displayName =
+      typeof obj.displayName === "string"
+        ? obj.displayName
+        : typeof obj.display_name === "string"
+          ? obj.display_name
+          : id;
+    const apiFormat =
+      typeof obj.apiFormat === "string"
+        ? obj.apiFormat
+        : typeof obj.api_format === "string"
+          ? obj.api_format
+          : "";
+    const modelId =
+      typeof obj.modelId === "string"
+        ? obj.modelId
+        : typeof obj.model_id === "string"
+          ? obj.model_id
+          : "";
+    const spec = obj.spec ?? obj.Spec ?? null;
+    if (!id) return null;
+    return {
+      id,
+      displayName: displayName ?? id,
+      apiFormat,
+      modelId,
+      spec: (spec ?? undefined) as unknown,
+    };
+  });
+  return items.filter((x): x is ModelItem => x !== null);
 }

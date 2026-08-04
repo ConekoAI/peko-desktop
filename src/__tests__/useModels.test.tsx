@@ -28,6 +28,7 @@ import {
   useRemoveModel,
   useReloadModels,
 } from "../hooks/useModels";
+import { MODEL_SPEC_DEFAULT, resolveSpec } from "../types";
 
 function renderHookWith<T>(hook: () => T, qc: QueryClient) {
   return renderHook(hook, {
@@ -47,6 +48,10 @@ describe("useModels hooks", () => {
     modelTestMock.mockReset();
     modelReloadMock.mockReset();
 
+    // PR 4 / feature/model-first-config: include a populated
+    // spec on the anthropic mock row so resolveSpec() inside the
+    // gallery / picker renders capability badges as it would
+    // against a real runtime response.
     modelListMock.mockResolvedValue([
       {
         id: "anthropic",
@@ -58,6 +63,15 @@ describe("useModels hooks", () => {
         isLocal: false,
         enabled: true,
         headers: {},
+        spec: {
+          image_input: true,
+          audio_input: false,
+          tool_support: "function_calling",
+          streaming: true,
+          thinking: "custom_budget",
+          json_mode: true,
+          pricing: { input_per_million: 3, output_per_million: 15 },
+        },
       },
     ]);
     modelTemplatesMock.mockResolvedValue([]);
@@ -75,6 +89,40 @@ describe("useModels hooks", () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(result.current.data).toHaveLength(1);
       expect(result.current.data?.[0].id).toBe("anthropic");
+    });
+
+    it("forwards the snake_case spec field straight through", async () => {
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const { result } = renderHookWith(() => useModels(), qc);
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      const spec = result.current.data?.[0].spec;
+      expect(spec).toBeDefined();
+      expect(spec?.image_input).toBe(true);
+      expect(spec?.tool_support).toBe("function_calling");
+      expect(spec?.thinking).toBe("custom_budget");
+      expect(spec?.pricing?.input_per_million).toBe(3);
+    });
+
+    it("resolveSpec returns MODEL_SPEC_DEFAULT for rows without spec", async () => {
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      modelListMock.mockResolvedValueOnce([
+        {
+          id: "ollama-llama",
+          displayName: "Ollama Llama",
+          apiFormat: "openai",
+          baseUrl: "http://localhost:11434/v1",
+          modelId: "llama3.1",
+          requiresKey: false,
+          isLocal: true,
+          enabled: true,
+          headers: {},
+        },
+      ]);
+      const { result } = renderHookWith(() => useModels(), qc);
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      const m = result.current.data?.[0];
+      expect(m?.spec).toBeUndefined();
+      expect(resolveSpec(m!)).toEqual(MODEL_SPEC_DEFAULT);
     });
   });
 

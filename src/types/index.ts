@@ -268,6 +268,18 @@ export interface ModelSummary {
   requiresKey: boolean;
   isLocal: boolean;
   enabled: boolean;
+  // PR 4 / feature/model-first-config: read-only declarative
+  // capability descriptor. The runtime emits this on every
+  // `model_list` envelope but leaves it absent (null) for entries
+  // written before spec support landed. When absent, the UI falls
+  // back to MODEL_SPEC_DEFAULT (text-only).
+  //
+  // Field names match the wire format: the runtime's
+  // `ModelSpec` has no `rename_all = "camelCase"`, so nested
+  // fields stay snake_case in the JSON envelope. The parent's
+  // `rename_all = "camelCase"` only affects ModelSummary's own
+  // fields, not the nested type.
+  spec?: ModelSpec | null;
 }
 
 export interface ModelTemplateInfo {
@@ -275,6 +287,61 @@ export interface ModelTemplateInfo {
   displayName?: string;
   contextLength?: number;
   maxOutputTokens?: number;
+  spec?: ModelSpec | null;
+}
+
+// ── ModelSpec types (PR 4 / feature/model-first-config) ────────────
+//
+// One-way wire mirror of `peko_runtime::providers::spec::ModelSpec`.
+// Snake_case nested enums and snake_case field names match the
+// runtime's IPC envelope exactly. The desktop never round-trips a
+// ModelSpec back through IPC — edits go through the catalog file
+// via `peko model add|edit` (per the IPC contract).
+
+export type ModelToolSupport = "none" | "function_calling" | "full";
+export type ModelThinkingMode =
+  | "disabled"
+  | "optional"
+  | "required"
+  | "custom_budget";
+
+export interface ModelPricingHint {
+  input_per_million?: number;
+  output_per_million?: number;
+}
+
+export interface ModelSpec {
+  image_input: boolean;
+  audio_input: boolean;
+  tool_support: ModelToolSupport;
+  streaming: boolean;
+  thinking: ModelThinkingMode;
+  json_mode: boolean;
+  pricing?: ModelPricingHint;
+}
+
+/**
+ * Conservative text-only fallback when `spec` is missing (pre-PR-1
+ * catalog entries, or entries with `spec: null`). Mirrors
+ * `peko_runtime::providers::spec::ModelSpec::default()`.
+ */
+export const MODEL_SPEC_DEFAULT: ModelSpec = {
+  image_input: false,
+  audio_input: false,
+  tool_support: "none",
+  streaming: true,
+  thinking: "disabled",
+  json_mode: false,
+};
+
+/**
+ * Resolve the effective spec for a model: returns the row's spec
+ * when present, otherwise the text-only default. Used by every UI
+ * surface that needs to render capability badges so a single null
+ * check handles the pre-PR-1 catalog everywhere.
+ */
+export function resolveSpec(m: { spec?: ModelSpec | null }): ModelSpec {
+  return m.spec ?? MODEL_SPEC_DEFAULT;
 }
 
 export interface ModelPresetInfo {

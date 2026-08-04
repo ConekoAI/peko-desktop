@@ -15,6 +15,66 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+// ── ModelSpec mirror (PR 4 / feature/model-first-config) ────────────
+//
+// The runtime's `peko_runtime::providers::spec::ModelSpec` round-trips
+// through IPC as `Option<ModelSpec>`. The desktop is read-only for spec
+// (per the IPC contract — edits go through the catalog file via
+// `peko model add|edit`), so this is a one-way surface that simply
+// lets the gallery render capability badges without further IPC
+// round-trips. The wire-format enums are snake_case on the runtime
+// side and must mirror verbatim here so the JS layer's string-literal
+// unions line up.
+
+fn default_streaming_true() -> bool {
+    true
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct ModelPricingHint {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_per_million: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_per_million: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelToolSupport {
+    #[default]
+    None,
+    FunctionCalling,
+    Full,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelThinkingMode {
+    #[default]
+    Disabled,
+    Optional,
+    Required,
+    CustomBudget,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct ModelSpec {
+    #[serde(default)]
+    pub image_input: bool,
+    #[serde(default)]
+    pub audio_input: bool,
+    #[serde(default)]
+    pub tool_support: ModelToolSupport,
+    #[serde(default = "default_streaming_true")]
+    pub streaming: bool,
+    #[serde(default)]
+    pub thinking: ModelThinkingMode,
+    #[serde(default)]
+    pub json_mode: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pricing: Option<ModelPricingHint>,
+}
+
 /// Catalog-summary view of one configured model entry.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +98,12 @@ pub struct ModelSummary {
     pub requires_key: bool,
     pub is_local: bool,
     pub enabled: bool,
+    /// PR 4: read-only declarative capability descriptor. `None` for
+    /// entries written before the runtime had spec support; the
+    /// frontend falls back to `ModelSpec::default()` (text-only) in
+    /// that case.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec: Option<ModelSpec>,
 }
 
 /// One model declared by a built-in model preset.
@@ -51,6 +117,8 @@ pub struct ModelTemplateInfo {
     pub context_length: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec: Option<ModelSpec>,
 }
 
 /// One built-in model preset.
@@ -241,6 +309,11 @@ fn project_model(m: &serde_json::Value) -> Option<ModelSummary> {
         })
         .unwrap_or_default();
 
+    let spec = m
+        .get("spec")
+        .filter(|v| !v.is_null())
+        .and_then(|v| serde_json::from_value::<ModelSpec>(v.clone()).ok());
+
     Some(ModelSummary {
         id: m.get("id")?.as_str()?.to_string(),
         display_name: m
@@ -286,10 +359,15 @@ fn project_model(m: &serde_json::Value) -> Option<ModelSummary> {
             .unwrap_or(true),
         is_local: m.get("is_local").and_then(|v| v.as_bool()).unwrap_or(false),
         enabled: m.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+        spec,
     })
 }
 
 fn project_model_template(m: &serde_json::Value) -> Option<ModelTemplateInfo> {
+    let spec = m
+        .get("spec")
+        .filter(|v| !v.is_null())
+        .and_then(|v| serde_json::from_value::<ModelSpec>(v.clone()).ok());
     Some(ModelTemplateInfo {
         id: m.get("id")?.as_str()?.to_string(),
         display_name: m
@@ -304,6 +382,7 @@ fn project_model_template(m: &serde_json::Value) -> Option<ModelTemplateInfo> {
             .get("max_output_tokens")
             .and_then(|v| v.as_u64())
             .and_then(|n| u32::try_from(n).ok()),
+        spec,
     })
 }
 
@@ -630,6 +709,114 @@ mod tests {
     fn project_model_missing_id_returns_none() {
         let value = serde_json::json!({ "display_name": "No id" });
         assert!(project_model(&value).is_none());
+    }
+
+    #[test]
+    fn project_model_passes_spec_through() {
+        // The runtime emits ModelSpec with snake_case nested enums and
+        // an optional pricing object. The desktop projection must
+        // round-trip both faithfully so the JS layer's string-literal
+        // unions (snake_case 'function_calling' / 'custom_budget'
+        // etc.) line up.
+        let value = serde_json::json!({
+            "id": "openai-gpt-4o",
+            "display_name": "GPT-4o",
+            "api_format": "openai",
+            "base_url": "https://api.openai.com/v1",
+            "model_id": "gpt-4o",
+            "requires_key": true,
+            "is_local": false,
+            "enabled": true,
+            "spec": {
+                "image_input": true,
+                "audio_input": false,
+                "tool_support": "function_calling",
+                "streaming": true,
+                "thinking": "disabled",
+                "json_mode": true,
+                "pricing": {
+                    "input_per_million": 2.50,
+                    "output_per_million": 10.0,
+                }
+            }
+        });
+        let m = project_model(&value).expect("should project");
+        let spec = m.spec.expect("spec projected");
+        assert!(spec.image_input);
+        assert!(!spec.audio_input);
+        assert_eq!(spec.tool_support, ModelToolSupport::FunctionCalling);
+        assert_eq!(spec.thinking, ModelThinkingMode::Disabled);
+        assert!(spec.json_mode);
+        assert!(spec.streaming);
+        let pricing = spec.pricing.expect("pricing projected");
+        assert_eq!(pricing.input_per_million, Some(2.5));
+        assert_eq!(pricing.output_per_million, Some(10.0));
+    }
+
+    #[test]
+    fn project_model_with_no_spec_leaves_spec_none() {
+        let value = serde_json::json!({
+            "id": "ollama-llama",
+            "display_name": "Ollama Llama",
+            "api_format": "openai",
+            "base_url": "http://localhost:11434/v1",
+            "model_id": "llama3.1",
+            "requires_key": false,
+            "is_local": true,
+            "enabled": true,
+        });
+        let m = project_model(&value).expect("should project");
+        assert!(m.spec.is_none());
+    }
+
+    #[test]
+    fn project_model_spec_required_thinking_snake_case() {
+        // o1-style entry: streaming off, thinking required, vision off.
+        let value = serde_json::json!({
+            "id": "openai-o1",
+            "display_name": "o1",
+            "api_format": "openai",
+            "base_url": "https://api.openai.com/v1",
+            "model_id": "o1",
+            "requires_key": true,
+            "is_local": false,
+            "enabled": true,
+            "spec": {
+                "image_input": false,
+                "audio_input": false,
+                "tool_support": "function_calling",
+                "streaming": false,
+                "thinking": "required",
+                "json_mode": true,
+            }
+        });
+        let m = project_model(&value).expect("should project");
+        let spec = m.spec.expect("spec projected");
+        assert!(!spec.streaming);
+        assert_eq!(spec.thinking, ModelThinkingMode::Required);
+        assert!(!spec.image_input);
+    }
+
+    #[test]
+    fn project_model_template_propagates_spec() {
+        let value = serde_json::json!({
+            "id": "claude-sonnet-4-5",
+            "display_name": "Claude Sonnet 4.5",
+            "context_length": 200000,
+            "max_output_tokens": 8192,
+            "spec": {
+                "image_input": true,
+                "audio_input": false,
+                "tool_support": "full",
+                "streaming": true,
+                "thinking": "custom_budget",
+                "json_mode": true,
+            }
+        });
+        let mt = project_model_template(&value).expect("should project");
+        let spec = mt.spec.expect("spec projected");
+        assert_eq!(spec.tool_support, ModelToolSupport::Full);
+        assert_eq!(spec.thinking, ModelThinkingMode::CustomBudget);
     }
 
     #[test]

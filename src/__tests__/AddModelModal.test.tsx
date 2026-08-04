@@ -19,6 +19,15 @@ const templatesSignal: {
       displayName?: string;
       contextLength?: number;
       maxOutputTokens?: number;
+      spec?: {
+        image_input?: boolean;
+        audio_input?: boolean;
+        tool_support?: "none" | "function_calling" | "full";
+        streaming?: boolean;
+        thinking?: "disabled" | "optional" | "required" | "custom_budget";
+        json_mode?: boolean;
+        pricing?: { input_per_million?: number; output_per_million?: number };
+      } | null;
     }>;
   }>;
   loading: boolean;
@@ -89,7 +98,7 @@ describe("AddModelModal", () => {
         requiresKey: true,
         defaultModel: "claude-opus-4-7",
         models: [
-          { id: "claude-opus-4-7", contextLength: 200_000, maxOutputTokens: 8_192 },
+          { id: "claude-opus-4-7", contextLength: 200_000, maxOutputTokens: 8_192, spec: { image_input: true, tool_support: "full", thinking: "custom_budget" } },
           { id: "claude-sonnet-4-6", contextLength: 200_000, maxOutputTokens: 8_192 },
         ],
       },
