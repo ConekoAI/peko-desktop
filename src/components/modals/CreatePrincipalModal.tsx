@@ -4,6 +4,9 @@ import { Check, Sparkles, X } from "lucide-react";
 import { usePrincipalCreate } from "../../hooks/usePrincipals";
 import { useModels } from "../../hooks/useModels";
 import { isValidPrincipalName } from "../../lib/validatePrincipalName";
+import { resolveSpec, type ModelSummary } from "../../types";
+import SpecBadge from "../models/SpecBadge";
+import { specBadgeList } from "../../lib/model-spec";
 
 /**
  * In-app Principal creation. Replaces the old CLI stub (which told
@@ -181,6 +184,14 @@ export default function CreatePrincipalModal({
                 </span>
                 <span className="font-mono">{selectedModel.modelId}</span>
                 <span>{selectedModel.baseUrl}</span>
+                {specBadgeList(resolveSpec(selectedModel as ModelSummary)).map((b) => (
+                  <SpecBadge
+                    key={b.kind}
+                    kind={b.kind}
+                    label={b.label}
+                    testId={`principal-modal-spec-${b.kind}`}
+                  />
+                ))}
               </div>
             )}
           </div>

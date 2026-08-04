@@ -267,9 +267,9 @@ describe("Settings → Credentials & Models tabs", () => {
       ];
       renderSettings();
       switchTab(/models/i);
-      expect(screen.getByTestId("models-rows")).toBeInTheDocument();
-      expect(screen.getByTestId("model-row-openai")).toBeInTheDocument();
-      expect(screen.getByTestId("model-row-anthropic")).toBeInTheDocument();
+      expect(screen.getByTestId("models-gallery")).toBeInTheDocument();
+      expect(screen.getByTestId("model-card-openai")).toBeInTheDocument();
+      expect(screen.getByTestId("model-card-anthropic")).toBeInTheDocument();
     });
 
     it("toggles enabled via useUpdateModel", () => {
@@ -285,7 +285,7 @@ describe("Settings → Credentials & Models tabs", () => {
       modelsSignal.value = [modelFixture({ id: "openai" })];
       renderSettings();
       switchTab(/models/i);
-      const row = screen.getByTestId("model-row-openai");
+      const row = screen.getByTestId("model-card-openai");
       const testBtn = within(row).getByTitle("Test model");
       fireEvent.click(testBtn);
       expect(testModelMut).toHaveBeenCalledWith("openai", expect.any(Object));
@@ -296,7 +296,7 @@ describe("Settings → Credentials & Models tabs", () => {
       modelsSignal.value = [modelFixture({ id: "openai" })];
       renderSettings();
       switchTab(/models/i);
-      const row = screen.getByTestId("model-row-openai");
+      const row = screen.getByTestId("model-card-openai");
       fireEvent.click(within(row).getByTitle("Remove"));
       expect(screen.getByText("Confirm")).toBeInTheDocument();
       fireEvent.click(screen.getByText("Confirm"));
@@ -310,7 +310,7 @@ describe("Settings → Credentials & Models tabs", () => {
       modelsSignal.value = [modelFixture({ id: "openai" })];
       renderSettings();
       switchTab(/models/i);
-      const row = screen.getByTestId("model-row-openai");
+      const row = screen.getByTestId("model-card-openai");
       fireEvent.click(within(row).getByTitle("Remove"));
       fireEvent.click(screen.getByText("Cancel"));
       expect(removeModelMut).not.toHaveBeenCalled();

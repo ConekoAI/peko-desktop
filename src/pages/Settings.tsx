@@ -7,17 +7,12 @@ import {
   useDeleteCredentialById,
   useCredentialMaterial,
 } from "../hooks/useSettings";
-import {
-  useModels,
-  useUpdateModel,
-  useRemoveModel,
-  useTestModel,
-} from "../hooks/useModels";
+import { useModels } from "../hooks/useModels";
 import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime } from "../hooks/useRuntimes";
 import { setTheme } from "../lib/theme";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddModelModal from "../components/modals/AddModelModal";
-import EditModelModal from "../components/modals/EditModelModal";
+import ModelGalleryCard from "../components/models/ModelGalleryCard";
 import {
   Save,
   Key,
@@ -25,7 +20,6 @@ import {
   Info,
   Check,
   Trash2,
-  TestTube,
   Loader2,
   Sun,
   Moon,
@@ -41,7 +35,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import type { RuntimeConnection, CredentialDetail, CredentialKind, ModelSummary } from "../types";
+import type { RuntimeConnection, CredentialDetail, CredentialKind } from "../types";
 
 type Tab = "general" | "credentials" | "models" | "runtimes" | "about";
 
@@ -403,10 +397,15 @@ function ModelsTab() {
 
         {!isLoading && !isError && (models?.length ?? 0) > 0 && (
           <div
-            data-testid="models-rows"
-            className="max-h-[60vh] divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800"
+            data-testid="models-gallery"
+            className="max-h-[60vh] overflow-y-auto rounded-lg"
           >
-            {models?.map((m) => <ModelCard key={m.id} model={m} />)}
+            <p className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
+              Showing {models!.length} model{models!.length === 1 ? "" : "s"}.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {models?.map((m) => <ModelGalleryCard key={m.id} model={m} />)}
+            </div>
           </div>
         )}
 
@@ -434,180 +433,6 @@ function ModelsTab() {
         onClose={() => setShowAdd(false)}
         onSuccess={() => {}}
       />
-    </div>
-  );
-}
-
-function ModelCard({ model }: { model: ModelSummary }) {
-  const [showEdit, setShowEdit] = useState(false);
-  const [confirmingRemove, setConfirmingRemove] = useState(false);
-  const updateModel = useUpdateModel();
-  const removeModel = useRemoveModel();
-  const testModel = useTestModel();
-  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(
-    null,
-  );
-
-  function handleToggleEnabled() {
-    updateModel.mutate({ id: model.id, enabled: !model.enabled });
-  }
-
-  function handleTest() {
-    testModel.mutate(model.id, {
-      onSuccess: (result) => {
-        setFeedback({
-          ok: result.ok,
-          text: result.ok
-            ? `Test passed${result.modelUsed ? ` · ${result.modelUsed}` : ""}`
-            : result.message,
-        });
-      },
-      onError: (err) => {
-        setFeedback({
-          ok: false,
-          text: err instanceof Error ? err.message : "Test failed",
-        });
-      },
-    });
-  }
-
-  function handleConfirmRemove() {
-    removeModel.mutate(model.id, {
-      onSuccess: () => setConfirmingRemove(false),
-      onError: () => setConfirmingRemove(false),
-    });
-  }
-
-  return (
-    <div data-testid={`model-row-${model.id}`} className="bg-white dark:bg-slate-900">
-      <div className="flex items-center gap-2 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={[
-                "truncate text-sm font-medium",
-                model.enabled
-                  ? "text-slate-800 dark:text-slate-100"
-                  : "text-slate-400 dark:text-slate-500",
-              ].join(" ")}
-            >
-              {model.displayName}
-            </span>
-            <span
-              title="API format"
-              className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-            >
-              {model.apiFormat}
-            </span>
-            {!model.enabled && (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                Disabled
-              </span>
-            )}
-            {model.requiresKey && !model.credentialId && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
-                No credential
-              </span>
-            )}
-            {model.credentialId && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-                <Check className="h-2.5 w-2.5" />
-                Credential set
-              </span>
-            )}
-          </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[11px] text-slate-500 dark:text-slate-400">
-            <span className="font-mono">{model.modelId}</span>
-            <span>{model.baseUrl}</span>
-            {model.contextWindow !== undefined && (
-              <span>{model.contextWindow.toLocaleString()} ctx</span>
-            )}
-            {model.maxOutputTokens !== undefined && (
-              <span>{model.maxOutputTokens.toLocaleString()} out</span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleTest}
-            disabled={testModel.isPending}
-            title="Test model"
-            className="rounded p-1.5 text-slate-400 transition-colors hover:text-emerald-600 dark:hover:text-emerald-400"
-          >
-            {testModel.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <TestTube className="h-3.5 w-3.5" />
-            )}
-          </button>
-          <button
-            onClick={() => setShowEdit(true)}
-            title="Edit"
-            className="rounded p-1.5 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
-          >
-            <Edit3 className="h-3.5 w-3.5" />
-          </button>
-          {confirmingRemove ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">Remove?</span>
-              <button
-                onClick={handleConfirmRemove}
-                disabled={removeModel.isPending}
-                className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-              >
-                {removeModel.isPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3 w-3" />
-                )}
-                Confirm
-              </button>
-              <button
-                onClick={() => setConfirmingRemove(false)}
-                disabled={removeModel.isPending}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmingRemove(true)}
-              title="Remove"
-              className="rounded p-1.5 text-slate-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <label className="ml-1 flex cursor-pointer items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
-            <input
-              type="checkbox"
-              checked={model.enabled}
-              onChange={handleToggleEnabled}
-              className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-            />
-            Enabled
-          </label>
-        </div>
-      </div>
-
-      {feedback && (
-        <div
-          className={[
-            "px-4 pb-2 text-[11px]",
-            feedback.ok
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-red-600 dark:text-red-400",
-          ].join(" ")}
-        >
-          {feedback.ok ? "✓ " : "✗ "}
-          {feedback.text}
-        </div>
-      )}
-
-      {showEdit && (
-        <EditModelModal open model={model} onClose={() => setShowEdit(false)} />
-      )}
     </div>
   );
 }
