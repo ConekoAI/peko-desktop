@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   channelEvents,
+  channelEventsWatch,
   type ChannelEvent,
   type RuntimeId,
 } from "../lib/api";
@@ -106,4 +107,44 @@ export function useChannelStreamInvalidator(
       unlisten?.();
     };
   }, [channelId, rid, qc, onInviteReceived]);
+}
+
+/**
+ * PR-2b: kick off the long-lived `ChannelEventsWatch` subscription
+ * for `channelId`. The runtime replays events from `since` then
+ * forwards live events via the `peko-stream` Tauri event channel —
+ * `useChannelStreamInvalidator` (above) is the listener half and
+ * invalidates the matching query keys. This hook is the producer
+ * half: the Tauri command blocks until the runtime closes the
+ * stream, so we run it in a fire-and-forget task and surface
+ * failures as `console.warn` rather than blocking the UI.
+ *
+ * Lifecycle: the subscription survives route changes because the
+ * Tauri backend holds the connection, but is torn down on
+ * component unmount via `since` cursor swap (the next mount restarts
+ * with a fresh `since`). For now this is best-effort — a future
+ * PR can hoist it to a top-level provider if multi-page navigation
+ * proves flaky.
+ */
+export function useChannelEventsWatch(
+  channelId: string | undefined,
+  since?: string | null,
+  runtimeId?: RuntimeId,
+) {
+  useEffect(() => {
+    if (!channelId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await channelEventsWatch(channelId, since ?? undefined, runtimeId);
+      } catch (e) {
+        if (!cancelled) {
+          console.warn("[peko-desktop] channel_events_watch failed:", e);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [channelId, since, runtimeId]);
 }

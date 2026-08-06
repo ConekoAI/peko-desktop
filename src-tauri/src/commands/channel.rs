@@ -35,6 +35,7 @@
 //! pattern at `principal.rs:35-71` (PR #3 / PR #5).
 
 use serde::{Deserialize, Serialize};
+use tauri::AppHandle;
 
 use crate::state::AppState;
 
@@ -192,7 +193,11 @@ pub async fn channel_get(
         .await
         .map_err(|e| format!("channel_get failed: {e}"))?;
 
-    Ok(project_channel_get_envelope(&value, &channel_id, &runtime_id))
+    Ok(project_channel_get_envelope(
+        &value,
+        &channel_id,
+        &runtime_id,
+    ))
 }
 
 /// List events on `channel_id` since `since` (None = from start).
@@ -245,7 +250,11 @@ pub async fn channel_members(
         .await
         .map_err(|e| format!("channel_members failed: {e}"))?;
 
-    Ok(project_channel_members_envelope(&value, &channel_id, &runtime_id))
+    Ok(project_channel_members_envelope(
+        &value,
+        &channel_id,
+        &runtime_id,
+    ))
 }
 
 /// PR-2a: post a message to `channel_id` from `sender_name`. The
@@ -378,6 +387,36 @@ pub async fn channel_leave(
         &channel_id,
         &runtime_id_echo,
     ))
+}
+
+/// PR-2b: subscribe to live events for `channel_id`. The runtime
+/// replays events from `since` (None = from start) then forwards
+/// live events until the connection closes. Each event is emitted
+/// on Tauri's `peko-stream` event channel as a
+/// `StreamEvent::ChannelEvent { channel_id, payload, timestamp }`
+/// — the React `useChannelStreamInvalidator` hook subscribes to
+/// those and invalidates the `["channel-events", channelId]` query
+/// when the payload's `channel` field matches.
+///
+/// The command returns `Ok(())` only when the runtime closes the
+/// stream cleanly (`done` packet). Any socket error or runtime
+/// error surfaces as a `String` error so the JS caller can show a
+/// reconnect toast.
+#[tauri::command]
+pub async fn channel_events_watch(
+    app: AppHandle,
+    channel_id: String,
+    since: Option<String>,
+    _runtime_id: Option<String>,
+) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    client
+        .channel_events_watch(&app, &channel_id, since.as_deref())
+        .await
+        .map_err(|e| format!("channel_events_watch failed: {e}"))?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -762,10 +801,7 @@ mod tests {
             "channel": "chan_aaaaaaaa",
             "task_id": "task_0123456789abcdef",
         });
-        assert_eq!(
-            project_channel_posted_envelope(&v),
-            "task_0123456789abcdef"
-        );
+        assert_eq!(project_channel_posted_envelope(&v), "task_0123456789abcdef");
     }
 
     #[test]

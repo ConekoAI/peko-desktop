@@ -119,6 +119,17 @@ pub enum StreamEvent {
     /// Tool execution result
     #[serde(rename = "tool_result")]
     ToolResult { output: String, timestamp: String },
+    /// PR-2b: live channel event from `ChannelEventsWatch`. The
+    /// `payload` is the runtime's `ChannelEvent` JSON object
+    /// verbatim — the React side can switch on `payload.kind`
+    /// (mirrors `peko_protocol::channel::ChannelEvent`'s
+    /// `#[serde(tag = "kind", rename_all = "snake_case")]` shape).
+    #[serde(rename = "channel_event")]
+    ChannelEvent {
+        channel_id: String,
+        payload: serde_json::Value,
+        timestamp: String,
+    },
     /// Stream completed successfully
     #[serde(rename = "done")]
     Done { timestamp: String },
@@ -1501,6 +1512,120 @@ impl IpcClient {
         });
         self.request_response(req).await
     }
+
+    /// PR-2b: subscribe to live channel events for `channel`. Mirrors
+    /// `principal_send_stream`'s request-response shape — the daemon
+    /// sends `ChannelEventReceived` packets in a loop until the
+    /// client disconnects, and the desktop re-emits each as a
+    /// `peko-stream` event with `kind: "channel_event"` so the React
+    /// `useChannelStreamInvalidator` hook can invalidate
+    /// `["channel-events", channelId]` on every update.
+    ///
+    /// `since` is the caller's last-seen line number — events at
+    /// earlier line numbers are replayed, then live events are
+    /// forwarded. The runtime closes the stream when the client
+    /// disconnects or the daemon shuts down; the loop also exits
+    /// on a 120s timeout to avoid leaking tasks.
+    pub async fn channel_events_watch(
+        &self,
+        app: &tauri::AppHandle,
+        channel: &str,
+        since: Option<&str>,
+    ) -> Result<()> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_events_watch",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "since": since,
+        });
+        let bytes = serde_json::to_vec(&req).map_err(|e| IpcError::Serialization(e.to_string()))?;
+
+        #[cfg(windows)]
+        {
+            self.socket
+                .send_to(&bytes, "127.0.0.1:11435")
+                .await
+                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
+        }
+        #[cfg(unix)]
+        {
+            let sock_path = default_socket_path();
+            self.socket
+                .send_to(&bytes, &sock_path)
+                .await
+                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
+        }
+
+        let mut buf = vec![0u8; 65536];
+        loop {
+            let len = match tokio::time::timeout(
+                Duration::from_secs(120),
+                self.socket.recv_from(&mut buf),
+            )
+            .await
+            {
+                Ok(Ok((len, _))) => len,
+                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
+                Err(_) => return Err(IpcError::Timeout),
+            };
+
+            let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
+                .map_err(|e| IpcError::Serialization(e.to_string()))?;
+
+            let packet_type = raw.get("type").and_then(|v| v.as_str()).unwrap_or("");
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+                .to_string();
+
+            match packet_type {
+                "channel_event_received" => {
+                    // PR-2b: forward each event as a `peko-stream`
+                    // channel_event. The React side's
+                    // `useChannelStreamInvalidator` filters on
+                    // `payload.channel === channelId`.
+                    let channel_id = raw
+                        .get("channel")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(channel)
+                        .to_string();
+                    let payload = raw.get("event").cloned().unwrap_or(serde_json::Value::Null);
+                    let _ = app.emit(
+                        "peko-stream",
+                        &StreamEvent::ChannelEvent {
+                            channel_id,
+                            payload,
+                            timestamp,
+                        },
+                    );
+                }
+                "done" => return Ok(()),
+                "error" => {
+                    let message = raw
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unknown error")
+                        .to_string();
+                    let _ = app.emit(
+                        "peko-stream",
+                        &StreamEvent::Error {
+                            message: message.clone(),
+                            timestamp,
+                        },
+                    );
+                    return Err(IpcError::ReceiveFailed(message));
+                }
+                "heartbeat" => continue,
+                other => {
+                    eprintln!("[peko-desktop] Unknown IPC response packet type: {other}");
+                    continue;
+                }
+            }
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -1562,6 +1687,45 @@ mod tests {
         let deserialized: StreamEvent = serde_json::from_str(&json).unwrap();
         match deserialized {
             StreamEvent::Chunk { content, .. } => assert_eq!(content, "hello"),
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    /// PR-2b: `StreamEvent::ChannelEvent` round-trips with the
+    /// `channel_event` discriminator the React listener filters on.
+    /// The `payload` is preserved verbatim so the React side can
+    /// switch on `payload.kind` (mirrors the runtime's
+    /// `peko_protocol::channel::ChannelEvent` shape).
+    #[test]
+    fn test_stream_event_channel_event_serialization() {
+        let event = StreamEvent::ChannelEvent {
+            channel_id: "chan_abcdefgh".to_string(),
+            payload: serde_json::json!({
+                "kind": "posted",
+                "channel": "chan_abcdefgh",
+                "author": "prin_bob",
+                "parent": null,
+                "text": "hello from B",
+                "at": "2026-08-06T12:00:00Z",
+            }),
+            timestamp: "0d 12:00:00 UTC".to_string(),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("channel_event"), "got {json}");
+        assert!(json.contains("chan_abcdefgh"));
+        assert!(json.contains("posted"));
+
+        let deserialized: StreamEvent = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            StreamEvent::ChannelEvent {
+                channel_id,
+                payload,
+                ..
+            } => {
+                assert_eq!(channel_id, "chan_abcdefgh");
+                assert_eq!(payload["kind"], "posted");
+                assert_eq!(payload["text"], "hello from B");
+            }
             _ => panic!("wrong variant"),
         }
     }

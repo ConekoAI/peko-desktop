@@ -1088,3 +1088,27 @@ export async function channelLeave(
     runtimeId: runtimeId ?? null,
   });
 }
+
+/**
+ * PR-2b: subscribe to live events for `channelId`. The runtime
+ * replays events from `since` (None = from start) then forwards
+ * live events until the connection closes. Each event is emitted on
+ * Tauri's `peko-stream` channel as `StreamEvent::ChannelEvent` —
+ * the `useChannelStreamInvalidator` hook subscribes to those.
+ *
+ * This call resolves only when the runtime closes the stream
+ * (`Done`) or fails with a runtime-side error (the Tauri command
+ * surfaces it as a `String` error). A long-lived watcher can be
+ * restarted by re-invoking this function after a disconnect.
+ */
+export async function channelEventsWatch(
+  channelId: string,
+  since?: string,
+  runtimeId?: RuntimeId,
+): Promise<void> {
+  return invoke<void>("channel_events_watch", {
+    channelId,
+    since: since ?? null,
+    runtimeId: runtimeId ?? null,
+  });
+}
