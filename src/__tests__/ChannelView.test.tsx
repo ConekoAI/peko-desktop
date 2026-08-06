@@ -35,7 +35,10 @@ vi.mock("@tauri-apps/api/event", () => ({
 vi.mock("@tanstack/react-router", () => ({
   useParams: () => ({
     channelId: "chan_alpha",
+  }),
+  useSearch: () => ({
     runtimeId: "local",
+    sender: "alice",
   }),
 }));
 

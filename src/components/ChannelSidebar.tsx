@@ -43,11 +43,21 @@ export default function ChannelSidebar({
     return channels.filter((c) => c.channelId.toLowerCase().includes(q));
   }, [channels, search]);
 
-  function handleSelect(selectedId: string, runtimeId: string) {
+  function handleSelect(
+    selectedId: string,
+    runtimeId: string,
+    memberPrincipals: string[],
+  ) {
+    // PR-2a: stamp `sender` from the first member principal so the
+    // composer is wired without forcing the user to edit the URL.
+    // PR-3 will replace this with a proper "post as" selector that
+    // surfaces the choice when the user is a member of the channel
+    // via multiple principals.
+    const sender = memberPrincipals[0];
     navigate({
       to: "/channels/$channelId",
       params: { channelId: selectedId },
-      search: { runtimeId },
+      search: sender ? { runtimeId, sender } : { runtimeId },
     });
   }
 
@@ -89,7 +99,13 @@ export default function ChannelSidebar({
               return (
                 <button
                   key={c.channelId}
-                  onClick={() => handleSelect(c.channelId, c.runtimeId)}
+                  onClick={() =>
+                    handleSelect(
+                      c.channelId,
+                      c.runtimeId || "local",
+                      c.memberPrincipals,
+                    )
+                  }
                   data-testid={`channel-row-${c.channelId}`}
                   className={[
                     "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",

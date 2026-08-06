@@ -1,28 +1,32 @@
 import { useEffect, useRef } from "react";
-import { useParams } from "@tanstack/react-router";
+import { useParams, useSearch } from "@tanstack/react-router";
 import ChannelHeader from "../components/ChannelHeader";
+import ChannelComposer from "../components/ChannelComposer";
+import ChannelEventRow from "../components/ChannelEventRow";
 import { useChannelEvents, useChannelStreamInvalidator } from "../hooks/useChannelEvents";
-import { Loader2, Bot } from "lucide-react";
-import RuntimeBadge from "../components/RuntimeBadge";
-import type { ChannelEvent } from "../lib/api";
+import { Loader2 } from "lucide-react";
 
 /**
- * PR-1 read-only channel view. Renders the event log chronologically.
- * `Posted` events get a body row; `Created` / `MemberJoined` /
- * `MemberLeft` events get a one-line meta row (small, muted). The
- * composer (PR-2) and the invite / leave affordances (PR-3) slot in
- * below the event list.
+ * PR-1 read-only channel view + PR-2a composer. Renders the event log
+ * chronologically. `Posted` events get a body row; `Created` /
+ * `MemberJoined` / `MemberLeft` events get a one-line meta row
+ * (small, muted). The composer mounts at the bottom for PR-2a;
+ * invite / leave affordances (PR-3) slot into the header.
  *
  * The view subscribes to `peko-stream` via `useChannelStreamInvalidator`
  * — the listener is wired in PR-1 so the UI surface is stable; the
- * daemon-side emit that drives it lands in PR-2's runtime commit.
+ * daemon-side emit that drives it lands in PR-2b.
  */
 export default function ChannelView() {
   const params = useParams({ strict: false });
+  const search = useSearch({ strict: false }) as {
+    runtimeId?: string;
+    sender?: string;
+  };
   const channelId =
     (params as Record<string, string | undefined>).channelId ?? "";
-  const runtimeId =
-    (params as Record<string, string | undefined>).runtimeId;
+  const runtimeId = search.runtimeId;
+  const senderName = search.sender ?? "";
 
   useChannelStreamInvalidator(channelId, runtimeId);
 
@@ -53,7 +57,7 @@ export default function ChannelView() {
           <ul className="space-y-3">
             {events.map((e, i) => (
               <li key={i} data-testid="channel-event-row">
-                {renderEvent(e)}
+                <ChannelEventRow event={e} />
               </li>
             ))}
           </ul>
@@ -63,52 +67,21 @@ export default function ChannelView() {
           </div>
         )}
       </div>
+
+      {senderName ? (
+        <ChannelComposer
+          channelId={channelId}
+          senderName={senderName}
+          runtimeId={runtimeId}
+        />
+      ) : (
+        <div
+          className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+          data-testid="channel-composer-no-sender"
+        >
+          Select a channel from the sidebar to start posting.
+        </div>
+      )}
     </div>
   );
-}
-
-function renderEvent(e: ChannelEvent) {
-  switch (e.kind) {
-    case "posted":
-      return (
-        <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <Bot className="h-3.5 w-3.5" />
-            <span className="font-mono">{e.author}</span>
-            <span>·</span>
-            <span>{new Date(e.at).toLocaleString()}</span>
-          </div>
-          <div className="whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">
-            {e.text}
-          </div>
-        </div>
-      );
-    case "created":
-      return (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-          Channel <span className="font-mono font-semibold">{e.name}</span>{" "}
-          created by <span className="font-mono">{e.creator}</span> ·{" "}
-          {new Date(e.at).toLocaleString()}
-        </div>
-      );
-    case "member_joined":
-      return (
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <Bot className="h-3.5 w-3.5" />
-          <span className="font-mono">{e.member}</span>
-          <span>joined</span>
-          <RuntimeBadge runtimeId="local" />
-          <span>· {new Date(e.at).toLocaleString()}</span>
-        </div>
-      );
-    case "member_left":
-      return (
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <Bot className="h-3.5 w-3.5" />
-          <span className="font-mono">{e.member}</span>
-          <span>left</span>
-          <span>· {new Date(e.at).toLocaleString()}</span>
-        </div>
-      );
-  }
 }
