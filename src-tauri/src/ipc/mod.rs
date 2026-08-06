@@ -1344,6 +1344,66 @@ impl IpcClient {
         });
         self.request_response(req).await
     }
+
+    // -- Channel surface (peko-channel cross-runtime desktop PR-1) ----
+    //
+    // Read-only IPC wrappers. Posts/invites/leaves land in PR-2 / PR-3.
+    // Wire types follow the runtime's RequestPacket variants in
+    // `peko_runtime::ipc::packet::RequestPacket`:
+    //
+    // - `channel_list` → `ChannelList { principal_name }`
+    // - `channel_peek` → `ChannelPeek { channel, since }`
+    // - `channel_members` → `ChannelMembers { channel }`
+
+    /// List channels `principal_name` is a member of. Mirrors
+    /// `RequestPacket::ChannelList`. The desktop's `useChannels` hook
+    /// iterates local principals and dedupes by `channel_id` to
+    /// render a unified sidebar.
+    pub async fn channel_list(&self, principal_name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "principal_name": principal_name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Fetch the channel's event log since `since` (None = from the
+    /// start). Mirrors `RequestPacket::ChannelPeek`. Returns the
+    /// full `ChannelPeekResult { channel, events }` envelope — the
+    /// desktop's `channel_get` reuses this to derive metadata from
+    /// the first `Created` event.
+    pub async fn channel_peek(
+        &self,
+        channel: &str,
+        since: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_peek",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "since": since,
+        });
+        self.request_response(req).await
+    }
+
+    /// List the principal DIDs currently in `channel`. Mirrors
+    /// `RequestPacket::ChannelMembers`. The runtime derives the
+    /// authoritative membership from the `Member*` event log.
+    pub async fn channel_members(&self, channel: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_members",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+        });
+        self.request_response(req).await
+    }
 }
 
 #[cfg(unix)]
