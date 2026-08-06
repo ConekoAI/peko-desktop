@@ -7,6 +7,9 @@
 //   • the stream invalidator subscription (PR-2 surface) is wired even
 //     when the daemon-side `peko-stream` emit isn't present
 //
+// PR-3 adds the channel_members + principals mocks that the
+// ChannelView now needs for the Invite / Leave action gating.
+//
 // The Tauri event API is stubbed so `useChannelStreamInvalidator` doesn't
 // try to load the real `@tauri-apps/api/event` module under jsdom.
 
@@ -17,11 +20,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const channelEventsMock = vi.fn();
 const channelGetMock = vi.fn();
 const channelMembersMock = vi.fn();
+const channelLeaveMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   channelEvents: (...args: unknown[]) => channelEventsMock(...args),
   channelGet: (...args: unknown[]) => channelGetMock(...args),
   channelMembers: (...args: unknown[]) => channelMembersMock(...args),
+  channelLeave: (...args: unknown[]) => channelLeaveMock(...args),
 }));
 
 // Stub the Tauri event API so the stream invalidator's `listen()` doesn't
@@ -32,6 +37,7 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: (...args: unknown[]) => listenMock(...args),
 }));
 
+const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({
   useParams: () => ({
     channelId: "chan_alpha",
@@ -40,6 +46,12 @@ vi.mock("@tanstack/react-router", () => ({
     runtimeId: "local",
     sender: "alice",
   }),
+  useNavigate: () => navigateMock,
+}));
+
+const usePrincipalsMock = vi.fn();
+vi.mock("../hooks/usePrincipals", () => ({
+  usePrincipals: (...args: unknown[]) => usePrincipalsMock(...args),
 }));
 
 import ChannelView from "../pages/ChannelView";
@@ -83,7 +95,13 @@ describe("ChannelView", () => {
     channelEventsMock.mockReset();
     channelGetMock.mockReset();
     channelMembersMock.mockReset();
+    channelLeaveMock.mockReset();
     listenMock.mockClear();
+    navigateMock.mockReset();
+    usePrincipalsMock.mockReset();
+    usePrincipalsMock.mockReturnValue({
+      data: [{ name: "alice" }, { name: "bob" }],
+    });
     channelGetMock.mockResolvedValue({
       channelId: "chan_alpha",
       runtimeId: "local",
@@ -92,7 +110,11 @@ describe("ChannelView", () => {
       createdAt: "2026-08-06T12:00:00Z",
       memberCount: 2,
     });
-    channelMembersMock.mockResolvedValue({ members: ["alice", "bob"] });
+    channelMembersMock.mockResolvedValue({
+      channelId: "chan_alpha",
+      runtimeId: "local",
+      members: ["alice", "bob"],
+    });
   });
 
   it("renders the loading spinner while events are in-flight", () => {
@@ -108,10 +130,6 @@ describe("ChannelView", () => {
       expect(screen.getAllByTestId("channel-event-row")).toHaveLength(4);
     });
     // The "posted" event body surfaces in plain text.
-    expect(screen.getByText("first message")).toBeInTheDocument();
-    // The created-row includes the channel name verbatim. The ChannelHeader
-    // also renders the name, so we anchor to the row's class instead of
-    // getByText which would match both occurrences.
     expect(screen.getByText("first message")).toBeInTheDocument();
   });
 
@@ -134,5 +152,25 @@ describe("ChannelView", () => {
         expect.any(Function),
       );
     });
+  });
+
+  it("renders Invite + Leave action buttons in the header for current members", async () => {
+    channelEventsMock.mockResolvedValue(sampleEvents);
+    renderView();
+    await waitFor(() => {
+      expect(screen.getByTestId("channel-invite-button")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("channel-leave-button")).toBeInTheDocument();
+  });
+
+  it("hides Invite + Leave when the local user is not a member", async () => {
+    usePrincipalsMock.mockReturnValue({ data: [{ name: "carol" }] });
+    channelEventsMock.mockResolvedValue(sampleEvents);
+    renderView();
+    await waitFor(() => {
+      expect(screen.getByTestId("channel-toggle-members")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("channel-invite-button")).toBeNull();
+    expect(screen.queryByTestId("channel-leave-button")).toBeNull();
   });
 });

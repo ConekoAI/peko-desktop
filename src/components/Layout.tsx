@@ -11,6 +11,7 @@ import VersionMismatchBanner from "./VersionMismatchBanner";
 import FirstRunWalkthrough from "./FirstRunWalkthrough";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
+import ChannelCreateModal from "./modals/ChannelCreateModal";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
@@ -37,6 +38,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // remote-principals JSON table on the desktop; the sidebar
   // re-renders through React Query's invalidation hook.
   const [connectOpen, setConnectOpen] = useState(false);
+  // PR-3: layout-level ChannelCreateModal so the channels
+  // sidebar's "+ New channel" button can open it. Mirrors the
+  // CreatePrincipalModal hoist pattern.
+  const [channelCreateOpen, setChannelCreateOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -152,7 +157,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             onConnectClick={() => setConnectOpen(true)}
           />
         ) : isChannelsRoute ? (
-          <ChannelSidebar />
+          <ChannelSidebar onCreateClick={() => setChannelCreateOpen(true)} />
         ) : (
           <Sidebar />
         )}
@@ -221,6 +226,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           own local instances; only one is open at a time. */}
       <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <AddRemotePrincipalModal open={connectOpen} onClose={() => setConnectOpen(false)} />
+      <ChannelCreateModal
+        open={channelCreateOpen}
+        onClose={() => setChannelCreateOpen(false)}
+        onCreated={(channelId) =>
+          navigate({
+            to: "/channels/$channelId",
+            params: { channelId },
+          })
+        }
+      />
 
       {/* T-105: first-run walkthrough. Auto-appears when there are
           zero principals and the dismiss flag is unset. Renders its

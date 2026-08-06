@@ -114,22 +114,26 @@ describe("ChannelSidebar", () => {
     expect(screen.queryByTestId("channel-row-chan_alpha")).toBeNull();
   });
 
-  it("disables the 'New channel' CTA in PR-1 (PR-3 wires the modal)", () => {
+  it("enables the 'New channel' CTA in PR-3 (Layout hoists ChannelCreateModal)", () => {
     useChannelsMock.mockReturnValue({
       data: sampleRows,
       isLoading: false,
     });
     // ChannelSidebar only renders the CTA footer when the layout hands
-    // it an `onCreateClick` callback. We pass a no-op so the button is
-    // mounted — the test then asserts the PR-1 disabled state.
+    // it an `onCreateClick` callback. We pass a spy so the test
+    // asserts that clicking the button fires the callback the
+    // layout's hoisted ChannelCreateModal listens for.
+    const onCreate = vi.fn();
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
-        <ChannelSidebar onCreateClick={() => {}} />
+        <ChannelSidebar onCreateClick={onCreate} />
       </QueryClientProvider>,
     );
     const cta = screen.getByTestId("channel-new") as HTMLButtonElement;
-    expect(cta.disabled).toBe(true);
-    expect(cta.title).toMatch(/PR-3/);
+    expect(cta.disabled).toBe(false);
+    expect(cta.title ?? "").not.toMatch(/PR-3/);
+    fireEvent.click(cta);
+    expect(onCreate).toHaveBeenCalledTimes(1);
   });
 });

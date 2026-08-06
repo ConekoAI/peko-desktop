@@ -6,16 +6,19 @@ import { usePrincipals } from "../hooks/usePrincipals";
 import RuntimeBadge from "./RuntimeBadge";
 
 /**
- * PR-1 read-only channel sidebar. Mirrors `PrincipalSidebar.tsx`:
- * `w-60` surface, search box, runtime-grouped list, per-row active
- * indicator, footer CTAs (PR-3 adds the "New channel" modal behind
- * `Plus`).
+ * Channel sidebar. Mirrors `PrincipalSidebar.tsx`: `w-60` surface,
+ * search box, runtime-grouped list, per-row active indicator,
+ * footer CTAs. PR-3 wires the "+ New channel" button to a layout-
+ * level `ChannelCreateModal` (matches the `CreatePrincipalModal`
+ * hoist pattern at `Layout.tsx:222`).
  *
  * The list is built by `useChannels` which fans out across the
  * local principals and dedupes by `channelId`. For PR-1 every
- * channel lives on the local runtime (no remote-join yet); the
- * group-by-runtime structure is in place so PR-3 can flip on the
- * runtime attribution without changing the row component.
+ * channel lived on the local runtime; PR-3's receiver-bootstrap
+ * path (`ChannelStore::join_remote`) lets the sidebar also surface
+ * channels that were invited in from a peer runtime. The runtime-
+ * badge column already handles the runtime attribution so PR-3
+ * doesn't need to touch the row component.
  */
 export default function ChannelSidebar({
   onCreateClick,
@@ -143,9 +146,7 @@ export default function ChannelSidebar({
           <button
             type="button"
             onClick={onCreateClick}
-            disabled
-            title="Available in PR-3"
-            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-400 transition-colors dark:text-slate-600"
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
             data-testid="channel-new"
           >
             <Plus className="h-4 w-4" />
