@@ -922,10 +922,11 @@ export async function pekohubListRuntimes(
 }
 
 // ---------------------------------------------------------------------------
-// Channels (peko-channel cross-runtime desktop PR-1)
+// Channels (peko-channel cross-runtime desktop)
 //
-// Read-only surface. Posts land in PR-2, create/invite/leave in PR-3.
-// All four wrappers thread `runtimeId` for cross-runtime routing
+// PR-1 shipped the read-only surface (list / get / events / members).
+// PR-2a adds `channelPost`. Create / invite / leave land in PR-3.
+// All wrappers thread `runtimeId` for cross-runtime routing
 // (`hub:<url>` style ids route through `HubRemoteClient` in PR #5;
 // `null`/`undefined` resolve to the local IPC client).
 //
@@ -992,6 +993,29 @@ export async function channelMembers(
 ): Promise<ChannelMembers> {
   return invoke<ChannelMembers>("channel_members", {
     channelId,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-2a: post a message to `channelId` from `senderName`. `parent`
+ * is the optional task id of the message being replied to. Returns
+ * the runtime-minted `task_id` (a UUID-shaped string) so the frontend
+ * can correlate an inbound peko-stream event back to its outbound
+ * post when PR-2b lights up the live stream.
+ */
+export async function channelPost(
+  channelId: string,
+  senderName: string,
+  text: string,
+  parent?: string | null,
+  runtimeId?: RuntimeId,
+): Promise<string> {
+  return invoke<string>("channel_post", {
+    channelId,
+    senderName,
+    text,
+    parent: parent ?? null,
     runtimeId: runtimeId ?? null,
   });
 }

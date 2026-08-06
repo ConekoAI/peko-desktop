@@ -47,6 +47,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         channel::channel_get,
         channel::channel_events,
         channel::channel_members,
+        channel::channel_post,
         model_admin::model_list,
         model_admin::model_templates,
         model_admin::model_add,

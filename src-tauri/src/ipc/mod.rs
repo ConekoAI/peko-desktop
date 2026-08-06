@@ -1347,13 +1347,14 @@ impl IpcClient {
 
     // -- Channel surface (peko-channel cross-runtime desktop PR-1) ----
     //
-    // Read-only IPC wrappers. Posts/invites/leaves land in PR-2 / PR-3.
-    // Wire types follow the runtime's RequestPacket variants in
-    // `peko_runtime::ipc::packet::RequestPacket`:
+    // Read-only IPC wrappers. Posts land in PR-2 / PR-2a; invites +
+    // leaves land in PR-3. Wire types follow the runtime's
+    // RequestPacket variants in `peko_runtime::ipc::packet::RequestPacket`:
     //
     // - `channel_list` → `ChannelList { principal_name }`
     // - `channel_peek` → `ChannelPeek { channel, since }`
     // - `channel_members` → `ChannelMembers { channel }`
+    // - `channel_post` → `ChannelPost { channel, sender_name, text, parent }`
 
     /// List channels `principal_name` is a member of. Mirrors
     /// `RequestPacket::ChannelList`. The desktop's `useChannels` hook
@@ -1401,6 +1402,32 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "channel": channel,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR-2a: post a message to `channel` from `sender_name`. `parent`
+    /// is the optional task id of the message being replied to.
+    /// Mirrors `RequestPacket::ChannelPost { channel, sender_name,
+    /// text, parent }`. Returns the `ChannelPosted { task_id, channel
+    /// }` envelope; the desktop's `channel_post` Tauri command
+    /// projects `task_id` to the frontend.
+    pub async fn channel_post(
+        &self,
+        channel: &str,
+        sender_name: &str,
+        text: &str,
+        parent: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_post",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "sender_name": sender_name,
+            "text": text,
+            "parent": parent,
         });
         self.request_response(req).await
     }

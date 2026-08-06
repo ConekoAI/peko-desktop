@@ -1,9 +1,7 @@
-//! Channel Tauri commands (peko-channel cross-runtime desktop UI, PR-1).
+//! Channel Tauri commands (peko-channel cross-runtime desktop UI).
 //!
-//! Read-only surface that exposes the runtime's `Channel*` IPC
-//! variants to the desktop frontend. Posts / invites / leaves are
-//! covered in PR-2 and PR-3 respectively; this PR ships the minimum
-//! surface needed to render a channel list and read its event log.
+//! PR-1 shipped the read-only surface (list / get / events / members);
+//! PR-2a adds `channel_post`. Invites + leaves arrive in PR-3.
 //!
 //! Wire shape mirrors `peko_runtime::ipc::packet::RequestPacket`:
 //!
@@ -18,6 +16,8 @@
 //!   → response: `channel_peek_result` with `events: Vec<ChannelEvent>`
 //! - `channel_members` → `RequestPacket::ChannelMembers`
 //!   → response: `channel_members_result` with `members: Vec<PrincipalId>`
+//! - `channel_post` → `RequestPacket::ChannelPost { sender_name, text, parent }`
+//!   → response: `channel_posted` with `task_id: String` (PR-2a)
 //!
 //! All commands thread `runtime_id` for cross-runtime routing
 //! (`hub:<url>` style ids route through `HubRemoteClient` in PR #5;
@@ -211,6 +211,37 @@ pub async fn channel_members(
     Ok(project_channel_members_envelope(&value, &channel_id, &runtime_id))
 }
 
+/// PR-2a: post a message to `channel_id` from `sender_name`. The
+/// runtime mints a fresh `task_id` for the message, appends a
+/// `Posted` event to the channel log, and (for cross-runtime
+/// channels) fans out via the `TunnelChannelEvent` envelope. Returns
+/// the `task_id` so the frontend can correlate an inbound peko-stream
+/// event back to its outbound post when PR-2b lights up the live
+/// stream.
+#[tauri::command]
+pub async fn channel_post(
+    state: tauri::State<'_, AppState>,
+    channel_id: String,
+    sender_name: String,
+    text: String,
+    parent: Option<String>,
+    runtime_id: Option<String>,
+) -> Result<String, String> {
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let _ = resolved;
+    let _ = runtime_id.unwrap_or_else(|| "local".to_string());
+
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_post(&channel_id, &sender_name, &text, parent.as_deref())
+        .await
+        .map_err(|e| format!("channel_post failed: {e}"))?;
+
+    Ok(project_channel_posted_envelope(&value))
+}
+
 // ---------------------------------------------------------------------------
 // Envelope projectors (extracted for unit-testability)
 // ---------------------------------------------------------------------------
@@ -324,6 +355,17 @@ fn project_channel_members_envelope(
         members,
         runtime_id: runtime_id.to_string(),
     }
+}
+
+/// PR-2a: extract `task_id` from a `ChannelPosted` envelope. Returns
+/// an empty string on a malformed envelope — the caller surfaces it as
+/// a UI error so the user retries rather than silently failing.
+fn project_channel_posted_envelope(value: &serde_json::Value) -> String {
+    value
+        .get("task_id")
+        .and_then(|t| t.as_str())
+        .unwrap_or("")
+        .to_string()
 }
 
 /// Parse one `ChannelEvent` from the runtime's `serde_json::Value`
@@ -505,5 +547,24 @@ mod tests {
         } else {
             panic!("expected Posted");
         }
+    }
+
+    #[test]
+    fn project_channel_posted_envelope_extracts_task_id() {
+        let v = json!({
+            "type": "channel_posted",
+            "channel": "chan_aaaaaaaa",
+            "task_id": "task_0123456789abcdef",
+        });
+        assert_eq!(
+            project_channel_posted_envelope(&v),
+            "task_0123456789abcdef"
+        );
+    }
+
+    #[test]
+    fn project_channel_posted_envelope_returns_empty_on_missing_field() {
+        let v = json!({"type": "channel_posted", "channel": "chan_aaaaaaaa"});
+        assert_eq!(project_channel_posted_envelope(&v), "");
     }
 }
