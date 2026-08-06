@@ -21,6 +21,8 @@ import type {
   CapabilityList,
   ChannelDetail,
   ChannelEvent,
+  ChannelInviteResult,
+  ChannelLeaveResult,
   ChannelMembers,
   ChannelSummary,
   CronJob,
@@ -935,7 +937,14 @@ export async function pekohubListRuntimes(
 // convention used by the principal hooks (`usePrincipals.ts`).
 // ---------------------------------------------------------------------------
 
-export type { ChannelSummary, ChannelDetail, ChannelEvent, ChannelMembers };
+export type {
+  ChannelSummary,
+  ChannelDetail,
+  ChannelEvent,
+  ChannelMembers,
+  ChannelInviteResult,
+  ChannelLeaveResult,
+};
 
 /**
  * List channels `principalName` is a member of. The desktop's
@@ -1016,6 +1025,66 @@ export async function channelPost(
     senderName,
     text,
     parent: parent ?? null,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-3: create a new channel owned by `creatorName`. The runtime
+ * mints a fresh `ChannelId` (the `chan_<8 base36>` form), persists
+ * the channel directory + initial `Created` event, and returns the
+ * new id. Cross-runtime fan-out (TunnelChannelInvite) is a side
+ * effect — the IPC response only acknowledges the local channel.
+ */
+export async function channelCreate(
+  creatorName: string,
+  name: string,
+  runtimeId?: RuntimeId,
+): Promise<string> {
+  return invoke<string>("channel_create", {
+    creatorName,
+    name,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-3: add `inviteeName` to `channelId` (invited by `inviterName`).
+ * The runtime adds the invitee to the channel's membership log
+ * (local + remote members), and for any peer runtime that hosts the
+ * invitee it emits a signed `TunnelChannelInvite` envelope to
+ * bootstrap the receiver's local mirror. Returns the joined channel
+ * + invitee ids.
+ */
+export async function channelInvite(
+  channelId: string,
+  inviterName: string,
+  inviteeName: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelInviteResult> {
+  return invoke<ChannelInviteResult>("channel_invite", {
+    channelId,
+    inviterName,
+    inviteeName,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-3: remove `principalName` from `channelId`. The runtime appends
+ * a `MemberLeft` event to the log. Returns the channel + principal
+ * ids. The local channel directory is NOT auto-removed when the
+ * last local member leaves — the local mirror persists until the
+ * creator explicitly deletes it.
+ */
+export async function channelLeave(
+  channelId: string,
+  principalName: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelLeaveResult> {
+  return invoke<ChannelLeaveResult>("channel_leave", {
+    channelId,
+    principalName,
     runtimeId: runtimeId ?? null,
   });
 }

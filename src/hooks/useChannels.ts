@@ -1,11 +1,16 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  channelCreate,
   channelGet,
+  channelInvite,
+  channelLeave,
   channelList,
   channelMembers,
   type ChannelDetail,
+  type ChannelInviteResult,
+  type ChannelLeaveResult,
   type ChannelMembers,
   type ChannelSummary,
   type RuntimeId,
@@ -131,5 +136,83 @@ export function useChannelMembers(
     enabled: !!channelId,
     queryFn: () => channelMembers(channelId!, rid),
     staleTime: 5_000,
+  });
+}
+
+// ─── Mutations (PR-3) ────────────────────────────────────────────────
+//
+// Each mutation invalidates the channel list + the affected
+// channel-detail / members queries so the sidebar + view update
+// without a manual refresh. Cross-runtime fan-out (TunnelChannelInvite)
+// is a runtime-side side-effect; the IPC response only acknowledges
+// the local channel.
+
+/**
+ * PR-3: create a new channel. Resolves with the runtime-minted
+ * `channelId` so the caller can navigate to `/channels/<id>`
+ * without a follow-up list refresh. Invalidates the channel list so
+ * the sidebar shows the new row.
+ */
+export function useChannelCreate(runtimeId?: RuntimeId) {
+  const qc = useQueryClient();
+  const rid = effectiveRuntimeId(runtimeId);
+  return useMutation({
+    mutationFn: (vars: { creatorName: string; name: string }) =>
+      channelCreate(vars.creatorName, vars.name, rid),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["channels", rid] });
+    },
+  });
+}
+
+/**
+ * PR-3: add a principal to an existing channel. Invalidates the
+ * channel list + the affected channel-detail / members queries so
+ * the React side picks up the new member row without a manual
+ * refresh. Cross-runtime fan-out (TunnelChannelInvite) happens on
+ * the runtime side; the IPC response only acknowledges the local
+ * invite.
+ */
+export function useChannelInvite(channelId: string | undefined, runtimeId?: RuntimeId) {
+  const qc = useQueryClient();
+  const rid = effectiveRuntimeId(runtimeId);
+  return useMutation<ChannelInviteResult, Error, { inviterName: string; inviteeName: string }>({
+    mutationFn: (vars) => {
+      if (!channelId) {
+        return Promise.reject(new Error("channelId is required for invite"));
+      }
+      return channelInvite(channelId, vars.inviterName, vars.inviteeName, rid);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["channels", rid] });
+      qc.invalidateQueries({ queryKey: ["channel", rid, channelId] });
+      qc.invalidateQueries({ queryKey: ["channel-members", rid, channelId] });
+      qc.invalidateQueries({ queryKey: ["channel-events", rid, channelId] });
+    },
+  });
+}
+
+/**
+ * PR-3: remove a principal from an existing channel. Same
+ * invalidation contract as `useChannelInvite`. Callers should
+ * navigate away from the channel route when the leaver was the
+ * last local member.
+ */
+export function useChannelLeave(channelId: string | undefined, runtimeId?: RuntimeId) {
+  const qc = useQueryClient();
+  const rid = effectiveRuntimeId(runtimeId);
+  return useMutation<ChannelLeaveResult, Error, { principalName: string }>({
+    mutationFn: (vars) => {
+      if (!channelId) {
+        return Promise.reject(new Error("channelId is required for leave"));
+      }
+      return channelLeave(channelId, vars.principalName, rid);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["channels", rid] });
+      qc.invalidateQueries({ queryKey: ["channel", rid, channelId] });
+      qc.invalidateQueries({ queryKey: ["channel-members", rid, channelId] });
+      qc.invalidateQueries({ queryKey: ["channel-events", rid, channelId] });
+    },
   });
 }

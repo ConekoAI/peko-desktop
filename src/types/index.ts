@@ -504,3 +504,28 @@ export interface ChannelMembers {
   runtimeId: string;
 }
 
+/**
+ * PR-3: ack envelope for `channel_invite`. Mirrors the runtime's
+ * `ResponsePacket::ChannelInvited { channel, invitee }` shape so the
+ * React side can refresh the optimistic invitee list without a
+ * follow-up `channel_members` round-trip.
+ */
+export interface ChannelInviteResult {
+  channelId: string;
+  invitee: string;
+  runtimeId: string;
+}
+
+/**
+ * PR-3: ack envelope for `channel_leave`. Mirrors the runtime's
+ * `ResponsePacket::ChannelLeft { channel, principal }` shape. The
+ * React side uses this to drop the principal from its optimistic
+ * member list and (if the leaver was the last local member)
+ * navigate away from the channel route.
+ */
+export interface ChannelLeaveResult {
+  channelId: string;
+  principal: string;
+  runtimeId: string;
+}
+
