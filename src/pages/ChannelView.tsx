@@ -13,7 +13,11 @@ import {
   useChannelMembers,
   useChannelLeave,
 } from "../hooks/useChannels";
-import { useChannelEvents, useChannelStreamInvalidator } from "../hooks/useChannelEvents";
+import {
+  useChannelEvents,
+  useChannelEventsWatch,
+  useChannelStreamInvalidator,
+} from "../hooks/useChannelEvents";
 import { usePrincipals } from "../hooks/usePrincipals";
 import { Loader2 } from "lucide-react";
 
@@ -63,6 +67,15 @@ export default function ChannelView() {
   });
 
   const { data: events, isLoading } = useChannelEvents(channelId, null, runtimeId);
+  // PR-2b: kick off the long-lived `ChannelEventsWatch` subscription
+  // for this channel. The runtime replays events from the start of
+  // the log (since=null) then forwards live events via the
+  // `peko-stream` Tauri event channel — `useChannelStreamInvalidator`
+  // (above) is the listener half and invalidates the matching query
+  // keys. The hook is best-effort: failures log a `console.warn`
+  // and the page falls back to the `refetchInterval` polling path
+  // baked into `useChannelEvents`.
+  useChannelEventsWatch(channelId, null, runtimeId);
   const { data: detail } = useChannel(channelId, runtimeId);
   const { data: membersData } = useChannelMembers(channelId, runtimeId);
   const { data: principals } = usePrincipals();

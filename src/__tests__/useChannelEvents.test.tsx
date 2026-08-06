@@ -13,15 +13,24 @@
 //   • useChannelStreamInvalidator invokes the onInviteReceived
 //     callback for `channel_invite_received` messages
 //   • the hook cleans up the listener on unmount
+//
+// PR-2b extends the surface: `useChannelEventsWatch` kicks off the
+// long-lived `channel_events_watch` IPC subscription so the runtime
+// can forward live `peko-stream` events without polling. Validates:
+//   • the IPC fires with the right args
+//   • the IPC is skipped when channelId is empty
+//   • an IPC rejection is swallowed via console.warn (not thrown)
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const channelEventsMock = vi.fn();
+const channelEventsWatchMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   channelEvents: (...args: unknown[]) => channelEventsMock(...args),
+  channelEventsWatch: (...args: unknown[]) => channelEventsWatchMock(...args),
 }));
 
 // We capture the listener callback so individual tests can simulate
@@ -43,6 +52,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 import {
   useChannelEvents,
+  useChannelEventsWatch,
   useChannelStreamInvalidator,
 } from "../hooks/useChannelEvents";
 
@@ -63,6 +73,7 @@ function freshClient(): QueryClient {
 describe("useChannelEvents", () => {
   beforeEach(() => {
     channelEventsMock.mockReset();
+    channelEventsWatchMock.mockReset();
     listenMock.mockClear();
     capturedListener = undefined;
     unlistenCalled = false;
@@ -101,6 +112,7 @@ describe("useChannelEvents", () => {
 describe("useChannelStreamInvalidator", () => {
   beforeEach(() => {
     channelEventsMock.mockReset();
+    channelEventsWatchMock.mockReset();
     listenMock.mockClear();
     capturedListener = undefined;
     unlistenCalled = false;
@@ -192,5 +204,78 @@ describe("useChannelStreamInvalidator", () => {
       });
     });
     expect(onInvite).not.toHaveBeenCalled();
+  });
+});
+
+describe("useChannelEventsWatch", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    channelEventsMock.mockReset();
+    channelEventsWatchMock.mockReset();
+    listenMock.mockClear();
+    capturedListener = undefined;
+    unlistenCalled = false;
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it("calls channelEventsWatch IPC on mount with the correct args", async () => {
+    channelEventsWatchMock.mockResolvedValue(undefined);
+    const qc = freshClient();
+    renderHookWith(
+      () => useChannelEventsWatch("chan_alpha", null, "local"),
+      qc,
+    );
+    await waitFor(() => expect(channelEventsWatchMock).toHaveBeenCalledTimes(1));
+    // The hook forwards `since ?? undefined` so a null cursor becomes
+    // `undefined` — matches the api.ts signature where `since?: string`.
+    expect(channelEventsWatchMock).toHaveBeenCalledWith(
+      "chan_alpha",
+      undefined,
+      "local",
+    );
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("forwards a concrete since cursor to the IPC", async () => {
+    channelEventsWatchMock.mockResolvedValue(undefined);
+    const qc = freshClient();
+    renderHookWith(
+      () => useChannelEventsWatch("chan_alpha", "ckpt-42", "remote-east"),
+      qc,
+    );
+    await waitFor(() => expect(channelEventsWatchMock).toHaveBeenCalledTimes(1));
+    expect(channelEventsWatchMock).toHaveBeenCalledWith(
+      "chan_alpha",
+      "ckpt-42",
+      "remote-east",
+    );
+  });
+
+  it("does not call the IPC when channelId is empty", () => {
+    const qc = freshClient();
+    renderHookWith(() => useChannelEventsWatch(undefined), qc);
+    // The hook returns immediately — no async task is even scheduled.
+    expect(channelEventsWatchMock).not.toHaveBeenCalled();
+  });
+
+  it("swallows IPC rejections via console.warn instead of throwing", async () => {
+    channelEventsWatchMock.mockRejectedValue(new Error("daemon gone"));
+    const qc = freshClient();
+    renderHookWith(
+      () => useChannelEventsWatch("chan_alpha", null, "local"),
+      qc,
+    );
+    await waitFor(() => expect(channelEventsWatchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(warnSpy).toHaveBeenCalledWith(
+        "[peko-desktop] channel_events_watch failed:",
+        expect.any(Error),
+      ),
+    );
   });
 });
