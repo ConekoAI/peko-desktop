@@ -928,7 +928,13 @@ export async function pekohubListRuntimes(
 // All four wrappers thread `runtimeId` for cross-runtime routing
 // (`hub:<url>` style ids route through `HubRemoteClient` in PR #5;
 // `null`/`undefined` resolve to the local IPC client).
+//
+// Types are re-exported here so hook files can `import { ChannelSummary,
+// ... } from "../lib/api"` alongside the IPC wrappers, matching the
+// convention used by the principal hooks (`usePrincipals.ts`).
 // ---------------------------------------------------------------------------
+
+export type { ChannelSummary, ChannelDetail, ChannelEvent, ChannelMembers };
 
 /**
  * List channels `principalName` is a member of. The desktop's

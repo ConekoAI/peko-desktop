@@ -16,10 +16,12 @@ import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CronRouteImport } from './routes/cron'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as ChannelsRouteImport } from './routes/channels'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PrincipalPrincipalNameRouteImport } from './routes/principal.$principalName'
 import { Route as LogPrincipalNameRouteImport } from './routes/log.$principalName'
 import { Route as ChatPrincipalNameRouteImport } from './routes/chat.$principalName'
+import { Route as ChannelsChannelIdRouteImport } from './routes/channels.$channelId'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -56,6 +58,11 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChannelsRoute = ChannelsRouteImport.update({
+  id: '/channels',
+  path: '/channels',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -76,9 +83,15 @@ const ChatPrincipalNameRoute = ChatPrincipalNameRouteImport.update({
   path: '/$principalName',
   getParentRoute: () => ChatRoute,
 } as any)
+const ChannelsChannelIdRoute = ChannelsChannelIdRouteImport.update({
+  id: '/$channelId',
+  path: '/$channelId',
+  getParentRoute: () => ChannelsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
@@ -86,12 +99,14 @@ export interface FileRoutesByFullPath {
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
+  '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$principalName': typeof ChatPrincipalNameRoute
   '/log/$principalName': typeof LogPrincipalNameRoute
   '/principal/$principalName': typeof PrincipalPrincipalNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
@@ -99,6 +114,7 @@ export interface FileRoutesByTo {
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
+  '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$principalName': typeof ChatPrincipalNameRoute
   '/log/$principalName': typeof LogPrincipalNameRoute
   '/principal/$principalName': typeof PrincipalPrincipalNameRoute
@@ -106,6 +122,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
@@ -113,6 +130,7 @@ export interface FileRoutesById {
   '/extensions': typeof ExtensionsRoute
   '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
+  '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$principalName': typeof ChatPrincipalNameRoute
   '/log/$principalName': typeof LogPrincipalNameRoute
   '/principal/$principalName': typeof PrincipalPrincipalNameRoute
@@ -121,6 +139,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/channels'
     | '/chat'
     | '/cron'
     | '/dashboard'
@@ -128,12 +147,14 @@ export interface FileRouteTypes {
     | '/extensions'
     | '/registry'
     | '/settings'
+    | '/channels/$channelId'
     | '/chat/$principalName'
     | '/log/$principalName'
     | '/principal/$principalName'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/channels'
     | '/chat'
     | '/cron'
     | '/dashboard'
@@ -141,12 +162,14 @@ export interface FileRouteTypes {
     | '/extensions'
     | '/registry'
     | '/settings'
+    | '/channels/$channelId'
     | '/chat/$principalName'
     | '/log/$principalName'
     | '/principal/$principalName'
   id:
     | '__root__'
     | '/'
+    | '/channels'
     | '/chat'
     | '/cron'
     | '/dashboard'
@@ -154,6 +177,7 @@ export interface FileRouteTypes {
     | '/extensions'
     | '/registry'
     | '/settings'
+    | '/channels/$channelId'
     | '/chat/$principalName'
     | '/log/$principalName'
     | '/principal/$principalName'
@@ -161,6 +185,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChannelsRoute: typeof ChannelsRouteWithChildren
   ChatRoute: typeof ChatRouteWithChildren
   CronRoute: typeof CronRoute
   DashboardRoute: typeof DashboardRoute
@@ -223,6 +248,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/channels': {
+      id: '/channels'
+      path: '/channels'
+      fullPath: '/channels'
+      preLoaderRoute: typeof ChannelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -251,8 +283,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatPrincipalNameRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/channels/$channelId': {
+      id: '/channels/$channelId'
+      path: '/$channelId'
+      fullPath: '/channels/$channelId'
+      preLoaderRoute: typeof ChannelsChannelIdRouteImport
+      parentRoute: typeof ChannelsRoute
+    }
   }
 }
+
+interface ChannelsRouteChildren {
+  ChannelsChannelIdRoute: typeof ChannelsChannelIdRoute
+}
+
+const ChannelsRouteChildren: ChannelsRouteChildren = {
+  ChannelsChannelIdRoute: ChannelsChannelIdRoute,
+}
+
+const ChannelsRouteWithChildren = ChannelsRoute._addFileChildren(
+  ChannelsRouteChildren,
+)
 
 interface ChatRouteChildren {
   ChatPrincipalNameRoute: typeof ChatPrincipalNameRoute
@@ -266,6 +317,7 @@ const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChannelsRoute: ChannelsRouteWithChildren,
   ChatRoute: ChatRouteWithChildren,
   CronRoute: CronRoute,
   DashboardRoute: DashboardRoute,

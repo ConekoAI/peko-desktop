@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import Sidebar from "./Sidebar";
 import AppRail from "./AppRail";
 import PrincipalSidebar from "./PrincipalSidebar";
+import ChannelSidebar from "./ChannelSidebar";
 import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
 import EngineFailureCard from "./EngineFailureCard";
@@ -118,6 +119,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isChatRoute =
     location.pathname === "/" || location.pathname === "/chat" || location.pathname.startsWith("/chat/");
 
+  const isChannelsRoute =
+    location.pathname === "/channels" ||
+    location.pathname.startsWith("/channels/");
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-white dark:bg-slate-950">
       {/* Custom title bar */}
@@ -137,12 +142,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Far left: app rail (always visible) */}
         <AppRail />
 
-        {/* Context sidebar: principal list on chat routes, tools elsewhere */}
+        {/* Context sidebar: principal list on chat routes,
+            channel list on channels routes, tools elsewhere.
+            Order matches `AppRail` icon order (Direct Messages,
+            Channels, Tools). */}
         {isChatRoute ? (
           <PrincipalSidebar
             onCreateClick={() => setCreateOpen(true)}
             onConnectClick={() => setConnectOpen(true)}
           />
+        ) : isChannelsRoute ? (
+          <ChannelSidebar />
         ) : (
           <Sidebar />
         )}
