@@ -19,6 +19,10 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 import type {
   BundleItem,
   CapabilityList,
+  ChannelDetail,
+  ChannelEvent,
+  ChannelMembers,
+  ChannelSummary,
   CronJob,
   CredentialDetail,
   DaemonStatus,
@@ -915,4 +919,73 @@ export async function pekohubListRuntimes(
     name: String(r.name ?? r.display_name ?? r.id ?? ""),
     url: r.url ? String(r.url) : undefined,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Channels (peko-channel cross-runtime desktop PR-1)
+//
+// Read-only surface. Posts land in PR-2, create/invite/leave in PR-3.
+// All four wrappers thread `runtimeId` for cross-runtime routing
+// (`hub:<url>` style ids route through `HubRemoteClient` in PR #5;
+// `null`/`undefined` resolve to the local IPC client).
+// ---------------------------------------------------------------------------
+
+/**
+ * List channels `principalName` is a member of. The desktop's
+ * `useChannels` hook iterates local principals and dedupes by
+ * `channelId` to render a unified sidebar.
+ */
+export async function channelList(
+  principalName: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelSummary[]> {
+  return invoke<ChannelSummary[]>("channel_list", {
+    principalName,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * Look up a single channel's metadata + member count. Returns
+ * `null` when the channel doesn't exist on the runtime.
+ */
+export async function channelGet(
+  channelId: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelDetail | null> {
+  return invoke<ChannelDetail | null>("channel_get", {
+    channelId,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * List events on `channelId` since `since` (None = from the start).
+ * Returns an empty array if the channel doesn't exist.
+ */
+export async function channelEvents(
+  channelId: string,
+  since?: string | null,
+  runtimeId?: RuntimeId,
+): Promise<ChannelEvent[]> {
+  return invoke<ChannelEvent[]>("channel_events", {
+    channelId,
+    since: since ?? null,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * List the principal DIDs currently in `channelId`. Delegates to
+ * the runtime's `ChannelMembers` IPC variant, which derives the
+ * authoritative membership from the `Member*` event log.
+ */
+export async function channelMembers(
+  channelId: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelMembers> {
+  return invoke<ChannelMembers>("channel_members", {
+    channelId,
+    runtimeId: runtimeId ?? null,
+  });
 }

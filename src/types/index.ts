@@ -426,3 +426,81 @@ export interface CredentialDetail {
   updatedAt?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Channels (peko-channel cross-runtime desktop PR-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lightweight summary row for the channel sidebar. The runtime's
+ * `channel_list` IPC returns only `ChannelId` values; the desktop
+ * projects them to this shape so the React sidebar can group +
+ * filter without re-fetching.
+ */
+export interface ChannelSummary {
+  channelId: string;
+  runtimeId: string;
+}
+
+/**
+ * Single channel's full metadata snapshot. Projected on the Tauri
+ * side from the runtime's `channel_peek` response — the first
+ * `Created` event gives name/creator/createdAt, and `MemberJoined -
+ * MemberLeft` gives the memberCount. Returns `null` (rather than
+ * error) when the channel doesn't exist on the runtime.
+ */
+export interface ChannelDetail {
+  channelId: string;
+  name: string;
+  creator: string;
+  createdAt: string;
+  memberCount: number;
+  runtimeId: string;
+}
+
+/**
+ * Mirrors `peko_protocol::channel::ChannelEvent`'s
+ * `#[serde(tag = "kind", rename_all = "snake_case")]` shape. Camel-case
+ * discriminated union so the React side can switch on `kind` directly.
+ * Forward-compatible: unknown variants are dropped at the Tauri
+ * projector, not surfaced here.
+ */
+export type ChannelEvent =
+  | {
+      kind: "created";
+      channel: string;
+      creator: string;
+      name: string;
+      at: string;
+    }
+  | {
+      kind: "posted";
+      channel: string;
+      author: string;
+      parent: string | null;
+      text: string;
+      at: string;
+    }
+  | {
+      kind: "member_joined";
+      channel: string;
+      member: string;
+      at: string;
+    }
+  | {
+      kind: "member_left";
+      channel: string;
+      member: string;
+      at: string;
+    };
+
+/**
+ * Member list for a single channel. `members` are principal DIDs
+ * (e.g. `prin_alice`). The runtime derives the authoritative
+ * membership from the `Member*` event log.
+ */
+export interface ChannelMembers {
+  channelId: string;
+  members: string[];
+  runtimeId: string;
+}
+
