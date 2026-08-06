@@ -1431,6 +1431,76 @@ impl IpcClient {
         });
         self.request_response(req).await
     }
+
+    /// PR-3: create a new channel owned by `creator_name`. Mirrors
+    /// `RequestPacket::ChannelCreate { creator_name, name }`. Returns
+    /// the `ChannelCreated { channel }` envelope; the desktop's
+    /// `channel_create` Tauri command projects `channel` to the
+    /// frontend as the freshly minted `ChannelId` string.
+    pub async fn channel_create(
+        &self,
+        creator_name: &str,
+        name: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_create",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "creator_name": creator_name,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR-3: add `invitee_name` to `channel` (invited by
+    /// `inviter_name`). Mirrors `RequestPacket::ChannelInvite
+    /// { channel, inviter_name, invitee_name }`. Returns the
+    /// `ChannelInvited { channel, invitee }` envelope; the desktop's
+    /// `channel_invite` Tauri command projects both fields to the
+    /// frontend. For cross-runtime invites the runtime emits a
+    /// `TunnelChannelInvite` envelope out-of-band; the IPC response
+    /// acknowledges only the local invite.
+    pub async fn channel_invite(
+        &self,
+        channel: &str,
+        inviter_name: &str,
+        invitee_name: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_invite",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "inviter_name": inviter_name,
+            "invitee_name": invitee_name,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR-3: remove `principal_name` from `channel`. Mirrors
+    /// `RequestPacket::ChannelLeave { channel, principal_name }`.
+    /// Returns the `ChannelLeft { channel, principal }` envelope; the
+    /// desktop's `channel_leave` Tauri command projects both fields
+    /// so the React side can surface "left <channel>" or remove the
+    /// channel from the sidebar if the leaver was the last local
+    /// member.
+    pub async fn channel_leave(
+        &self,
+        channel: &str,
+        principal_name: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_leave",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "principal_name": principal_name,
+        });
+        self.request_response(req).await
+    }
 }
 
 #[cfg(unix)]

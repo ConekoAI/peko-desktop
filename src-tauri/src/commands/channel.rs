@@ -1,7 +1,11 @@
 //! Channel Tauri commands (peko-channel cross-runtime desktop UI).
 //!
-//! PR-1 shipped the read-only surface (list / get / events / members);
-//! PR-2a adds `channel_post`. Invites + leaves arrive in PR-3.
+//! PR-1 shipped the read-only surface (list / get / events / members).
+//! PR-2a adds `channel_post`. PR-3 adds `channel_create`,
+//! `channel_invite`, and `channel_leave` to close the loop on
+//! channel creation, member management, and (for cross-runtime
+//! channels) the receiver-bootstrap path that the runtime's
+//! `TunnelChannelInvite` envelope drives.
 //!
 //! Wire shape mirrors `peko_runtime::ipc::packet::RequestPacket`:
 //!
@@ -18,6 +22,12 @@
 //!   → response: `channel_members_result` with `members: Vec<PrincipalId>`
 //! - `channel_post` → `RequestPacket::ChannelPost { sender_name, text, parent }`
 //!   → response: `channel_posted` with `task_id: String` (PR-2a)
+//! - `channel_create` → `RequestPacket::ChannelCreate { creator_name, name }`
+//!   → response: `channel_created` with `channel: ChannelId` (PR-3)
+//! - `channel_invite` → `RequestPacket::ChannelInvite { channel, inviter_name, invitee_name }`
+//!   → response: `channel_invited` with `channel + invitee` (PR-3)
+//! - `channel_leave` → `RequestPacket::ChannelLeave { channel, principal_name }`
+//!   → response: `channel_left` with `channel + principal` (PR-3)
 //!
 //! All commands thread `runtime_id` for cross-runtime routing
 //! (`hub:<url>` style ids route through `HubRemoteClient` in PR #5;
@@ -99,6 +109,33 @@ pub enum ChannelEvent {
 pub struct ChannelMembers {
     pub channel_id: String,
     pub members: Vec<String>,
+    pub runtime_id: String,
+}
+
+/// PR-3: ack envelope for `channel_invite`. Mirrors the runtime's
+/// `ResponsePacket::ChannelInvited { channel, invitee }` shape so the
+/// React side can refresh the optimistic invitee list without a
+/// follow-up `channel_members` round-trip. `runtime_id` is the
+/// echoed Tauri-side identifier so multi-runtime routing stays
+/// consistent with `ChannelMembers`.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelInviteResult {
+    pub channel_id: String,
+    pub invitee: String,
+    pub runtime_id: String,
+}
+
+/// PR-3: ack envelope for `channel_leave`. Mirrors the runtime's
+/// `ResponsePacket::ChannelLeft { channel, principal }` shape. The
+/// React side uses this to drop the principal from its optimistic
+/// member list and (if the leaver was the last local member)
+/// navigate away from the channel route.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelLeaveResult {
+    pub channel_id: String,
+    pub principal: String,
     pub runtime_id: String,
 }
 
@@ -242,6 +279,107 @@ pub async fn channel_post(
     Ok(project_channel_posted_envelope(&value))
 }
 
+/// PR-3: create a new channel owned by `creator_name`. The runtime
+/// validates the creator principal is loaded, mints a fresh
+/// `ChannelId`, persists the channel directory + initial `Created`
+/// event, and (for any peer runtime that already has the creator
+/// in its member set) seeds the channel mirror through the
+/// `TunnelChannelInvite` envelope. Returns the freshly minted
+/// `channel_id` so the frontend can navigate to `/channels/$channelId`
+/// without a follow-up list refresh.
+#[tauri::command]
+pub async fn channel_create(
+    state: tauri::State<'_, AppState>,
+    creator_name: String,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<String, String> {
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let _ = resolved;
+    let _ = runtime_id.unwrap_or_else(|| "local".to_string());
+
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_create(&creator_name, &name)
+        .await
+        .map_err(|e| format!("channel_create failed: {e}"))?;
+
+    Ok(project_channel_created_envelope(&value))
+}
+
+/// PR-3: invite `invitee_name` to `channel_id` (issued by
+/// `inviter_name`). The runtime adds the invitee to the channel's
+/// membership log (local + remote members), and for any peer runtime
+/// that hosts the invitee it emits a signed `TunnelChannelInvite`
+/// envelope to bootstrap the receiver's local mirror. Returns the
+/// joined channel + invitee principal ids so the React side can
+/// update its optimistic state without a follow-up `channel_members`
+/// round-trip.
+#[tauri::command]
+pub async fn channel_invite(
+    state: tauri::State<'_, AppState>,
+    channel_id: String,
+    inviter_name: String,
+    invitee_name: String,
+    runtime_id: Option<String>,
+) -> Result<ChannelInviteResult, String> {
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let _ = resolved;
+    let runtime_id_echo = runtime_id.unwrap_or_else(|| "local".to_string());
+
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_invite(&channel_id, &inviter_name, &invitee_name)
+        .await
+        .map_err(|e| format!("channel_invite failed: {e}"))?;
+
+    Ok(project_channel_invited_envelope(
+        &value,
+        &channel_id,
+        &runtime_id_echo,
+    ))
+}
+
+/// PR-3: remove `principal_name` from `channel_id`. The runtime
+/// appends a `MemberLeft` event to the log and (for cross-runtime
+/// channels) fans out a `TunnelChannelEvent` envelope so the
+/// remote members see the leave in their mirrors. Returns the
+/// channel + principal ids so the React side can update its
+/// optimistic state.
+///
+/// The local channel directory is NOT auto-removed when the last
+/// local member leaves — the local mirror persists until the
+/// creator explicitly deletes it (out of scope for PR-3).
+#[tauri::command]
+pub async fn channel_leave(
+    state: tauri::State<'_, AppState>,
+    channel_id: String,
+    principal_name: String,
+    runtime_id: Option<String>,
+) -> Result<ChannelLeaveResult, String> {
+    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let _ = resolved;
+    let runtime_id_echo = runtime_id.unwrap_or_else(|| "local".to_string());
+
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_leave(&channel_id, &principal_name)
+        .await
+        .map_err(|e| format!("channel_leave failed: {e}"))?;
+
+    Ok(project_channel_left_envelope(
+        &value,
+        &channel_id,
+        &runtime_id_echo,
+    ))
+}
+
 // ---------------------------------------------------------------------------
 // Envelope projectors (extracted for unit-testability)
 // ---------------------------------------------------------------------------
@@ -366,6 +504,74 @@ fn project_channel_posted_envelope(value: &serde_json::Value) -> String {
         .and_then(|t| t.as_str())
         .unwrap_or("")
         .to_string()
+}
+
+/// PR-3: extract the freshly minted `channel` id from a
+/// `ChannelCreated` envelope. Falls back to the request-supplied
+/// `channel_id` argument (which is empty for create) and finally to
+/// an empty string — surfaced as a UI error so the user can retry
+/// rather than silently failing.
+fn project_channel_created_envelope(value: &serde_json::Value) -> String {
+    value
+        .get("channel")
+        .and_then(|c| c.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+/// PR-3: extract `channel` + `invitee` from a `ChannelInvited`
+/// envelope. Falls back to the request-supplied `channel_id` arg
+/// when the runtime's wire shape is missing — this keeps the
+/// frontend's optimistic state in sync with what the user just
+/// clicked even on a malformed response. `invitee` falls back to
+/// empty string on a malformed envelope.
+fn project_channel_invited_envelope(
+    value: &serde_json::Value,
+    channel_id: &str,
+    runtime_id: &str,
+) -> ChannelInviteResult {
+    let channel = value
+        .get("channel")
+        .and_then(|c| c.as_str())
+        .unwrap_or(channel_id)
+        .to_string();
+    let invitee = value
+        .get("invitee")
+        .and_then(|c| c.as_str())
+        .unwrap_or("")
+        .to_string();
+    ChannelInviteResult {
+        channel_id: channel,
+        invitee,
+        runtime_id: runtime_id.to_string(),
+    }
+}
+
+/// PR-3: extract `channel` + `principal` from a `ChannelLeft`
+/// envelope. Same fallback contract as
+/// `project_channel_invited_envelope` — keep the user's optimistic
+/// state in sync with the request arg when the runtime's response
+/// is malformed.
+fn project_channel_left_envelope(
+    value: &serde_json::Value,
+    channel_id: &str,
+    runtime_id: &str,
+) -> ChannelLeaveResult {
+    let channel = value
+        .get("channel")
+        .and_then(|c| c.as_str())
+        .unwrap_or(channel_id)
+        .to_string();
+    let principal = value
+        .get("principal")
+        .and_then(|c| c.as_str())
+        .unwrap_or("")
+        .to_string();
+    ChannelLeaveResult {
+        channel_id: channel,
+        principal,
+        runtime_id: runtime_id.to_string(),
+    }
 }
 
 /// Parse one `ChannelEvent` from the runtime's `serde_json::Value`
@@ -566,5 +772,83 @@ mod tests {
     fn project_channel_posted_envelope_returns_empty_on_missing_field() {
         let v = json!({"type": "channel_posted", "channel": "chan_aaaaaaaa"});
         assert_eq!(project_channel_posted_envelope(&v), "");
+    }
+
+    /// PR-3: `channel_create` returns the runtime-minted `channel`
+    /// id. We surface it directly to the frontend so the modal can
+    /// navigate to `/channels/<id>` without a list refresh.
+    #[test]
+    fn project_channel_created_envelope_extracts_channel() {
+        let v = json!({
+            "type": "channel_created",
+            "channel": "chan_abcdefgh",
+        });
+        assert_eq!(project_channel_created_envelope(&v), "chan_abcdefgh");
+    }
+
+    /// PR-3: a malformed `channel_created` envelope (no `channel`
+    /// field) yields an empty string. The frontend surfaces this as
+    /// a UI error rather than navigating to `/channels/`.
+    #[test]
+    fn project_channel_created_envelope_returns_empty_on_missing_field() {
+        let v = json!({"type": "channel_created"});
+        assert_eq!(project_channel_created_envelope(&v), "");
+    }
+
+    /// PR-3: `channel_invite` echoes both `channel` (falling back to
+    /// the request-supplied id) and `invitee` so the React side can
+    /// refresh the optimistic invitee list without a follow-up
+    /// `channel_members` round-trip.
+    #[test]
+    fn project_channel_invited_envelope_extracts_fields() {
+        let v = json!({
+            "type": "channel_invited",
+            "channel": "chan_aaaaaaaa",
+            "invitee": "prin_bob",
+        });
+        let r = project_channel_invited_envelope(&v, "chan_aaaaaaaa", "local");
+        assert_eq!(r.channel_id, "chan_aaaaaaaa");
+        assert_eq!(r.invitee, "prin_bob");
+        assert_eq!(r.runtime_id, "local");
+    }
+
+    /// PR-3: when the runtime omits `channel` (malformed envelope),
+    /// we fall back to the request-supplied id so the frontend's
+    /// optimistic state stays in sync with the user's click. An
+    /// empty `invitee` becomes the empty string — surfaced as a UI
+    /// error rather than silently succeeding.
+    #[test]
+    fn project_channel_invited_envelope_falls_back_on_missing_channel() {
+        let v = json!({"type": "channel_invited", "invitee": "prin_bob"});
+        let r = project_channel_invited_envelope(&v, "chan_fallback", "local");
+        assert_eq!(r.channel_id, "chan_fallback");
+        assert_eq!(r.invitee, "prin_bob");
+    }
+
+    /// PR-3: `channel_leave` echoes both `channel` (falling back to
+    /// the request-supplied id) and `principal` so the React side
+    /// can drop the right member from its optimistic state without
+    /// a follow-up `channel_members` round-trip.
+    #[test]
+    fn project_channel_left_envelope_extracts_fields() {
+        let v = json!({
+            "type": "channel_left",
+            "channel": "chan_aaaaaaaa",
+            "principal": "prin_alice",
+        });
+        let r = project_channel_left_envelope(&v, "chan_aaaaaaaa", "local");
+        assert_eq!(r.channel_id, "chan_aaaaaaaa");
+        assert_eq!(r.principal, "prin_alice");
+        assert_eq!(r.runtime_id, "local");
+    }
+
+    /// PR-3: malformed `channel_left` envelope falls back to the
+    /// request-supplied `channel_id` and an empty `principal`.
+    #[test]
+    fn project_channel_left_envelope_falls_back_on_missing_principal() {
+        let v = json!({"type": "channel_left", "channel": "chan_aaaaaaaa"});
+        let r = project_channel_left_envelope(&v, "chan_aaaaaaaa", "local");
+        assert_eq!(r.channel_id, "chan_aaaaaaaa");
+        assert_eq!(r.principal, "");
     }
 }
