@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import ChannelHeader from "../components/ChannelHeader";
 import ChannelComposer from "../components/ChannelComposer";
 import ChannelEventRow from "../components/ChannelEventRow";
@@ -19,7 +20,6 @@ import {
   useChannelStreamInvalidator,
 } from "../hooks/useChannelEvents";
 import { usePrincipals } from "../hooks/usePrincipals";
-import { Loader2 } from "lucide-react";
 
 /**
  * Channel view. PR-1 read-only + PR-2a composer + PR-3
@@ -67,7 +67,12 @@ export default function ChannelView() {
     setInviteToast({ channelId: incomingChannelId });
   });
 
-  const { data: events, isLoading } = useChannelEvents(channelId, null, runtimeId);
+  const {
+    data: events,
+    isLoading,
+    error: eventsError,
+    refetch: refetchEvents,
+  } = useChannelEvents(channelId, null, runtimeId);
   // PR-2b: kick off the long-lived `ChannelEventsWatch` subscription
   // for this channel. The runtime replays events from the start of
   // the log (since=null) then forwards live events via the
@@ -137,6 +142,34 @@ export default function ChannelView() {
           <div className="flex items-center justify-center gap-2 py-12 text-xs text-slate-400">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Loading events…
+          </div>
+        ) : eventsError ? (
+          <div
+            className="mx-auto my-6 max-w-md rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+            role="alert"
+            aria-live="assertive"
+            data-testid="channel-events-error"
+          >
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium">Couldn't load channel events.</p>
+                <p className="mt-1 opacity-80">
+                  {eventsError instanceof Error
+                    ? eventsError.message
+                    : String(eventsError)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void refetchEvents()}
+                  className="mt-2 inline-flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
+                  data-testid="channel-events-retry"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Retry
+                </button>
+              </div>
+            </div>
           </div>
         ) : events && events.length > 0 ? (
           <ul className="space-y-3">

@@ -14,7 +14,7 @@
 // try to load the real `@tauri-apps/api/event` module under jsdom.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const channelEventsMock = vi.fn();
@@ -172,5 +172,29 @@ describe("ChannelView", () => {
     });
     expect(screen.queryByTestId("channel-invite-button")).toBeNull();
     expect(screen.queryByTestId("channel-leave-button")).toBeNull();
+  });
+
+  it("renders an error banner with a Retry button when channelEvents IPC fails", async () => {
+    channelEventsMock.mockRejectedValue(
+      new Error("IPC: channel_events connection refused"),
+    );
+    renderView();
+    // Audit fix (P1.4): pre-fix the page silently showed the
+    // empty-state when the fetch rejected. With the error UI the
+    // user sees what failed and can retry.
+    await waitFor(() => {
+      expect(screen.getByTestId("channel-events-error")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("channel-events-retry")).toBeInTheDocument();
+    expect(screen.getByText(/Couldn't load channel events/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/channel_events connection refused/),
+    ).toBeInTheDocument();
+    // The retry button re-fires the IPC.
+    channelEventsMock.mockResolvedValue(sampleEvents);
+    fireEvent.click(screen.getByTestId("channel-events-retry"));
+    await waitFor(() => {
+      expect(screen.getAllByTestId("channel-event-row")).toHaveLength(4);
+    });
   });
 });
