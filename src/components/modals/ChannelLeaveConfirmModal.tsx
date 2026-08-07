@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { LogOut, X } from "lucide-react";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 /**
  * PR-3: confirm leaving a channel. Wraps the destructive
@@ -25,14 +27,30 @@ export default function ChannelLeaveConfirmModal({
 }) {
   if (!open) return null;
 
+  // P1.5: Escape cancels the modal + focus is trapped inside it.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  useModalA11y(open, containerRef, onCancel);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div
+      ref={containerRef}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="channel-leave-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    >
       <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-950">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/50">
             <LogOut className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+          <h2
+            id="channel-leave-modal-title"
+            className="text-lg font-semibold text-slate-900 dark:text-white"
+          >
             Leave <span className="font-mono">{channelId}</span>?
           </h2>
           <button

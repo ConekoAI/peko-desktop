@@ -2,17 +2,17 @@ import { Hash, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
 /**
- * PR-3: ephemeral toast for inbound channel invites. Fired by the
- * `useChannelStreamInvalidator` listener when the runtime emits a
- * `peko-stream` event whose `payload.payload.kind ===
+ * PR-3 + P1.6: ephemeral toast for inbound channel invites. Fired by
+ * the `useChannelStreamInvalidator` listener when the runtime emits
+ * a `peko-stream` event whose `payload.payload.kind ===
  * "channel_invite_received"` (the inner event is the runtime's
  * `ChannelEvent` JSON, which carries the invite tag). Click
  * navigates to `/channels/$channelId`; X dismisses without
  * navigating.
  *
- * Self-dismissing after 6s so a stream of invites doesn't stack
- * banners forever — the user can re-open the channel from the
- * sidebar if they miss the toast.
+ * Self-dismissing via the `useToastQueue` hook on the consumer side
+ * (default 6s). Bursts of invites render one toast at a time with a
+ * "+N more" pill when the queue is deeper than the head item.
  */
 export interface InviteToastItem {
   channelId: string;
@@ -22,10 +22,12 @@ export interface InviteToastItem {
 export default function ChannelInviteToast({
   item,
   runtimeId,
+  pendingCount = 0,
   onDismiss,
 }: {
   item: InviteToastItem;
   runtimeId?: string;
+  pendingCount?: number;
   onDismiss: () => void;
 }) {
   const navigate = useNavigate();
@@ -55,6 +57,15 @@ export default function ChannelInviteToast({
           {item.channelName || item.channelId}
         </span>
       </button>
+      {pendingCount > 0 && (
+        <span
+          className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+          data-testid="channel-invite-toast-pending"
+          title={`${pendingCount} more invite${pendingCount === 1 ? "" : "s"} pending`}
+        >
+          +{pendingCount}
+        </span>
+      )}
       <button
         onClick={onDismiss}
         className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"

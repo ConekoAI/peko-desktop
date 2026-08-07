@@ -19,6 +19,7 @@ import {
   useChannelEventsWatch,
   useChannelStreamInvalidator,
 } from "../hooks/useChannelEvents";
+import { useToastQueue } from "../hooks/useToastQueue";
 import { usePrincipals } from "../hooks/usePrincipals";
 
 /**
@@ -53,18 +54,14 @@ export default function ChannelView() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
-  const [inviteToast, setInviteToast] = useState<InviteToastItem | null>(null);
-
-  // Auto-dismiss the toast after 6s — a queue of inbound invites
-  // shouldn't stack banners forever.
-  useEffect(() => {
-    if (!inviteToast) return;
-    const t = window.setTimeout(() => setInviteToast(null), 6_000);
-    return () => window.clearTimeout(t);
-  }, [inviteToast]);
+  // P1.6: toast queue replaces the single-slot state. Inbound invites
+  // append to the tail; the head is rendered. The hook auto-dismisses
+  // after 6s and rotates the head on dismiss.
+  const inviteToastQueue = useToastQueue<InviteToastItem>();
+  const inviteToast = inviteToastQueue.current;
 
   useChannelStreamInvalidator(channelId, runtimeId, (incomingChannelId) => {
-    setInviteToast({ channelId: incomingChannelId });
+    inviteToastQueue.enqueue({ channelId: incomingChannelId });
   });
 
   const {
@@ -221,7 +218,8 @@ export default function ChannelView() {
         <ChannelInviteToast
           item={inviteToast}
           runtimeId={runtimeId}
-          onDismiss={() => setInviteToast(null)}
+          pendingCount={inviteToastQueue.pendingCount}
+          onDismiss={inviteToastQueue.dismiss}
         />
       )}
     </div>

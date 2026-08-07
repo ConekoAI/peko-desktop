@@ -133,4 +133,38 @@ describe("ChannelCreateModal", () => {
     // to load a principal first instead of the empty option list.
     expect(screen.getByText(/No local principals/i)).toBeInTheDocument();
   });
+
+  // P1.5: Escape closes the modal. Uses the modal-level keydown
+  // listener installed by `useModalA11y`. Fires from `document` so
+  // the test mirrors a real keyboard event (the listener uses
+  // `capture: true` to win against form-field keydown handlers).
+  it("closes the modal when Escape is pressed", () => {
+    const { onClose } = renderModal();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // P1.5: backdrop click also closes the modal. We dispatch a
+  // click on the outer dialog element (the one with role="dialog");
+  // the `e.target === e.currentTarget` guard inside the modal means
+  // a click on a child (e.g. the inner card) is ignored.
+  it("closes the modal when the backdrop is clicked", () => {
+    const { onClose } = renderModal();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(dialog);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // P1.5: aria-modal + labelled-by wired up so screen readers
+  // announce the modal correctly.
+  it("exposes aria-modal + aria-labelledby on the dialog container", () => {
+    renderModal();
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.getAttribute("aria-labelledby")).toBe("channel-create-modal-title");
+    expect(screen.getByText("Create a Channel")).toHaveAttribute(
+      "id",
+      "channel-create-modal-title",
+    );
+  });
 });

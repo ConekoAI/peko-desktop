@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Globe, Hash, Monitor, UserPlus, X } from "lucide-react";
 
 import { useChannelInvite } from "../../hooks/useChannels";
 import { usePrincipals } from "../../hooks/usePrincipals";
 import { useRemotePrincipals } from "../../hooks/useRemotePrincipals";
+import { useModalA11y } from "../../hooks/useModalA11y";
 import type { ChannelDetail, ChannelMembers } from "../../types";
 
 /**
@@ -126,15 +127,31 @@ export default function ChannelInviteModal({
 
   if (!open) return null;
 
+  // P1.5: Escape closes the modal + focus is trapped inside it.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  useModalA11y(open, containerRef, onClose);
+
   const canSubmit = !!selected && !!inviterName && !inviteMut.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="channel-invite-modal-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    >
       <div className="flex w-full max-w-md flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+            <h2
+              id="channel-invite-modal-title"
+              className="text-base font-semibold text-slate-900 dark:text-white"
+            >
               Invite to <span className="font-mono">{channel}</span>
             </h2>
           </div>
