@@ -64,4 +64,65 @@ describe("MemberList", () => {
     // Each row carries the local runtime badge.
     expect(screen.getAllByTestId("runtime-badge-local")).toHaveLength(2);
   });
+
+  // PR-3b / P1.2 attribution: when the IPC surfaces `memberProvenance`,
+  // principals whose `runtimeId !== null` render under the Remote
+  // section with a Globe icon + a per-runtime badge. Local rows keep
+  // the Monitor icon + "local" badge. Pre-PR-3b runtimes omit the
+  // field and fall back to the all-local rendering.
+  it("splits local and remote members when memberProvenance is present", async () => {
+    useChannelMembersMock.mockReturnValue({
+      data: {
+        members: ["alice", "bob", "carol"],
+        memberProvenance: [
+          { principal: "alice", runtimeId: null },
+          { principal: "bob", runtimeId: "did:key:zRuntimeB" },
+          { principal: "carol", runtimeId: "did:key:zRuntimeC" },
+        ],
+      },
+      isLoading: false,
+    });
+    renderList();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("channel-members-local")).toBeInTheDocument();
+      expect(screen.getByTestId("channel-members-remote")).toBeInTheDocument();
+    });
+
+    // Local section: only the principal with runtimeId === null.
+    const localSection = screen.getByTestId("channel-members-local");
+    expect(localSection).toHaveTextContent("alice");
+    expect(localSection).not.toHaveTextContent("bob");
+    expect(localSection).not.toHaveTextContent("carol");
+
+    // Remote section: every principal with a non-null runtimeId.
+    const remoteSection = screen.getByTestId("channel-members-remote");
+    expect(remoteSection).toHaveTextContent("bob");
+    expect(remoteSection).toHaveTextContent("carol");
+    expect(remoteSection).not.toHaveTextContent("alice");
+
+    // Per-runtime badges present; the local badge appears once.
+    expect(
+      screen.getByTestId("runtime-badge-did:key:zRuntimeB"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("runtime-badge-did:key:zRuntimeC"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByTestId("runtime-badge-local")).toHaveLength(1);
+  });
+
+  // Back-compat: pre-PR-3b runtimes don't surface `memberProvenance`,
+  // so the list still renders all members as local.
+  it("falls back to all-local rendering when memberProvenance is missing", async () => {
+    useChannelMembersMock.mockReturnValue({
+      data: { members: ["alice", "bob"] },
+      isLoading: false,
+    });
+    renderList();
+    await waitFor(() => {
+      expect(screen.getByTestId("channel-members-local")).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("channel-members-remote")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("runtime-badge-local")).toHaveLength(2);
+  });
 });

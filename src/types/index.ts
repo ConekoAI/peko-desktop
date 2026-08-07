@@ -508,14 +508,33 @@ export type ChannelEvent =
     };
 
 /**
+ * Per-member runtime provenance returned by the runtime's
+ * `ChannelMembers` IPC variant (`ResponsePacket::ChannelMembersResult`'s
+ * `member_provenance` field). `runtimeId === null` ⇒ the member is
+ * local to the receiving runtime; a non-null `runtimeId` means the
+ * member is hosted on a peer runtime that participated in the
+ * channel via the cross-runtime invite envelope (PR-3a wire shape).
+ */
+export interface MemberProvenance {
+  principal: string;
+  runtimeId: string | null;
+}
+
+/**
  * Member list for a single channel. `members` are principal DIDs
  * (e.g. `prin_alice`). The runtime derives the authoritative
  * membership from the `Member*` event log.
+ *
+ * `memberProvenance` (PR-3b / P1.2 attribution) pairs each DID with
+ * its hosting runtime id; consumers that only need the DID set can
+ * ignore it. Optional for back-compat with pre-PR-3b runtimes that
+ * don't surface attribution.
  */
 export interface ChannelMembers {
   channelId: string;
   members: string[];
   runtimeId: string;
+  memberProvenance?: MemberProvenance[];
 }
 
 /**
