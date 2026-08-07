@@ -55,6 +55,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     applyTheme();
   }, []);
 
+  // P1.7 polish: listen for the `peko:open-channel-create` CustomEvent
+  // dispatched by `Channels.tsx`'s empty-state CTA + the `?newChannel=1`
+  // query-param branch. Lets the channels landing page open the
+  // layout-level modal without prop-drilling an opener through the
+  // route tree.
+  useEffect(() => {
+    const handler = () => setChannelCreateOpen(true);
+    window.addEventListener("peko:open-channel-create", handler);
+    return () => {
+      window.removeEventListener("peko:open-channel-create", handler);
+    };
+  }, []);
+
   // PR #6: install deep-link handler at layout mount. The unlisten
   // runs at unmount so navigation away from the layout doesn't
   // leak listeners. Also subscribe to the success/error events so

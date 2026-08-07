@@ -177,8 +177,24 @@ export default function ChannelView() {
             ))}
           </ul>
         ) : (
-          <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-600">
-            No events yet.
+          <div
+            className="mx-auto my-12 max-w-md text-center"
+            data-testid="channel-events-empty"
+          >
+            <div className="mb-2 text-sm text-slate-500 dark:text-slate-400">
+              No events yet.
+            </div>
+            {detail?.name && (
+              <div className="text-xs text-slate-400 dark:text-slate-500">
+                Be the first to post in <span className="font-mono">{detail.name}</span>.
+              </div>
+            )}
+            {!isMember && (
+              <div className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+                Ask a current member to invite you, then return to
+                this channel to start posting.
+              </div>
+            )}
           </div>
         )}
       </div>

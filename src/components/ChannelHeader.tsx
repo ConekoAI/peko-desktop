@@ -53,6 +53,11 @@ export default function ChannelHeader({
   // disappear under a stale `null` from a still-fetching query.
   const showInvite = isMember !== false && !!onInviteClick;
   const showLeave = isMember !== false && !!onLeaveClick;
+  // P1.10 polish: explicit "View only" chip when the viewer isn't a
+  // member. Tells the user why the composer is hidden + why the
+  // invite/leave buttons are absent (rather than leaving them to
+  // guess from a disabled-looking UI).
+  const isGuest = isMember === false;
 
   return (
     <div className="border-b border-slate-200 dark:border-slate-800">
@@ -68,6 +73,15 @@ export default function ChannelHeader({
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <RuntimeBadge runtimeId={detail.runtimeId || "local"} />
+          {isGuest && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+              data-testid="channel-guest-chip"
+              title="You aren't a member of this channel — read-only view."
+            >
+              View only
+            </span>
+          )}
           {showInvite && (
             <button
               type="button"

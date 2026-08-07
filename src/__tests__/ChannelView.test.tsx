@@ -18,12 +18,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const channelEventsMock = vi.fn();
+const channelEventsWatchMock = vi.fn();
 const channelGetMock = vi.fn();
 const channelMembersMock = vi.fn();
 const channelLeaveMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   channelEvents: (...args: unknown[]) => channelEventsMock(...args),
+  channelEventsWatch: (...args: unknown[]) => channelEventsWatchMock(...args),
   channelGet: (...args: unknown[]) => channelGetMock(...args),
   channelMembers: (...args: unknown[]) => channelMembersMock(...args),
   channelLeave: (...args: unknown[]) => channelLeaveMock(...args),
@@ -93,6 +95,8 @@ const sampleEvents = [
 describe("ChannelView", () => {
   beforeEach(() => {
     channelEventsMock.mockReset();
+    channelEventsWatchMock.mockReset();
+    channelEventsWatchMock.mockResolvedValue(undefined);
     channelGetMock.mockReset();
     channelMembersMock.mockReset();
     channelLeaveMock.mockReset();
@@ -139,6 +143,28 @@ describe("ChannelView", () => {
     await waitFor(() => {
       expect(screen.getByText(/No events yet/)).toBeInTheDocument();
     });
+  });
+
+  // P1.10 polish: empty events state surfaces the channel name as
+  // a "be the first to post" hint + a guest-viewer hint when the
+  // local user isn't a member.
+  it("empty events state surfaces the channel name + a 'be the first to post' hint", async () => {
+    channelGetMock.mockResolvedValue({
+      channelId: "chan_alpha",
+      name: "design",
+      creator: "prin_alice",
+      createdAt: "2026-08-05T12:00:00Z",
+      memberCount: 1,
+      runtimeId: "local",
+    });
+    channelEventsMock.mockResolvedValue([]);
+    renderView();
+    await waitFor(() => {
+      expect(screen.getByTestId("channel-events-empty")).toBeInTheDocument();
+    });
+    const empty = screen.getByTestId("channel-events-empty");
+    expect(empty).toHaveTextContent(/Be the first to post in/);
+    expect(empty).toHaveTextContent(/design/);
   });
 
   it("wires the peko-stream invalidator even when the Tauri event API is absent", async () => {
