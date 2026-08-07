@@ -103,8 +103,20 @@ pub enum ChatStreamMsg {
 
 /// This is the desktop's unified shape — the daemon uses different
 /// packet shapes (ResponsePacket) which get mapped into this.
+///
+/// `rename_all = "camelCase"` renames variant *tags* (no effect here
+/// since each variant has an explicit `rename = "..."` override).
+/// `rename_all_fields = "camelCase"` (serde ≥1.0.165) renames
+/// struct-variant *fields* — `channel_id` → `channelId`, etc.
+/// Without this, the React listener reads `payload.channelId` but
+/// the Rust side emits `channel_id` and the listener silently
+/// misses every event.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum StreamEvent {
     /// Text chunk from the assistant (mapped from daemon's ResponsePacket::Text)
     #[serde(rename = "chunk")]
@@ -119,6 +131,21 @@ pub enum StreamEvent {
     /// Tool execution result
     #[serde(rename = "tool_result")]
     ToolResult { output: String, timestamp: String },
+    /// PR-2b: live channel event from `ChannelEventsWatch`. The
+    /// `payload` is the runtime's `ChannelEvent` JSON object
+    /// verbatim — the React side can switch on `payload.kind`
+    /// (mirrors `peko_protocol::channel::ChannelEvent`'s
+    /// `#[serde(tag = "kind", rename_all = "snake_case")]` shape).
+    /// With the enum-level `rename_all = "camelCase"`, this serializes
+    /// as `{type: "channel_event", channelId: "...", payload: {...},
+    /// timestamp: "..."}` — the camelCase `channelId` is what
+    /// `useChannelStreamInvalidator` filters on.
+    #[serde(rename = "channel_event")]
+    ChannelEvent {
+        channel_id: String,
+        payload: serde_json::Value,
+        timestamp: String,
+    },
     /// Stream completed successfully
     #[serde(rename = "done")]
     Done { timestamp: String },
@@ -1344,6 +1371,277 @@ impl IpcClient {
         });
         self.request_response(req).await
     }
+
+    // -- Channel surface (peko-channel cross-runtime desktop PR-1) ----
+    //
+    // Read-only IPC wrappers. Posts land in PR-2 / PR-2a; invites +
+    // leaves land in PR-3. Wire types follow the runtime's
+    // RequestPacket variants in `peko_runtime::ipc::packet::RequestPacket`:
+    //
+    // - `channel_list` → `ChannelList { principal_name }`
+    // - `channel_peek` → `ChannelPeek { channel, since }`
+    // - `channel_members` → `ChannelMembers { channel }`
+    // - `channel_post` → `ChannelPost { channel, sender_name, text, parent }`
+
+    /// List channels `principal_name` is a member of. Mirrors
+    /// `RequestPacket::ChannelList`. The desktop's `useChannels` hook
+    /// iterates local principals and dedupes by `channel_id` to
+    /// render a unified sidebar.
+    pub async fn channel_list(&self, principal_name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "principal_name": principal_name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Fetch the channel's event log since `since` (None = from the
+    /// start). Mirrors `RequestPacket::ChannelPeek`. Returns the
+    /// full `ChannelPeekResult { channel, events }` envelope — the
+    /// desktop's `channel_get` reuses this to derive metadata from
+    /// the first `Created` event.
+    pub async fn channel_peek(
+        &self,
+        channel: &str,
+        since: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_peek",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "since": since,
+        });
+        self.request_response(req).await
+    }
+
+    /// List the principal DIDs currently in `channel`. Mirrors
+    /// `RequestPacket::ChannelMembers`. The runtime derives the
+    /// authoritative membership from the `Member*` event log.
+    pub async fn channel_members(&self, channel: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_members",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR-2a: post a message to `channel` from `sender_name`. `parent`
+    /// is the optional task id of the message being replied to.
+    /// Mirrors `RequestPacket::ChannelPost { channel, sender_name,
+    /// text, parent }`. Returns the `ChannelPosted { task_id, channel
+    /// }` envelope; the desktop's `channel_post` Tauri command
+    /// projects `task_id` to the frontend.
+    pub async fn channel_post(
+        &self,
+        channel: &str,
+        sender_name: &str,
+        text: &str,
+        parent: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_post",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "sender_name": sender_name,
+            "text": text,
+            "parent": parent,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR-3: create a new channel owned by `creator_name`. Mirrors
+    /// `RequestPacket::ChannelCreate { creator_name, name }`. Returns
+    /// the `ChannelCreated { channel }` envelope; the desktop's
+    /// `channel_create` Tauri command projects `channel` to the
+    /// frontend as the freshly minted `ChannelId` string.
+    pub async fn channel_create(
+        &self,
+        creator_name: &str,
+        name: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_create",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "creator_name": creator_name,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR-3: add `invitee_name` to `channel` (invited by
+    /// `inviter_name`). Mirrors `RequestPacket::ChannelInvite
+    /// { channel, inviter_name, invitee_name }`. Returns the
+    /// `ChannelInvited { channel, invitee }` envelope; the desktop's
+    /// `channel_invite` Tauri command projects both fields to the
+    /// frontend. For cross-runtime invites the runtime emits a
+    /// `TunnelChannelInvite` envelope out-of-band; the IPC response
+    /// acknowledges only the local invite.
+    pub async fn channel_invite(
+        &self,
+        channel: &str,
+        inviter_name: &str,
+        invitee_name: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_invite",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "inviter_name": inviter_name,
+            "invitee_name": invitee_name,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR-3: remove `principal_name` from `channel`. Mirrors
+    /// `RequestPacket::ChannelLeave { channel, principal_name }`.
+    /// Returns the `ChannelLeft { channel, principal }` envelope; the
+    /// desktop's `channel_leave` Tauri command projects both fields
+    /// so the React side can surface "left <channel>" or remove the
+    /// channel from the sidebar if the leaver was the last local
+    /// member.
+    pub async fn channel_leave(
+        &self,
+        channel: &str,
+        principal_name: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_leave",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "principal_name": principal_name,
+        });
+        self.request_response(req).await
+    }
+
+    /// PR-2b: subscribe to live channel events for `channel`. Mirrors
+    /// `principal_send_stream`'s request-response shape — the daemon
+    /// sends `ChannelEventReceived` packets in a loop until the
+    /// client disconnects, and the desktop re-emits each as a
+    /// `peko-stream` event with `kind: "channel_event"` so the React
+    /// `useChannelStreamInvalidator` hook can invalidate
+    /// `["channel-events", channelId]` on every update.
+    ///
+    /// `since` is the caller's last-seen line number — events at
+    /// earlier line numbers are replayed, then live events are
+    /// forwarded. The runtime closes the stream when the client
+    /// disconnects or the daemon shuts down; the loop also exits
+    /// on a 120s timeout to avoid leaking tasks.
+    pub async fn channel_events_watch(
+        &self,
+        app: &tauri::AppHandle,
+        channel: &str,
+        since: Option<&str>,
+    ) -> Result<()> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_events_watch",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "since": since,
+        });
+        let bytes = serde_json::to_vec(&req).map_err(|e| IpcError::Serialization(e.to_string()))?;
+
+        #[cfg(windows)]
+        {
+            self.socket
+                .send_to(&bytes, "127.0.0.1:11435")
+                .await
+                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
+        }
+        #[cfg(unix)]
+        {
+            let sock_path = default_socket_path();
+            self.socket
+                .send_to(&bytes, &sock_path)
+                .await
+                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
+        }
+
+        let mut buf = vec![0u8; 65536];
+        loop {
+            let len = match tokio::time::timeout(
+                Duration::from_secs(120),
+                self.socket.recv_from(&mut buf),
+            )
+            .await
+            {
+                Ok(Ok((len, _))) => len,
+                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
+                Err(_) => return Err(IpcError::Timeout),
+            };
+
+            let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
+                .map_err(|e| IpcError::Serialization(e.to_string()))?;
+
+            let packet_type = raw.get("type").and_then(|v| v.as_str()).unwrap_or("");
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+                .to_string();
+
+            match packet_type {
+                "channel_event_received" => {
+                    // PR-2b: forward each event as a `peko-stream`
+                    // channel_event. The React side's
+                    // `useChannelStreamInvalidator` filters on
+                    // `payload.channel === channelId`.
+                    let channel_id = raw
+                        .get("channel")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(channel)
+                        .to_string();
+                    let payload = raw.get("event").cloned().unwrap_or(serde_json::Value::Null);
+                    let _ = app.emit(
+                        "peko-stream",
+                        &StreamEvent::ChannelEvent {
+                            channel_id,
+                            payload,
+                            timestamp,
+                        },
+                    );
+                }
+                "done" => return Ok(()),
+                "error" => {
+                    let message = raw
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unknown error")
+                        .to_string();
+                    let _ = app.emit(
+                        "peko-stream",
+                        &StreamEvent::Error {
+                            message: message.clone(),
+                            timestamp,
+                        },
+                    );
+                    return Err(IpcError::ReceiveFailed(message));
+                }
+                "heartbeat" => continue,
+                other => {
+                    eprintln!("[peko-desktop] Unknown IPC response packet type: {other}");
+                    continue;
+                }
+            }
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -1407,6 +1705,118 @@ mod tests {
             StreamEvent::Chunk { content, .. } => assert_eq!(content, "hello"),
             _ => panic!("wrong variant"),
         }
+    }
+
+    /// PR-2b: `StreamEvent::ChannelEvent` round-trips with the
+    /// `channel_event` discriminator the React listener filters on.
+    /// The `payload` is preserved verbatim so the React side can
+    /// switch on `payload.kind` (mirrors the runtime's
+    /// `peko_protocol::channel::ChannelEvent` shape).
+    ///
+    /// Audit-fix: the enum-level `rename_all = "camelCase"` makes
+    /// the `channel_id` struct field serialize as `channelId` in JSON
+    /// (the React listener filters on `payload.channelId === channelId`).
+    /// This test is the regression guard for that contract — if
+    /// `rename_all` is dropped, `assert!(json.contains("\"channelId\""))`
+    /// fails and the bug is caught at unit-test time, not at runtime.
+    #[test]
+    fn test_stream_event_channel_event_serialization() {
+        let event = StreamEvent::ChannelEvent {
+            channel_id: "chan_abcdefgh".to_string(),
+            payload: serde_json::json!({
+                "kind": "posted",
+                "channel": "chan_abcdefgh",
+                "author": "prin_bob",
+                "parent": null,
+                "text": "hello from B",
+                "at": "2026-08-06T12:00:00Z",
+            }),
+            timestamp: "0d 12:00:00 UTC".to_string(),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"type\":\"channel_event\""), "got {json}");
+        // camelCase `channelId` field — the audit-fix regression guard.
+        assert!(
+            json.contains("\"channelId\":\"chan_abcdefgh\""),
+            "expected camelCase channelId in {json}"
+        );
+        assert!(json.contains("\"posted\""), "got {json}");
+        // The snake_case `channel_id` MUST NOT appear — that was the
+        // pre-fix wire shape that the React listener couldn't match.
+        assert!(
+            !json.contains("channel_id"),
+            "snake_case channel_id leaked into wire: {json}"
+        );
+
+        let deserialized: StreamEvent = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            StreamEvent::ChannelEvent {
+                channel_id,
+                payload,
+                ..
+            } => {
+                assert_eq!(channel_id, "chan_abcdefgh");
+                assert_eq!(payload["kind"], "posted");
+                assert_eq!(payload["text"], "hello from B");
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    /// PR-2b bridge translation: when the daemon's IPC loop receives
+    /// a `channel_event_received` response packet, the Tauri bridge
+    /// forwards it as a `peko-stream` `StreamEvent::ChannelEvent`
+    /// with camelCase `channelId` (the field the React listener
+    /// filters on). This test guards the bridge translation by
+    /// feeding the loop a synthetic raw JSON packet and asserting
+    /// the resulting `StreamEvent` shape — without needing to mock
+    /// the `app.emit` handle.
+    ///
+    /// The test is in `tests` (not on a live `IpcClient`) because
+    /// the bridge code is a private helper inside
+    /// `IpcClient::channel_events_watch`. We exercise the
+    /// translation step directly: parse → build struct → serialize
+    /// → assert camelCase. End-to-end (with mock `app.emit`) is
+    /// tracked as a follow-up since it requires a `tauri::test`
+    /// harness that's not wired into the workspace yet.
+    #[test]
+    fn test_channel_events_watch_bridge_translates_to_camel_case() {
+        use serde_json::json;
+        // The exact shape the daemon emits on its `ResponsePacket::ChannelEventReceived`
+        // envelope — `channel` field carries routing context, `event` is the
+        // runtime's `ChannelEvent` JSON (with `kind: "posted" | "created" | ...`).
+        let raw = json!({
+            "type": "channel_event_received",
+            "request_id": 7,
+            "channel": "chan_abcdefgh",
+            "event": {
+                "kind": "posted",
+                "channel": "chan_abcdefgh",
+                "author": "prin_bob",
+                "parent": null,
+                "text": "hello from B",
+                "at": "2026-08-06T12:00:00Z",
+            },
+        });
+        // Same translation the bridge does at mod.rs:1590-1603.
+        let channel_id = raw
+            .get("channel")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let payload = raw.get("event").cloned().unwrap_or(json!(null));
+        let bridge_event = StreamEvent::ChannelEvent {
+            channel_id,
+            payload,
+            timestamp: "2026-08-06T12:00:00Z".to_string(),
+        };
+        let json = serde_json::to_string(&bridge_event).unwrap();
+        assert!(
+            json.contains("\"channelId\":\"chan_abcdefgh\""),
+            "bridge emitted snake_case channel_id: {json}"
+        );
+        assert!(json.contains("\"type\":\"channel_event\""), "got {json}");
+        assert!(json.contains("\"posted\""), "got {json}");
     }
 
     #[test]

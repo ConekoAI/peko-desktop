@@ -19,6 +19,12 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 import type {
   BundleItem,
   CapabilityList,
+  ChannelDetail,
+  ChannelEvent,
+  ChannelInviteResult,
+  ChannelLeaveResult,
+  ChannelMembers,
+  ChannelSummary,
   CronJob,
   CredentialDetail,
   DaemonStatus,
@@ -915,4 +921,194 @@ export async function pekohubListRuntimes(
     name: String(r.name ?? r.display_name ?? r.id ?? ""),
     url: r.url ? String(r.url) : undefined,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Channels (peko-channel cross-runtime desktop)
+//
+// PR-1 shipped the read-only surface (list / get / events / members).
+// PR-2a adds `channelPost`. Create / invite / leave land in PR-3.
+// All wrappers thread `runtimeId` for cross-runtime routing
+// (`hub:<url>` style ids route through `HubRemoteClient` in PR #5;
+// `null`/`undefined` resolve to the local IPC client).
+//
+// Types are re-exported here so hook files can `import { ChannelSummary,
+// ... } from "../lib/api"` alongside the IPC wrappers, matching the
+// convention used by the principal hooks (`usePrincipals.ts`).
+// ---------------------------------------------------------------------------
+
+export type {
+  ChannelSummary,
+  ChannelDetail,
+  ChannelEvent,
+  ChannelMembers,
+  ChannelInviteResult,
+  ChannelLeaveResult,
+};
+
+/**
+ * List channels `principalName` is a member of. The desktop's
+ * `useChannels` hook iterates local principals and dedupes by
+ * `channelId` to render a unified sidebar.
+ */
+export async function channelList(
+  principalName: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelSummary[]> {
+  return invoke<ChannelSummary[]>("channel_list", {
+    principalName,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * Look up a single channel's metadata + member count. Returns
+ * `null` when the channel doesn't exist on the runtime.
+ */
+export async function channelGet(
+  channelId: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelDetail | null> {
+  return invoke<ChannelDetail | null>("channel_get", {
+    channelId,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * List events on `channelId` since `since` (None = from the start).
+ * Returns an empty array if the channel doesn't exist.
+ */
+export async function channelEvents(
+  channelId: string,
+  since?: string | null,
+  runtimeId?: RuntimeId,
+): Promise<ChannelEvent[]> {
+  return invoke<ChannelEvent[]>("channel_events", {
+    channelId,
+    since: since ?? null,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * List the principal DIDs currently in `channelId`. Delegates to
+ * the runtime's `ChannelMembers` IPC variant, which derives the
+ * authoritative membership from the `Member*` event log.
+ */
+export async function channelMembers(
+  channelId: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelMembers> {
+  return invoke<ChannelMembers>("channel_members", {
+    channelId,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-2a: post a message to `channelId` from `senderName`. `parent`
+ * is the optional task id of the message being replied to. Returns
+ * the runtime-minted `task_id` (a UUID-shaped string) so the frontend
+ * can correlate an inbound peko-stream event back to its outbound
+ * post when PR-2b lights up the live stream.
+ */
+export async function channelPost(
+  channelId: string,
+  senderName: string,
+  text: string,
+  parent?: string | null,
+  runtimeId?: RuntimeId,
+): Promise<string> {
+  return invoke<string>("channel_post", {
+    channelId,
+    senderName,
+    text,
+    parent: parent ?? null,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-3: create a new channel owned by `creatorName`. The runtime
+ * mints a fresh `ChannelId` (the `chan_<8 base36>` form), persists
+ * the channel directory + initial `Created` event, and returns the
+ * new id. Cross-runtime fan-out (TunnelChannelInvite) is a side
+ * effect — the IPC response only acknowledges the local channel.
+ */
+export async function channelCreate(
+  creatorName: string,
+  name: string,
+  runtimeId?: RuntimeId,
+): Promise<string> {
+  return invoke<string>("channel_create", {
+    creatorName,
+    name,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-3: add `inviteeName` to `channelId` (invited by `inviterName`).
+ * The runtime adds the invitee to the channel's membership log
+ * (local + remote members), and for any peer runtime that hosts the
+ * invitee it emits a signed `TunnelChannelInvite` envelope to
+ * bootstrap the receiver's local mirror. Returns the joined channel
+ * + invitee ids.
+ */
+export async function channelInvite(
+  channelId: string,
+  inviterName: string,
+  inviteeName: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelInviteResult> {
+  return invoke<ChannelInviteResult>("channel_invite", {
+    channelId,
+    inviterName,
+    inviteeName,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-3: remove `principalName` from `channelId`. The runtime appends
+ * a `MemberLeft` event to the log. Returns the channel + principal
+ * ids. The local channel directory is NOT auto-removed when the
+ * last local member leaves — the local mirror persists until the
+ * creator explicitly deletes it.
+ */
+export async function channelLeave(
+  channelId: string,
+  principalName: string,
+  runtimeId?: RuntimeId,
+): Promise<ChannelLeaveResult> {
+  return invoke<ChannelLeaveResult>("channel_leave", {
+    channelId,
+    principalName,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * PR-2b: subscribe to live events for `channelId`. The runtime
+ * replays events from `since` (None = from start) then forwards
+ * live events until the connection closes. Each event is emitted on
+ * Tauri's `peko-stream` channel as `StreamEvent::ChannelEvent` —
+ * the `useChannelStreamInvalidator` hook subscribes to those.
+ *
+ * This call resolves only when the runtime closes the stream
+ * (`Done`) or fails with a runtime-side error (the Tauri command
+ * surfaces it as a `String` error). A long-lived watcher can be
+ * restarted by re-invoking this function after a disconnect.
+ */
+export async function channelEventsWatch(
+  channelId: string,
+  since?: string,
+  runtimeId?: RuntimeId,
+): Promise<void> {
+  return invoke<void>("channel_events_watch", {
+    channelId,
+    since: since ?? null,
+    runtimeId: runtimeId ?? null,
+  });
 }

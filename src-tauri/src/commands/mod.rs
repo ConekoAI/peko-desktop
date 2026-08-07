@@ -1,4 +1,5 @@
 pub mod capability;
+pub mod channel;
 pub mod cron;
 pub mod daemon;
 pub mod engine;
@@ -42,6 +43,15 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         capability::capability_list,
         capability::capability_grant,
         capability::capability_revoke,
+        channel::channel_list,
+        channel::channel_get,
+        channel::channel_events,
+        channel::channel_members,
+        channel::channel_post,
+        channel::channel_create,
+        channel::channel_invite,
+        channel::channel_leave,
+        channel::channel_events_watch,
         model_admin::model_list,
         model_admin::model_templates,
         model_admin::model_add,

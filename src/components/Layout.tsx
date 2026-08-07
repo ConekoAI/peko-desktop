@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import Sidebar from "./Sidebar";
 import AppRail from "./AppRail";
 import PrincipalSidebar from "./PrincipalSidebar";
+import ChannelSidebar from "./ChannelSidebar";
 import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
 import EngineFailureCard from "./EngineFailureCard";
@@ -10,6 +11,7 @@ import VersionMismatchBanner from "./VersionMismatchBanner";
 import FirstRunWalkthrough from "./FirstRunWalkthrough";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
+import ChannelCreateModal from "./modals/ChannelCreateModal";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
 import { getTheme, setTheme, applyTheme } from "../lib/theme";
@@ -36,6 +38,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // remote-principals JSON table on the desktop; the sidebar
   // re-renders through React Query's invalidation hook.
   const [connectOpen, setConnectOpen] = useState(false);
+  // PR-3: layout-level ChannelCreateModal so the channels
+  // sidebar's "+ New channel" button can open it. Mirrors the
+  // CreatePrincipalModal hoist pattern.
+  const [channelCreateOpen, setChannelCreateOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -47,6 +53,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setThemeState(getTheme());
     applyTheme();
+  }, []);
+
+  // P1.7 polish: listen for the `peko:open-channel-create` CustomEvent
+  // dispatched by `Channels.tsx`'s empty-state CTA + the `?newChannel=1`
+  // query-param branch. Lets the channels landing page open the
+  // layout-level modal without prop-drilling an opener through the
+  // route tree.
+  useEffect(() => {
+    const handler = () => setChannelCreateOpen(true);
+    window.addEventListener("peko:open-channel-create", handler);
+    return () => {
+      window.removeEventListener("peko:open-channel-create", handler);
+    };
   }, []);
 
   // PR #6: install deep-link handler at layout mount. The unlisten
@@ -118,6 +137,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isChatRoute =
     location.pathname === "/" || location.pathname === "/chat" || location.pathname.startsWith("/chat/");
 
+  const isChannelsRoute =
+    location.pathname === "/channels" ||
+    location.pathname.startsWith("/channels/");
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-white dark:bg-slate-950">
       {/* Custom title bar */}
@@ -137,12 +160,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Far left: app rail (always visible) */}
         <AppRail />
 
-        {/* Context sidebar: principal list on chat routes, tools elsewhere */}
+        {/* Context sidebar: principal list on chat routes,
+            channel list on channels routes, tools elsewhere.
+            Order matches `AppRail` icon order (Direct Messages,
+            Channels, Tools). */}
         {isChatRoute ? (
           <PrincipalSidebar
             onCreateClick={() => setCreateOpen(true)}
             onConnectClick={() => setConnectOpen(true)}
           />
+        ) : isChannelsRoute ? (
+          <ChannelSidebar onCreateClick={() => setChannelCreateOpen(true)} />
         ) : (
           <Sidebar />
         )}
@@ -211,6 +239,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           own local instances; only one is open at a time. */}
       <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <AddRemotePrincipalModal open={connectOpen} onClose={() => setConnectOpen(false)} />
+      <ChannelCreateModal
+        open={channelCreateOpen}
+        onClose={() => setChannelCreateOpen(false)}
+        onCreated={(channelId) =>
+          navigate({
+            to: "/channels/$channelId",
+            params: { channelId },
+          })
+        }
+      />
 
       {/* T-105: first-run walkthrough. Auto-appears when there are
           zero principals and the dismiss flag is unset. Renders its

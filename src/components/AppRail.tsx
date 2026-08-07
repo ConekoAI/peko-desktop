@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Hash } from "lucide-react";
 import ProfileMenu from "./ProfileMenu";
 
 export default function AppRail() {
@@ -10,6 +10,10 @@ export default function AppRail() {
     location.pathname === "/" ||
     location.pathname === "/chat" ||
     location.pathname.startsWith("/chat/");
+
+  const isChannels =
+    location.pathname === "/channels" ||
+    location.pathname.startsWith("/channels/");
 
   return (
     <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-slate-200 bg-slate-50 py-3 dark:border-slate-800 dark:bg-slate-900">
@@ -25,6 +29,23 @@ export default function AppRail() {
         title="Direct Messages"
       >
         <MessageCircle className="h-5 w-5" />
+      </button>
+
+      {/* PR-1: Channels (peko-channel cross-runtime). Same chrome
+          shape as the Direct Messages icon — direct route, not a
+          nested menu. The active style mirrors the chat icon's. */}
+      <button
+        onClick={() => navigate({ to: "/channels" })}
+        className={[
+          "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
+          isChannels
+            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+            : "text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200",
+        ].join(" ")}
+        title="Channels"
+        data-testid="app-rail-channels"
+      >
+        <Hash className="h-5 w-5" />
       </button>
 
       <div className="flex-1" />

@@ -241,10 +241,24 @@ export interface DoctorCheck {
 
 export interface StreamEvent {
   id?: string;
-  type: "chunk" | "done" | "error" | "tool_call" | "tool_result";
+  type:
+    | "chunk"
+    | "done"
+    | "error"
+    | "tool_call"
+    | "tool_result"
+    | "channel_event";
   content?: string;
   data?: Record<string, unknown>;
   timestamp?: string;
+  /// PR-2b: `channel_event` variant — `channelId` (camelCase,
+  /// matching the Rust `rename_all = "camelCase"` on `StreamEvent`)
+  /// identifies the channel; `payload` is the runtime's
+  /// `ChannelEvent` JSON object verbatim (with `kind: "posted" |
+  /// "created" | "member_joined" | "member_left"`). `useChannelStreamInvalidator`
+  /// filters on `type === "channel_event" && channelId === channelId`.
+  channelId?: string;
+  payload?: unknown;
 }
 
 // ─── Model-first catalog (model-first migration) ─────────────────
@@ -424,5 +438,127 @@ export interface CredentialDetail {
   metadata?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Channels (peko-channel cross-runtime desktop PR-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lightweight summary row for the channel sidebar. The runtime's
+ * `channel_list` IPC returns only `ChannelId` values; the desktop
+ * projects them to this shape so the React sidebar can group +
+ * filter without re-fetching.
+ */
+export interface ChannelSummary {
+  channelId: string;
+  runtimeId: string;
+}
+
+/**
+ * Single channel's full metadata snapshot. Projected on the Tauri
+ * side from the runtime's `channel_peek` response — the first
+ * `Created` event gives name/creator/createdAt, and `MemberJoined -
+ * MemberLeft` gives the memberCount. Returns `null` (rather than
+ * error) when the channel doesn't exist on the runtime.
+ */
+export interface ChannelDetail {
+  channelId: string;
+  name: string;
+  creator: string;
+  createdAt: string;
+  memberCount: number;
+  runtimeId: string;
+}
+
+/**
+ * Mirrors `peko_protocol::channel::ChannelEvent`'s
+ * `#[serde(tag = "kind", rename_all = "snake_case")]` shape. Camel-case
+ * discriminated union so the React side can switch on `kind` directly.
+ * Forward-compatible: unknown variants are dropped at the Tauri
+ * projector, not surfaced here.
+ */
+export type ChannelEvent =
+  | {
+      kind: "created";
+      channel: string;
+      creator: string;
+      name: string;
+      at: string;
+    }
+  | {
+      kind: "posted";
+      channel: string;
+      author: string;
+      parent: string | null;
+      text: string;
+      at: string;
+    }
+  | {
+      kind: "member_joined";
+      channel: string;
+      member: string;
+      at: string;
+    }
+  | {
+      kind: "member_left";
+      channel: string;
+      member: string;
+      at: string;
+    };
+
+/**
+ * Per-member runtime provenance returned by the runtime's
+ * `ChannelMembers` IPC variant (`ResponsePacket::ChannelMembersResult`'s
+ * `member_provenance` field). `runtimeId === null` ⇒ the member is
+ * local to the receiving runtime; a non-null `runtimeId` means the
+ * member is hosted on a peer runtime that participated in the
+ * channel via the cross-runtime invite envelope (PR-3a wire shape).
+ */
+export interface MemberProvenance {
+  principal: string;
+  runtimeId: string | null;
+}
+
+/**
+ * Member list for a single channel. `members` are principal DIDs
+ * (e.g. `prin_alice`). The runtime derives the authoritative
+ * membership from the `Member*` event log.
+ *
+ * `memberProvenance` (PR-3b / P1.2 attribution) pairs each DID with
+ * its hosting runtime id; consumers that only need the DID set can
+ * ignore it. Optional for back-compat with pre-PR-3b runtimes that
+ * don't surface attribution.
+ */
+export interface ChannelMembers {
+  channelId: string;
+  members: string[];
+  runtimeId: string;
+  memberProvenance?: MemberProvenance[];
+}
+
+/**
+ * PR-3: ack envelope for `channel_invite`. Mirrors the runtime's
+ * `ResponsePacket::ChannelInvited { channel, invitee }` shape so the
+ * React side can refresh the optimistic invitee list without a
+ * follow-up `channel_members` round-trip.
+ */
+export interface ChannelInviteResult {
+  channelId: string;
+  invitee: string;
+  runtimeId: string;
+}
+
+/**
+ * PR-3: ack envelope for `channel_leave`. Mirrors the runtime's
+ * `ResponsePacket::ChannelLeft { channel, principal }` shape. The
+ * React side uses this to drop the principal from its optimistic
+ * member list and (if the leaver was the last local member)
+ * navigate away from the channel route.
+ */
+export interface ChannelLeaveResult {
+  channelId: string;
+  principal: string;
+  runtimeId: string;
 }
 
