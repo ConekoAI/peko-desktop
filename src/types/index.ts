@@ -241,10 +241,24 @@ export interface DoctorCheck {
 
 export interface StreamEvent {
   id?: string;
-  type: "chunk" | "done" | "error" | "tool_call" | "tool_result";
+  type:
+    | "chunk"
+    | "done"
+    | "error"
+    | "tool_call"
+    | "tool_result"
+    | "channel_event";
   content?: string;
   data?: Record<string, unknown>;
   timestamp?: string;
+  /// PR-2b: `channel_event` variant — `channelId` (camelCase,
+  /// matching the Rust `rename_all = "camelCase"` on `StreamEvent`)
+  /// identifies the channel; `payload` is the runtime's
+  /// `ChannelEvent` JSON object verbatim (with `kind: "posted" |
+  /// "created" | "member_joined" | "member_left"`). `useChannelStreamInvalidator`
+  /// filters on `type === "channel_event" && channelId === channelId`.
+  channelId?: string;
+  payload?: unknown;
 }
 
 // ─── Model-first catalog (model-first migration) ─────────────────

@@ -7,6 +7,7 @@ import {
   type ChannelEvent,
   type RuntimeId,
 } from "../lib/api";
+import type { StreamEvent } from "../types";
 
 const DEFAULT_RUNTIME_ID = "local";
 
@@ -49,6 +50,14 @@ export function useChannelEvents(
  *
  * The `onInviteReceived` callback (PR-3) is also wired here so the
  * toast surface doesn't have to subscribe separately.
+ *
+ * Wire shape (PR-2b + audit-fix): the Rust `StreamEvent` enum has
+ * `#[serde(tag = "type", rename_all = "camelCase")]` so the daemon
+ * emits `{type: "channel_event", channelId: "...", payload: {...},
+ * timestamp: "..."}`. We filter on `type === "channel_event"` and
+ * `channelId === channelId` — the camelCase field name matches the
+ * chat-side `useIpcStream` convention (which reads `payload.type` +
+ * `payload.content`).
  */
 export function useChannelStreamInvalidator(
   channelId: string | undefined,
@@ -66,24 +75,37 @@ export function useChannelStreamInvalidator(
     void (async () => {
       try {
         const { listen } = await import("@tauri-apps/api/event");
-        const handle = await listen<{
-          kind: string;
-          channelId?: string;
-          runtimeId?: string;
-        }>("peko-stream", (event) => {
+        const handle = await listen<StreamEvent>("peko-stream", (event) => {
           if (cancelled) return;
           const payload = event.payload;
-          if (payload.kind === "channel_event" && payload.channelId === channelId) {
-            void qc.invalidateQueries({
-              queryKey: ["channel-events", payload.runtimeId ?? rid, channelId],
-            });
-            void qc.invalidateQueries({
-              queryKey: ["channel", payload.runtimeId ?? rid, channelId],
-            });
-          } else if (
-            payload.kind === "channel_invite_received" &&
-            payload.channelId === channelId
+          // `type` is the enum tag from `StreamEvent` (serde tag = "type",
+          // variant renamed to "channel_event"). Filter on `channelId`
+          // (camelCase) which the runtime-side rename_all produces.
+          if (
+            payload.type !== "channel_event" ||
+            payload.channelId !== channelId
           ) {
+            return;
+          }
+          // Inbound event for the channel we're viewing: refresh
+          // both the event log + the channel detail.
+          void qc.invalidateQueries({
+            queryKey: ["channel-events", rid, channelId],
+          });
+          void qc.invalidateQueries({
+            queryKey: ["channel", rid, channelId],
+          });
+          // The runtime's synthetic Created event for an inbound
+          // invite carries `payload.kind === "channel_invite_received"`
+          // (mirrors `peko_protocol::channel::ChannelEvent`'s
+          // `kind` tag). Surface it as a toast + refresh the
+          // channel list so the sidebar picks up the new entry.
+          const inner = payload.payload;
+          const innerKind =
+            inner && typeof inner === "object" && "kind" in inner
+              ? (inner as { kind?: string }).kind
+              : undefined;
+          if (innerKind === "channel_invite_received") {
             void qc.invalidateQueries({ queryKey: ["channels", rid] });
             onInviteReceived?.(channelId);
           }

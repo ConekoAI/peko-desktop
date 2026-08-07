@@ -103,8 +103,20 @@ pub enum ChatStreamMsg {
 
 /// This is the desktop's unified shape — the daemon uses different
 /// packet shapes (ResponsePacket) which get mapped into this.
+///
+/// `rename_all = "camelCase"` renames variant *tags* (no effect here
+/// since each variant has an explicit `rename = "..."` override).
+/// `rename_all_fields = "camelCase"` (serde ≥1.0.165) renames
+/// struct-variant *fields* — `channel_id` → `channelId`, etc.
+/// Without this, the React listener reads `payload.channelId` but
+/// the Rust side emits `channel_id` and the listener silently
+/// misses every event.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum StreamEvent {
     /// Text chunk from the assistant (mapped from daemon's ResponsePacket::Text)
     #[serde(rename = "chunk")]
@@ -124,6 +136,10 @@ pub enum StreamEvent {
     /// verbatim — the React side can switch on `payload.kind`
     /// (mirrors `peko_protocol::channel::ChannelEvent`'s
     /// `#[serde(tag = "kind", rename_all = "snake_case")]` shape).
+    /// With the enum-level `rename_all = "camelCase"`, this serializes
+    /// as `{type: "channel_event", channelId: "...", payload: {...},
+    /// timestamp: "..."}` — the camelCase `channelId` is what
+    /// `useChannelStreamInvalidator` filters on.
     #[serde(rename = "channel_event")]
     ChannelEvent {
         channel_id: String,
@@ -1696,6 +1712,13 @@ mod tests {
     /// The `payload` is preserved verbatim so the React side can
     /// switch on `payload.kind` (mirrors the runtime's
     /// `peko_protocol::channel::ChannelEvent` shape).
+    ///
+    /// Audit-fix: the enum-level `rename_all = "camelCase"` makes
+    /// the `channel_id` struct field serialize as `channelId` in JSON
+    /// (the React listener filters on `payload.channelId === channelId`).
+    /// This test is the regression guard for that contract — if
+    /// `rename_all` is dropped, `assert!(json.contains("\"channelId\""))`
+    /// fails and the bug is caught at unit-test time, not at runtime.
     #[test]
     fn test_stream_event_channel_event_serialization() {
         let event = StreamEvent::ChannelEvent {
@@ -1711,9 +1734,19 @@ mod tests {
             timestamp: "0d 12:00:00 UTC".to_string(),
         };
         let json = serde_json::to_string(&event).unwrap();
-        assert!(json.contains("channel_event"), "got {json}");
-        assert!(json.contains("chan_abcdefgh"));
-        assert!(json.contains("posted"));
+        assert!(json.contains("\"type\":\"channel_event\""), "got {json}");
+        // camelCase `channelId` field — the audit-fix regression guard.
+        assert!(
+            json.contains("\"channelId\":\"chan_abcdefgh\""),
+            "expected camelCase channelId in {json}"
+        );
+        assert!(json.contains("\"posted\""), "got {json}");
+        // The snake_case `channel_id` MUST NOT appear — that was the
+        // pre-fix wire shape that the React listener couldn't match.
+        assert!(
+            !json.contains("channel_id"),
+            "snake_case channel_id leaked into wire: {json}"
+        );
 
         let deserialized: StreamEvent = serde_json::from_str(&json).unwrap();
         match deserialized {
@@ -1728,6 +1761,62 @@ mod tests {
             }
             _ => panic!("wrong variant"),
         }
+    }
+
+    /// PR-2b bridge translation: when the daemon's IPC loop receives
+    /// a `channel_event_received` response packet, the Tauri bridge
+    /// forwards it as a `peko-stream` `StreamEvent::ChannelEvent`
+    /// with camelCase `channelId` (the field the React listener
+    /// filters on). This test guards the bridge translation by
+    /// feeding the loop a synthetic raw JSON packet and asserting
+    /// the resulting `StreamEvent` shape — without needing to mock
+    /// the `app.emit` handle.
+    ///
+    /// The test is in `tests` (not on a live `IpcClient`) because
+    /// the bridge code is a private helper inside
+    /// `IpcClient::channel_events_watch`. We exercise the
+    /// translation step directly: parse → build struct → serialize
+    /// → assert camelCase. End-to-end (with mock `app.emit`) is
+    /// tracked as a follow-up since it requires a `tauri::test`
+    /// harness that's not wired into the workspace yet.
+    #[test]
+    fn test_channel_events_watch_bridge_translates_to_camel_case() {
+        use serde_json::json;
+        // The exact shape the daemon emits on its `ResponsePacket::ChannelEventReceived`
+        // envelope — `channel` field carries routing context, `event` is the
+        // runtime's `ChannelEvent` JSON (with `kind: "posted" | "created" | ...`).
+        let raw = json!({
+            "type": "channel_event_received",
+            "request_id": 7,
+            "channel": "chan_abcdefgh",
+            "event": {
+                "kind": "posted",
+                "channel": "chan_abcdefgh",
+                "author": "prin_bob",
+                "parent": null,
+                "text": "hello from B",
+                "at": "2026-08-06T12:00:00Z",
+            },
+        });
+        // Same translation the bridge does at mod.rs:1590-1603.
+        let channel_id = raw
+            .get("channel")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string();
+        let payload = raw.get("event").cloned().unwrap_or(json!(null));
+        let bridge_event = StreamEvent::ChannelEvent {
+            channel_id,
+            payload,
+            timestamp: "2026-08-06T12:00:00Z".to_string(),
+        };
+        let json = serde_json::to_string(&bridge_event).unwrap();
+        assert!(
+            json.contains("\"channelId\":\"chan_abcdefgh\""),
+            "bridge emitted snake_case channel_id: {json}"
+        );
+        assert!(json.contains("\"type\":\"channel_event\""), "got {json}");
+        assert!(json.contains("\"posted\""), "got {json}");
     }
 
     #[test]

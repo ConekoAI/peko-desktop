@@ -134,9 +134,21 @@ describe("useChannelStreamInvalidator", () => {
 
     await waitFor(() => expect(capturedListener).toBeDefined());
 
+    // Audit-fix wire shape: Rust `StreamEvent` now has
+    // `#[serde(tag = "type", rename_all = "camelCase")]` so the
+    // daemon emits `{type: "channel_event", channelId: "...", ...}`
+    // (camelCase `channelId`, no outer `runtimeId`). Prior test
+    // mocked `kind`/`channelId`/`runtimeId` which matched the hook
+    // but never matched the actual emit — silent invalidator
+    // failure in production.
     act(() => {
       capturedListener!({
-        payload: { kind: "channel_event", channelId: "chan_alpha", runtimeId: "local" },
+        payload: {
+          type: "channel_event",
+          channelId: "chan_alpha",
+          payload: { kind: "posted", author: "alice", text: "hi" },
+          timestamp: "2026-08-06T12:00:00Z",
+        },
       });
     });
 
@@ -166,9 +178,14 @@ describe("useChannelStreamInvalidator", () => {
     act(() => {
       capturedListener!({
         payload: {
-          kind: "channel_invite_received",
+          type: "channel_event",
           channelId: "chan_alpha",
-          runtimeId: "local",
+          // The runtime encodes the invite as a synthetic
+          // ChannelEvent::Created + a follow-up Created variant;
+          // the listener detects `payload.payload.kind ===
+          // "channel_invite_received"` (the inner event's tag).
+          payload: { kind: "channel_invite_received" },
+          timestamp: "2026-08-06T12:00:00Z",
         },
       });
     });
@@ -197,9 +214,10 @@ describe("useChannelStreamInvalidator", () => {
     act(() => {
       capturedListener!({
         payload: {
-          kind: "channel_event",
+          type: "channel_event",
           channelId: "chan_other",
-          runtimeId: "local",
+          payload: { kind: "posted" },
+          timestamp: "2026-08-06T12:00:00Z",
         },
       });
     });

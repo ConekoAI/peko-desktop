@@ -28,9 +28,10 @@ import { Loader2 } from "lucide-react";
  * `useChannelStreamInvalidator` drives two concerns:
  *   1. invalidate `["channel-events", channelId]` on inbound events
  *      (auto-refresh)
- *   2. show a transient `ChannelInviteToast` when the runtime
- *      emits `kind: "channel_invite_received"` — the user's first
- *      signal that they were added to a remote channel.
+ *   2. show a transient `ChannelInviteToast` when the runtime emits
+ *      a `peko-stream` event whose inner `payload.payload.kind ===
+ *      "channel_invite_received"` — the user's first signal that
+ *      they were added to a remote channel.
  *
  * The PR-3 modals (Invite / Leave) hoist from this page so the
  * header buttons stay presentational. `useChannelLeave` is called

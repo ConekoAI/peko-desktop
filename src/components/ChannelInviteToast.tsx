@@ -4,7 +4,9 @@ import { useNavigate } from "@tanstack/react-router";
 /**
  * PR-3: ephemeral toast for inbound channel invites. Fired by the
  * `useChannelStreamInvalidator` listener when the runtime emits a
- * `peko-stream` event with `kind: "channel_invite_received"`. Click
+ * `peko-stream` event whose `payload.payload.kind ===
+ * "channel_invite_received"` (the inner event is the runtime's
+ * `ChannelEvent` JSON, which carries the invite tag). Click
  * navigates to `/channels/$channelId`; X dismisses without
  * navigating.
  *
