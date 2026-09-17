@@ -17,7 +17,7 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 
 import type {
-  BundleItem,
+  BootState,
   CapabilityList,
   ChannelDetail,
   ChannelEvent,
@@ -35,6 +35,7 @@ import type {
   ModelSummary,
   ModelTestResult,
   ModelUpdateArgs,
+  PrincipalExposure,
   RuntimeConnection,
   SearchResult,
   Setting,
@@ -123,16 +124,23 @@ export async function engineRestart(): Promise<number> {
  *
  * Mirrors the desktop's `PrincipalSummary` struct in
  * `src-tauri/src/commands/principal.rs` (the desktop projects the
- * runtime's full `PrincipalSummary` down to this six-field shape).
+ * runtime's full `PrincipalSummary` down to this lightweight shape).
  */
 export interface PrincipalSummary {
   name: string;
-  exposure: string;
+  exposure: PrincipalExposure;
   status: string;
   description?: string;
   preferredModelId?: string;
   owner: string;
   runtimeId: string;
+  /**
+   * Genesis pipeline state (peko-runtime ADR-054). Mirrors the Rust
+   * `PrincipalSummary.boot_state` field (serde-renamed to camelCase
+   * on the wire). Optional: runtimes older than the genesis pipeline
+   * omit it — treat an absent value as `organized`.
+   */
+  bootState?: BootState;
 }
 
 /**
@@ -177,11 +185,29 @@ export async function principalGet(
  * Model-first migration: every new Principal must be pinned to a
  * configured model. `modelId` is forwarded as `model_id` to the
  * runtime command.
+ *
+ * Genesis (ADR-054): `peko create` now blocks through the genesis
+ * boot sequence (up to the runtime's ~300s wait cap), so this invoke
+ * can take minutes to settle. The returned summary may still carry
+ * `bootState: "genesis_pending"` when the runtime returns early —
+ * callers should keep polling `principal_get` until `organized`
+ * (`usePrincipalCreate` does this automatically).
  */
 export interface PrincipalCreateRequest {
   name: string;
   description?: string;
   modelId: string;
+  /**
+   * Create-from-seed (ADR-060) is NOT available over IPC: the
+   * runtime's `principal_create` packet has no seed field
+   * (`peko-rs/core/src/ipc/packet.rs`), and grounding a seed is a
+   * CLI-local flow (`peko create <name> -s <seed.toml>` materializes
+   * the workspace, then `principal_reload`s the daemon). The desktop
+   * command fails loudly when `seed` is set — with the CLI grounding
+   * command in the message — rather than silently growing a
+   * from-scratch peko. Always omit for a working create.
+   */
+  seed?: string;
   runtimeId?: RuntimeId;
 }
 
@@ -192,6 +218,7 @@ export async function principalCreate(
     name: req.name,
     description: req.description ?? null,
     modelId: req.modelId,
+    seed: req.seed ?? null,
     runtimeId: req.runtimeId ?? null,
   });
 }
@@ -226,6 +253,58 @@ export async function principalRemove(
     name,
     runtimeId: runtimeId ?? null,
   });
+}
+
+// ─── `.peko` package export / import (ADR-056) ───────────────────
+//
+// A `.peko` package is a full-existence export of a principal —
+// workspace, memory, and private keys. Export writes the package to
+// `output` (a file path chosen via the save dialog, conventionally
+// `<name>.peko`); import wakes a principal from a package at `path`.
+// After a local import the runtime requires a `principal_reload` so
+// its in-memory manager picks up the restored directory.
+
+/**
+ * Export a principal's full existence to a `.peko` package at
+ * `output`. The package contains the principal's private keys — the
+ * UI surfaces a sensitivity warning before calling this.
+ */
+export async function principalExport(args: {
+  name: string;
+  output: string;
+}): Promise<unknown> {
+  return invoke("principal_export", {
+    name: args.name,
+    output: args.output,
+  });
+}
+
+/**
+ * Import (wake) a principal from a `.peko` package at `path`.
+ * The Tauri command follows a successful import with
+ * `principal_reload` itself (runtime requirement), so the peko is
+ * live daemon-side when this resolves — callers only need to
+ * invalidate the `["principals"]` query. Keyless packages reject
+ * with the runtime's "ground it with `peko create`" guidance,
+ * verbatim.
+ */
+export async function principalImport(args: { path: string }): Promise<unknown> {
+  // The Rust command is `principal_import(file_path, name, runtime_id)`;
+  // Tauri camelCases the arg names on the wire.
+  return invoke("principal_import", {
+    filePath: args.path,
+    name: null,
+    runtimeId: null,
+  });
+}
+
+/**
+ * Reload the runtime's in-memory principal manager from disk.
+ * Required by the runtime after any out-of-band change to
+ * `~/.peko/principals/` (e.g. a `.peko` import).
+ */
+export async function principalReload(): Promise<unknown> {
+  return invoke("principal_reload");
 }
 
 /**
@@ -509,12 +588,13 @@ export async function principalRevokeInvite(args: {
 
 // ─── Remote principals (PR #4) ──────────────────────────────────
 //
-// Shared-link flow: a user pastes `${hubUrl}/p/${owner}/${name}`
-// (with optional `?token=...`) and the desktop resolves the
-// principal via pekohub's anonymous
-// `/v1/public/principals/:owner/:name` endpoint, then persists the
-// verified record to `~/.peko/remote-principals.json`. The sidebar
-// renders the table as a "Remote" section (PR #3).
+// Shared-link flow: a user pastes `${hubUrl}/peko/${owner}/${name}`
+// (with optional `?token=...`; the legacy `${hubUrl}/p/...` form is
+// still accepted on input) and the desktop resolves the principal
+// via pekohub's anonymous `/v1/public/pekos/:owner/:pekoName`
+// endpoint, then persists the verified record to
+// `~/.peko/remote-principals.json`. The sidebar renders the table as
+// a "Remote" section (PR #3).
 
 export interface RemotePrincipalSummary {
   hubUrl: string;
@@ -522,7 +602,7 @@ export interface RemotePrincipalSummary {
   principalName: string;
   displayName: string;
   description?: string | null;
-  exposure: string;
+  exposure: PrincipalExposure;
   status: string;
   runtimeId: string;
   addedAtUnixMs: number;
@@ -535,7 +615,7 @@ export interface RemotePrincipalResolveResult {
   principalName: string;
   displayName: string;
   description?: string | null;
-  exposure: string;
+  exposure: PrincipalExposure;
   status: string;
   inviteToken?: string | null;
 }
@@ -672,7 +752,21 @@ export async function registrySearch(
   return invoke("registry_search", { query, page, perPage });
 }
 
-export async function registryPull(ref: string): Promise<BundleItem> {
+/**
+ * Result of a successful `registry_pull`, projected from the
+ * runtime's `principal_pulled { name, version, digest }` envelope
+ * (serde camelCase on the wire). This is NOT a `BundleItem` — the
+ * pull envelope carries no description/author/downloads, just the
+ * pulled seed's identity triple. The Registry page uses name+version
+ * in its post-pull "create from this seed" panel.
+ */
+export interface RegistryPullResult {
+  name: string;
+  version: string;
+  digest: string;
+}
+
+export async function registryPull(ref: string): Promise<RegistryPullResult> {
   return invoke("registry_pull", { ref });
 }
 
@@ -920,6 +1014,63 @@ export async function pekohubListRuntimes(
     id: String(r.id ?? r.runtime_id ?? ""),
     name: String(r.name ?? r.display_name ?? r.id ?? ""),
     url: r.url ? String(r.url) : undefined,
+  }));
+}
+
+/**
+ * List the pekos the authenticated user can reach on PekoHub —
+ * owner-only plus `private`-exposure entries (pekohub ADR-005; this
+ * endpoint replaced `/v1/me/accessible-principals`, which is 404).
+ *
+ * Wire shape: `{ pekos: [{ id, ownerName, pekoName, publicName,
+ * status }] }`. The internal type keeps the "principal" machine
+ * identifier — `pekoName` is mapped to `principalName` here, at the
+ * wire boundary, so the rest of the desktop never sees the rename.
+ */
+export interface AccessiblePrincipal {
+  id: string;
+  ownerName: string;
+  /** Mapped from the wire's `pekoName` field. */
+  principalName: string;
+  publicName: string;
+  status: string;
+}
+
+interface AccessiblePekoWire {
+  id?: unknown;
+  ownerName?: unknown;
+  pekoName?: unknown;
+  publicName?: unknown;
+  status?: unknown;
+}
+
+export async function pekohubListAccessiblePekos(
+  baseUrl: string,
+  accessToken: string,
+): Promise<AccessiblePrincipal[]> {
+  const url = new URL("/v1/me/accessible-pekos", baseUrl);
+  const resp = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "Unknown error");
+    throw new Error(`Failed to list accessible pekos (${resp.status}): ${text}`);
+  }
+  const data = await resp.json();
+  // The endpoint returns { pekos: [...] }; tolerate a bare array.
+  const arr = Array.isArray(data) ? data : data?.pekos;
+  if (!Array.isArray(arr)) {
+    throw new Error("Unexpected response format from PekoHub");
+  }
+  return arr.map((w: AccessiblePekoWire) => ({
+    id: String(w.id ?? ""),
+    ownerName: String(w.ownerName ?? ""),
+    principalName: String(w.pekoName ?? ""),
+    publicName: String(w.publicName ?? w.pekoName ?? ""),
+    status: String(w.status ?? "offline"),
   }));
 }
 

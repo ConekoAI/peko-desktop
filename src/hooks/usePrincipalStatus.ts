@@ -89,11 +89,14 @@ async function fetchRemoteStatus(
   owner: string,
   principalName: string,
 ): Promise<PrincipalStatus> {
-  // Mirror of pekohub's `PublicProfile` shape. Kept inline because
-  // the runtime / desktop shared package doesn't export this type
-  // yet; the only field we actually need is `status`.
+  // Mirror of pekohub's public-peko envelope (pekohub ADR-005):
+  // `{ liveInstance: { id, publicName, status, ... } }`. The path
+  // moved from `/v1/public/principals/:owner/:name` (now 404) to
+  // `/v1/public/pekos/:owner/:pekoName`. The only field we actually
+  // need is `status`; a flat `{ status }` body is tolerated for
+  // older self-hosted hubs.
   const base = hubUrl.replace(/\/$/, "");
-  const url = `${base}/v1/public/principals/${encodeURIComponent(owner)}/${encodeURIComponent(principalName)}`;
+  const url = `${base}/v1/public/pekos/${encodeURIComponent(owner)}/${encodeURIComponent(principalName)}`;
   try {
     const res = await fetch(url, {
       credentials: "omit",
@@ -108,9 +111,12 @@ async function fetchRemoteStatus(
     if (!res.ok) {
       return { status: "unknown", lastSeenAt: null, source: "remote" };
     }
-    const body = (await res.json()) as { status?: string };
+    const body = (await res.json()) as {
+      status?: string;
+      liveInstance?: { status?: string };
+    };
     return {
-      status: normalizeStatus(body.status),
+      status: normalizeStatus(body.liveInstance?.status ?? body.status),
       lastSeenAt: null,
       source: "remote",
     };

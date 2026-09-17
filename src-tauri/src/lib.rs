@@ -53,9 +53,11 @@ pub fn run() {
             // PR #6: forward incoming URLs from the OS to the React
             // layer as a `deep-link-received` event. The handler on
             // the JS side parses the URL, distinguishes
-            // `peko://add-principal?url=...` from
-            // `https://${hub}/p/${owner}/${name}?token=...`, and
-            // either calls `remotePrincipalAdd` directly or opens
+            // `peko://add-peko?url=...` (legacy:
+            // `peko://add-principal?url=...`) from
+            // `https://${hub}/peko/${owner}/${name}?token=...` (legacy:
+            // `/p/${owner}/${name}`), and either calls
+            // `remotePrincipalAdd` directly or opens
             // the AddRemotePrincipalModal pre-filled. The runtime
             // path keeps both shapes routed through one parser so
             // the JS contract is uniform.

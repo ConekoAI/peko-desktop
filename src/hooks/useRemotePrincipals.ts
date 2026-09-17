@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  pekohubListAccessiblePekos,
   remotePrincipalAdd,
   remotePrincipalList,
   remotePrincipalRemove,
   remotePrincipalResolve,
+  type AccessiblePrincipal,
   type RemotePrincipalResolveResult,
   type RemotePrincipalSummary,
 } from "../lib/api";
@@ -23,7 +25,7 @@ export function useRemotePrincipals() {
   });
 }
 
-export type { RemotePrincipalSummary, RemotePrincipalResolveResult };
+export type { RemotePrincipalSummary, RemotePrincipalResolveResult, AccessiblePrincipal };
 
 /**
  * Translate a share URL into a `RemotePrincipalResolveResult` so the
@@ -31,6 +33,15 @@ export type { RemotePrincipalSummary, RemotePrincipalResolveResult };
  * The query is enabled only when the URL parses to the right shape;
  * `parseShareUrl` is a tiny inline helper that mirrors the Rust
  * `parse_share_url` rules.
+ *
+ * Accepted shapes (pekohub ADR-005):
+ *   - `/peko/{owner}/{name}`                — current canonical share link
+ *   - `/p/{owner}/{name}`                   — legacy share link (still
+ *                                             accepted on input; the hub
+ *                                             keeps a redirect)
+ *   - `/v1/public/pekos/{owner}/{name}`     — current API URL form
+ *   - `/v1/public/principals/{owner}/{name}`— legacy API URL form
+ * Each accepts an optional `?token=...` invite-token query.
  */
 export function parseShareUrl(raw: string):
   | { hubUrl: string; owner: string; principalName: string; inviteToken?: string }
@@ -44,10 +55,23 @@ export function parseShareUrl(raw: string):
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
   const path = url.pathname.replace(/\/$/, "");
   const token = url.searchParams.get("token") ?? undefined;
-  // /p/{owner}/{name}
+  // /peko/{owner}/{name} — current canonical form
+  const peko = path.match(/^\/peko\/([^/]+)\/([^/]+)$/);
+  if (peko)
+    return { hubUrl: url.origin, owner: peko[1], principalName: peko[2], inviteToken: token };
+  // /p/{owner}/{name} — legacy share-link form
   const p = path.match(/^\/p\/([^/]+)\/([^/]+)$/);
   if (p) return { hubUrl: url.origin, owner: p[1], principalName: p[2], inviteToken: token };
-  // /v1/public/principals/{owner}/{name}
+  // /v1/public/pekos/{owner}/{name} — current API URL form
+  const apiPeko = path.match(/^\/v1\/public\/pekos\/([^/]+)\/([^/]+)$/);
+  if (apiPeko)
+    return {
+      hubUrl: url.origin,
+      owner: apiPeko[1],
+      principalName: apiPeko[2],
+      inviteToken: token,
+    };
+  // /v1/public/principals/{owner}/{name} — legacy API URL form
   const a = path.match(/^\/v1\/public\/principals\/([^/]+)\/([^/]+)$/);
   if (a)
     return {
@@ -101,5 +125,32 @@ export function useRemotePrincipalRemove() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["remote-principals"] });
     },
+  });
+}
+
+// ─── Accessible pekos (pekohub ADR-005) ──────────────────────────
+//
+// The hub's `/v1/me/accessible-pekos` endpoint replaced
+// `/v1/me/accessible-principals` (old path is 404) and narrowed in
+// semantics: it now returns the caller's own pekos plus
+// `private`-exposure entries they can reach — not "shared with me"
+// in the old sense. Grouping copy should say "accessible" / "My
+// private pekos", not "shared".
+
+/**
+ * List the pekos the signed-in user can reach on `hubUrl`
+ * (owner-only + private exposure). The query is disabled until both
+ * a hub URL and an access token are supplied — callers source those
+ * from the PekoHub OAuth bundle (`usePekohubBundle` /
+ * `loadOAuthBundle` in `useRuntimes.ts`) and the
+ * `pekohub.base_url` setting.
+ */
+export function useAccessiblePrincipals(hubUrl?: string, accessToken?: string) {
+  return useQuery({
+    queryKey: ["accessible-principals", hubUrl ?? null],
+    enabled: !!hubUrl && !!accessToken,
+    queryFn: () => pekohubListAccessiblePekos(hubUrl!, accessToken!),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }

@@ -9,17 +9,20 @@ import { parseShareUrl } from "../hooks/useRemotePrincipals";
  *
  * Two URL shapes are accepted:
  *
- * 1. `peko://add-principal?url=<encoded share URL>`
+ * 1. `peko://add-peko?url=<encoded share URL>`
  *    The explicit "share with peko-desktop" link form, generated
  *    by the SPA when the user clicks "Add to my desktop" on a
  *    discover card (PR #8). The inner URL is always a pekohub
- *    share URL (canonical or legacy API form).
+ *    share URL (canonical or legacy API form). The legacy
+ *    `peko://add-principal?url=...` form is still accepted on
+ *    receipt but never emitted.
  *
- * 2. `https://<hub>/p/<owner>/<name>?token=<optional>`
- *    The canonical pekohub share link itself. When the OS hands
- *    this to the desktop (because the user has peko-desktop
- *    installed and the link was clicked from another app), the
- *    desktop treats it as an add request directly.
+ * 2. `https://<hub>/peko/<owner>/<name>?token=<optional>`
+ *    The canonical pekohub share link itself (legacy
+ *    `https://<hub>/p/<owner>/<name>` links are also accepted).
+ *    When the OS hands this to the desktop (because the user has
+ *    peko-desktop installed and the link was clicked from another
+ *    app), the desktop treats it as an add request directly.
  *
  * Both paths converge on `addByDeepLink(url)` which (a) parses the
  * URL through the same `parseShareUrl` rule the modal uses, (b)
@@ -32,6 +35,11 @@ import { parseShareUrl } from "../hooks/useRemotePrincipals";
  * Parsed result of a deep-link URL. `null` means the URL didn't
  * match either expected shape — the caller surfaces a visible
  * "unsupported link" error to the user.
+ *
+ * The `add-principal` kind is an internal machine identifier and
+ * keeps its name even though the emitted deep link is now
+ * `peko://add-peko` — it covers both the current and the legacy
+ * `peko://add-principal` forms.
  */
 export type DeepLinkIntent =
   | { kind: "add-principal"; shareUrl: string }
@@ -50,19 +58,24 @@ export function parseDeepLink(raw: string): DeepLinkIntent | null {
     return null;
   }
 
-  // Shape 1: `peko://add-principal?url=...`
+  // Shape 1: `peko://add-peko?url=...` (current) or
+  // `peko://add-principal?url=...` (legacy — accepted on receipt,
+  // never emitted).
   if (url.protocol === "peko:") {
-    if (url.hostname !== "add-principal") return null;
+    if (url.hostname !== "add-peko" && url.hostname !== "add-principal") {
+      return null;
+    }
     const inner = url.searchParams.get("url");
     if (!inner) return null;
     return { kind: "add-principal", shareUrl: inner };
   }
 
-  // Shape 2: `https://<hub>/p/<owner>/<name>` (canonical) or
-  // `https://<hub>/v1/public/principals/<owner>/<name>` (legacy).
-  // `parseShareUrl` already encodes both shapes plus the optional
-  // `?token=...` query — we only need to check that the URL has
-  // one of those path shapes.
+  // Shape 2: `https://<hub>/peko/<owner>/<name>` (canonical),
+  // `https://<hub>/p/<owner>/<name>` (legacy share form), or the
+  // legacy `https://<hub>/v1/public/principals/<owner>/<name>` API
+  // form. `parseShareUrl` already encodes all of those shapes plus
+  // the optional `?token=...` query — we only need to check that
+  // the URL has one of those path shapes.
   if (url.protocol === "http:" || url.protocol === "https:") {
     if (parseShareUrl(raw)) {
       return { kind: "pekohub-share", shareUrl: raw };
@@ -136,6 +149,6 @@ async function handleRawUrl(raw: string): Promise<void> {
     await emit("deep-link-handled", intent);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await emit("deep-link-error", `Failed to add remote principal: ${message}`);
+    await emit("deep-link-error", `Failed to add remote peko: ${message}`);
   }
 }

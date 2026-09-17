@@ -153,7 +153,7 @@ describe("ChannelInviteModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("shows an amber hint when no local principal is a member", () => {
+  it("shows an amber hint when no local peko is a member", () => {
     usePrincipalsMock.mockReturnValue({ data: [{ name: "eve" }] });
     // Detail says creator is "alice" but the members list has no one
     // local — so the inviter-derivation falls back to "no one".
@@ -173,7 +173,7 @@ describe("ChannelInviteModal", () => {
       },
     });
     expect(
-      screen.getByText(/You need a local principal that.?s already a member/i),
+      screen.getByText(/You need a local peko that.?s already a member/i),
     ).toBeInTheDocument();
   });
 

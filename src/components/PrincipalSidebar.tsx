@@ -1,16 +1,21 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { usePrincipals } from "../hooks/usePrincipals";
-import { useRuntimes } from "../hooks/useRuntimes";
+import { isGenesisPending, usePrincipals } from "../hooks/usePrincipals";
+import { useRuntimes, usePekohubBundle } from "../hooks/useRuntimes";
+import { useSettings } from "../hooks/useSettings";
 import {
+  useAccessiblePrincipals,
+  useRemotePrincipalAdd,
   useRemotePrincipals,
   useRemotePrincipalRemove,
+  type AccessiblePrincipal,
 } from "../hooks/useRemotePrincipals";
 import {
   usePrincipalStatus,
   statusBadge,
   type PrincipalStatusValue,
 } from "../hooks/usePrincipalStatus";
+import { shareUrlFor } from "../lib/discovery";
 import PrincipalProfileModal from "./modals/PrincipalProfileModal";
 import {
   Search,
@@ -26,6 +31,7 @@ import {
   Trash2,
   Compass,
   Circle,
+  Package,
 } from "lucide-react";
 import type { PrincipalSummary, RemotePrincipalSummary } from "../lib/api";
 
@@ -262,16 +268,86 @@ function shortHub(hubUrl: string): string {
   }
 }
 
+/**
+ * Pekohub ADR-005: a row from the hub's `/v1/me/accessible-pekos`
+ * endpoint (the signed-in user's own pekos plus `private`-exposure
+ * entries they can reach). Clicking connects the desktop to the peko
+ * through the standard share-link add flow, then opens its chat.
+ */
+function AccessiblePekoRow({
+  peko,
+  hubUrl,
+  alreadyAdded,
+  onOpen,
+}: {
+  peko: AccessiblePrincipal;
+  hubUrl: string;
+  alreadyAdded: boolean;
+  onOpen: () => void;
+}) {
+  const addMut = useRemotePrincipalAdd();
+  const [addError, setAddError] = useState<string | null>(null);
+
+  function handleConnect() {
+    setAddError(null);
+    addMut.mutate(shareUrlFor(hubUrl, peko), {
+      onSuccess: onOpen,
+      onError: (err) =>
+        setAddError(err instanceof Error ? err.message : String(err)),
+    });
+  }
+
+  return (
+    <div className="rounded-lg px-2.5 py-2 text-sm text-slate-700 dark:text-slate-300">
+      <div className="flex items-center gap-2">
+        <Globe className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+        <span className="min-w-0 flex-1 truncate">
+          <span className="block truncate font-medium">{peko.publicName}</span>
+          <span className="block truncate text-[10px] text-slate-400 dark:text-slate-500">
+            {peko.ownerName} · {peko.status}
+          </span>
+        </span>
+        {alreadyAdded ? (
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            Added
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={addMut.isPending}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            {addMut.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <LinkIcon className="h-3 w-3" />
+            )}
+            Connect
+          </button>
+        )}
+      </div>
+      {addError && (
+        <p className="mt-1 text-[10px] text-red-600 dark:text-red-400">
+          {addError}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function PrincipalSidebar({
   onCreateClick,
   onConnectClick,
+  onImportClick,
 }: {
   onCreateClick?: () => void;
   onConnectClick?: () => void;
+  onImportClick?: () => void;
 } = {}) {
   const navigate = useNavigate();
   const params = useParams({ strict: false });
-  const principalName = (params as Record<string, string | undefined>).principalName ?? "";
+  const principalName = (params as Record<string, string | undefined>).pekoName ?? "";
 
   const { data: principals, isLoading } = usePrincipals();
   const { data: remotePrincipals } = useRemotePrincipals();
@@ -283,6 +359,24 @@ export default function PrincipalSidebar({
     x: number;
     y: number;
   } | null>(null);
+
+  // Pekohub ADR-005: "accessible pekos" — the signed-in user's own
+  // pekos plus private-exposure entries they can reach. The endpoint
+  // is owner-scoped, so the section only renders while a PekoHub
+  // OAuth bundle is stored. Same hub-URL source the profile modal
+  // uses (`pekohub.base_url` setting, canonical hub fallback).
+  const { data: settings } = useSettings();
+  const { data: pekohubBundle } = usePekohubBundle();
+  const pekohubBaseUrl = useMemo(
+    () =>
+      settings?.find((s) => s.key === "pekohub.base_url")?.value ??
+      "https://pekohub.org",
+    [settings],
+  );
+  const { data: accessiblePekos } = useAccessiblePrincipals(
+    pekohubBundle ? pekohubBaseUrl : undefined,
+    pekohubBundle?.access_token,
+  );
 
   const filtered = useMemo(() => {
     if (!principals) return [];
@@ -297,8 +391,8 @@ export default function PrincipalSidebar({
 
   function handleSelect(name: string, runtimeId: string) {
     navigate({
-      to: "/chat/$principalName",
-      params: { principalName: name },
+      to: "/chat/$pekoName",
+      params: { pekoName: name },
       search: { runtimeId },
     });
   }
@@ -307,10 +401,10 @@ export default function PrincipalSidebar({
     <div className="flex h-full w-60 flex-col border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
       <div className="border-b border-slate-200 p-3 dark:border-slate-800">
         <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-          Principals
+          Pekos
         </h3>
         <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
-          Top-level runtime actors
+          Your pekos, grouped by runtime
         </p>
       </div>
 
@@ -321,7 +415,7 @@ export default function PrincipalSidebar({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search principals..."
+            placeholder="Search pekos…"
             className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           />
         </div>
@@ -368,6 +462,21 @@ export default function PrincipalSidebar({
               >
                 <Bot className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
                 <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+                {/* Genesis (ADR-054): a freshly created peko can sit in
+                    `genesis_pending` (or an earlier boot state) for up to
+                    a few minutes. `isGenesisPending` treats an absent
+                    `bootState` (older runtimes) as already organized, so
+                    the badge never shows stale. */}
+                {isGenesisPending(p) && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                    data-testid={`waking-badge-${p.name}`}
+                    title="This peko is still booting (genesis in progress)"
+                  >
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    waking…
+                  </span>
+                )}
                 {/* PR #9: per-row live status indicator. For remote
                     principals we forward `owner` + `pekohubUrl` from
                     the registered runtime; if the runtime row hasn't
@@ -399,7 +508,7 @@ export default function PrincipalSidebar({
         ) : showFirstRunCTA ? (
           <div className="px-2 py-8 text-center text-xs text-slate-400 dark:text-slate-600">
             <span className="block space-y-3">
-              <span className="block">No principals yet</span>
+              <span className="block">No pekos yet</span>
               {onCreateClick && (
                 <button
                   type="button"
@@ -407,14 +516,14 @@ export default function PrincipalSidebar({
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Create your first principal
+                  Create your first peko
                 </button>
               )}
             </span>
           </div>
         ) : (
           <div className="px-2 py-8 text-center text-xs text-slate-400 dark:text-slate-600">
-            No principals match
+            No pekos match
           </div>
         )}
 
@@ -440,9 +549,45 @@ export default function PrincipalSidebar({
               ))}
           </div>
         ) : null}
+
+        {accessiblePekos && accessiblePekos.length > 0 ? (
+          <div className="mt-1">
+            <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Accessible pekos
+            </div>
+            <p className="px-2.5 pb-1 text-[10px] text-slate-400 dark:text-slate-500">
+              Your pekos on {shortHub(pekohubBaseUrl)}, including private ones
+              only you can reach.
+            </p>
+            {accessiblePekos
+              .filter(
+                (ap) =>
+                  !search.trim() ||
+                  ap.publicName.toLowerCase().includes(search.toLowerCase()) ||
+                  ap.ownerName.toLowerCase().includes(search.toLowerCase()),
+              )
+              .map((ap) => (
+                <AccessiblePekoRow
+                  key={ap.id || `${ap.ownerName}-${ap.publicName}`}
+                  peko={ap}
+                  hubUrl={pekohubBaseUrl}
+                  alreadyAdded={
+                    !!remotePrincipals?.some(
+                      (rp) =>
+                        rp.owner === ap.ownerName &&
+                        rp.principalName === ap.principalName,
+                    )
+                  }
+                  onOpen={() =>
+                    handleSelect(ap.principalName, `hub:${pekohubBaseUrl}`)
+                  }
+                />
+              ))}
+          </div>
+        ) : null}
       </div>
 
-      {(onCreateClick || onConnectClick) && (
+      {(onCreateClick || onConnectClick || onImportClick) && (
         <div className="space-y-1 border-t border-slate-200 p-2 dark:border-slate-800">
           {onCreateClick && (
             <button
@@ -451,7 +596,17 @@ export default function PrincipalSidebar({
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <Plus className="h-4 w-4" />
-              <span>Create principal</span>
+              <span>Create peko</span>
+            </button>
+          )}
+          {onImportClick && (
+            <button
+              type="button"
+              onClick={onImportClick}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <Package className="h-4 w-4" />
+              <span>Import .peko</span>
             </button>
           )}
           {onConnectClick && (
@@ -461,11 +616,11 @@ export default function PrincipalSidebar({
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <LinkIcon className="h-4 w-4" />
-              <span>Connect to a remote principal</span>
+              <span>Connect to a remote peko</span>
             </button>
           )}
           {/* PR #8: in-app discovery button. Always rendered so a
-              user who hasn't added any remote principals can still
+              user who hasn't added any remote pekos can still
               browse the public hub from inside the desktop. */}
           <button
             type="button"
@@ -473,7 +628,7 @@ export default function PrincipalSidebar({
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <Compass className="h-4 w-4" />
-            <span>Discover public principals</span>
+            <span>Discover public pekos</span>
           </button>
         </div>
       )}
@@ -484,14 +639,14 @@ export default function PrincipalSidebar({
           onClose={() => setContextMenu(null)}
           onOpenChat={() =>
             navigate({
-              to: "/chat/$principalName",
-              params: { principalName: contextMenu.principalName },
+              to: "/chat/$pekoName",
+              params: { pekoName: contextMenu.principalName },
             })
           }
           onOpenLog={() =>
             navigate({
-              to: "/log/$principalName",
-              params: { principalName: contextMenu.principalName },
+              to: "/log/$pekoName",
+              params: { pekoName: contextMenu.principalName },
             })
           }
           onOpenProfile={() => setProfilePrincipal(contextMenu.principalName)}

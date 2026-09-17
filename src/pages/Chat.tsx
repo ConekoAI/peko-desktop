@@ -24,6 +24,14 @@ import rehypeSanitize from "rehype-sanitize";
 import type { ChatLogMessage, StreamEvent } from "../types";
 import type { ChatStreamMsg } from "../lib/api";
 
+/**
+ * ToS gate: a send/stream rejection whose message starts with
+ * "[tos_required]" carries the hub's terms text after the prefix.
+ * The thread renders it as a distinct acknowledgement notice, not a
+ * generic red error bubble.
+ */
+const TOS_REQUIRED_PREFIX = "[tos_required]";
+
 interface ChatItem {
   event: StreamEvent;
   isUser: boolean;
@@ -183,7 +191,7 @@ function PrincipalToolbar({ principalName }: { principalName: string }) {
       <div className="flex items-center gap-2">
         <button
           onClick={() =>
-            navigate({ to: "/principal/$principalName", params: { principalName } })
+            navigate({ to: "/peko/$pekoName", params: { pekoName: principalName } })
           }
           title={`Manage what ${principalName} is allowed to do`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -193,7 +201,7 @@ function PrincipalToolbar({ principalName }: { principalName: string }) {
         </button>
         <button
           onClick={() =>
-            navigate({ to: "/log/$principalName", params: { principalName } })
+            navigate({ to: "/log/$pekoName", params: { pekoName: principalName } })
           }
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
         >
@@ -233,7 +241,7 @@ export default function Chat() {
     const parts = pathname.split("/").filter(Boolean);
     principalName = parts[1];
   }
-  const paramName = (params as Record<string, string | undefined>).principalName;
+  const paramName = (params as Record<string, string | undefined>).pekoName;
   if (paramName) principalName = paramName;
 
   const selectedPrincipal = principalName ?? principals?.[0]?.name ?? "";
@@ -254,8 +262,8 @@ export default function Chat() {
   useEffect(() => {
     if ((pathname === "/" || pathname === "/chat") && selectedPrincipal) {
       navigate({
-        to: "/chat/$principalName",
-        params: { principalName: selectedPrincipal },
+        to: "/chat/$pekoName",
+        params: { pekoName: selectedPrincipal },
         search: { runtimeId },
       });
     }
@@ -434,6 +442,14 @@ export default function Chat() {
     [historyItems, chatItems],
   );
 
+  // A "[tos_required]"-tagged send/stream rejection carries the hub's
+  // terms text after the prefix; it renders as the acknowledgement
+  // notice below, not the generic red error box.
+  const tosText =
+    error && error.startsWith(TOS_REQUIRED_PREFIX)
+      ? error.slice(TOS_REQUIRED_PREFIX.length).trim()
+      : null;
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -448,10 +464,10 @@ export default function Chat() {
         <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
         <div className="text-center">
           <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            No principals yet
+            No pekos yet
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            Create your first principal to start chatting.
+            Create your first peko to start chatting.
           </p>
         </div>
         <button
@@ -459,7 +475,7 @@ export default function Chat() {
           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
           <Plus className="h-4 w-4" />
-          Create a principal
+          Create a peko
         </button>
         <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
       </div>
@@ -471,7 +487,7 @@ export default function Chat() {
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Select a principal from the sidebar
+          Select a peko from the sidebar
         </p>
       </div>
     );
@@ -503,11 +519,21 @@ export default function Chat() {
           </div>
         )}
 
-        {error && (
+        {tosText !== null ? (
+          <div
+            data-testid="tos-required-notice"
+            className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+          >
+            <p className="font-medium">
+              This peko requires you to acknowledge its terms before chatting.
+            </p>
+            <p className="mt-1 whitespace-pre-wrap break-all">{tosText}</p>
+          </div>
+        ) : error ? (
           <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400">
             {error}
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">

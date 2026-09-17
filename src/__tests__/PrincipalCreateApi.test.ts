@@ -18,7 +18,7 @@ const mockedInvoke = vi.mocked(invoke);
 
 const STUB_SUMMARY: PrincipalSummary = {
   name: "alice",
-  exposure: "Private",
+  exposure: "private",
   status: "online",
   description: "personal assistant",
   owner: "user:desktop",
@@ -49,6 +49,7 @@ describe("principalCreate wire shape", () => {
       name: "alice",
       description: null,
       modelId: "openai",
+      seed: null,
       runtimeId: null,
     });
   });
@@ -68,6 +69,23 @@ describe("principalCreate wire shape", () => {
       name: "alice",
       description: "personal assistant",
       modelId: "openai",
+      seed: null,
+      runtimeId: null,
+    });
+  });
+
+  it("forwards the seed path for the create-from-seed flow (ADR-060)", async () => {
+    await principalCreate({
+      name: "alice",
+      modelId: "openai",
+      seed: "~/.peko/seeds/coding-assistant.seed.toml",
+    });
+    const [, payload] = mockedInvoke.mock.calls[0] as [string, Record<string, unknown>];
+    expect(payload).toEqual({
+      name: "alice",
+      description: null,
+      modelId: "openai",
+      seed: "~/.peko/seeds/coding-assistant.seed.toml",
       runtimeId: null,
     });
   });

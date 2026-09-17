@@ -75,7 +75,7 @@ function PermissionDenied({ principalName }: { principalName: string }) {
           activity. The owner must grant Chat permission first:
         </p>
         <pre className="mt-3 overflow-x-auto rounded-md bg-slate-900 px-3 py-2 text-left font-mono text-xs text-emerald-300">
-{`peko principal permit ${principalName} \\
+{`peko permit ${principalName} \\
   user:<you> chat`}
         </pre>
       </div>
@@ -106,7 +106,7 @@ function PermissionDenied({ principalName }: { principalName: string }) {
  */
 export default function PrincipalLog() {
   const params = useParams({ strict: false });
-  const principalName = (params as Record<string, string | undefined>).principalName ?? "";
+  const principalName = (params as Record<string, string | undefined>).pekoName ?? "";
   const caller = useCallerSubject();
   const { data: principal, isLoading: principalLoading } = usePrincipal(principalName);
 
@@ -193,7 +193,7 @@ export default function PrincipalLog() {
       <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
         <AlertTriangle className="h-10 w-10 text-amber-500" />
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Principal <strong>{principalName}</strong> not found
+          Peko <strong>{principalName}</strong> not found
         </p>
       </div>
     );
@@ -246,8 +246,8 @@ export default function PrincipalLog() {
             <ShieldOff className="mx-auto h-8 w-8 text-slate-400" />
             <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">
               Toggle <em>Read your own thread</em> to load your private
-              conversation with this principal. The owner&apos;s root
-              activity feed is only visible to the principal&apos;s owner.
+              conversation with this peko. The owner&apos;s root
+              activity feed is only visible to the peko&apos;s owner.
             </p>
           </div>
         </div>

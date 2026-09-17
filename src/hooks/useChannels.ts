@@ -15,6 +15,7 @@ import {
   type ChannelSummary,
   type RuntimeId,
 } from "../lib/api";
+import { rethrowAsChannelError, type ChannelError } from "../lib/channelErrors";
 
 const DEFAULT_RUNTIME_ID = "local";
 
@@ -30,6 +31,12 @@ function effectiveRuntimeId(runtimeId?: RuntimeId): string {
 // `useChannels` fans out: it issues one query per principal, then
 // dedupes by `channelId` in the render. The query key includes the
 // runtimeId so cross-runtime principals route correctly (PR #5).
+//
+// `channel_list` / `channel_members` are membership-gated
+// runtime-side (ADR-058): rejections are classified into typed
+// `ChannelError`s (`kind === "forbidden"` when the gate refused the
+// read) so the UI can render a membership gate instead of a generic
+// failure.
 
 export interface ChannelRow extends ChannelSummary {
   /**
@@ -54,13 +61,13 @@ export function useChannels(
     () =>
       principalNames.map((name) => ({
         queryKey: ["channels", rid, name] as const,
-        queryFn: () => channelList(name, rid),
+        queryFn: () => channelList(name, rid).catch(rethrowAsChannelError),
         staleTime: 30_000,
       })),
     [principalNames.join("|"), rid],
   );
 
-  const merged = useQuery({
+  const merged = useQuery<ChannelRow[], ChannelError>({
     queryKey: ["channels", rid, principalNames.join("|")] as const,
     enabled: principalNames.length > 0,
     queryFn: async () => {
@@ -103,10 +110,11 @@ export function useChannelsForPrincipal(
   runtimeId?: RuntimeId,
 ) {
   const rid = effectiveRuntimeId(runtimeId);
-  return useQuery({
+  return useQuery<ChannelSummary[], ChannelError>({
     queryKey: ["channels", rid, principalName] as const,
     enabled: !!principalName,
-    queryFn: () => channelList(principalName!, rid),
+    queryFn: () =>
+      channelList(principalName!, rid).catch(rethrowAsChannelError),
     staleTime: 30_000,
   });
 }
@@ -118,10 +126,10 @@ export function useChannel(
   runtimeId?: RuntimeId,
 ) {
   const rid = effectiveRuntimeId(runtimeId);
-  return useQuery<ChannelDetail | null>({
+  return useQuery<ChannelDetail | null, ChannelError>({
     queryKey: ["channel", rid, channelId] as const,
     enabled: !!channelId,
-    queryFn: () => channelGet(channelId!, rid),
+    queryFn: () => channelGet(channelId!, rid).catch(rethrowAsChannelError),
     staleTime: 5_000,
   });
 }
@@ -131,10 +139,11 @@ export function useChannelMembers(
   runtimeId?: RuntimeId,
 ) {
   const rid = effectiveRuntimeId(runtimeId);
-  return useQuery<ChannelMembers>({
+  return useQuery<ChannelMembers, ChannelError>({
     queryKey: ["channel-members", rid, channelId] as const,
     enabled: !!channelId,
-    queryFn: () => channelMembers(channelId!, rid),
+    queryFn: () =>
+      channelMembers(channelId!, rid).catch(rethrowAsChannelError),
     staleTime: 5_000,
   });
 }
@@ -156,9 +165,9 @@ export function useChannelMembers(
 export function useChannelCreate(runtimeId?: RuntimeId) {
   const qc = useQueryClient();
   const rid = effectiveRuntimeId(runtimeId);
-  return useMutation({
-    mutationFn: (vars: { creatorName: string; name: string }) =>
-      channelCreate(vars.creatorName, vars.name, rid),
+  return useMutation<string, ChannelError, { creatorName: string; name: string }>({
+    mutationFn: (vars) =>
+      channelCreate(vars.creatorName, vars.name, rid).catch(rethrowAsChannelError),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["channels", rid] });
     },
@@ -176,12 +185,14 @@ export function useChannelCreate(runtimeId?: RuntimeId) {
 export function useChannelInvite(channelId: string | undefined, runtimeId?: RuntimeId) {
   const qc = useQueryClient();
   const rid = effectiveRuntimeId(runtimeId);
-  return useMutation<ChannelInviteResult, Error, { inviterName: string; inviteeName: string }>({
+  return useMutation<ChannelInviteResult, ChannelError, { inviterName: string; inviteeName: string }>({
     mutationFn: (vars) => {
       if (!channelId) {
         return Promise.reject(new Error("channelId is required for invite"));
       }
-      return channelInvite(channelId, vars.inviterName, vars.inviteeName, rid);
+      return channelInvite(channelId, vars.inviterName, vars.inviteeName, rid).catch(
+        rethrowAsChannelError,
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["channels", rid] });
@@ -201,12 +212,12 @@ export function useChannelInvite(channelId: string | undefined, runtimeId?: Runt
 export function useChannelLeave(channelId: string | undefined, runtimeId?: RuntimeId) {
   const qc = useQueryClient();
   const rid = effectiveRuntimeId(runtimeId);
-  return useMutation<ChannelLeaveResult, Error, { principalName: string }>({
+  return useMutation<ChannelLeaveResult, ChannelError, { principalName: string }>({
     mutationFn: (vars) => {
       if (!channelId) {
         return Promise.reject(new Error("channelId is required for leave"));
       }
-      return channelLeave(channelId, vars.principalName, rid);
+      return channelLeave(channelId, vars.principalName, rid).catch(rethrowAsChannelError);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["channels", rid] });

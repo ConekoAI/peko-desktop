@@ -119,4 +119,22 @@ describe("ChannelComposer", () => {
     });
     expect(input.value).toBe("hi");
   });
+
+  it("renders a distinct membership-gate notice when the runtime forbids the post", async () => {
+    channelPostMock.mockRejectedValue("[forbidden] not a member of chan_alpha");
+    renderComposer();
+    const input = screen.getByTestId("channel-composer-input");
+    fireEvent.change(input, { target: { value: "hi" } });
+    fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("channel-composer-forbidden"),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/You don't have access to this channel/i),
+    ).toBeInTheDocument();
+    // The generic error chip must NOT render for the forbidden case.
+    expect(screen.queryByTestId("channel-composer-error")).toBeNull();
+  });
 });

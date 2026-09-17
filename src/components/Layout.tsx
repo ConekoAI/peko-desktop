@@ -11,6 +11,7 @@ import VersionMismatchBanner from "./VersionMismatchBanner";
 import FirstRunWalkthrough from "./FirstRunWalkthrough";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
+import ImportPekoModal from "./modals/ImportPekoModal";
 import ChannelCreateModal from "./modals/ChannelCreateModal";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
@@ -38,6 +39,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // remote-principals JSON table on the desktop; the sidebar
   // re-renders through React Query's invalidation hook.
   const [connectOpen, setConnectOpen] = useState(false);
+  // ADR-056: layout-level ImportPekoModal so the sidebar's "Import
+  // .peko" footer button can open it. The modal wakes a peko from a
+  // package on disk; the backend reloads the daemon itself.
+  const [importOpen, setImportOpen] = useState(false);
   // PR-3: layout-level ChannelCreateModal so the channels
   // sidebar's "+ New channel" button can open it. Mirrors the
   // CreatePrincipalModal hoist pattern.
@@ -168,6 +173,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <PrincipalSidebar
             onCreateClick={() => setCreateOpen(true)}
             onConnectClick={() => setConnectOpen(true)}
+            onImportClick={() => setImportOpen(true)}
           />
         ) : isChannelsRoute ? (
           <ChannelSidebar onCreateClick={() => setChannelCreateOpen(true)} />
@@ -239,6 +245,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           own local instances; only one is open at a time. */}
       <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <AddRemotePrincipalModal open={connectOpen} onClose={() => setConnectOpen(false)} />
+      <ImportPekoModal open={importOpen} onClose={() => setImportOpen(false)} />
       <ChannelCreateModal
         open={channelCreateOpen}
         onClose={() => setChannelCreateOpen(false)}

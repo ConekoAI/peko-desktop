@@ -16,7 +16,9 @@
 //!   authoritative metadata lives in the event log's first `Created`
 //!   event, so `channel_get` actually calls `ChannelPeek` and projects
 //!   from the events).
-//! - `channel_events` → `RequestPacket::ChannelPeek { since }`
+//! - `channel_events` → `RequestPacket::ChannelPeek { since, tail,
+//!   before, query, author }` (reads are membership-gated runtime-side,
+//!   ADR-057)
 //!   → response: `channel_peek_result` with `events: Vec<ChannelEvent>`
 //! - `channel_members` → `RequestPacket::ChannelMembers`
 //!   → response: `channel_members_result` with `members: Vec<PrincipalId>`
@@ -189,7 +191,7 @@ pub async fn channel_get(
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     let value = client
-        .channel_peek(&channel_id, None)
+        .channel_peek(&channel_id, None, None, None, None, None)
         .await
         .map_err(|e| format!("channel_get failed: {e}"))?;
 
@@ -202,11 +204,26 @@ pub async fn channel_get(
 
 /// List events on `channel_id` since `since` (None = from start).
 /// Returns an empty Vec if the channel doesn't exist.
+///
+/// The optional `tail`/`before`/`query`/`author` filters map to the
+/// runtime's `ChannelPeek` tail-read and search modes (ADR-057): with
+/// `tail` set the daemon returns the newest N events at or before the
+/// `before` line cursor; with `query` or `author` set it runs a
+/// backward filtered scan instead of the forward `since` walk. All
+/// filters are optional and additive — existing callers pass `None`.
+///
+/// Reads are membership-gated runtime-side; a non-member caller gets
+/// a `[forbidden]` error packet which surfaces here as `Err`.
+#[allow(clippy::too_many_arguments)] // Tauri command args stay flat to keep the JS call shape additive
 #[tauri::command]
 pub async fn channel_events(
     state: tauri::State<'_, AppState>,
     channel_id: String,
     since: Option<String>,
+    tail: Option<usize>,
+    before: Option<String>,
+    query: Option<String>,
+    author: Option<String>,
     runtime_id: Option<String>,
 ) -> Result<Vec<ChannelEvent>, String> {
     let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
@@ -217,7 +234,14 @@ pub async fn channel_events(
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     let value = client
-        .channel_peek(&channel_id, since.as_deref())
+        .channel_peek(
+            &channel_id,
+            since.as_deref(),
+            tail,
+            before.as_deref(),
+            query.as_deref(),
+            author.as_deref(),
+        )
         .await
         .map_err(|e| format!("channel_events failed: {e}"))?;
 
@@ -257,18 +281,22 @@ pub async fn channel_members(
     ))
 }
 
-/// PR-2a: post a message to `channel_id` from `sender_name`. The
-/// runtime mints a fresh `task_id` for the message, appends a
-/// `Posted` event to the channel log, and (for cross-runtime
-/// channels) fans out via the `TunnelChannelEvent` envelope. Returns
-/// the `task_id` so the frontend can correlate an inbound peko-stream
-/// event back to its outbound post when PR-2b lights up the live
-/// stream.
+/// PR-2a: post a message to `channel_id`. `sender_name` is `None` to
+/// speak as the caller's own server-derived identity (ADR-057 — the
+/// common "post as myself" case) or `Some(name)` for a principal the
+/// caller operates. A `user:<id>` sender is impersonation and refused
+/// by the runtime with `[forbidden]`; we reject it client-side first
+/// for a clearer error. The runtime mints a fresh `task_id` for the
+/// message, appends a `Posted` event to the channel log, and (for
+/// cross-runtime channels) fans out via the `TunnelChannelEvent`
+/// envelope. Returns the `task_id` so the frontend can correlate an
+/// inbound peko-stream event back to its outbound post when PR-2b
+/// lights up the live stream.
 #[tauri::command]
 pub async fn channel_post(
     state: tauri::State<'_, AppState>,
     channel_id: String,
-    sender_name: String,
+    sender_name: Option<String>,
     text: String,
     parent: Option<String>,
     runtime_id: Option<String>,
@@ -277,11 +305,25 @@ pub async fn channel_post(
     let _ = resolved;
     let _ = runtime_id.unwrap_or_else(|| "local".to_string());
 
+    if let Some(raw) = sender_name.as_deref() {
+        if raw.starts_with("user:") {
+            return Err(format!(
+                "channel_post: sender_name must be omitted (speak as yourself) or a peko \
+                 name hosted by this runtime — never a user identity (got {raw:?})"
+            ));
+        }
+    }
+
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     let value = client
-        .channel_post(&channel_id, &sender_name, &text, parent.as_deref())
+        .channel_post(
+            &channel_id,
+            sender_name.as_deref(),
+            &text,
+            parent.as_deref(),
+        )
         .await
         .map_err(|e| format!("channel_post failed: {e}"))?;
 
@@ -712,14 +754,17 @@ mod tests {
             "type": "channel_peek_result",
             "channel": "chan_aaaaaaaa",
             "events": [
-                {"kind": "created", "channel": "chan_aaaaaaaa", "creator": "prin_alice", "name": "team", "at": "2026-08-06T12:00:00Z"},
-                {"kind": "posted", "channel": "chan_aaaaaaaa", "author": "prin_alice", "parent": null, "text": "hi", "at": "2026-08-06T12:01:00Z"},
-                {"kind": "member_joined", "channel": "chan_aaaaaaaa", "member": "prin_bob", "at": "2026-08-06T12:00:30Z"},
+                {"kind": "created", "channel": "chan_aaaaaaaa", "creator": "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm", "name": "team", "at": "2026-08-06T12:00:00Z"},
+                {"kind": "posted", "channel": "chan_aaaaaaaa", "author": "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm", "parent": null, "text": "hi", "at": "2026-08-06T12:01:00Z"},
+                {"kind": "member_joined", "channel": "chan_aaaaaaaa", "member": "principal:did:key:z6MkrJVnaZkeF9e2r6f3KRxnZK1fDbVcjdMsCbtQYaCVYefn", "at": "2026-08-06T12:00:30Z"},
             ],
         });
         let detail = project_channel_get_envelope(&v, "chan_aaaaaaaa", "local").unwrap();
         assert_eq!(detail.name, "team");
-        assert_eq!(detail.creator, "prin_alice");
+        assert_eq!(
+            detail.creator,
+            "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm"
+        );
         assert_eq!(detail.created_at, "2026-08-06T12:00:00Z");
         assert_eq!(detail.member_count, 1);
         assert_eq!(detail.runtime_id, "local");
@@ -766,11 +811,17 @@ mod tests {
         let v = json!({
             "type": "channel_members_result",
             "channel": "chan_aaaaaaaa",
-            "members": ["prin_alice", "prin_bob"],
+            "members": ["principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm", "principal:did:key:z6MkrJVnaZkeF9e2r6f3KRxnZK1fDbVcjdMsCbtQYaCVYefn"],
         });
         let m = project_channel_members_envelope(&v, "chan_aaaaaaaa", "local");
         assert_eq!(m.channel_id, "chan_aaaaaaaa");
-        assert_eq!(m.members, vec!["prin_alice", "prin_bob"]);
+        assert_eq!(
+            m.members,
+            vec![
+                "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm",
+                "principal:did:key:z6MkrJVnaZkeF9e2r6f3KRxnZK1fDbVcjdMsCbtQYaCVYefn"
+            ]
+        );
     }
 
     #[test]
@@ -781,7 +832,7 @@ mod tests {
         // malformed envelopes).
         let v = json!({
             "kind": "posted",
-            "author": "prin_alice",
+            "author": "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm",
             "parent": null,
             "text": "hi",
             "at": "t",
@@ -840,11 +891,14 @@ mod tests {
         let v = json!({
             "type": "channel_invited",
             "channel": "chan_aaaaaaaa",
-            "invitee": "prin_bob",
+            "invitee": "principal:did:key:z6MkrJVnaZkeF9e2r6f3KRxnZK1fDbVcjdMsCbtQYaCVYefn",
         });
         let r = project_channel_invited_envelope(&v, "chan_aaaaaaaa", "local");
         assert_eq!(r.channel_id, "chan_aaaaaaaa");
-        assert_eq!(r.invitee, "prin_bob");
+        assert_eq!(
+            r.invitee,
+            "principal:did:key:z6MkrJVnaZkeF9e2r6f3KRxnZK1fDbVcjdMsCbtQYaCVYefn"
+        );
         assert_eq!(r.runtime_id, "local");
     }
 
@@ -855,10 +909,13 @@ mod tests {
     /// error rather than silently succeeding.
     #[test]
     fn project_channel_invited_envelope_falls_back_on_missing_channel() {
-        let v = json!({"type": "channel_invited", "invitee": "prin_bob"});
+        let v = json!({"type": "channel_invited", "invitee": "principal:did:key:z6MkrJVnaZkeF9e2r6f3KRxnZK1fDbVcjdMsCbtQYaCVYefn"});
         let r = project_channel_invited_envelope(&v, "chan_fallback", "local");
         assert_eq!(r.channel_id, "chan_fallback");
-        assert_eq!(r.invitee, "prin_bob");
+        assert_eq!(
+            r.invitee,
+            "principal:did:key:z6MkrJVnaZkeF9e2r6f3KRxnZK1fDbVcjdMsCbtQYaCVYefn"
+        );
     }
 
     /// PR-3: `channel_leave` echoes both `channel` (falling back to
@@ -870,11 +927,14 @@ mod tests {
         let v = json!({
             "type": "channel_left",
             "channel": "chan_aaaaaaaa",
-            "principal": "prin_alice",
+            "principal": "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm",
         });
         let r = project_channel_left_envelope(&v, "chan_aaaaaaaa", "local");
         assert_eq!(r.channel_id, "chan_aaaaaaaa");
-        assert_eq!(r.principal, "prin_alice");
+        assert_eq!(
+            r.principal,
+            "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm"
+        );
         assert_eq!(r.runtime_id, "local");
     }
 

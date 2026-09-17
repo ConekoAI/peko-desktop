@@ -52,7 +52,7 @@ export default function Discover() {
         <div className="flex items-baseline justify-between">
           <div>
             <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
-              Discover public principals
+              Discover public pekos
             </h1>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               Searching <code className="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">{hubUrl}</code>
@@ -68,7 +68,7 @@ export default function Discover() {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search public principals..."
+            placeholder="Search public pekos…"
             className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           />
         </div>
@@ -103,7 +103,7 @@ export default function Discover() {
           </div>
         ) : !search.data || search.data.hits.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
-            No public principals matched. Try a different query.
+            No public pekos matched. Try a different query.
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -12,7 +12,7 @@ const chatSearchSchema = z.object({
   runtimeId: z.string().optional(),
 });
 
-export const Route = createFileRoute("/chat/$principalName")({
+export const Route = createFileRoute("/chat/$pekoName")({
   component: Chat,
   validateSearch: chatSearchSchema,
 });

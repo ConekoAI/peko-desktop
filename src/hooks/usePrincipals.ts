@@ -1,9 +1,16 @@
 import { useCallback, useRef } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 
 import {
   principalCreate,
+  principalExport,
   principalGet,
+  principalImport,
   principalList,
   principalLog,
   principalRemove,
@@ -28,6 +35,36 @@ function effectiveRuntimeId(runtimeId?: RuntimeId): string {
   return runtimeId ?? DEFAULT_RUNTIME_ID;
 }
 
+// ─── Genesis / boot_state (ADR-054) ──────────────────────────────
+//
+// `peko create` now runs a genesis boot sequence, so a freshly
+// created principal can appear on `principal_list` /
+// `principal_get` with `bootState: "genesis_pending"` (or earlier)
+// before it is ready to chat. The hooks below expose `bootState`
+// verbatim (it rides along on `PrincipalSummary`) and keep polling
+// until the principal reaches `organized`.
+
+/**
+ * True when the summary carries a `bootState` that is not yet
+ * `organized`. Runtimes older than the genesis pipeline omit the
+ * field entirely — those principals count as already organized.
+ */
+export function isGenesisPending(
+  p: Pick<PrincipalSummary, "bootState"> | null | undefined,
+): boolean {
+  return !!p?.bootState && p.bootState !== "organized";
+}
+
+/** Poll cadence while any principal is mid-genesis. */
+const GENESIS_POLL_INTERVAL_MS = 2_000;
+/**
+ * Hard cap on post-create genesis polling. Matches the runtime's
+ * default genesis wait (~300s); if genesis hasn't finished by then
+ * something is wrong runtime-side and the list falls back to its
+ * normal refresh cadence.
+ */
+const GENESIS_POLL_TIMEOUT_MS = 300_000;
+
 // ─── Principal list / detail ─────────────────────────────────────
 
 export function usePrincipals(runtimeId?: RuntimeId) {
@@ -44,6 +81,18 @@ export function usePrincipals(runtimeId?: RuntimeId) {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
+    refetchInterval: (query) => {
+      // Genesis (ADR-054): while any principal reports a non-organized
+      // bootState, poll fast so the sidebar / create flow can render
+      // live boot progress. Pauses when the tab is hidden; returns to
+      // the normal cadence once every row is organized (or the field
+      // is absent on older runtimes).
+      if (typeof document !== "undefined" && document.hidden) return false;
+      const rows = query.state.data;
+      return Array.isArray(rows) && rows.some(isGenesisPending)
+        ? GENESIS_POLL_INTERVAL_MS
+        : false;
+    },
   });
 }
 
@@ -62,18 +111,59 @@ export function usePrincipal(name: string | undefined, runtimeId?: RuntimeId) {
 // ─── Principal create (T-105) ───────────────────────────────────
 
 /**
+ * Detached post-create boot_state watcher. When `principal_create`
+ * returns before genesis completes (the summary still says
+ * `genesis_pending` or earlier), keep polling `principal_get` and
+ * refreshing the list/detail caches until the principal reaches
+ * `organized` — or the ~300s cap hits, matching the runtime's
+ * genesis wait. Runs detached so the mutation settles as soon as the
+ * runtime answers; the UI renders progress from `bootState` on the
+ * list query in the meantime.
+ */
+async function pollBootStateUntilOrganized(
+  qc: QueryClient,
+  name: string,
+  rid: string,
+): Promise<void> {
+  const deadline = Date.now() + GENESIS_POLL_TIMEOUT_MS;
+  try {
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, GENESIS_POLL_INTERVAL_MS));
+      const current = await principalGet(name, rid).catch(() => null);
+      if (!isGenesisPending(current)) break;
+      void qc.invalidateQueries({ queryKey: ["principals"] });
+    }
+  } finally {
+    void qc.invalidateQueries({ queryKey: ["principals"] });
+    void qc.invalidateQueries({ queryKey: ["principals", rid, name] });
+  }
+}
+
+/**
  * Create a new Principal on the local runtime. Invalidates the
  * `["principals"]` query so the sidebar / Chat principal picker
  * pick up the new entry without a manual refresh. Errors (name
  * validation, AlreadyExists, daemon unreachable) propagate to the
  * caller; the modal/walkthrough surfaces them inline.
+ *
+ * Genesis-aware (ADR-054): the runtime may block inside
+ * `principal_create` for the length of the genesis boot (its wait
+ * caps at ~300s — the backend extends the IPC request timeout to
+ * match), or return early with `bootState: "genesis_pending"`. In
+ * the early-return case this hook keeps the list/detail caches
+ * refreshing until the principal reports `organized` (capped), so
+ * UI progress states driven by `bootState` resolve on their own.
  */
 export function usePrincipalCreate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (req: PrincipalCreateRequest) => principalCreate(req),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["principals"] });
+    onSuccess: (created, vars) => {
+      const rid = effectiveRuntimeId(vars.runtimeId);
+      void qc.invalidateQueries({ queryKey: ["principals"] });
+      if (isGenesisPending(created)) {
+        void pollBootStateUntilOrganized(qc, created.name, rid);
+      }
     },
   });
 }
@@ -107,6 +197,39 @@ export function usePrincipalRemove() {
       principalRemove(vars.name, vars.runtimeId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["principals"] });
+    },
+  });
+}
+
+// ─── `.peko` package export / import (ADR-056) ───────────────────
+
+/**
+ * Export a principal's full existence (workspace, memory, private
+ * keys) to a `.peko` package at `output`. No cache invalidation —
+ * export doesn't change runtime state. The UI must surface the
+ * key-sensitivity warning before calling this.
+ */
+export function usePrincipalExport() {
+  return useMutation({
+    mutationFn: (args: { name: string; output: string }) =>
+      principalExport(args),
+  });
+}
+
+/**
+ * Wake a principal from a `.peko` package at `path`. The Tauri
+ * command follows a successful import with `principal_reload`
+ * itself, so on success the peko is live daemon-side and only the
+ * list cache needs refreshing. Runtime errors propagate verbatim —
+ * keyless packages reject with the "ground it with `peko create`"
+ * guidance, which the UI renders as-is.
+ */
+export function usePrincipalImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { path: string }) => principalImport(args),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["principals"] });
     },
   });
 }

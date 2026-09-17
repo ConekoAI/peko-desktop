@@ -127,11 +127,12 @@ describe("usePrincipalStatus — remote hub path", () => {
     fetchImpl = undefined;
   });
 
-  it("hits /v1/public/principals/:owner/:name on the configured hub", async () => {
+  it("hits /v1/public/pekos/:owner/:pekoName on the configured hub", async () => {
     let lastUrl = "";
     fetchImpl = async (input) => {
       lastUrl = String(input);
-      return new Response(JSON.stringify({ status: "online" }), {
+      // Pekohub ADR-005 envelope: status lives under `liveInstance`.
+      return new Response(JSON.stringify({ liveInstance: { status: "online" } }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -143,10 +144,25 @@ describe("usePrincipalStatus — remote hub path", () => {
     );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(lastUrl).toBe(
-      "https://hub.example.com/v1/public/principals/alice/coding-assistant",
+      "https://hub.example.com/v1/public/pekos/alice/coding-assistant",
     );
     expect(result.current.data?.status).toBe("online");
     expect(result.current.data?.source).toBe("remote");
+  });
+
+  it("tolerates a flat { status } body from older self-hosted hubs", async () => {
+    fetchImpl = async () =>
+      new Response(JSON.stringify({ status: "busy" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    const qc = freshClient();
+    const { result } = renderHookWith(
+      () => usePrincipalStatus("hub:https://hub.example.com", "coding-assistant", "alice", "https://hub.example.com"),
+      qc,
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.status).toBe("busy");
   });
 
   it("strips a trailing slash from the hub URL", async () => {

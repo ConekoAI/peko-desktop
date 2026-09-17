@@ -13,8 +13,9 @@ import {
  * `~/.peko/remote-principals.json` table.
  *
  * Flow:
- *   1. User pastes a `${hubUrl}/p/{owner}/{name}` (or legacy
- *      `${hubUrl}/v1/public/principals/...`) URL.
+ *   1. User pastes a `${hubUrl}/peko/{owner}/{name}` share URL (the
+ *      legacy `/p/...` and `/v1/public/principals/...` forms are
+ *      still accepted on input).
  *   2. Inline parser rejects obviously bad shapes BEFORE the IPC
  *      round-trip — saves a hub HTTP call on typos.
  *   3. User clicks "Check" → `useRemotePrincipalResolve` hits the
@@ -103,7 +104,7 @@ export default function AddRemotePrincipalModal({
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-              Connect to a Remote Principal
+              Connect to a Remote Peko
             </h2>
           </div>
           <button
@@ -116,9 +117,9 @@ export default function AddRemotePrincipalModal({
 
         <div className="space-y-4 p-5 text-sm text-slate-700 dark:text-slate-300">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Paste a pekohub share link to add a principal published by
+            Paste a pekohub share link to add a peko published by
             someone else. The link looks like{" "}
-            <code className="font-mono">https://pekohub.org/p/alice/coding-assistant</code>.
+            <code className="font-mono">https://pekohub.org/peko/alice/coding-assistant</code>.
           </p>
 
           <div>
@@ -135,20 +136,19 @@ export default function AddRemotePrincipalModal({
                 autoFocus
                 value={shareUrl}
                 onChange={(e) => handleUrlChange(e.target.value)}
-                placeholder="https://pekohub.org/p/owner/name"
+                placeholder="https://pekohub.org/peko/owner/name"
                 className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
             </div>
             {shareUrl.trim() && !parsed && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                 That doesn&apos;t look like a pekohub share link. Expected{" "}
-                <code className="font-mono">/p/owner/name</code> or{" "}
-                <code className="font-mono">/v1/public/principals/owner/name</code>.
+                <code className="font-mono">https://pekohub.org/peko/owner/name</code>.
               </p>
             )}
             {parsed && parsed.inviteToken && (
               <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
-                Invite token detected — the principal&apos;s owner shared this
+                Invite token detected — the peko&apos;s owner shared this
                 link privately with you.
               </p>
             )}

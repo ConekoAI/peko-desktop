@@ -4,8 +4,41 @@
 //! can map them into frontend-facing structs, keeping the client thin.
 
 use reqwest::header::AUTHORIZATION;
+use serde::Deserialize;
 
 const DEFAULT_BASE_URL: &str = "https://pekohub.org/api";
+
+/// Response shape of `GET /v1/me/accessible-pekos` (pekohub ADR-005).
+/// The wire fields are peko-named (`pekoName`); the internal type
+/// keeps the "principal" machine name per the desktop's terminology
+/// rule. Owner-only + `exposure='private'` rows — the legacy
+/// caller-allowed ("shared with me") entries are gone hub-side.
+#[derive(Debug, Clone, Deserialize)]
+pub struct AccessiblePrincipalsResponse {
+    #[serde(default)]
+    pub pekos: Vec<AccessiblePrincipal>,
+}
+
+/// One row of the accessible-pekos listing.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessiblePrincipal {
+    pub id: String,
+    pub owner_name: Option<String>,
+    pub peko_name: String,
+    pub public_name: Option<String>,
+    pub status: String,
+}
+
+/// Path helpers factored out so unit tests can pin the hub URL
+/// contract without standing up a mock HTTP server.
+fn accessible_pekos_url(base_url: &str) -> String {
+    format!("{}/v1/me/accessible-pekos", base_url)
+}
+
+fn public_peko_url(base_url: &str, owner: &str, name: &str) -> String {
+    format!("{}/v1/public/pekos/{}/{}", base_url, owner, name)
+}
 
 /// URL-encode a single query-string value. Avoids pulling a
 /// different crate just for this one helper.
@@ -228,6 +261,20 @@ impl PekohubClient {
     // ------------------------------------------------------------------
 
     /// Get system status from a remote runtime.
+    ///
+    /// RETIRED HUB-SIDE (verified 2026-09-17 against
+    /// `pekohub/backend/src/routes/api/runtimes.ts`): the hub's
+    /// runtime routes are now only `POST /v1/runtimes/register[-challenge]`,
+    /// `GET /v1/runtimes`, and `GET /v1/runtimes/:did` — there is no
+    /// `/v1/runtimes/{id}/status` route, so every call to this method
+    /// 404s. The surviving consumers (`commands::runtime::runtime_add`
+    /// / `runtime_reconnect`) degrade to `Error`/`Disconnected` on
+    /// that 404 rather than crashing, which is the current — broken —
+    /// behavior of remote-runtime health checks. Left in place (not
+    /// rewired to `/runtimes/:did`, which keys by runtime DID, not
+    /// the desktop's connection id, and requires owner auth) pending
+    /// a decision on what remote health checking should mean in the
+    /// hub-remote model.
     pub async fn system_status(&self, runtime_id: &str) -> Result<serde_json::Value, String> {
         let url = format!("{}/v1/runtimes/{}/status", self.base_url, runtime_id);
         let mut req = self.http.get(&url);
@@ -241,10 +288,13 @@ impl PekohubClient {
         resp.json().await.map_err(|e| e.to_string())
     }
 
-    /// List principals the authenticated user has access to
-    /// (caller-owned + caller-allowed).
-    pub async fn list_accessible_principals(&self) -> Result<serde_json::Value, String> {
-        let url = format!("{}/v1/me/accessible-principals", self.base_url);
+    /// List principals the authenticated user has access to. Post-ADR-005
+    /// the hub surface is `GET /v1/me/accessible-pekos` (the retired
+    /// `/v1/me/accessible-principals` path 404s with no alias) and the
+    /// semantics narrowed to owner-only + `exposure='private'` rows —
+    /// the hub no longer returns caller-allowed entries.
+    pub async fn list_accessible_principals(&self) -> Result<AccessiblePrincipalsResponse, String> {
+        let url = accessible_pekos_url(&self.base_url);
         let mut req = self.http.get(&url);
         if let Some((k, v)) = self.auth_header().await {
             req = req.header(&k, v);
@@ -260,9 +310,10 @@ impl PekohubClient {
     // Public principal lookup (PR #4)
     // ------------------------------------------------------------------
 
-    /// Resolve a public (or unlisted, post-PR #2) principal by
-    /// `${owner}/${name}` against the hub's anonymous
-    /// `/v1/public/principals/:owner/:name` endpoint. Returns the
+    /// Resolve a public (or unlisted) principal by `${owner}/${name}`
+    /// against the hub's anonymous `/v1/public/pekos/:owner/:pekoName`
+    /// endpoint (renamed from the retired `/v1/public/principals/*`
+    /// surface — the old paths 404 with no aliases). Returns the
     /// `liveInstance` envelope verbatim so the caller can decide
     /// which fields to persist. `invite_token` is forwarded as a
     /// query string (?token=...) for share-with-URL flows; PR #11
@@ -277,7 +328,7 @@ impl PekohubClient {
         name: &str,
         invite_token: Option<&str>,
     ) -> Result<serde_json::Value, String> {
-        let mut url = format!("{}/v1/public/principals/{}/{}", self.base_url, owner, name);
+        let mut url = public_peko_url(&self.base_url, owner, name);
         if let Some(token) = invite_token {
             url.push_str(&format!("?token={}", urlencode(token)));
         }
@@ -442,6 +493,75 @@ fn format_unix_seconds(secs: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Pin: the accessible-principals listing moved to
+    /// `/v1/me/accessible-pekos` (pekohub ADR-005); the retired
+    /// `/v1/me/accessible-principals` path 404s with no alias.
+    #[test]
+    fn accessible_pekos_url_uses_new_path() {
+        let url = accessible_pekos_url("https://pekohub.org/api");
+        assert_eq!(url, "https://pekohub.org/api/v1/me/accessible-pekos");
+        assert!(!url.contains("accessible-principals"));
+    }
+
+    /// Pin: the public lookup moved to `/v1/public/pekos/{owner}/{pekoName}`
+    /// (pekohub ADR-005); the retired `/v1/public/principals/*` paths
+    /// 404 with no aliases.
+    #[test]
+    fn public_peko_url_uses_new_path() {
+        let url = public_peko_url("https://pekohub.org/api", "alice", "coding-assistant");
+        assert_eq!(
+            url,
+            "https://pekohub.org/api/v1/public/pekos/alice/coding-assistant"
+        );
+        assert!(!url.contains("/public/principals/"));
+    }
+
+    /// Pin the accessible-pekos response shape:
+    /// `{ pekos: [{ id, ownerName, pekoName, publicName, status }] }`.
+    /// The `principalName` wire field was renamed to `pekoName` — a
+    /// drift here silently deserializes to an empty list.
+    #[test]
+    fn parses_accessible_pekos_response() {
+        let body = r#"{
+            "pekos": [
+                {
+                    "id": "inst_1",
+                    "ownerName": "Alice",
+                    "pekoName": "coding-assistant",
+                    "publicName": "Coding Assistant",
+                    "status": "online"
+                },
+                {
+                    "id": "inst_2",
+                    "ownerName": null,
+                    "pekoName": "helper",
+                    "publicName": null,
+                    "status": "offline"
+                }
+            ]
+        }"#;
+        let parsed: AccessiblePrincipalsResponse = serde_json::from_str(body).unwrap();
+        assert_eq!(parsed.pekos.len(), 2);
+        assert_eq!(parsed.pekos[0].peko_name, "coding-assistant");
+        assert_eq!(parsed.pekos[0].owner_name.as_deref(), Some("Alice"));
+        assert_eq!(
+            parsed.pekos[0].public_name.as_deref(),
+            Some("Coding Assistant")
+        );
+        assert_eq!(parsed.pekos[1].peko_name, "helper");
+        assert!(parsed.pekos[1].owner_name.is_none());
+        assert_eq!(parsed.pekos[1].status, "offline");
+    }
+
+    /// A missing `pekos` key deserializes to an empty list rather
+    /// than failing the whole call (hub may return `{}` on edge
+    /// paths; an empty sidebar beats a hard error).
+    #[test]
+    fn accessible_pekos_response_defaults_to_empty() {
+        let parsed: AccessiblePrincipalsResponse = serde_json::from_str("{}").unwrap();
+        assert!(parsed.pekos.is_empty());
+    }
 
     /// `access_token()` is the public wrapper used by
     /// `commands::registry::registry_pull`. In the unit-test env

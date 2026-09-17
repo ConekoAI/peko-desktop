@@ -5,6 +5,12 @@
 **Last Updated**: 2026-07-05  
 **Related**: [ADR-041](../../../../peko-runtime/docs/architecture/adr/ADR-041-principal-as-container.md), [ADR-042](../../../../peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md)
 
+> **Superseded 2026-09-17 by [ADR-003: Peko Realignment](../architecture/adr/ADR-003-peko-realignment.md).**
+> The Agent→Principal mapping this checklist documents is now itself renamed
+> UX-wise: the actor is "a peko" in all user-visible copy and URLs (the
+> `principal_*` machine names it lists are unchanged by design). Kept for
+> history.
+
 This document tracks the desktop's post-migration state after
 alignment to the Principal-as-container design. The pre-Principal
 checklist (CLI shell-out → direct IPC migration) is preserved for

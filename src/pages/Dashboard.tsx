@@ -70,7 +70,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           icon={Bot}
-          label="Principals"
+          label="Pekos"
           value={principals?.length ?? 0}
           sub="top-level runtime actors"
         />
@@ -86,7 +86,7 @@ export default function Dashboard() {
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
           >
             <Plus className="h-4 w-4" />
-            New Principal
+            New Peko
           </button>
           <Link
             to="/registry"
