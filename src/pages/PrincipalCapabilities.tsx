@@ -277,8 +277,8 @@ function ExtensionCard({
 }
 
 export default function PrincipalCapabilities() {
-  const params = useParams({ strict: false }) as { principalName?: string };
-  const principalName = params.principalName;
+  const params = useParams({ strict: false }) as { pekoName?: string };
+  const principalName = params.pekoName;
   const navigate = useNavigate();
   const { data, isLoading, isError, error } = useCapabilities(principalName);
   const { data: extensions, isLoading: extensionsLoading } = useExtensions();
@@ -346,8 +346,8 @@ export default function PrincipalCapabilities() {
         <button
           onClick={() =>
             navigate({
-              to: "/chat/$principalName",
-              params: { principalName: principalName ?? "" },
+              to: "/chat/$pekoName",
+              params: { pekoName: principalName ?? "" },
             })
           }
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -360,10 +360,10 @@ export default function PrincipalCapabilities() {
       <div>
         <h2 className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-white">
           <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-          {principalName ? principalName : "Principal"} capabilities
+          {principalName ? principalName : "Peko"} capabilities
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Grant or revoke capabilities for this principal. Green = active and
+          Grant or revoke capabilities for this peko. Green = active and
           usable; amber = granted but the extension is not active; blue = covered
           by a wildcard grant.
         </p>
@@ -400,7 +400,7 @@ export default function PrincipalCapabilities() {
               <div className="text-sm">
                 <div className="font-medium">All tool capabilities revoked</div>
                 <p className="mt-1 text-amber-700 dark:text-amber-400">
-                  The principal has every <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">tool:*</code> grant revoked.
+                  This peko has every <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">tool:*</code> grant revoked.
                   The agent will respond without any callable tools and may emit
                   raw <code className="rounded bg-amber-100 px-1 dark:bg-amber-900/50">&lt;tool_call&gt;</code>{" "}
                   tags that fail to invoke. Grant at least{" "}

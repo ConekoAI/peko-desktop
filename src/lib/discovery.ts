@@ -68,20 +68,24 @@ export async function discoverySearch(
 
 /**
  * Build the canonical share URL for a hit — same shape pekohub's
- * SPA uses. Mirrors `shareUrlFor` in
- * `pekohub/frontend/src/lib/api.ts` so both apps emit identical
- * deep-link inputs to peko-desktop's `parseDeepLink` (PR #6).
+ * SPA uses (`/peko/{owner}/{name}` per pekohub ADR-005; the legacy
+ * `/p/...` form is dead on emission but still accepted on input).
+ * Mirrors `shareUrlFor` in `pekohub/frontend/src/lib/api.ts` so both
+ * apps emit identical deep-link inputs to peko-desktop's
+ * `parseDeepLink` (PR #6).
  */
 export function shareUrlFor(hubUrl: string, hit: { ownerName: string; publicName: string }): string {
   const base = hubUrl.replace(/\/$/, "");
-  return `${base}/p/${encodeURIComponent(hit.ownerName)}/${encodeURIComponent(hit.publicName)}`;
+  return `${base}/peko/${encodeURIComponent(hit.ownerName)}/${encodeURIComponent(hit.publicName)}`;
 }
 
 /**
  * Build the deep-link URL the desktop itself accepts. The share
  * URL is wrapped so the OS hands it back to the desktop (not the
- * browser) when the user clicks the link.
+ * browser) when the user clicks the link. Emits only the current
+ * `peko://add-peko` form; `parseDeepLink` still accepts the legacy
+ * `peko://add-principal` form on receipt.
  */
 export function deepLinkFor(hubUrl: string, hit: { ownerName: string; publicName: string }): string {
-  return `peko://add-principal?url=${encodeURIComponent(shareUrlFor(hubUrl, hit))}`;
+  return `peko://add-peko?url=${encodeURIComponent(shareUrlFor(hubUrl, hit))}`;
 }

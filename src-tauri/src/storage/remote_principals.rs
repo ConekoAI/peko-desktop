@@ -2,7 +2,7 @@
 //! `remote-principals.json` table that backs the desktop's
 //! "Connect to a remote principal" flow: a user pastes a share URL
 //! from pekohub, the desktop resolves the principal via the hub's
-//! `/v1/public/principals/:owner/:name` endpoint, and the verified
+//! `/v1/public/pekos/:owner/:pekoName` endpoint, and the verified
 //! record is persisted to disk so the sidebar can re-render it across
 //! restarts.
 //!
@@ -14,8 +14,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-/// Per-record shape. Matches the fields the hub `/v1/public/principals/:owner/:name`
-/// endpoint exposes (PR #2: `unlisted` is a valid exposure value).
+/// Per-record shape. Matches the fields the hub `/v1/public/pekos/:owner/:pekoName`
+/// endpoint exposes (`unlisted` is a valid exposure value).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RemotePrincipalRecord {
     pub hub_url: String,

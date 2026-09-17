@@ -223,4 +223,18 @@ describe("ChannelView", () => {
       expect(screen.getAllByTestId("channel-event-row")).toHaveLength(4);
     });
   });
+
+  it("renders a membership-gate notice (not the generic error) when the runtime forbids the read", async () => {
+    channelEventsMock.mockRejectedValue("[forbidden] not a member of chan_alpha");
+    renderView();
+    await waitFor(() => {
+      expect(screen.getByTestId("channel-events-forbidden")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/You don't have access to this channel/i),
+    ).toBeInTheDocument();
+    // The generic error + retry affordance must NOT render for a
+    // membership refusal — retrying won't mint membership.
+    expect(screen.queryByTestId("channel-events-error")).toBeNull();
+  });
 });

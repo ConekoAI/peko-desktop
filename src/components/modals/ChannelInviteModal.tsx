@@ -165,13 +165,13 @@ export default function ChannelInviteModal({
 
         <div className="space-y-4 p-5 text-sm text-slate-700 dark:text-slate-300">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Pick a principal to invite. Cross-runtime invites bootstrap
+            Pick a peko to invite. Cross-runtime invites bootstrap
             a local mirror on the recipient&apos;s runtime.
           </p>
 
           {!inviterName && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400">
-              You need a local principal that&apos;s already a member of this
+              You need a local peko that&apos;s already a member of this
               channel to invite others. Ask a current member to invite you
               first, or invite from the CLI.
             </div>
@@ -183,7 +183,7 @@ export default function ChannelInviteModal({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search principals…"
+              placeholder="Search pekos…"
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
               data-testid="channel-invite-search"
             />
@@ -196,8 +196,8 @@ export default function ChannelInviteModal({
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-slate-600">
                 {candidates.length === 0
-                  ? "No inviteable principals yet — every local principal is already a member."
-                  : "No principals match your search."}
+                  ? "No inviteable pekos yet — every local peko is already a member."
+                  : "No pekos match your search."}
               </div>
             ) : (
               <ul className="divide-y divide-slate-200 dark:divide-slate-800">

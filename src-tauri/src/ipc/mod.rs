@@ -20,6 +20,13 @@ use crate::sidecar::sync_probe;
 /// Current IPC protocol version
 pub const PROTOCOL_VERSION: u16 = 1;
 
+/// Receive timeout for `principal_create` / `principal_import`. The
+/// runtime's ADR-054 genesis pipeline can block a create far past the
+/// default 10s request budget (the runtime CLI's own genesis wait caps
+/// at 300s); 320s gives the daemon headroom while still bounding a
+/// truly hung call.
+pub const GENESIS_REQUEST_TIMEOUT: Duration = Duration::from_secs(320);
+
 /// Unique identifier for per-request Unix-domain socket paths so that
 /// concurrent IPC clients in the same process do not bind to the same
 /// filesystem entry and trample each other's responses.
@@ -368,6 +375,21 @@ impl IpcClient {
 
     /// Send a request and wait for a single response (non-streaming).
     async fn request_response(&self, request: serde_json::Value) -> Result<serde_json::Value> {
+        self.request_response_with_timeout(request, Duration::from_secs(10))
+            .await
+    }
+
+    /// `request_response` with a caller-supplied receive timeout.
+    /// `principal_create` and `principal_import` use this: ADR-054
+    /// genesis-aware creates can block the daemon far past the default
+    /// 10s budget (the runtime's own CLI waits up to 300s for the
+    /// genesis turn), so those calls get a 320s ceiling instead of a
+    /// spurious `IpcError::Timeout` mid-provisioning.
+    async fn request_response_with_timeout(
+        &self,
+        request: serde_json::Value,
+        timeout: Duration,
+    ) -> Result<serde_json::Value> {
         let bytes =
             serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
         let mut buf = vec![0u8; 65536];
@@ -388,7 +410,7 @@ impl IpcClient {
                 .map_err(|e| IpcError::SendFailed(e.to_string()))?;
         }
 
-        let len = tokio::time::timeout(Duration::from_secs(10), self.socket.recv_from(&mut buf))
+        let len = tokio::time::timeout(timeout, self.socket.recv_from(&mut buf))
             .await
             .map_err(|_| IpcError::Timeout)?
             .map_err(|e| IpcError::ReceiveFailed(e.to_string()))?
@@ -910,21 +932,12 @@ impl IpcClient {
             "request_id": request_id,
             "name": name,
             "message": message,
-            // The runtime's IPC layer attaches `CallerContext::local()`
-            // (subject `Subject::User("local")`) to socket-based requests,
-            // and the `PrincipalCreate` handler uses that caller subject
-            // for the principal's owner. Sending a different string here
-            // would make the chat peer (`Subject::User(this string)`)
-            // diverge from the owner, failing the `check_permission`
-            // owner-equality check (`user:desktop cannot perform Chat on
-            // principal:Test`). Mirror the local-trust identity so a
-            // desktop-created principal is chat-able from the same
-            // desktop. The runtime's session-key for this peer will be
-            // `local`, which is also what the CLI's local invocations use
-            // (their `_paths.user()` defaults to "default" but the IPC
-            // caller's subject is still `local`; CLI sessions are keyed
-            // by `--user`, this single-thread desktop is keyed by `local`).
-            "user": "local",
+            // ADR-057: caller-declared identity was removed from the
+            // wire — the runtime derives the caller's subject from the
+            // connection (`CallerContext`), so there is no `user`
+            // field anymore. Older desktop builds sent `"user":
+            // "local"`; the runtime now rejects unknown fields on
+            // these packets.
         });
 
         let bytes =
@@ -1081,9 +1094,9 @@ impl IpcClient {
     /// Send a Principal message via the non-streaming IPC path. The
     /// daemon returns a single `principal_sent` packet with the full
     /// final answer. Used by code paths that don't need live tokens
-    /// (e.g. CLI-style bulk operations). The `user` field mirrors the
-    /// streaming variant — see `principal_send_stream` for the rationale
-    /// on `Subject::User("local")` alignment.
+    /// (e.g. CLI-style bulk operations). Like the streaming variant,
+    /// no `user` field is sent — ADR-057 removed caller-declared
+    /// identity from the wire.
     pub async fn principal_send(&self, name: String, message: String) -> Result<String> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1092,7 +1105,6 @@ impl IpcClient {
             "request_id": 1u64,
             "name": name,
             "message": message,
-            "user": "local",
         });
         let value = self.request_response(req).await?;
         // The daemon may return either a `principal_sent` packet or
@@ -1179,6 +1191,11 @@ impl IpcClient {
     /// `agents/primary.md`, and returns a `principal_created` envelope
     /// with the new summary. Errors surface as a generic `error`
     /// packet — callers should map them to user-facing messages.
+    ///
+    /// Uses [`GENESIS_REQUEST_TIMEOUT`] instead of the default 10s:
+    /// ADR-054's genesis pipeline can keep the daemon busy long after
+    /// the workspace is materialized, and the default budget would
+    /// surface a spurious timeout mid-provisioning.
     pub async fn principal_create(
         &self,
         name: &str,
@@ -1194,7 +1211,8 @@ impl IpcClient {
             "description": description,
             "model_id": model_id,
         });
-        self.request_response(req).await
+        self.request_response_with_timeout(req, GENESIS_REQUEST_TIMEOUT)
+            .await
     }
 
     /// Update an existing Principal's mutable config. Mirror of
@@ -1230,6 +1248,77 @@ impl IpcClient {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "principal_remove",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Export a Principal as a `.peko` full-existence package
+    /// (ADR-056). Mirror of `RequestPacket::PrincipalExport` — the
+    /// wire shape is exactly `{name, output}`; the legacy
+    /// `include_sessions` / `with_extensions` / `full_snapshot` flags
+    /// were retired runtime-side (exports are always full snapshots).
+    /// `output: None` lets the daemon pick its default export path.
+    /// Returns the `principal_exported { name, output_path }` envelope.
+    pub async fn principal_export(
+        &self,
+        name: &str,
+        output: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_export",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "output": output,
+        });
+        self.request_response(req).await
+    }
+
+    /// Import a `.peko` package from `file_path`. Mirror of
+    /// `RequestPacket::PrincipalImport`. The desktop pre-confirms
+    /// (`confirmed: true`) because the user has already accepted the
+    /// import in the file-picker / preview flow — the daemon rejects
+    /// unconfirmed imports outright. Returns the
+    /// `principal_imported { name, config_path }` envelope.
+    ///
+    /// Uses [`GENESIS_REQUEST_TIMEOUT`]: unpacking a full-existence
+    /// package (plus any genesis work the daemon runs on load) can
+    /// exceed the default 10s budget.
+    pub async fn principal_import(
+        &self,
+        file_path: &str,
+        name: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_import",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "file_path": file_path,
+            "name": name,
+            "allow_unsigned": false,
+            "force": false,
+            "confirmed": true,
+            "selected_capabilities": [],
+        });
+        self.request_response_with_timeout(req, GENESIS_REQUEST_TIMEOUT)
+            .await
+    }
+
+    /// Load (or confirm already loaded) an on-disk Principal into the
+    /// daemon's in-memory manager. Mirror of
+    /// `RequestPacket::PrincipalReload`; idempotent. Required after a
+    /// materialize-out-of-band flow so the cron engine can drive the
+    /// principal's genesis jobs without a daemon restart. Returns the
+    /// `principal_loaded { name, loaded }` envelope.
+    pub async fn principal_reload(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_reload",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
@@ -1379,7 +1468,7 @@ impl IpcClient {
     // RequestPacket variants in `peko_runtime::ipc::packet::RequestPacket`:
     //
     // - `channel_list` → `ChannelList { principal_name }`
-    // - `channel_peek` → `ChannelPeek { channel, since }`
+    // - `channel_peek` → `ChannelPeek { channel, since, tail, before, query, author }`
     // - `channel_members` → `ChannelMembers { channel }`
     // - `channel_post` → `ChannelPost { channel, sender_name, text, parent }`
 
@@ -1403,10 +1492,23 @@ impl IpcClient {
     /// full `ChannelPeekResult { channel, events }` envelope — the
     /// desktop's `channel_get` reuses this to derive metadata from
     /// the first `Created` event.
+    ///
+    /// ADR-057: no `requester` field — read identity is derived
+    /// server-side and reads are membership-gated; a non-member caller
+    /// gets a `[forbidden]` error packet. The optional
+    /// `tail`/`before`/`query`/`author` filters map to the runtime's
+    /// tail-read and search modes (`tail` = newest N events at or
+    /// before the `before` line cursor; `query`/`author` switch the
+    /// daemon to its backward filtered scan).
+    #[allow(clippy::too_many_arguments)]
     pub async fn channel_peek(
         &self,
         channel: &str,
         since: Option<&str>,
+        tail: Option<usize>,
+        before: Option<&str>,
+        query: Option<&str>,
+        author: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1415,6 +1517,10 @@ impl IpcClient {
             "request_id": 1u64,
             "channel": channel,
             "since": since,
+            "tail": tail,
+            "before": before,
+            "query": query,
+            "author": author,
         });
         self.request_response(req).await
     }
@@ -1433,16 +1539,22 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// PR-2a: post a message to `channel` from `sender_name`. `parent`
-    /// is the optional task id of the message being replied to.
-    /// Mirrors `RequestPacket::ChannelPost { channel, sender_name,
-    /// text, parent }`. Returns the `ChannelPosted { task_id, channel
+    /// PR-2a: post a message to `channel`. Mirrors
+    /// `RequestPacket::ChannelPost { channel, sender_name, text,
+    /// parent }`. Returns the `ChannelPosted { task_id, channel
     /// }` envelope; the desktop's `channel_post` Tauri command
     /// projects `task_id` to the frontend.
+    ///
+    /// ADR-057: `sender_name: None` speaks as the caller's own
+    /// server-derived identity (the common case for the desktop's
+    /// "post as myself" affordance); `Some(name)` must be a principal
+    /// name hosted by this runtime. A `user:<id>` sender is
+    /// impersonation — the runtime refuses it with `[forbidden]`, so
+    /// we reject it client-side first for a cleaner error.
     pub async fn channel_post(
         &self,
         channel: &str,
-        sender_name: &str,
+        sender_name: Option<&str>,
         text: &str,
         parent: Option<&str>,
     ) -> Result<serde_json::Value> {
@@ -1726,7 +1838,7 @@ mod tests {
             payload: serde_json::json!({
                 "kind": "posted",
                 "channel": "chan_abcdefgh",
-                "author": "prin_bob",
+                "author": "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm",
                 "parent": null,
                 "text": "hello from B",
                 "at": "2026-08-06T12:00:00Z",
@@ -1792,7 +1904,7 @@ mod tests {
             "event": {
                 "kind": "posted",
                 "channel": "chan_abcdefgh",
-                "author": "prin_bob",
+                "author": "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm",
                 "parent": null,
                 "text": "hello from B",
                 "at": "2026-08-06T12:00:00Z",
@@ -1832,49 +1944,81 @@ mod tests {
         assert_eq!(deserialized.version, "1.0.0");
     }
 
-    /// Lock the wire-level alignment between the desktop's
-    /// `principal_send_stream` peer and the runtime's `caller.subject()`
-    /// (see `principal_send_stream` for the rationale). Without this
-    /// pin a future "use a friendlier label" change would silently
-    /// break chat for desktop-created principals — owner =
-    /// `Subject::User("local")` (from `CallerContext::local()` over the
-    /// local socket) but peer would be `Subject::User("desktop")`,
-    /// failing `check_permission`'s owner-equality rule and surfacing
-    /// `user:desktop cannot perform Chat on principal:<name>`.
+    /// ADR-057: caller-declared identity was removed from the wire —
+    /// the runtime derives the caller's subject from the connection
+    /// (`CallerContext`) and the `user` field is gone from
+    /// `PrincipalSend` / `PrincipalSendStream`. Pin the absence so a
+    /// future "restore the label" change fails loudly: the runtime
+    /// rejects unknown fields on these packets.
     #[test]
-    fn principal_send_stream_request_uses_local_peer() {
+    fn principal_send_stream_request_has_no_user_field() {
         let req = serde_json::json!({
             "type": "principal_send_stream",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": "alice",
             "message": "hello",
-            "user": "local",
         });
-        assert_eq!(
-            req.get("user").and_then(|v| v.as_str()),
-            Some("local"),
-            "chat peer must match the IPC caller's local-trust subject \
-             (Subject::User(\"local\")) so the principal's owner check passes"
+        assert!(
+            req.get("user").is_none(),
+            "ADR-057 removed caller-declared identity; the request must not carry `user`"
         );
     }
 
-    /// Same alignment pin for the non-streaming `principal_send` path —
-    /// the streaming variant above is the hot path, but the one-shot
-    /// variant shares the same wire-level owner/peer contract and
-    /// would hit the same bug if anyone "fixes" the user string back
-    /// to "desktop".
+    /// Same pin for the non-streaming `principal_send` path — the
+    /// streaming variant above is the hot path, but the one-shot
+    /// variant shares the same ADR-057 wire contract.
     #[test]
-    fn principal_send_request_uses_local_peer() {
+    fn principal_send_request_has_no_user_field() {
         let req = serde_json::json!({
             "type": "principal_send",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": "alice",
             "message": "hello",
-            "user": "local",
         });
-        assert_eq!(req.get("user").and_then(|v| v.as_str()), Some("local"));
+        assert!(req.get("user").is_none());
+    }
+
+    /// Pin the `principal_export` wire shape: exactly `{name,
+    /// output}` plus the envelope header. ADR-056 retired the
+    /// `include_sessions` / `with_extensions` / `full_snapshot` flags —
+    /// exports are always full-existence snapshots now.
+    #[test]
+    fn principal_export_request_is_slim() {
+        let req = serde_json::json!({
+            "type": "principal_export",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": "alice",
+            "output": "/tmp/alice.peko",
+        });
+        let obj = req.as_object().unwrap();
+        for retired in ["include_sessions", "with_extensions", "full_snapshot"] {
+            assert!(
+                !obj.contains_key(retired),
+                "retired flag {retired} must not be sent"
+            );
+        }
+    }
+
+    /// Pin the `principal_import` wire shape: the desktop pre-confirms
+    /// (the runtime rejects unconfirmed imports) and selects no
+    /// capabilities beyond the package defaults.
+    #[test]
+    fn principal_import_request_preconfirms() {
+        let req = serde_json::json!({
+            "type": "principal_import",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "file_path": "/tmp/alice.peko",
+            "name": null,
+            "allow_unsigned": false,
+            "force": false,
+            "confirmed": true,
+            "selected_capabilities": [],
+        });
+        assert_eq!(req.get("confirmed").and_then(|v| v.as_bool()), Some(true));
     }
 
     /// The runtime's `RequestPacket::PrincipalLog.peer` is
@@ -1898,9 +2042,14 @@ mod tests {
 
     #[test]
     fn peer_str_to_subject_value_principal() {
+        // Identity is now self-certifying `did:key:z…` (ADR-057/058);
+        // legacy `did:peko:*` is dead. The converter is opaque to the
+        // DID method — pin the current canonical form.
         assert_eq!(
-            peer_str_to_subject_value("principal:did:peko:abc123"),
-            serde_json::json!({ "kind": "principal", "id": "did:peko:abc123" })
+            peer_str_to_subject_value(
+                "principal:did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm"
+            ),
+            serde_json::json!({ "kind": "principal", "id": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm" })
         );
     }
 

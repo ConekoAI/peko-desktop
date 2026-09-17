@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   usePrincipal,
+  usePrincipalExport,
   usePrincipalRemove,
   usePrincipalUpdate,
 } from "../../hooks/usePrincipals";
@@ -26,6 +27,7 @@ import {
   Copy,
   Check,
   Circle,
+  Package,
 } from "lucide-react";
 
 interface PrincipalProfileModalProps {
@@ -42,17 +44,29 @@ const STATUS_OPTIONS: Array<{ value: PrincipalStatusValue; label: string }> = [
   { value: "error", label: "Error" },
 ];
 
+/**
+ * The four exposure modes (pekohub ADR-005). `hint` is the one-line
+ * explainer rendered under the picker so the user sees the blast
+ * radius of the mode they're about to commit.
+ */
 const EXPOSURE_OPTIONS = [
-  { value: "unexposed", label: "Unexposed" },
-  { value: "private", label: "Private" },
-  // PR #4 / PR #2: `unlisted` ships in the runtime's Exposure enum
-  // (peko-rs/auth/src/host.rs). It means "chat-reachable by URL but
-  // not discoverable" — the recommended default when sharing with a
-  // specific friend who has a share link but you don't want to be
-  // in the public directory.
-  { value: "unlisted", label: "Unlisted" },
-  { value: "public", label: "Public" },
-];
+  { value: "unexposed", label: "Unexposed", hint: "Local only" },
+  { value: "private", label: "Private", hint: "Only you and invited pekos" },
+  // `unlisted` means "chat-reachable by URL but not discoverable" —
+  // the recommended default when sharing with a specific friend who
+  // has a share link but you don't want to be in the public directory.
+  { value: "unlisted", label: "Unlisted", hint: "Anyone with the link" },
+  { value: "public", label: "Public", hint: "Discoverable on PekoHub" },
+] as const;
+
+/**
+ * Backend error prefix for the one-instance-per-peko exposure gate
+ * (pekohub ADR-005): setting `public`/`unlisted` on a DID that already
+ * has a public/unlisted instance elsewhere rejects with a 409 whose
+ * message starts with this tag. The modal renders a dedicated inline
+ * alert instead of the generic error box, with the tag stripped.
+ */
+const EXPOSURE_CONFLICT_PREFIX = "[exposure_conflict]";
 
 /**
  * Principal detail / settings modal. Supports viewing the current
@@ -79,7 +93,7 @@ export default function PrincipalProfileModal({
   // PR #9: the displayed status is the LIVE runtime/hub heartbeat,
   // not the snapshot captured in `principal.status`. The hook splits
   // local vs remote by `principal.runtimeId`: local → principal_get
-  // IPC at 10s; remote → hub /v1/public/principals poll at 30s.
+  // IPC at 10s; remote → hub /v1/public/pekos poll at 30s.
   // `hubUrlForRemote` is forwarded only when the runtime is a hub
   // remote, and resolved from the persisted pekohub.base_url setting
   // (same source the share-link panel uses below) so polling lands
@@ -107,6 +121,14 @@ export default function PrincipalProfileModal({
   // write. Lives in local component state — the icon swap is purely
   // cosmetic and resetting on remount is fine (no need to lift).
   const [copied, setCopied] = useState(false);
+
+  // ADR-056: `.peko` export. `exportPath` is pre-filled with the
+  // conventional destination when the principal loads; `exportedTo`
+  // holds the path of the last successful export so the panel can
+  // confirm where the package landed.
+  const exportMut = usePrincipalExport();
+  const [exportPath, setExportPath] = useState("");
+  const [exportedTo, setExportedTo] = useState<string | null>(null);
 
   // PR #11: invite-link generation. `mintedInvite` is the most
   // recent successful `principal_mint_invite` response (carries the
@@ -163,7 +185,7 @@ export default function PrincipalProfileModal({
   const shareUrl = useMemo(() => {
     if (!principal) return null;
     if (principal.exposure !== "public") return null;
-    return `${pekohubBaseUrl.replace(/\/+$/, "")}/p/${encodeURIComponent(
+    return `${pekohubBaseUrl.replace(/\/+$/, "")}/peko/${encodeURIComponent(
       principal.owner,
     )}/${encodeURIComponent(principal.name)}`;
   }, [principal, pekohubBaseUrl]);
@@ -185,6 +207,9 @@ export default function PrincipalProfileModal({
       setCopied(false);
       setMintedInvite(null);
       setMintError(null);
+      setExportPath("");
+      setExportedTo(null);
+      exportMut.reset();
       updateMut.reset();
       removeMut.reset();
       return;
@@ -197,6 +222,8 @@ export default function PrincipalProfileModal({
       setStatus(principal.status ?? "");
       setExposure(principal.exposure ?? "");
       setModelId(principal.preferredModelId ?? "");
+      // ADR-056: conventional export destination; editable.
+      setExportPath(`~/.peko/exports/${principal.name}.peko`);
     }
   }, [principal]);
 
@@ -290,6 +317,37 @@ export default function PrincipalProfileModal({
         ? String(removeMut.error)
         : null;
 
+  // Exposure conflict (pekohub ADR-005): the backend rejects a
+  // public/unlisted set with a tagged 409 when the DID is already
+  // exposed elsewhere. Strip the tag — what remains is the hub's
+  // detail (e.g. the conflicting instance), rendered under the
+  // dedicated copy.
+  const exposureConflictDetail =
+    updateError && updateError.startsWith(EXPOSURE_CONFLICT_PREFIX)
+      ? updateError.slice(EXPOSURE_CONFLICT_PREFIX.length).trim()
+      : null;
+
+  const exportError =
+    exportMut.error instanceof Error
+      ? exportMut.error.message
+      : exportMut.error
+        ? String(exportMut.error)
+        : null;
+
+  // ADR-056: the export path must be a concrete `.peko` filename.
+  const trimmedExportPath = exportPath.trim();
+  const exportPathValid =
+    trimmedExportPath.length > 0 && trimmedExportPath.endsWith(".peko");
+
+  function handleExport() {
+    if (!principal || !exportPathValid) return;
+    setExportedTo(null);
+    exportMut.mutate(
+      { name: principal.name, output: trimmedExportPath },
+      { onSuccess: () => setExportedTo(trimmedExportPath) },
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="flex max-h-[75vh] w-full max-w-lg flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
@@ -313,7 +371,7 @@ export default function PrincipalProfileModal({
               </div>
             ) : (
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Principal not found
+                Peko not found
               </p>
             )}
           </div>
@@ -494,6 +552,78 @@ export default function PrincipalProfileModal({
                   </div>
                 </div>
               )}
+
+              {/* .peko export (ADR-056): full-existence package —
+                  workspace, memory, AND private keys. Local runtimes
+                  only (the Rust command rejects remote runtime ids).
+                  The warning must be unmistakable: anyone holding the
+                  package can wake and impersonate this peko. No dialog
+                  plugin is available, so the destination is a validated
+                  text input. */}
+              {principal.runtimeId === "local" && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+                        Export .peko package
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300">
+                        The package contains this peko&apos;s{" "}
+                        <strong>private keys</strong> — its full existence.
+                        Treat it like a password: anyone holding it can wake
+                        and impersonate this peko.
+                      </p>
+                      <label
+                        htmlFor="peko-export-path"
+                        className="mb-1 mt-2 block text-[11px] font-medium text-amber-900 dark:text-amber-200"
+                      >
+                        Destination path
+                      </label>
+                      <input
+                        id="peko-export-path"
+                        value={exportPath}
+                        onChange={(e) => setExportPath(e.target.value)}
+                        className="w-full rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 font-mono text-[11px] text-slate-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-amber-800 dark:bg-slate-950 dark:text-amber-100"
+                      />
+                      {trimmedExportPath.length > 0 && !exportPathValid && (
+                        <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                          The destination must end in <code>.peko</code>.
+                        </p>
+                      )}
+                      <button
+                        onClick={handleExport}
+                        disabled={!exportPathValid || exportMut.isPending}
+                        data-testid="export-peko-submit"
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:bg-slate-950 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                      >
+                        {exportMut.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Package className="h-3.5 w-3.5" />
+                        )}
+                        Export .peko
+                      </button>
+                      {exportError && (
+                        <p
+                          data-testid="export-peko-error"
+                          className="mt-2 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
+                        >
+                          {exportError}
+                        </p>
+                      )}
+                      {exportedTo && (
+                        <p
+                          data-testid="export-peko-success"
+                          className="mt-2 break-all text-[11px] text-emerald-700 dark:text-emerald-400"
+                        >
+                          Exported to <span className="font-mono">{exportedTo}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -510,7 +640,7 @@ export default function PrincipalProfileModal({
                   id="principal-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What this principal does"
+                  placeholder="What this peko does"
                   rows={2}
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
                 />
@@ -605,10 +735,25 @@ export default function PrincipalProfileModal({
             </>
           )}
 
-          {(updateError || removeError) && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
-              {updateError || removeError}
+          {exposureConflictDetail !== null ? (
+            <div
+              data-testid="exposure-conflict"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+            >
+              <p className="font-medium">
+                This peko is already exposed somewhere else — only one
+                public or unlisted instance per peko.
+              </p>
+              {exposureConflictDetail && (
+                <p className="mt-1 opacity-80">{exposureConflictDetail}</p>
+              )}
             </div>
+          ) : (
+            (updateError || removeError) && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+                {updateError || removeError}
+              </div>
+            )
           )}
 
           {confirmingRemove && principal && (
@@ -620,8 +765,8 @@ export default function PrincipalProfileModal({
                     Remove <code>{principal.name}</code>?
                   </p>
                   <p className="mt-1">
-                    This deletes the principal workspace and all its sessions.
-                    This cannot be undone.
+                    This deletes the peko&apos;s workspace and all of its
+                    history. This cannot be undone.
                   </p>
                 </div>
               </div>
@@ -654,8 +799,8 @@ export default function PrincipalProfileModal({
                   onClick={() => {
                     onClose();
                     navigate({
-                      to: "/chat/$principalName",
-                      params: { principalName: principal.name },
+                      to: "/chat/$pekoName",
+                      params: { pekoName: principal.name },
                     });
                   }}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
@@ -667,8 +812,8 @@ export default function PrincipalProfileModal({
                   onClick={() => {
                     onClose();
                     navigate({
-                      to: "/log/$principalName",
-                      params: { principalName: principal.name },
+                      to: "/log/$pekoName",
+                      params: { pekoName: principal.name },
                     });
                   }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"

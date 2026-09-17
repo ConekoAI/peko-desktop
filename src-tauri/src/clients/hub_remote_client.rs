@@ -5,8 +5,10 @@
 //! `principal_send_stream`, and `principal_log` straight to the hub
 //! without dropping them to the browser.
 //!
-//! Wire shape (matches `pekohub/backend/src/services/tunnel-router.ts`):
-//!   POST `${base}/v1/public/principals/${owner}/${name}/chat`
+//! Wire shape (matches `pekohub/backend/src/routes/api/public-pekos.ts`,
+//! renamed from the retired `/v1/public/principals/*` surface — the old
+//! paths 404 with no aliases):
+//!   POST `${base}/v1/public/pekos/${owner}/${pekoName}/chat`
 //!   body: `{ "message": "...", "tos_acknowledged": true }`
 //!   optional `?token=...` query when the share link carries an invite token
 //!   response: SSE stream
@@ -16,7 +18,10 @@
 //!
 //! The response body on a non-200 (rate limit, ToS, 404) is JSON, NOT
 //! SSE — the streaming consumer checks status before entering the
-//! event loop so error envelopes surface cleanly to the UI.
+//! event loop so error envelopes surface cleanly to the UI. A 428
+//! (ToS acknowledgement required) is mapped to a distinct
+//! `[tos_required]`-prefixed error so the chat UI can show the peko's
+//! ToS text instead of a generic failure.
 
 use futures::stream::StreamExt;
 use reqwest::header::CONTENT_TYPE;
@@ -26,7 +31,7 @@ use crate::ipc::ChatStreamMsg;
 use crate::storage::local_chat_log;
 
 /// Wire struct for the JSON body POSTed to
-/// `/v1/public/principals/{owner}/{name}/chat`.
+/// `/v1/public/pekos/{owner}/{pekoName}/chat`.
 #[derive(Debug, Clone, Serialize)]
 struct ChatRequestBody<'a> {
     message: &'a str,
@@ -102,7 +107,7 @@ impl HubRemoteClient {
     fn chat_url(&self) -> String {
         let base = self.hub_url.trim_end_matches('/');
         let mut url = format!(
-            "{}/v1/public/principals/{}/{}/chat",
+            "{}/v1/public/pekos/{}/{}/chat",
             base, self.owner, self.principal_name
         );
         if let Some(token) = &self.invite_token {
@@ -146,7 +151,7 @@ impl HubRemoteClient {
                 .text()
                 .await
                 .map_err(|e| format!("failed to read error body: {e}"))?;
-            return Err(format!("hub returned {status}: {text}"));
+            return Err(map_error_response(status, &text));
         }
 
         let mut content = String::new();
@@ -209,6 +214,37 @@ impl HubRemoteClient {
 /// crate just for this — `urlencoding` is already a workspace dep.
 fn urlencoded(s: &str) -> String {
     urlencoding::encode(s).into_owned()
+}
+
+/// Error prefix the chat UI matches on to show the peko's Terms of
+/// Service text instead of a generic failure. The hub returns HTTP 428
+/// with body `{ error, tosText }` when the peko sets `tosRequired` and
+/// the request didn't acknowledge it.
+pub const TOS_REQUIRED_PREFIX: &str = "[tos_required]";
+
+/// Map a non-2xx hub response to the surfaced error string. A 428 is
+/// a distinct state (the user must acknowledge the peko's ToS before
+/// chatting), so it gets the stable `[tos_required]` prefix the
+/// frontend can switch on; every other status keeps the generic
+/// `hub returned {status}: {body}` shape.
+fn map_error_response(status: reqwest::StatusCode, body: &str) -> String {
+    if status == reqwest::StatusCode::PRECONDITION_REQUIRED {
+        let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
+        let tos_text = parsed
+            .as_ref()
+            .and_then(|v| v.get("tosText"))
+            .and_then(|v| v.as_str());
+        let message = parsed
+            .as_ref()
+            .and_then(|v| v.get("error"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("Terms of Service acknowledgment required");
+        return match tos_text {
+            Some(tos) if !tos.is_empty() => format!("{TOS_REQUIRED_PREFIX} {message}\n\n{tos}"),
+            _ => format!("{TOS_REQUIRED_PREFIX} {message}"),
+        };
+    }
+    format!("hub returned {status}: {body}")
 }
 
 /// A buffer that ingests raw SSE bytes and emits logical frames.
@@ -437,7 +473,12 @@ mod tests {
             "token must be url-encoded: {url}"
         );
         assert!(
-            url.starts_with("https://pekohub.org/v1/public/principals/alice/coding-assistant/chat")
+            url.starts_with("https://pekohub.org/v1/public/pekos/alice/coding-assistant/chat"),
+            "chat URL must use the /v1/public/pekos/* surface (ADR-005); got {url}"
+        );
+        assert!(
+            !url.contains("/public/principals/"),
+            "retired /v1/public/principals/* path leaked: {url}"
         );
     }
 
@@ -454,6 +495,42 @@ mod tests {
         let url = client.chat_url();
         assert!(!url.contains("?token"));
         assert!(url.ends_with("/chat"));
+    }
+
+    /// A 428 from the hub (peko requires ToS acknowledgement) must
+    /// surface as a distinct `[tos_required]`-prefixed error carrying
+    /// the hub's `tosText`, so the chat UI can render the terms and an
+    /// acknowledge affordance instead of a generic failure banner.
+    #[test]
+    fn map_error_response_428_carries_tos_text() {
+        let body = r#"{"error":"Terms of Service acknowledgment required","tosText":"Be kind."}"#;
+        let err = map_error_response(reqwest::StatusCode::PRECONDITION_REQUIRED, body);
+        assert!(
+            err.starts_with(TOS_REQUIRED_PREFIX),
+            "428 must carry the {TOS_REQUIRED_PREFIX} prefix, got: {err}"
+        );
+        assert!(err.contains("Be kind."), "tosText must surface: {err}");
+    }
+
+    /// A 428 without a parseable body still gets the prefix (the UI
+    /// can at least show the acknowledgement flow).
+    #[test]
+    fn map_error_response_428_without_body_still_prefixed() {
+        let err = map_error_response(reqwest::StatusCode::PRECONDITION_REQUIRED, "not json");
+        assert!(err.starts_with(TOS_REQUIRED_PREFIX), "got: {err}");
+    }
+
+    /// Other statuses keep the generic `hub returned {status}: {body}`
+    /// shape — rate limits (429) and offline pekos (503) are plain
+    /// errors in the chat UI.
+    #[test]
+    fn map_error_response_other_status_is_generic() {
+        let err = map_error_response(
+            reqwest::StatusCode::TOO_MANY_REQUESTS,
+            r#"{"error":"Too many requests"}"#,
+        );
+        assert!(err.starts_with("hub returned 429"), "got: {err}");
+        assert!(!err.starts_with(TOS_REQUIRED_PREFIX), "got: {err}");
     }
 
     /// runtime_id follows the canonical `hub:<hub_url>` shape so the

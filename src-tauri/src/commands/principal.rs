@@ -27,6 +27,11 @@ pub struct PrincipalSummary {
     pub preferred_model_id: Option<String>,
     pub owner: String,
     pub runtime_id: String,
+    /// ADR-054 genesis pipeline state (`provisioned → defined →
+    /// genesis_pending → organized`). `None` when the runtime's
+    /// wire summary doesn't carry it (current runtimes omit it from
+    /// the IPC `PrincipalSummary`; the field is forward-compatible).
+    pub boot_state: Option<String>,
 }
 
 #[tauri::command]
@@ -88,9 +93,16 @@ pub async fn principal_list(
                 .unwrap_or("")
                 .to_string(),
             runtime_id: runtime_id.clone(),
+            boot_state: extract_boot_state(v.get("boot_state")),
         });
     }
     Ok(out)
+}
+
+/// Pull `boot_state` off a runtime summary object, tolerating its
+/// absence (current runtimes omit it from the IPC wire summary).
+fn extract_boot_state(v: Option<&serde_json::Value>) -> Option<String> {
+    v.and_then(|s| s.as_str()).map(|s| s.to_string())
 }
 
 /// Look up a single Principal by name. Returns the lightweight
@@ -158,6 +170,7 @@ fn project_principal_get_envelope(
             .unwrap_or("")
             .to_string(),
         runtime_id: runtime_id.to_string(),
+        boot_state: extract_boot_state(p.get("boot_state")),
     })
 }
 
@@ -168,6 +181,17 @@ fn project_principal_get_envelope(
 /// and registers the new principal in the in-memory manager. The
 /// caller is recorded as the owner.
 ///
+/// `seed` (create-from-seed, ADR-060): accepted so the JS wrapper's
+/// `seed` arg is no longer silently dropped, but the runtime's
+/// `principal_create` IPC packet has **no seed field** (verified
+/// against `peko-rs/core/src/ipc/packet.rs` — the packet is exactly
+/// `{name, description, model_id}`) and grounding a seed is a
+/// CLI-local flow (`peko create <name> -s <seed.toml>` materializes
+/// the workspace, then `principal_reload`s the daemon). Sending the
+/// seed anyway would be silently ignored by serde and grow a
+/// from-scratch peko while the UI claims otherwise, so a `Some` seed
+/// fails loudly with the grounding guidance instead.
+///
 /// Errors from the daemon (e.g. name validation, `AlreadyExists`)
 /// propagate as `Err(String)` — the React form surfaces them inline.
 #[tauri::command]
@@ -175,8 +199,17 @@ pub async fn principal_create(
     name: String,
     description: Option<String>,
     model_id: String,
+    seed: Option<String>,
     runtime_id: Option<String>,
 ) -> Result<PrincipalSummary, String> {
+    if let Some(seed_path) = seed.as_deref() {
+        return Err(format!(
+            "create-from-seed is not available through the desktop yet: the runtime's \
+             `principal_create` IPC packet has no seed field. Ground the seed with \
+             `peko create {name} -s {seed_path}` (the peko then appears after a \
+             principal_reload / daemon restart)."
+        ));
+    }
     validate_principal_name(&name)?;
     if model_id.is_empty() {
         return Err("model id must not be empty".to_string());
@@ -294,6 +327,7 @@ fn project_principal_create_envelope(
             .unwrap_or("")
             .to_string(),
         runtime_id: "local".to_string(),
+        boot_state: extract_boot_state(p.get("boot_state")),
     })
 }
 
@@ -421,6 +455,7 @@ fn project_principal_update_envelope(
             .unwrap_or("")
             .to_string(),
         runtime_id: runtime_id.to_string(),
+        boot_state: extract_boot_state(p.get("boot_state")),
     })
 }
 
@@ -717,8 +752,37 @@ pub async fn principal_set_status(
         .map_err(|e| format!("principal_set_status failed: {e}"))
 }
 
+/// Error prefix the frontend matches on to show the "already exposed
+/// elsewhere" dialog: the hub enforces at most one publicly exposed
+/// instance per principal DID (ADR-056 D7) and answers a conflicting
+/// expose with 409 `{ error, conflictingInstanceId }`. When that
+/// conflict reaches the desktop (via the runtime's error message) it
+/// is re-thrown with this stable prefix instead of a generic failure.
+pub const EXPOSURE_CONFLICT_PREFIX: &str = "[exposure_conflict]";
+
+/// The four exposure modes the hub/runtime model supports
+/// (`unexposed | private | unlisted | public`). `private` — visible
+/// only to the owner and invited pekos — was added in the ADR-005
+/// realignment.
+const EXPOSURE_MODES: &[&str] = &["unexposed", "private", "unlisted", "public"];
+
+/// True when an error message looks like the hub's 409 exposure
+/// conflict ("Another instance … is already publicly exposed for this
+/// principal DID", optionally carrying `conflictingInstanceId`).
+fn is_exposure_conflict(message: &str) -> bool {
+    message.contains("conflictingInstanceId")
+        || message.contains("already publicly exposed")
+        || (message.contains("409") && message.contains("exposure"))
+}
+
 /// Set the local principal's exposure (`unexposed` / `private` /
 /// `public` / `unlisted`). Mirror of `RequestPacket::PrincipalSetExposure`.
+///
+/// A runtime `error` envelope is mapped to `Err` (previously the
+/// envelope was passed through verbatim, forcing every caller to
+/// re-inspect `type`); an exposure-conflict error is prefixed with
+/// [`EXPOSURE_CONFLICT_PREFIX`] so the frontend can show the specific
+/// "this peko is already exposed elsewhere" dialog.
 #[tauri::command]
 pub async fn principal_set_exposure(
     name: String,
@@ -726,13 +790,30 @@ pub async fn principal_set_exposure(
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     reject_if_remote(runtime_id)?;
+    if !EXPOSURE_MODES.contains(&exposure.as_str()) {
+        return Err(format!(
+            "invalid exposure {exposure:?} — expected one of: {}",
+            EXPOSURE_MODES.join(", ")
+        ));
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
-    client
+    let value = client
         .principal_set_exposure(&name, &exposure)
         .await
-        .map_err(|e| format!("principal_set_exposure failed: {e}"))
+        .map_err(|e| format!("principal_set_exposure failed: {e}"))?;
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        let message = value
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown runtime error");
+        if is_exposure_conflict(message) {
+            return Err(format!("{EXPOSURE_CONFLICT_PREFIX} {message}"));
+        }
+        return Err(format!("principal_set_exposure failed: {message}"));
+    }
+    Ok(value)
 }
 
 /// Grant a permission on a local principal. Mirror of
@@ -858,6 +939,115 @@ pub async fn principal_revoke_invite(
         .map_err(|e| format!("principal_revoke_invite failed: {e}"))
 }
 
+/// Export a local principal as a `.peko` full-existence package
+/// (ADR-056). Sends IPC `PrincipalExport { name, output }` — the wire
+/// shape is exactly those two fields; the legacy `include_sessions` /
+/// `with_extensions` / `full_snapshot` flags are gone runtime-side.
+/// `output: None` lets the daemon pick its default export path.
+/// Returns the `principal_exported { name, output_path }` envelope.
+///
+/// The package contains the peko's private keys — the UI shows a
+/// sensitivity warning before invoking this.
+#[tauri::command]
+pub async fn principal_export(
+    name: String,
+    output: Option<String>,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_export(&name, output.as_deref())
+        .await
+        .map_err(|e| format!("principal_export failed: {e}"))?;
+    error_envelope_to_err(&value, "principal_export")?;
+    Ok(value)
+}
+
+/// Import a `.peko` package from `file_path` (ADR-056). Sends the
+/// runtime's `principal_import` packet (pre-confirmed — the user has
+/// already accepted the import in the file-picker flow) and, on
+/// success, calls `principal_reload` so the daemon's in-memory manager
+/// picks the peko up without a restart (runtime requirement — the cron
+/// engine only drives genesis jobs for loaded principals).
+///
+/// Returns the `principal_imported { name, config_path }` envelope.
+/// Keyless packages surface the runtime's "ground it with `peko
+/// create`" guidance error verbatim.
+#[tauri::command]
+pub async fn principal_import(
+    file_path: String,
+    name: Option<String>,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_import(&file_path, name.as_deref())
+        .await
+        .map_err(|e| format!("principal_import failed: {e}"))?;
+    error_envelope_to_err(&value, "principal_import")?;
+
+    // Runtime requirement: the import materializes the workspace but
+    // the daemon only treats the peko as live after a reload.
+    let imported_name = value
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    if let Some(imported_name) = imported_name {
+        let reload = client
+            .principal_reload(&imported_name)
+            .await
+            .map_err(|e| format!("principal_import: reload failed: {e}"))?;
+        if let Err(e) = error_envelope_to_err(&reload, "principal_reload") {
+            return Err(format!(
+                "imported '{imported_name}' but failed to load it into the running daemon: {e}"
+            ));
+        }
+    }
+    Ok(value)
+}
+
+/// Load (or confirm already loaded) an on-disk principal into the
+/// daemon's in-memory manager. Mirror of `RequestPacket::PrincipalReload`
+/// — idempotent. The frontend calls this after local create/import
+/// flows that materialize a workspace out of band. Returns the
+/// `principal_loaded { name, loaded }` envelope.
+#[tauri::command]
+pub async fn principal_reload(
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_reload(&name)
+        .await
+        .map_err(|e| format!("principal_reload failed: {e}"))?;
+    error_envelope_to_err(&value, "principal_reload")?;
+    Ok(value)
+}
+
+/// Map a runtime `{type: "error", message}` envelope to `Err` so
+/// callers get Tauri-idiomatic failures instead of having to inspect
+/// the envelope themselves. `Ok(())` for any other envelope.
+fn error_envelope_to_err(value: &serde_json::Value, op: &str) -> Result<(), String> {
+    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        let message = value
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown runtime error");
+        return Err(format!("{op} failed: {message}"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -895,7 +1085,7 @@ mod tests {
             "request_id": 1,
             "principal": {
                 "name": "helper",
-                "did": "did:peko:local:helper:abc",
+                "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2mKLpbHYkdWfyyEbAm",
                 "owner": "user:alice",
                 "description": "A test principal",
                 "exposure": "Private",
@@ -903,6 +1093,7 @@ mod tests {
                 "capabilities": {},
                 "agent_prompt_count": 2,
                 "workspace_path": "/tmp/helper",
+                "boot_state": "organized",
             }
         });
         let projected = project_principal_get_envelope(&envelope, "local");
@@ -913,6 +1104,7 @@ mod tests {
         assert_eq!(p.description.as_deref(), Some("A test principal"));
         assert_eq!(p.owner, "user:alice");
         assert_eq!(p.runtime_id, "local");
+        assert_eq!(p.boot_state.as_deref(), Some("organized"));
     }
 
     #[test]
@@ -941,6 +1133,9 @@ mod tests {
         assert_eq!(p.description, None);
         assert_eq!(p.owner, "");
         assert_eq!(p.runtime_id, "local");
+        // Current runtimes omit `boot_state` from the wire summary —
+        // the projection must tolerate that (None, not a parse error).
+        assert_eq!(p.boot_state, None);
     }
 
     #[test]
@@ -1035,5 +1230,103 @@ mod tests {
                 "{name:?} should reject"
             );
         }
+    }
+
+    /// The exposure model has four modes — `private` (owner + invited
+    /// pekos only) was added in the ADR-005 realignment and must be
+    /// accepted alongside the legacy three.
+    #[tokio::test]
+    async fn test_principal_set_exposure_accepts_all_four_modes() {
+        for mode in EXPOSURE_MODES {
+            // All four modes pass desktop-side validation; the call
+            // then fails at IPC-connect time in the test env (no
+            // supervisor), which proves validation didn't reject it.
+            let err = principal_set_exposure("x".to_string(), mode.to_string(), None)
+                .await
+                .expect_err("no daemon in test env");
+            assert!(
+                !err.contains("invalid exposure"),
+                "{mode:?} must pass validation, got: {err}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_principal_set_exposure_rejects_unknown_mode() {
+        let err = principal_set_exposure("x".to_string(), "friends-only".to_string(), None)
+            .await
+            .expect_err("unknown mode must be rejected");
+        assert!(err.contains("invalid exposure"), "got: {err}");
+        assert!(err.contains("private"), "error should list modes: {err}");
+    }
+
+    /// The hub's 409 conflict copy (ADR-056 D7: at most one publicly
+    /// exposed instance per principal DID) must be recognized so the
+    /// command can prefix it with `[exposure_conflict]` for the
+    /// frontend's specific dialog.
+    #[test]
+    fn test_is_exposure_conflict_matches_hub_copy() {
+        assert!(is_exposure_conflict(
+            "Another instance ('helper', id inst_42) is already publicly exposed for this principal DID"
+        ));
+        assert!(is_exposure_conflict(
+            "hub returned 409: {\"error\":\"...\",\"conflictingInstanceId\":\"inst_42\"}"
+        ));
+        assert!(!is_exposure_conflict("Principal 'x' not found"));
+        assert!(!is_exposure_conflict("[permission_denied] nope"));
+    }
+
+    /// `error_envelope_to_err` maps runtime error envelopes to
+    /// Tauri-idiomatic `Err` and passes success envelopes through.
+    #[test]
+    fn test_error_envelope_to_err() {
+        let err_env = serde_json::json!({"type": "error", "message": "boom"});
+        let err = error_envelope_to_err(&err_env, "principal_export").unwrap_err();
+        assert_eq!(err, "principal_export failed: boom");
+
+        let ok_env =
+            serde_json::json!({"type": "principal_exported", "output_path": "/tmp/a.peko"});
+        assert!(error_envelope_to_err(&ok_env, "principal_export").is_ok());
+    }
+
+    /// The runtime's `principal_create` IPC packet has no seed field
+    /// (verified against `peko-rs/core/src/ipc/packet.rs`), and the
+    /// daemon ignores unknown wire fields — forwarding a seed would
+    /// silently grow a from-scratch peko. Pin the loud-failure
+    /// contract: `Some(seed)` must error with the CLI grounding
+    /// guidance, never silently ignore the seed.
+    #[tokio::test]
+    async fn test_principal_create_with_seed_fails_loudly() {
+        let err = principal_create(
+            "helper".to_string(),
+            None,
+            "gpt-4o".to_string(),
+            Some("/tmp/helper.seed.toml".to_string()),
+            None,
+        )
+        .await
+        .expect_err("seeded create must fail loudly, not silently ignore the seed");
+        assert!(err.contains("no seed field"), "got: {err}");
+        assert!(
+            err.contains("peko create helper -s /tmp/helper.seed.toml"),
+            "error must carry the CLI grounding command, got: {err}"
+        );
+    }
+
+    /// `None` seed keeps the pre-existing path: validation still runs
+    /// (and in the test env the call then fails at IPC-connect time,
+    /// not at the seed gate).
+    #[tokio::test]
+    async fn test_principal_create_without_seed_passes_seed_gate() {
+        let err = principal_create(
+            "bad name".to_string(),
+            None,
+            "gpt-4o".to_string(),
+            None,
+            None,
+        )
+        .await
+        .expect_err("invalid name must fail validation");
+        assert!(err.contains("invalid principal name"), "got: {err}");
     }
 }

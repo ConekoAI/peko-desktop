@@ -5,8 +5,8 @@
 //! link into a persisted record. Add / remove / list / resolve all
 //! run on the local runtime — no IPC, no pekohub auth required for
 //! the local-disk surface. The hub call inside `remote_principal_resolve`
-//! is anonymous by contract (peko's public principal endpoint is
-//! intentionally open).
+//! is anonymous by contract (the hub's `/v1/public/pekos/:owner/:pekoName`
+//! endpoint is intentionally open).
 
 use serde::{Deserialize, Serialize};
 
@@ -52,10 +52,12 @@ impl RemotePrincipalSummary {
     }
 }
 
-/// Share-link shape. Accepts the canonical `${hubUrl}/p/{owner}/{name}`
-/// form (with optional `?token=...`) and the legacy
-/// `${hubUrl}/v1/public/principals/{owner}/{name}` form for users
-/// who copied the API URL.
+/// Share-link shape. Accepts the canonical `${hubUrl}/peko/{owner}/{name}`
+/// form (with optional `?token=...`), the legacy `${hubUrl}/p/{owner}/{name}`
+/// form (hub keeps a redirect, and users still have old links lying
+/// around), plus the `/v1/public/pekos/{owner}/{name}` and retired
+/// `/v1/public/principals/{owner}/{name}` API URL forms for users who
+/// copied the endpoint directly.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemotePrincipalAddRequest {
@@ -79,40 +81,49 @@ pub struct RemotePrincipalResolve {
 }
 
 /// Parse a share URL into `(hub_url, owner, principal_name, invite_token)`.
-/// Accepts both `${hubUrl}/p/{owner}/{name}` and the legacy
-/// `${hubUrl}/v1/public/principals/{owner}/{name}` form. Returns
-/// `None` if the URL doesn't match either shape.
+/// Accepts `${hubUrl}/peko/{owner}/{name}` (canonical post-ADR-005),
+/// the legacy `${hubUrl}/p/{owner}/{name}` form, and both API URL
+/// forms (`/v1/public/pekos/...` and the retired
+/// `/v1/public/principals/...`). Returns `None` if the URL doesn't
+/// match any known shape.
 fn parse_share_url(raw: &str) -> Option<(String, String, String, Option<String>)> {
     let url = urlparse_simple(raw)?;
     let path = url.path.trim_end_matches('/');
     // Strip leading slash so split gives clean segments.
     let stripped = path.strip_prefix('/').unwrap_or(path);
-    // `/p/{owner}/{name}` — the canonical share-link form (PR #2).
-    if let Some(rest) = stripped.strip_prefix("p/") {
-        let mut parts = rest.split('/');
-        let owner = parts.next()?.to_string();
-        let name = parts.next()?.to_string();
-        if owner.is_empty() || name.is_empty() {
-            return None;
+    // `/peko/{owner}/{name}` — the canonical share-link form; `/p/…`
+    // is the pre-rename form the hub still redirects.
+    for prefix in ["peko/", "p/"] {
+        if let Some(rest) = stripped.strip_prefix(prefix) {
+            let mut parts = rest.split('/');
+            let owner = parts.next()?.to_string();
+            let name = parts.next()?.to_string();
+            if owner.is_empty() || name.is_empty() {
+                return None;
+            }
+            // No more path segments allowed.
+            if parts.next().is_some() {
+                return None;
+            }
+            return Some((url.origin, owner, name, url.query_token));
         }
-        // No more path segments allowed.
-        if parts.next().is_some() {
-            return None;
-        }
-        return Some((url.origin, owner, name, url.query_token));
     }
-    // `/v1/public/principals/{owner}/{name}` — the API URL form.
-    if let Some(rest) = stripped.strip_prefix("v1/public/principals/") {
-        let mut parts = rest.split('/');
-        let owner = parts.next()?.to_string();
-        let name = parts.next()?.to_string();
-        if owner.is_empty() || name.is_empty() {
-            return None;
+    // `/v1/public/pekos/{owner}/{name}` — the API URL form; the
+    // retired `/v1/public/principals/…` spelling is accepted for old
+    // copied links.
+    for prefix in ["v1/public/pekos/", "v1/public/principals/"] {
+        if let Some(rest) = stripped.strip_prefix(prefix) {
+            let mut parts = rest.split('/');
+            let owner = parts.next()?.to_string();
+            let name = parts.next()?.to_string();
+            if owner.is_empty() || name.is_empty() {
+                return None;
+            }
+            if parts.next().is_some() {
+                return None;
+            }
+            return Some((url.origin, owner, name, url.query_token));
         }
-        if parts.next().is_some() {
-            return None;
-        }
-        return Some((url.origin, owner, name, url.query_token));
     }
     None
 }
@@ -177,10 +188,15 @@ pub async fn remote_principal_resolve(share_url: String) -> Result<RemotePrincip
     let payload = client
         .get_public_principal(&owner, &name, invite_token.as_deref())
         .await?;
-    // The endpoint returns `{ liveInstance: {...} }` with the
-    // live-side fields. We project the display name / description /
-    // status from the `liveInstance` envelope so the frontend can
-    // show a confirmation card before the user clicks "Add".
+    // The endpoint returns `{ liveInstance: { id, publicName,
+    // description, owner {id,name,avatarUrl}, capabilities, status,
+    // tosRequired, tosText } }`. We project the display name /
+    // description / status from the `liveInstance` envelope so the
+    // frontend can show a confirmation card before the user clicks
+    // "Add". The post-ADR-005 envelope no longer carries `exposure`
+    // (the endpoint serves both `public` and `unlisted` rows), so the
+    // record falls back to "public" — the field is informational
+    // only; chat access is gated hub-side, not by this value.
     let live = payload
         .get("liveInstance")
         .ok_or_else(|| "pekohub response missing `liveInstance`".to_string())?;
@@ -309,8 +325,21 @@ mod tests {
     #[test]
     fn test_parse_share_url_canonical_form() {
         let (hub, owner, name, token) =
+            parse_share_url("https://pekohub.org/peko/alice/coding-assistant")
+                .expect("canonical /peko/ form should parse");
+        assert_eq!(hub, "https://pekohub.org");
+        assert_eq!(owner, "alice");
+        assert_eq!(name, "coding-assistant");
+        assert!(token.is_none());
+    }
+
+    #[test]
+    fn test_parse_share_url_legacy_p_form_still_accepted() {
+        // Pre-rename share links (`/p/{owner}/{name}`) keep parsing —
+        // the hub redirects them and users still have old links.
+        let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/p/alice/coding-assistant")
-                .expect("canonical form should parse");
+                .expect("legacy /p/ form should parse");
         assert_eq!(hub, "https://pekohub.org");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
@@ -320,7 +349,7 @@ mod tests {
     #[test]
     fn test_parse_share_url_with_token() {
         let (hub, owner, name, token) =
-            parse_share_url("https://pekohub.org/p/alice/coding-assistant?token=abc123")
+            parse_share_url("https://pekohub.org/peko/alice/coding-assistant?token=abc123")
                 .expect("token-bearing form should parse");
         assert_eq!(hub, "https://pekohub.org");
         assert_eq!(owner, "alice");
@@ -331,12 +360,25 @@ mod tests {
     #[test]
     fn test_parse_share_url_api_form() {
         let (hub, owner, name, token) =
-            parse_share_url("https://pekohub.org/v1/public/principals/alice/coding-assistant")
+            parse_share_url("https://pekohub.org/v1/public/pekos/alice/coding-assistant")
                 .expect("api form should parse");
         assert_eq!(hub, "https://pekohub.org");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert!(token.is_none());
+    }
+
+    #[test]
+    fn test_parse_share_url_retired_api_form_still_accepted() {
+        // The retired `/v1/public/principals/...` API URL 404s on the
+        // hub, but old copied links should still resolve — the
+        // resolver hits the NEW endpoint with the parsed owner/name.
+        let (hub, owner, name, _token) =
+            parse_share_url("https://pekohub.org/v1/public/principals/alice/coding-assistant")
+                .expect("retired api form should parse");
+        assert_eq!(hub, "https://pekohub.org");
+        assert_eq!(owner, "alice");
+        assert_eq!(name, "coding-assistant");
     }
 
     #[test]

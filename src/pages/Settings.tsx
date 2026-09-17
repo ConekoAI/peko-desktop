@@ -724,7 +724,7 @@ function AboutTab() {
       <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">Documentation</h3>
         <a
-          href="https://github.com/peko-bot/peko"
+          href="https://github.com/ConekoAI/peko-runtime"
           target="_blank"
           rel="noreferrer"
           className="text-sm text-emerald-600 hover:underline dark:text-emerald-400"
@@ -736,7 +736,7 @@ function AboutTab() {
       <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">First-run walkthrough</h3>
         <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
-          Reopen the onboarding overlay (add model → test → create principal).
+          Reopen the onboarding overlay (add model → test → create peko).
           Useful for showing a teammate the flow without wiping the profile.
         </p>
         <button

@@ -4,9 +4,9 @@
 |-------------|------------------------------------------|
 | **Number**  | ADR-002                                  |
 | **Title**   | Desktop Remote Runtime Support           |
-| **Status**  | Rewritten for ADR-041/042 (2026-07-05)   |
+| **Status**  | Rewritten for ADR-041/042 (2026-07-05); amended by ADR-003 (2026-09-17) |
 | **Date**    | 2026-06-07                               |
-| **Last Updated** | 2026-07-05                         |
+| **Last Updated** | 2026-09-17                         |
 | **Depends On** | ADR-001-desktop (Desktop IPC vs CLI Shell-Out), ADR-041 (Principal-as-container), ADR-042 (no external session concept), ADR-035 (Tunnel Protocol) |
 | **Related** | ADR-032 (Runtime Identity), ADR-002-pekohub (Remote Instance Management API), ADR-003-pekohub (Exposure Modes) |
 
@@ -17,6 +17,18 @@
 > remote-addressable runtime actor is now the **Principal**, and the
 > `peko log <PRINCIPAL>` IPC variant carries the activity feed across
 > runtimes. The shape of this document otherwise holds.
+
+> **Amended 2026-09-17 — see [ADR-003: Peko Realignment](ADR-003-peko-realignment.md).**
+> Upstream (peko-runtime ADR-054–060, pekohub ADR-005/006) renamed the
+> user-facing actor from "principal" to **"peko"** and moved the hub's
+> peko-facing endpoints. The hub paths under `/v1/public/principals/*` and
+> `/v1/me/accessible-principals` are **retired (404, no aliases)**,
+> superseded by `/v1/public/pekos/*` and `/v1/me/accessible-pekos`. The
+> `…/principals…` path naming in the remote-endpoint table below is likewise
+> pre-realignment. Per ADR-003's terminology rule, "principal" survives only
+> on machine surfaces (Tauri commands, IPC packet strings, types, storage) —
+> all UX and URLs say "peko". The architecture in this document (multi-runtime
+> connections, transport-transparent UI, privacy-gate parity) still holds.
 
 ## Context
 
@@ -81,6 +93,13 @@ The remote IPC contract mirrors the local `Principal*` packet set:
 | Grant / revoke permission | `principal_grant_permission` / `principal_revoke_permission` | `POST /v1/runtimes/:id/principals/:name/permit` |
 | Publish (push) | `principal_push` | `POST /v1/runtimes/:id/principals/:name/publish` |
 | Pull (install) | `principal_pull` | `POST /v1/runtimes/:id/pull` |
+
+> **2026-09-17 (ADR-003):** the `…/principals…` hub path naming shown above is
+> pre-realignment. The hub's peko-facing endpoints are now
+> `/v1/public/pekos/*` and `/v1/me/accessible-pekos`; the retired
+> `/v1/public/principals/*` and `/v1/me/accessible-principals` paths return
+> **404**. The local IPC column is unchanged — packet strings keep the
+> `principal_*` spelling by design.
 
 The privacy contract survives the proxy: PekoHub forwards `peer` as a Subject string and the runtime re-evaluates the privacy gate at the originating daemon. No relaxations are introduced at the proxy layer.
 

@@ -21,6 +21,7 @@ import {
 } from "../hooks/useChannelEvents";
 import { useToastQueue } from "../hooks/useToastQueue";
 import { usePrincipals } from "../hooks/usePrincipals";
+import { isChannelForbidden } from "../lib/channelErrors";
 
 /**
  * Channel view. PR-1 read-only + PR-2a composer + PR-3
@@ -102,6 +103,15 @@ export default function ChannelView() {
     }
   }, [events?.length]);
 
+  // Computed outside the JSX: the `isChannelForbidden` type guard
+  // narrows `eventsError` to `never` in the generic branch.
+  const eventsErrorMessage =
+    eventsError == null
+      ? null
+      : eventsError instanceof Error
+        ? eventsError.message
+        : String(eventsError);
+
   function handleLeaveConfirm() {
     if (!senderName) {
       // No local sender to leave as — close the modal and bail.
@@ -141,6 +151,27 @@ export default function ChannelView() {
             Loading events…
           </div>
         ) : eventsError ? (
+          isChannelForbidden(eventsError) ? (
+            <div
+              className="mx-auto my-6 max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+              role="alert"
+              aria-live="assertive"
+              data-testid="channel-events-forbidden"
+            >
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium">
+                    You don&apos;t have access to this channel.
+                  </p>
+                  <p className="mt-1 opacity-80">
+                    Only members can read channel events. Ask a current
+                    member to invite you — the invite mints your membership.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div
             className="mx-auto my-6 max-w-md rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
             role="alert"
@@ -152,9 +183,7 @@ export default function ChannelView() {
               <div className="flex-1">
                 <p className="font-medium">Couldn't load channel events.</p>
                 <p className="mt-1 opacity-80">
-                  {eventsError instanceof Error
-                    ? eventsError.message
-                    : String(eventsError)}
+                  {eventsErrorMessage}
                 </p>
                 <button
                   type="button"
@@ -168,6 +197,7 @@ export default function ChannelView() {
               </div>
             </div>
           </div>
+          )
         ) : events && events.length > 0 ? (
           <ul className="space-y-3">
             {events.map((e, i) => (

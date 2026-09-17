@@ -7,6 +7,7 @@ import {
   type ChannelEvent,
   type RuntimeId,
 } from "../lib/api";
+import { rethrowAsChannelError, type ChannelError } from "../lib/channelErrors";
 import type { StreamEvent } from "../types";
 
 const DEFAULT_RUNTIME_ID = "local";
@@ -24,6 +25,11 @@ function effectiveRuntimeId(runtimeId?: RuntimeId): string {
  * event yet. PR-2 wires the actual event subscription and bumps
  * `staleTime` so the interval becomes a safety net, not the primary
  * mechanism.
+ *
+ * Reads are membership-gated runtime-side (ADR-058): when the local
+ * principal is not a member of the channel, the query rejects with a
+ * `ChannelError` whose `kind === "forbidden"` so the UI can render a
+ * membership gate instead of a generic failure.
  */
 export function useChannelEvents(
   channelId: string | undefined,
@@ -31,10 +37,10 @@ export function useChannelEvents(
   runtimeId?: RuntimeId,
 ) {
   const rid = effectiveRuntimeId(runtimeId);
-  return useQuery<ChannelEvent[]>({
+  return useQuery<ChannelEvent[], ChannelError>({
     queryKey: ["channel-events", rid, channelId, since ?? null] as const,
     enabled: !!channelId,
-    queryFn: () => channelEvents(channelId!, since, rid),
+    queryFn: () => channelEvents(channelId!, since, rid).catch(rethrowAsChannelError),
     staleTime: 5_000,
     refetchInterval: 10_000,
   });

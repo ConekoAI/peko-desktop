@@ -83,6 +83,43 @@ export interface EngineVersionMismatch {
 // (ADR-041) — the runtime does not currently expose per-principal
 // agent-prompt lists or config snapshots over IPC.
 
+/**
+ * The runtime / hub exposure model (pekohub ADR-005). Four modes:
+ *
+ * - `unexposed` — local only; no hub presence at all.
+ * - `private`   — visible only to the owner (and invited pekos).
+ * - `unlisted`  — chat-reachable by anyone holding the share link,
+ *                 but absent from the public directory.
+ * - `public`    — discoverable in the hub directory.
+ *
+ * Read-side principal/exposure fields are typed with this union;
+ * write-side request fields stay `string` so older call sites keep
+ * typechecking (the runtime validates on commit anyway).
+ */
+export type PrincipalExposure = "unexposed" | "private" | "unlisted" | "public";
+
+/** All exposure modes, in escalating order of visibility. */
+export const EXPOSURE_MODES: readonly PrincipalExposure[] = [
+  "unexposed",
+  "private",
+  "unlisted",
+  "public",
+];
+
+/**
+ * Genesis pipeline state of a principal (peko-runtime ADR-054).
+ * `peko create` now runs a genesis boot sequence after the workspace
+ * is provisioned, so a freshly created principal can appear on
+ * `principal_list` / `principal_get` before it is ready to chat:
+ *
+ *   provisioned → defined → genesis_pending → organized
+ *
+ * Only `organized` principals are fully booted. The field is optional
+ * on the wire — runtimes older than the genesis pipeline omit it, and
+ * those principals should be treated as already organized.
+ */
+export type BootState = "provisioned" | "defined" | "genesis_pending" | "organized";
+
 // ─── peko log / ChatLogMessage (ADR-042, post-F30) ──────────────
 
 /**
@@ -521,9 +558,11 @@ export interface MemberProvenance {
 }
 
 /**
- * Member list for a single channel. `members` are principal DIDs
- * (e.g. `prin_alice`). The runtime derives the authoritative
- * membership from the `Member*` event log.
+ * Member list for a single channel. `members` are principal DIDs.
+ * Since the runtime moved to self-certifying identities (ADR-057)
+ * these are `did:key:z…` strings; legacy `did:peko:` / `prin_*`
+ * forms are dead and no longer emitted. The runtime derives the
+ * authoritative membership from the `Member*` event log.
  *
  * `memberProvenance` (PR-3b / P1.2 attribution) pairs each DID with
  * its hosting runtime id; consumers that only need the DID set can

@@ -12,6 +12,10 @@ vi.mock("../hooks/usePrincipals", () => ({
     error: null,
     reset: resetMut,
   }),
+  // The modal also reads the list query (genesis progress feed) and
+  // the boot-state helper; stub both so the render path works.
+  usePrincipals: () => ({ data: [] }),
+  isGenesisPending: () => false,
 }));
 
 const modelsSignal: { value: unknown } = { value: undefined };

@@ -68,7 +68,7 @@ type Step = 1 | 2 | 3 | 4;
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 1, label: "Pick model" },
-  { id: 2, label: "Create principal" },
+  { id: 2, label: "Create peko" },
   // PR #10: PekoHub OAuth is OPTIONAL. Users without an account
   // (or who want to keep their runtimes local-only) just hit Skip.
   { id: 3, label: "Connect to PekoHub" },
@@ -77,7 +77,7 @@ const STEPS: { id: Step; label: string }[] = [
   // (step 3), step 4 surfaces the three ways to add more: a
   // local create modal, a remote share-link paste, or the public
   // discover feed. The "Done" button closes the overlay.
-  { id: 4, label: "Add your first principal" },
+  { id: 4, label: "Add your first peko" },
 ];
 
 export default function FirstRunWalkthrough() {
@@ -304,7 +304,7 @@ function WalkthroughCard({
             </h2>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Pick a configured model and name your first Principal.
+            Pick a configured model and name your first peko.
           </p>
         </div>
         <button
@@ -499,7 +499,7 @@ function Step1({
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-700 dark:text-slate-300">
-        Choose the model your first Principal will use. You can change this
+        Choose the model your first peko will use. You can change this
         later and add more models in Settings → Models.
       </p>
 
@@ -518,7 +518,7 @@ function Step1({
           </p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400"
           >
-            Add a model in Settings → Models before creating a Principal.
+            Add a model in Settings → Models before creating a peko.
           </p>
           <button
             type="button"
@@ -601,7 +601,7 @@ function Step2({
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-700 dark:text-slate-300">
-        Name your first Principal. It&apos;s the identity you&apos;ll chat with.
+        Name your first peko. It&apos;s the identity you&apos;ll chat with.
       </p>
       {modelLabel && (
         <div
@@ -671,7 +671,7 @@ function Step3ConnectHub({
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-700 dark:text-slate-300">
-        Sign in to PekoHub to publish your Principal, share it with a
+        Sign in to PekoHub to publish your peko, share it with a
         friend, or browse what other people have made. Optional — you
         can use the desktop fully local-only.
       </p>
@@ -737,7 +737,7 @@ function Step4AddPrincipal({
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-700 dark:text-slate-300">
-        You&apos;re all set. Add more principals, or browse what others have
+        You&apos;re all set. Add more pekos, or browse what others have
         shared on PekoHub.
       </p>
 
@@ -750,7 +750,7 @@ function Step4AddPrincipal({
         >
           <span className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
             <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">Create another local Principal</span>
+            <span className="font-medium">Create another local peko</span>
           </span>
           <span className="text-[10px] text-slate-500 dark:text-slate-400">
             Local only
@@ -780,7 +780,7 @@ function Step4AddPrincipal({
         >
           <span className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
             <Compass className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">Browse public Principals</span>
+            <span className="font-medium">Browse public pekos</span>
           </span>
           <span className="text-[10px] text-slate-500 dark:text-slate-400">
             PekoHub directory
