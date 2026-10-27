@@ -9,53 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as RegistryRouteImport } from './routes/registry'
-import { Route as ExtensionsRouteImport } from './routes/extensions'
-import { Route as DiscoverRouteImport } from './routes/discover'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as CronRouteImport } from './routes/cron'
-import { Route as ChatRouteImport } from './routes/chat'
-import { Route as ChannelsRouteImport } from './routes/channels'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PekoPekoNameRouteImport } from './routes/peko.$pekoName'
-import { Route as LogPekoNameRouteImport } from './routes/log.$pekoName'
-import { Route as ChatPekoNameRouteImport } from './routes/chat.$pekoName'
+import { Route as ChannelsRouteImport } from './routes/channels'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DiscoverRouteImport } from './routes/discover'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ChannelsChannelIdRouteImport } from './routes/channels.$channelId'
+import { Route as ChatPekoNameRouteImport } from './routes/chat.$pekoName'
+import { Route as LogPekoNameRouteImport } from './routes/log.$pekoName'
 
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegistryRoute = RegistryRouteImport.update({
-  id: '/registry',
-  path: '/registry',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExtensionsRoute = ExtensionsRouteImport.update({
-  id: '/extensions',
-  path: '/extensions',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DiscoverRoute = DiscoverRouteImport.update({
-  id: '/discover',
-  path: '/discover',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CronRoute = CronRouteImport.update({
-  id: '/cron',
-  path: '/cron',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatRoute = ChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChannelsRoute = ChannelsRouteImport.update({
@@ -63,77 +29,75 @@ const ChannelsRoute = ChannelsRouteImport.update({
   path: '/channels',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PekoPekoNameRoute = PekoPekoNameRouteImport.update({
-  id: '/peko/$pekoName',
-  path: '/peko/$pekoName',
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LogPekoNameRoute = LogPekoNameRouteImport.update({
-  id: '/log/$pekoName',
-  path: '/log/$pekoName',
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChatPekoNameRoute = ChatPekoNameRouteImport.update({
-  id: '/$pekoName',
-  path: '/$pekoName',
-  getParentRoute: () => ChatRoute,
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ChannelsChannelIdRoute = ChannelsChannelIdRouteImport.update({
   id: '/$channelId',
   path: '/$channelId',
   getParentRoute: () => ChannelsRoute,
 } as any)
+const ChatPekoNameRoute = ChatPekoNameRouteImport.update({
+  id: '/$pekoName',
+  path: '/$pekoName',
+  getParentRoute: () => ChatRoute,
+} as any)
+const LogPekoNameRoute = LogPekoNameRouteImport.update({
+  id: '/log/$pekoName',
+  path: '/log/$pekoName',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
-  '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
   '/discover': typeof DiscoverRoute
-  '/extensions': typeof ExtensionsRoute
-  '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
   '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$pekoName': typeof ChatPekoNameRoute
   '/log/$pekoName': typeof LogPekoNameRoute
-  '/peko/$pekoName': typeof PekoPekoNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
-  '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
   '/discover': typeof DiscoverRoute
-  '/extensions': typeof ExtensionsRoute
-  '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
   '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$pekoName': typeof ChatPekoNameRoute
   '/log/$pekoName': typeof LogPekoNameRoute
-  '/peko/$pekoName': typeof PekoPekoNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
-  '/cron': typeof CronRoute
   '/dashboard': typeof DashboardRoute
   '/discover': typeof DiscoverRoute
-  '/extensions': typeof ExtensionsRoute
-  '/registry': typeof RegistryRoute
   '/settings': typeof SettingsRoute
   '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$pekoName': typeof ChatPekoNameRoute
   '/log/$pekoName': typeof LogPekoNameRoute
-  '/peko/$pekoName': typeof PekoPekoNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,111 +105,53 @@ export interface FileRouteTypes {
     | '/'
     | '/channels'
     | '/chat'
-    | '/cron'
     | '/dashboard'
     | '/discover'
-    | '/extensions'
-    | '/registry'
     | '/settings'
     | '/channels/$channelId'
     | '/chat/$pekoName'
     | '/log/$pekoName'
-    | '/peko/$pekoName'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/channels'
     | '/chat'
-    | '/cron'
     | '/dashboard'
     | '/discover'
-    | '/extensions'
-    | '/registry'
     | '/settings'
     | '/channels/$channelId'
     | '/chat/$pekoName'
     | '/log/$pekoName'
-    | '/peko/$pekoName'
   id:
     | '__root__'
     | '/'
     | '/channels'
     | '/chat'
-    | '/cron'
     | '/dashboard'
     | '/discover'
-    | '/extensions'
-    | '/registry'
     | '/settings'
     | '/channels/$channelId'
     | '/chat/$pekoName'
     | '/log/$pekoName'
-    | '/peko/$pekoName'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChannelsRoute: typeof ChannelsRouteWithChildren
   ChatRoute: typeof ChatRouteWithChildren
-  CronRoute: typeof CronRoute
   DashboardRoute: typeof DashboardRoute
   DiscoverRoute: typeof DiscoverRoute
-  ExtensionsRoute: typeof ExtensionsRoute
-  RegistryRoute: typeof RegistryRoute
   SettingsRoute: typeof SettingsRoute
   LogPekoNameRoute: typeof LogPekoNameRoute
-  PekoPekoNameRoute: typeof PekoPekoNameRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/registry': {
-      id: '/registry'
-      path: '/registry'
-      fullPath: '/registry'
-      preLoaderRoute: typeof RegistryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/extensions': {
-      id: '/extensions'
-      path: '/extensions'
-      fullPath: '/extensions'
-      preLoaderRoute: typeof ExtensionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/discover': {
-      id: '/discover'
-      path: '/discover'
-      fullPath: '/discover'
-      preLoaderRoute: typeof DiscoverRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cron': {
-      id: '/cron'
-      path: '/cron'
-      fullPath: '/cron'
-      preLoaderRoute: typeof CronRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chat': {
-      id: '/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof ChatRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/channels': {
@@ -255,26 +161,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChannelsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/peko/$pekoName': {
-      id: '/peko/$pekoName'
-      path: '/peko/$pekoName'
-      fullPath: '/peko/$pekoName'
-      preLoaderRoute: typeof PekoPekoNameRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/log/$pekoName': {
-      id: '/log/$pekoName'
-      path: '/log/$pekoName'
-      fullPath: '/log/$pekoName'
-      preLoaderRoute: typeof LogPekoNameRouteImport
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/channels/$channelId': {
+      id: '/channels/$channelId'
+      path: '/$channelId'
+      fullPath: '/channels/$channelId'
+      preLoaderRoute: typeof ChannelsChannelIdRouteImport
+      parentRoute: typeof ChannelsRoute
     }
     '/chat/$pekoName': {
       id: '/chat/$pekoName'
@@ -283,12 +203,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatPekoNameRouteImport
       parentRoute: typeof ChatRoute
     }
-    '/channels/$channelId': {
-      id: '/channels/$channelId'
-      path: '/$channelId'
-      fullPath: '/channels/$channelId'
-      preLoaderRoute: typeof ChannelsChannelIdRouteImport
-      parentRoute: typeof ChannelsRoute
+    '/log/$pekoName': {
+      id: '/log/$pekoName'
+      path: '/log/$pekoName'
+      fullPath: '/log/$pekoName'
+      preLoaderRoute: typeof LogPekoNameRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -319,14 +239,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChannelsRoute: ChannelsRouteWithChildren,
   ChatRoute: ChatRouteWithChildren,
-  CronRoute: CronRoute,
   DashboardRoute: DashboardRoute,
   DiscoverRoute: DiscoverRoute,
-  ExtensionsRoute: ExtensionsRoute,
-  RegistryRoute: RegistryRoute,
   SettingsRoute: SettingsRoute,
   LogPekoNameRoute: LogPekoNameRoute,
-  PekoPekoNameRoute: PekoPekoNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -55,6 +55,23 @@ jobs:
         run: npx vitest run --reporter=verbose
 
   # ─────────────────────────────────────────────────────────────────
+  # IPC contract — every request the desktop sends matches the
+  # runtime's fixture (peko-runtime decodes that fixture in its own
+  # unit tests). Checked against peko-runtime master.
+  # ─────────────────────────────────────────────────────────────────
+  ipc-contract:
+    name: IPC contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out peko-runtime
+        run: git clone --depth 1 https://github.com/ConekoAI/peko-runtime.git "$RUNNER_TEMP/peko-runtime"
+
+      - name: Check desktop requests against the runtime fixture
+        run: python3 -I scripts/check-ipc-contract.py "$RUNNER_TEMP/peko-runtime"
+
+  # ─────────────────────────────────────────────────────────────────
   # 2. Rust — fmt, clippy, check, test (Linux)
   # ─────────────────────────────────────────────────────────────────
   rust-linux:

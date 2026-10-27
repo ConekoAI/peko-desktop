@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   useMutation,
   useQuery,
@@ -11,16 +11,17 @@ import {
   principalExport,
   principalGet,
   principalImport,
+  principalImportPreview,
   principalList,
   principalLog,
   principalRemove,
   principalSend,
-  principalSendControl,
   principalSendStream,
+  principalStop,
+  principalLogWatch,
   principalUpdate,
   type ChatStreamMsg,
   type PrincipalCreateRequest,
-  type PrincipalSendControlArgs,
   type PrincipalSummary,
   type PrincipalUpdateRequest,
   type RuntimeId,
@@ -224,10 +225,18 @@ export function usePrincipalExport() {
  * keyless packages reject with the "ground it with `peko create`"
  * guidance, which the UI renders as-is.
  */
+/** Preview a `.peko` package before importing it. */
+export function usePrincipalImportPreview() {
+  return useMutation({
+    mutationFn: (args: { path: string; rotateKeys?: boolean }) => principalImportPreview(args),
+  });
+}
+
 export function usePrincipalImport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (args: { path: string }) => principalImport(args),
+    mutationFn: (args: { path: string; manifestChecksum: string; rotateKeys?: boolean }) =>
+      principalImport(args),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["principals"] });
     },
@@ -269,9 +278,7 @@ export interface PrincipalSendOptions {
  * Monotonically increasing `requestId` source for streaming sends.
  *
  * Caps at `2^62 - 1` then wraps to 1 so the desktop's namespace
- * stays disjoint from the runtime's successor ids, which the
- * `PrincipalSendControl` handler salts with `2^63` for collision
- * avoidance. Without the cap a long-lived desktop session could
+ * stays disjoint from the runtime's steering-successor ids (`2^63`+). Without the cap a long-lived desktop session could
  * drift into the runtime's namespace after ~292 years of continuous
  * use — the cap also documents the invariant so future readers don't
  * "fix" the wrap by switching the modulo.
@@ -296,15 +303,12 @@ function nextRequestId(): number {
  * through the callback as the response unfolds. The `Channel` wire
  * type is required by Tauri's IPC layer for streaming.
  *
- * The hook also exposes `sendControl({mode: "steer" | "interrupt"})`
- * so the chat input can redirect an in-flight stream instead of
- * blocking on it. The active streaming `requestId` is tracked in a
- * ref so the caller can pass it as `targetRequestId` without a
- * React re-render.
+ * Sending while a run is in flight is safe: the runtime queues the
+ * message for the running turn and the stream settles with a
+ * `queued` event and empty content.
  */
 export function usePrincipalSend() {
-  const activeRequestIdRef = useRef<number | null>(null);
-  const mutation = useMutation({
+  return useMutation({
     mutationFn: async (vars: {
       name: string;
       message: string;
@@ -313,67 +317,96 @@ export function usePrincipalSend() {
     }): Promise<string> => {
       const rid = effectiveRuntimeId(vars.runtimeId);
       if (!vars.onEvent) {
-        // Non-streaming path: no correlation id is needed for
-        // follow-up control since there's no in-flight run to
-        // target.
-        activeRequestIdRef.current = null;
         return principalSend(vars.name, vars.message, rid);
       }
-      // JS owns the request_id lifecycle — mint BEFORE the call so
-      // `sendControl` can target the right run during streaming.
-      // Mirrors the runtime-side cap so the two namespaces stay
-      // disjoint from the runtime's successor-id space (2^63+).
-      const requestId = nextRequestId();
-      activeRequestIdRef.current = requestId;
-      try {
-        const result = await principalSendStream(
-          vars.name,
-          vars.message,
-          requestId,
-          vars.onEvent,
-          rid,
-        );
-        return result.content;
-      } finally {
-        // Clear once settled — a follow-up steer would target a run
-        // that's already drained and the runtime would reject it as
-        // `unknown_run`.
-        if (activeRequestIdRef.current === requestId) {
-          activeRequestIdRef.current = null;
-        }
-      }
-    },
-  });
-
-  /**
-   * Send a control packet (interrupt / steer) targeting the
-   * currently-active streaming run, if any. Returns `null` if no
-   * stream is active — the caller should silently no-op in that
-   * case (button click races with stream completion). Throws on
-   * transport failures so the caller can surface them inline.
-   */
-  const sendControl = useCallback(
-    async (
-      args: Omit<PrincipalSendControlArgs, "targetRequestId"> & {
-        runtimeId?: RuntimeId;
-      },
-    ) => {
-      const id = activeRequestIdRef.current;
-      if (id == null) return null;
-      const rid = effectiveRuntimeId(args.runtimeId);
-      return principalSendControl(
-        { ...args, targetRequestId: id },
+      const result = await principalSendStream(
+        vars.name,
+        vars.message,
+        nextRequestId(),
+        vars.onEvent,
         rid,
       );
+      return result.content;
     },
-    [],
-  );
+  });
+}
+
+/** Stop the running turn in the caller's thread with a peko. */
+export function usePrincipalStop() {
+  return useMutation({
+    mutationFn: (vars: { name: string; peer?: string; runtimeId?: RuntimeId }) =>
+      principalStop(vars.name, vars.peer, effectiveRuntimeId(vars.runtimeId)),
+  });
+}
+
+/**
+ * Follow the caller's thread with `name` live and refetch the
+ * `principal-log` query whenever a new DM row lands — replies to
+ * queued messages, cron and check-in posts, approval requests, and
+ * stop markers all arrive this way. While `pausedRef.current` is true
+ * (a stream is rendering the reply itself) refetches are skipped; the
+ * caller calls `flush` when the stream settles. Local runtime only;
+ * remote pekos have no watch API.
+ *
+ * `sinceCursor` is the newest row the caller has already loaded (see
+ * `newestLogCursor`); `undefined` means the thread hasn't loaded yet,
+ * and the watch waits for it so opening a chat never replays history.
+ * It is read once per subscription.
+ */
+export function usePrincipalLogWatch(
+  name: string | undefined,
+  peer: string | undefined,
+  runtimeId: RuntimeId | undefined,
+  sinceCursor: string | null | undefined,
+) {
+  const qc = useQueryClient();
+  const rid = effectiveRuntimeId(runtimeId);
+  const pausedRef = useRef(false);
+  const queryKey = ["principal-log", rid, name, peer ?? "owner"];
+  const ready = sinceCursor !== undefined;
+  const sinceRef = useRef(sinceCursor);
+  sinceRef.current = sinceCursor;
+
+  useEffect(() => {
+    if (!name || rid !== DEFAULT_RUNTIME_ID || !ready) return;
+    let stop: (() => void) | null = null;
+    let cancelled = false;
+    principalLogWatch(name, peer, sinceRef.current ?? null, () => {
+      if (pausedRef.current) return;
+      void qc.invalidateQueries({ queryKey: ["principal-log", rid, name, peer ?? "owner"] });
+    })
+      .then((unwatch) => {
+        if (cancelled) unwatch();
+        else stop = unwatch;
+      })
+      .catch(() => {
+        // No watch (daemon down or older runtime): the log still
+        // refreshes after every send.
+      });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [name, peer, rid, qc, ready]);
 
   return {
-    ...mutation,
-    sendControl,
-    activeRequestIdRef,
+    pausedRef,
+    /** Refetch the thread now (rows that landed while paused included). */
+    flush: () => qc.refetchQueries({ queryKey }),
   };
+}
+
+/**
+ * The newest row number in a loaded thread page, as a log-watch
+ * cursor. Log row ids are `chan_<line>`; `null` for an empty thread.
+ */
+export function newestLogCursor(messages: { id: string }[] | undefined): string | null {
+  let newest: number | null = null;
+  for (const m of messages ?? []) {
+    const line = Number(m.id.startsWith("chan_") ? m.id.slice(5) : NaN);
+    if (Number.isInteger(line)) newest = newest === null ? line : Math.max(newest, line);
+  }
+  return newest === null ? null : String(newest);
 }
 
 // ─── Principal log (peko log, ADR-042) ──────────────────────────

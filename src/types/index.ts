@@ -84,27 +84,26 @@ export interface EngineVersionMismatch {
 // agent-prompt lists or config snapshots over IPC.
 
 /**
- * The runtime / hub exposure model (pekohub ADR-005). Four modes:
+ * Where a peko can be reached.
  *
- * - `unexposed` — local only; no hub presence at all.
- * - `private`   — visible only to the owner (and invited pekos).
- * - `unlisted`  — chat-reachable by anyone holding the share link,
- *                 but absent from the public directory.
- * - `public`    — discoverable in the hub directory.
+ * Local pekos carry the runtime's registration state (ADR-081):
+ * - `local_only` — not on PekoHub.
+ * - `private`    — registered on PekoHub; reachable by its contacts.
+ * - `public`     — registered and discoverable in the hub directory.
  *
- * Read-side principal/exposure fields are typed with this union;
- * write-side request fields stay `string` so older call sites keep
- * typechecking (the runtime validates on commit anyway).
+ * Remote pekos listed from PekoHub may also carry the hub's own modes
+ * (pekohub ADR-005): `unexposed` and `unlisted` (reachable by share
+ * link, not listed).
  */
-export type PrincipalExposure = "unexposed" | "private" | "unlisted" | "public";
+export type PrincipalExposure =
+  | "local_only"
+  | "private"
+  | "public"
+  | "unexposed"
+  | "unlisted";
 
-/** All exposure modes, in escalating order of visibility. */
-export const EXPOSURE_MODES: readonly PrincipalExposure[] = [
-  "unexposed",
-  "private",
-  "unlisted",
-  "public",
-];
+/** Registration states a local peko can be set to (`principal_register`). */
+export type PekoRegistration = "local_only" | "private" | "public";
 
 /**
  * Genesis pipeline state of a principal (peko-runtime ADR-054).
@@ -180,67 +179,7 @@ export interface ChatLogPage {
  */
 export type LogResponse = ChatLogPage;
 
-// ─── Extension / Registry / Cron / System ────────────────────────
-
-export interface ExtensionSummary {
-  id: string;
-  name: string;
-  version: string;
-  description?: string;
-  enabled: boolean;
-  source: string;
-  extType: string;
-  /** Capabilities this extension declares it provides (e.g. `tool:Read`). */
-  provides: string[];
-  /** Capabilities this extension requires to function. */
-  requires: string[];
-}
-
-export interface CapabilityList {
-  granted: string[];
-  detected: string[];
-  active: string[];
-  /**
-   * IDs of extensions the principal currently has enabled (built-ins,
-   * agents, installed extensions). Sourced from the runtime's
-   * `ExtensionCatalog::active_extensions()` so the desktop does not need
-   * to join extension `provides` client-side. Newer daemon builds
-   * populate this field; older builds leave it `undefined`.
-   */
-  activeExtensions?: string[];
-}
-
-export interface SearchResult {
-  ref: string;
-  name: string;
-  description?: string;
-  author?: string;
-  version: string;
-  downloads: number;
-  tags: string[];
-}
-
-export interface BundleItem {
-  ref: string;
-  name: string;
-  version: string;
-  description?: string;
-  author?: string;
-  tags: string[];
-  size?: number;
-  checksum?: string;
-}
-
-export interface CronJob {
-  id: string;
-  name: string;
-  schedule: string;
-  command: string;
-  enabled: boolean;
-  lastRun?: string;
-  nextRun?: string;
-  lastResult?: "success" | "failure" | "running";
-}
+// ─── System ───────────────────────────────────────────────────────
 
 export interface SystemStatus {
   daemon: DaemonStatus;

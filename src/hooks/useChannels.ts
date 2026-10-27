@@ -47,6 +47,19 @@ export interface ChannelRow extends ChannelSummary {
   memberPrincipals: string[];
 }
 
+/**
+ * True for a peko's direct-message channel (`dm_<64 hex>`, ADR-082):
+ * the one continuous thread the Chat view shows. Groups are
+ * `chan_<8 base36>`. `channel_list` returns both kinds.
+ */
+export function isDirectChannel(channelId: string): boolean {
+  return channelId.startsWith("dm_");
+}
+
+/**
+ * The group channels the given pekos belong to, merged across pekos.
+ * DM channels are left out — each is a peko's chat, shown in Chat.
+ */
 export function useChannels(
   principalNames: string[],
   runtimeId?: RuntimeId,
@@ -78,6 +91,7 @@ export function useChannels(
       for (let i = 0; i < results.length; i++) {
         const name = principalNames[i];
         for (const row of results[i]) {
+          if (isDirectChannel(row.channelId)) continue;
           const existing = dedupe.get(row.channelId);
           if (existing) {
             existing.memberPrincipals.push(name);
@@ -162,12 +176,28 @@ export function useChannelMembers(
  * without a follow-up list refresh. Invalidates the channel list so
  * the sidebar shows the new row.
  */
+/** The desktop's own actor: the terminal is always the local user (ADR-081). */
+const LOCAL_USER = "user:local";
+
+/**
+ * Create a group with `creatorName` as its first member, then have
+ * that peko invite the local user — a group created over IPC holds
+ * only its creator, and the user could otherwise neither read nor
+ * post in it.
+ */
 export function useChannelCreate(runtimeId?: RuntimeId) {
   const qc = useQueryClient();
   const rid = effectiveRuntimeId(runtimeId);
   return useMutation<string, ChannelError, { creatorName: string; name: string }>({
-    mutationFn: (vars) =>
-      channelCreate(vars.creatorName, vars.name, rid).catch(rethrowAsChannelError),
+    mutationFn: async (vars) => {
+      try {
+        const channelId = await channelCreate(vars.creatorName, vars.name, rid);
+        await channelInvite(channelId, vars.creatorName, LOCAL_USER, rid);
+        return channelId;
+      } catch (e) {
+        return rethrowAsChannelError(e);
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["channels", rid] });
     },

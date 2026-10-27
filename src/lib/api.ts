@@ -18,17 +18,14 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 
 import type {
   BootState,
-  CapabilityList,
   ChannelDetail,
   ChannelEvent,
   ChannelInviteResult,
   ChannelLeaveResult,
   ChannelMembers,
   ChannelSummary,
-  CronJob,
   CredentialDetail,
   DaemonStatus,
-  ExtensionSummary,
   LogResponse,
   ModelAddArgs,
   ModelPresetInfo,
@@ -36,8 +33,8 @@ import type {
   ModelTestResult,
   ModelUpdateArgs,
   PrincipalExposure,
+  PekoRegistration,
   RuntimeConnection,
-  SearchResult,
   Setting,
   SystemStatus,
 } from "../types";
@@ -279,21 +276,70 @@ export async function principalExport(args: {
   });
 }
 
+/** One hook or MCP server definition listed by an import preview. */
+export interface ImportExecutable {
+  id: string;
+  path: string;
+  definition: string;
+}
+
+/** `principal_import_previewed`, passed through (snake_case). */
+export interface ImportPreview {
+  name: string;
+  version: string;
+  did: string;
+  description: string | null;
+  agents: string[];
+  inventory: {
+    did: string;
+    file_count: number;
+    hooks: ImportExecutable[];
+    mcp_servers: ImportExecutable[];
+    skills: string[];
+    executable_files: string[];
+  };
+  manifest_checksum: string;
+  validation_errors: string[];
+  validation_warnings: string[];
+}
+
 /**
- * Import (wake) a principal from a `.peko` package at `path`.
- * The Tauri command follows a successful import with
- * `principal_reload` itself (runtime requirement), so the peko is
- * live daemon-side when this resolves — callers only need to
- * invalidate the `["principals"]` query. Keyless packages reject
- * with the runtime's "ground it with `peko create`" guidance,
- * verbatim.
+ * Read a `.peko` package at `path` without importing it: what it is
+ * and everything in it that can run. `rotateKeys` imports it as a new
+ * peko with a fresh identity; without it, a package of a peko already
+ * hosted here is refused.
  */
-export async function principalImport(args: { path: string }): Promise<unknown> {
-  // The Rust command is `principal_import(file_path, name, runtime_id)`;
-  // Tauri camelCases the arg names on the wire.
+export async function principalImportPreview(args: {
+  path: string;
+  rotateKeys?: boolean;
+}): Promise<ImportPreview> {
+  return invoke<ImportPreview>("principal_import_preview", {
+    filePath: args.path,
+    name: null,
+    rotateKeys: args.rotateKeys ?? false,
+    runtimeId: null,
+  });
+}
+
+/**
+ * Import (wake) a principal from a `.peko` package at `path`, after
+ * the user reviewed `principalImportPreview`. `manifestChecksum` is
+ * the preview's; the runtime refuses the import if the package
+ * changed in between. The Tauri command follows a successful import
+ * with `principal_reload` itself, so the peko is live daemon-side when
+ * this resolves. Keyless packages reject with the runtime's "ground it
+ * with `peko create`" guidance, verbatim.
+ */
+export async function principalImport(args: {
+  path: string;
+  manifestChecksum: string;
+  rotateKeys?: boolean;
+}): Promise<unknown> {
   return invoke("principal_import", {
     filePath: args.path,
     name: null,
+    expectedManifestChecksum: args.manifestChecksum,
+    rotateKeys: args.rotateKeys ?? false,
     runtimeId: null,
   });
 }
@@ -325,10 +371,8 @@ export async function principalSend(
 
 /**
  * Result of a streaming send. `requestId` is the runtime correlation
- * id for the in-flight run; the caller holds onto it so a follow-up
- * `principalSendControl({mode: "steer"})` can target the same run.
- * The runtime's `streaming_runs` registry is keyed by this id, so a
- * mismatch silently drops the control packet as `UnknownRun`.
+ * id for the run. `content` is empty when the message was queued
+ * behind a running turn (see the `queued` stream event).
  */
 export interface PrincipalSendStreamResult {
   requestId: number;
@@ -347,7 +391,16 @@ export interface PrincipalSendStreamResult {
  */
 export type ChatStreamMsg =
   | { kind: "chunk"; delta: string }
-  | { kind: "iteration"; iteration: number };
+  | { kind: "iteration"; iteration: number }
+  /** The peko was busy; the message was queued for its running turn. */
+  | { kind: "queued"; message: string }
+  /** Sent once per finished run. */
+  | {
+      kind: "runSummary";
+      iterations: number;
+      totalTokens: number | null;
+      toolErrors: { toolName: string | null; errorMessage: string }[];
+    };
 
 /**
  * Send a streaming message to a Principal. Each supervisor event
@@ -356,12 +409,10 @@ export type ChatStreamMsg =
  * the runtime correlation id.
  *
  * `requestId` is supplied by the caller (see `nextRequestId` in
- * `usePrincipals`) so the JS side can stash it in a ref BEFORE the
- * call — that way a subsequent `principalSendControl({mode: "steer"})`
- * can target the in-flight run. The runtime registers the run keyed
- * by this id; if the JS caller did not mint it themselves the value
- * in the result envelope would only be visible after settle, which
- * is too late to steer.
+ * `usePrincipals`) so concurrent streams never share an id. Sending
+ * while the peko is already working on this thread is how the user
+ * steers it: the runtime queues the message for the running turn and
+ * this call settles at once with a `queued` event.
  */
 export async function principalSendStream(
   name: string,
@@ -382,36 +433,44 @@ export async function principalSendStream(
 }
 
 /**
- * Send a control packet targeting an in-flight streaming send.
- *
- * - `mode: "interrupt"` — soft-cancel: the run aborts at the next
- *   agentic-loop seam and returns the partial assistant text.
- * - `mode: "steer"` — `text` is pushed onto the run's inbox and the
- *   next agentic iteration drains it as new context. Used by the
- *   chat input when a stream is already running and the user wants
- *   to redirect mid-flight.
- *
- * `targetRequestId` must equal the `requestId` returned by the
- * originating `principalSendStream` call. The runtime returns
- * `{status: "applied"}` on success or `{status: "unknown_run"}` if
- * the id has already settled.
+ * Stop the running turn in the caller's thread with `name`. `peer`
+ * omitted means the owner's thread. Resolves even when nothing was
+ * running (the envelope then has `success: false`).
  */
-export interface PrincipalSendControlArgs {
-  targetRequestId: number;
-  mode:
-    | { mode: "interrupt" }
-    | { mode: "steer"; text: string };
-}
-
-export async function principalSendControl(
-  args: PrincipalSendControlArgs,
+export async function principalStop(
+  name: string,
+  peer?: string,
   runtimeId?: RuntimeId,
-): Promise<{ status: string }> {
-  return invoke<{ status: string }>("principal_send_control", {
-    targetRequestId: args.targetRequestId,
-    mode: args.mode,
+): Promise<{ success?: boolean; error?: string | null }> {
+  return invoke("principal_stop", {
+    name,
+    peer: peer ?? null,
     runtimeId: runtimeId ?? null,
   });
+}
+
+/**
+ * Follow the caller's thread with `name` live. `onMessage` receives
+ * each new DM row (raw `principal_log` message shape). Returns a
+ * function that stops the watch.
+ */
+export async function principalLogWatch(
+  name: string,
+  peer: string | undefined,
+  sinceCursor: string | null,
+  onMessage: (message: unknown) => void,
+): Promise<() => void> {
+  const channel = new Channel<unknown>();
+  channel.onmessage = onMessage;
+  const watchId = await invoke<number>("principal_log_watch_start", {
+    name,
+    peer: peer ?? null,
+    sinceCursor,
+    onMessage: channel,
+  });
+  return () => {
+    void invoke("principal_log_watch_stop", { watchId });
+  };
 }
 
 type WireSubject =
@@ -472,7 +531,7 @@ export async function principalLog(params: {
 
 // ─── PR #3: new status / exposure / permission commands ──────────────────────
 //
-// These mirror the Rust `principal_set_status` / `principal_set_exposure`
+// These mirror the Rust `principal_set_status` / `principal_register`
 // / `principal_grant_permission` / `principal_revoke_permission` /
 // `principal_permissions` commands. They are local-only — passing a
 // remote runtime_id returns an error from the Rust side.
@@ -487,43 +546,67 @@ export async function principalSetStatus(
   });
 }
 
-export async function principalSetExposure(
-  args: { name: string; exposure: string; runtimeId?: RuntimeId },
-): Promise<unknown> {
-  return invoke("principal_set_exposure", {
+/**
+ * Set a local peko's PekoHub registration (ADR-081). Rejects with an
+ * `[exposure_conflict]`-prefixed message when the hub already has this
+ * peko registered from another runtime.
+ */
+export async function principalRegister(args: {
+  name: string;
+  registration: PekoRegistration;
+  runtimeId?: RuntimeId;
+}): Promise<unknown> {
+  return invoke("principal_register", {
     name: args.name,
-    exposure: args.exposure,
+    exposure: args.registration,
     runtimeId: args.runtimeId ?? null,
   });
 }
 
+/** A permission a peko's owner can grant (runtime `Permission`). */
+export type PekoPermission = "chat" | "view_settings" | "manage_settings" | "trusted";
+
+/**
+ * Runtime `PermissionGrant`, passed through unchanged (snake_case);
+ * actors are `{kind, id}` ActorRefs.
+ */
 export interface PermissionGrant {
-  grantId: string;
-  principal: string;
-  capabilities: string[];
-  expiresAt?: string | null;
+  subject: { kind: string; id?: string };
+  permission: PekoPermission;
+  granted_at: string;
+  granted_by: { kind: string; id?: string };
 }
 
-export async function principalGrantPermission(
-  args: {
-    name: string;
-    permission: Omit<PermissionGrant, "grantId">;
-    runtimeId?: RuntimeId;
-  },
-): Promise<PermissionGrant> {
-  return invoke<PermissionGrant>("principal_grant_permission", {
+/**
+ * Grant `permission` on peko `name` to `subject`, an actor in Display
+ * form: `user:<route>`, `principal:<route>`, `visitor:<route>`, or
+ * `public`.
+ */
+export async function principalGrantPermission(args: {
+  name: string;
+  subject: string;
+  permission: PekoPermission;
+  runtimeId?: RuntimeId;
+}): Promise<unknown> {
+  return invoke("principal_grant_permission", {
     name: args.name,
+    subject: args.subject,
     permission: args.permission,
     runtimeId: args.runtimeId ?? null,
   });
 }
 
-export async function principalRevokePermission(
-  args: { name: string; grantId: string; runtimeId?: RuntimeId },
-): Promise<{ removed: boolean }> {
-  return invoke<{ removed: boolean }>("principal_revoke_permission", {
+/** Revoke the grant named by its `(subject, permission)` pair. */
+export async function principalRevokePermission(args: {
+  name: string;
+  subject: string;
+  permission: PekoPermission;
+  runtimeId?: RuntimeId;
+}): Promise<unknown> {
+  return invoke("principal_revoke_permission", {
     name: args.name,
-    grantId: args.grantId,
+    subject: args.subject,
+    permission: args.permission,
     runtimeId: args.runtimeId ?? null,
   });
 }
@@ -706,91 +789,6 @@ export async function modelReload(): Promise<{ modelsCount: number; keysCount: n
 
 export async function systemStatus(runtimeId?: string): Promise<SystemStatus> {
   return invoke<SystemStatus>("system_status", { runtimeId: runtimeId ?? null });
-}
-
-// ─── Extensions ─────────────────────────────────────────────────
-
-export async function extensionList(): Promise<ExtensionSummary[]> {
-  return invoke("extension_list");
-}
-
-export async function extensionInstall(path: string): Promise<string> {
-  return invoke<string>("extension_install", { path });
-}
-
-export async function extensionUninstall(id: string): Promise<string> {
-  return invoke<string>("extension_uninstall", { id });
-}
-
-// ─── Capabilities (per-Principal grants) ─────────────────────────
-
-export async function capabilityList(principal: string): Promise<CapabilityList> {
-  return invoke<CapabilityList>("capability_list", { principal });
-}
-
-export async function capabilityGrant(
-  principal: string,
-  capability: string,
-): Promise<string> {
-  return invoke<string>("capability_grant", { principal, capability });
-}
-
-export async function capabilityRevoke(
-  principal: string,
-  capability: string,
-): Promise<string> {
-  return invoke<string>("capability_revoke", { principal, capability });
-}
-
-// ─── Registry ───────────────────────────────────────────────────
-
-export async function registrySearch(
-  query: string,
-  page: number,
-  perPage: number,
-): Promise<{ items: SearchResult[]; total: number }> {
-  return invoke("registry_search", { query, page, perPage });
-}
-
-/**
- * Result of a successful `registry_pull`, projected from the
- * runtime's `principal_pulled { name, version, digest }` envelope
- * (serde camelCase on the wire). This is NOT a `BundleItem` — the
- * pull envelope carries no description/author/downloads, just the
- * pulled seed's identity triple. The Registry page uses name+version
- * in its post-pull "create from this seed" panel.
- */
-export interface RegistryPullResult {
-  name: string;
-  version: string;
-  digest: string;
-}
-
-export async function registryPull(ref: string): Promise<RegistryPullResult> {
-  return invoke("registry_pull", { ref });
-}
-
-// ─── Cron ───────────────────────────────────────────────────────
-
-export async function cronList(): Promise<CronJob[]> {
-  return invoke("cron_list");
-}
-
-export async function cronAdd(payload: {
-  name: string;
-  schedule: string;
-  command: string;
-  enabled?: boolean;
-}): Promise<CronJob> {
-  return invoke("cron_add", { payload });
-}
-
-export async function cronRemove(id: string): Promise<void> {
-  return invoke("cron_remove", { id });
-}
-
-export async function cronRun(id: string): Promise<void> {
-  return invoke("cron_run", { id });
 }
 
 // ─── Settings ───────────────────────────────────────────────────
@@ -1155,6 +1153,37 @@ export async function channelMembers(
     channelId,
     runtimeId: runtimeId ?? null,
   });
+}
+
+/** What starts a turn for a peko in a channel (ADR-082). */
+export type WakePolicy = "human" | "mention" | "off";
+
+/** A channel's kind, members, and how each member peko hosted here wakes. */
+export interface ChannelInfo {
+  channelId: string;
+  kind: "dm" | "group";
+  name: string;
+  /** Actors in `kind:id` form, e.g. `user:local`, `principal:prin_…`. */
+  members: string[];
+  pekos: { name: string; localId: string; wake: WakePolicy }[];
+}
+
+/** Read a channel's kind, members, and pekos' wake policies (members only). */
+export async function channelInfo(channelId: string): Promise<ChannelInfo> {
+  return invoke<ChannelInfo>("channel_info", { channelId });
+}
+
+/**
+ * Set how `principalName` wakes in a group. Only the peko's owner; a
+ * DM always wakes on human posts and is refused. Resolves with the
+ * policy now stored.
+ */
+export async function channelSetWake(
+  channelId: string,
+  principalName: string,
+  wake: WakePolicy,
+): Promise<WakePolicy> {
+  return invoke<WakePolicy>("channel_set_wake", { channelId, principalName, wake });
 }
 
 /**

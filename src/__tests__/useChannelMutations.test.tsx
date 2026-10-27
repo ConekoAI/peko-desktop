@@ -44,6 +44,8 @@ function freshClient(): QueryClient {
 describe("useChannelCreate", () => {
   beforeEach(() => {
     channelCreateMock.mockReset();
+    channelInviteMock.mockReset();
+    channelInviteMock.mockResolvedValue({ channel: "chan_new1234", invitee: "user:local" });
   });
 
   it("calls channelCreate with the args and resolves with the new channel id", async () => {
@@ -60,6 +62,16 @@ describe("useChannelCreate", () => {
     expect(id).toBe("chan_new1234");
     expect(channelCreateMock).toHaveBeenCalledTimes(1);
     expect(channelCreateMock).toHaveBeenCalledWith("alice", "team", "local");
+  });
+
+  it("has the creating peko invite the local user, who could not use the group otherwise", async () => {
+    channelCreateMock.mockResolvedValue("chan_new1234");
+    const qc = freshClient();
+    const { result } = renderHookWith(() => useChannelCreate("local"), qc);
+    await act(async () => {
+      await result.current.mutateAsync({ creatorName: "alice", name: "team" });
+    });
+    expect(channelInviteMock).toHaveBeenCalledWith("chan_new1234", "alice", "user:local", "local");
   });
 
   it("invalidates the channels list on success so the sidebar refetches", async () => {

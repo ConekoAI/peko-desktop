@@ -1,16 +1,21 @@
 // Tests for the principal profile modal's ADR-covered surfaces:
 //   • share link uses the canonical `/peko/{owner}/{name}` form
-//   • `[exposure_conflict]` update errors render the dedicated
-//     one-instance-per-peko alert with the tag stripped
+//   • registration changes go through `principalRegister`; an
+//     `[exposure_conflict]` rejection renders the dedicated
+//     one-online-copy alert with the tag stripped
 //   • `.peko` export panel: key warning, validated path input,
 //     principalExport payload, success echo
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
 interface MutState {
@@ -54,13 +59,25 @@ vi.mock("../hooks/useSettings", () => ({
   }),
 }));
 
+const principalRegisterMock = vi.fn();
 vi.mock("../lib/api", () => ({
   principalSetStatus: vi.fn(),
   principalMintInvite: vi.fn(),
   principalRevokeInvite: vi.fn(),
+  principalRegister: (...args: unknown[]) => principalRegisterMock(...args),
 }));
 
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
+
+/** Edit, pick a registration, Save; the config update succeeds. */
+function saveRegistration(value: string) {
+  updateState.mutate.mockImplementation(
+    (_payload: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.(),
+  );
+  fireEvent.click(screen.getByTitle("Edit"));
+  fireEvent.change(screen.getByLabelText("PekoHub"), { target: { value } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+}
 
 const LOCAL_PUBLIC = {
   name: "helper",
@@ -86,6 +103,7 @@ function renderModal(principal: unknown = LOCAL_PUBLIC) {
 describe("PrincipalProfileModal", () => {
   beforeEach(() => {
     navigateMock.mockReset();
+    principalRegisterMock.mockReset();
     principalState.data = undefined;
     principalState.isLoading = false;
     for (const s of [updateState, removeState, exportState]) {
@@ -104,15 +122,29 @@ describe("PrincipalProfileModal", () => {
     expect(screen.queryByText(/\/p\/alice\/helper/)).toBeNull();
   });
 
-  it("renders the dedicated one-instance alert when the update rejects with [exposure_conflict]", () => {
-    updateState.error = new Error(
-      "[exposure_conflict] conflictingInstanceId: hub:hub.example.com",
+  it("saves a registration change through principalRegister, not the config update", async () => {
+    principalRegisterMock.mockResolvedValue({});
+    renderModal();
+    saveRegistration("private");
+    await waitFor(() =>
+      expect(principalRegisterMock).toHaveBeenCalledWith({
+        name: "helper",
+        registration: "private",
+        runtimeId: "local",
+      }),
+    );
+    const payload = updateState.mutate.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("exposure");
+  });
+
+  it("renders the dedicated one-online-copy alert when registration rejects with [exposure_conflict]", async () => {
+    principalRegisterMock.mockRejectedValue(
+      new Error("[exposure_conflict] conflictingInstanceId: hub:hub.example.com"),
     );
     renderModal();
-    const alert = screen.getByTestId("exposure-conflict");
-    expect(alert).toHaveTextContent(
-      /already exposed somewhere else — only one public or unlisted instance per peko/i,
-    );
+    saveRegistration("private");
+    const alert = await screen.findByTestId("exposure-conflict");
+    expect(alert).toHaveTextContent(/already registered from another computer/i);
     // The tag is stripped; the hub's detail rides along.
     expect(alert).toHaveTextContent("conflictingInstanceId: hub:hub.example.com");
     expect(alert.textContent).not.toContain("[exposure_conflict]");

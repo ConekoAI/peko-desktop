@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   usePrincipal,
   usePrincipalExport,
@@ -13,7 +14,14 @@ import {
 } from "../../hooks/usePrincipalStatus";
 import { useModels } from "../../hooks/useModels";
 import { useSettings } from "../../hooks/useSettings";
-import { principalSetStatus, principalMintInvite, principalRevokeInvite, type MintedInvite } from "../../lib/api";
+import {
+  principalSetStatus,
+  principalMintInvite,
+  principalRegister,
+  principalRevokeInvite,
+  type MintedInvite,
+} from "../../lib/api";
+import type { PekoRegistration } from "../../types";
 import {
   X,
   Bot,
@@ -45,25 +53,27 @@ const STATUS_OPTIONS: Array<{ value: PrincipalStatusValue; label: string }> = [
 ];
 
 /**
- * The four exposure modes (pekohub ADR-005). `hint` is the one-line
- * explainer rendered under the picker so the user sees the blast
- * radius of the mode they're about to commit.
+ * PekoHub registration states (ADR-081). `hint` is the one-line
+ * explainer under the picker so the user sees who can reach the peko.
  */
-const EXPOSURE_OPTIONS = [
-  { value: "unexposed", label: "Unexposed", hint: "Local only" },
-  { value: "private", label: "Private", hint: "Only you and invited pekos" },
-  // `unlisted` means "chat-reachable by URL but not discoverable" —
-  // the recommended default when sharing with a specific friend who
-  // has a share link but you don't want to be in the public directory.
-  { value: "unlisted", label: "Unlisted", hint: "Anyone with the link" },
+const REGISTRATION_OPTIONS: ReadonlyArray<{
+  value: PekoRegistration;
+  label: string;
+  hint: string;
+}> = [
+  { value: "local_only", label: "Local only", hint: "Not on PekoHub" },
+  { value: "private", label: "Private", hint: "On PekoHub; only its contacts can reach it" },
   { value: "public", label: "Public", hint: "Discoverable on PekoHub" },
-] as const;
+];
+
+function registrationLabel(exposure: string | undefined): string {
+  return REGISTRATION_OPTIONS.find((o) => o.value === exposure)?.label ?? exposure ?? "—";
+}
 
 /**
- * Backend error prefix for the one-instance-per-peko exposure gate
- * (pekohub ADR-005): setting `public`/`unlisted` on a DID that already
- * has a public/unlisted instance elsewhere rejects with a 409 whose
- * message starts with this tag. The modal renders a dedicated inline
+ * Backend error prefix for the one-online-copy gate (ADR-081):
+ * registering a peko the hub already has registered from another
+ * runtime rejects with a message starting with this tag. The modal renders a dedicated inline
  * alert instead of the generic error box, with the tag stripped.
  */
 const EXPOSURE_CONFLICT_PREFIX = "[exposure_conflict]";
@@ -109,6 +119,7 @@ export default function PrincipalProfileModal({
   const currentStatus: PrincipalStatusValue = liveStatus?.status ?? "unknown";
 
   const updateMut = usePrincipalUpdate();
+  const qc = useQueryClient();
   const removeMut = usePrincipalRemove();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -116,6 +127,8 @@ export default function PrincipalProfileModal({
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("");
   const [exposure, setExposure] = useState("");
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
   const [modelId, setModelId] = useState<string>("");
   // Toggles `Copy` → `Check` icon for 2s after a successful clipboard
   // write. Lives in local component state — the icon swap is purely
@@ -203,6 +216,7 @@ export default function PrincipalProfileModal({
       setDescription("");
       setStatus("");
       setExposure("");
+      setRegisterError(null);
       setModelId("");
       setCopied(false);
       setMintedInvite(null);
@@ -231,15 +245,37 @@ export default function PrincipalProfileModal({
 
   function handleSave() {
     if (!principal) return;
+    setRegisterError(null);
     const payload = {
       name: principalName,
       description: description.trim() || undefined,
       status: status || undefined,
-      exposure: exposure || undefined,
       preferredModelId: modelId || undefined,
     };
+    // Registration is its own runtime operation (`principal_register`
+    // updates PekoHub over the tunnel), run after the config update.
+    const registrationChanged =
+      !isRemote && !!exposure && exposure !== (principal.exposure ?? "");
     updateMut.mutate(payload, {
-      onSuccess: () => setIsEditing(false),
+      onSuccess: async () => {
+        if (registrationChanged) {
+          setRegistering(true);
+          try {
+            await principalRegister({
+              name: principalName,
+              registration: exposure as PekoRegistration,
+              runtimeId: principal.runtimeId,
+            });
+            void qc.invalidateQueries({ queryKey: ["principals"] });
+          } catch (err) {
+            setRegisterError(err instanceof Error ? err.message : String(err));
+            return;
+          } finally {
+            setRegistering(false);
+          }
+        }
+        setIsEditing(false);
+      },
     });
   }
 
@@ -323,8 +359,8 @@ export default function PrincipalProfileModal({
   // detail (e.g. the conflicting instance), rendered under the
   // dedicated copy.
   const exposureConflictDetail =
-    updateError && updateError.startsWith(EXPOSURE_CONFLICT_PREFIX)
-      ? updateError.slice(EXPOSURE_CONFLICT_PREFIX.length).trim()
+    registerError && registerError.startsWith(EXPOSURE_CONFLICT_PREFIX)
+      ? registerError.slice(EXPOSURE_CONFLICT_PREFIX.length).trim()
       : null;
 
   const exportError =
@@ -409,7 +445,10 @@ export default function PrincipalProfileModal({
                 loading={statusQuery.isLoading && !liveStatus}
                 isRemote={isRemote}
               />
-              <Row label="Exposure" value={principal.exposure || "—"} />
+              <Row
+                label="PekoHub"
+                value={isRemote ? principal.exposure || "—" : registrationLabel(principal.exposure)}
+              />
               <Row
                 label="Preferred model"
                 value={
@@ -466,6 +505,7 @@ export default function PrincipalProfileModal({
                   `public` / `unlisted` we offer it as a one-click
                   alternative to the world-readable share link above. */}
               {(principal.exposure === "public" ||
+                principal.exposure === "private" ||
                 principal.exposure === "unlisted") && (
                 <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/30">
                   <div className="flex items-start gap-2">
@@ -680,27 +720,31 @@ export default function PrincipalProfileModal({
                   </div>
                 )}
 
-                <div>
-                  <label
-                    htmlFor="principal-exposure"
-                    className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
-                  >
-                    Exposure
-                  </label>
-                  <select
-                    id="principal-exposure"
-                    value={exposure}
-                    onChange={(e) => setExposure(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-                  >
-                    <option value="">—</option>
-                    {EXPOSURE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {!isRemote && (
+                  <div>
+                    <label
+                      htmlFor="principal-exposure"
+                      className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                    >
+                      PekoHub
+                    </label>
+                    <select
+                      id="principal-exposure"
+                      value={exposure}
+                      onChange={(e) => setExposure(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                    >
+                      {REGISTRATION_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                      {REGISTRATION_OPTIONS.find((o) => o.value === exposure)?.hint ?? ""}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -741,17 +785,17 @@ export default function PrincipalProfileModal({
               className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
             >
               <p className="font-medium">
-                This peko is already exposed somewhere else — only one
-                public or unlisted instance per peko.
+                This peko is already registered from another computer —
+                a peko can be online in only one place.
               </p>
               {exposureConflictDetail && (
                 <p className="mt-1 opacity-80">{exposureConflictDetail}</p>
               )}
             </div>
           ) : (
-            (updateError || removeError) && (
+            (updateError || registerError || removeError) && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
-                {updateError || removeError}
+                {updateError || registerError || removeError}
               </div>
             )
           )}
@@ -836,17 +880,17 @@ export default function PrincipalProfileModal({
                       setModelId(principal.preferredModelId ?? "");
                     }
                   }}
-                  disabled={updateMut.isPending}
+                  disabled={updateMut.isPending || registering}
                   className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={updateMut.isPending}
+                  disabled={updateMut.isPending || registering}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  {updateMut.isPending ? (
+                  {updateMut.isPending || registering ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : null}
                   Save
