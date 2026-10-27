@@ -82,7 +82,7 @@ jobs:
           # ad-hoc dispatch.
           RUNTIME_REF="${PEKO_RUNTIME_REF:-master}"
           git clone --depth 1 --branch "$RUNTIME_REF" "$RUNTIME_REPO" "$RUNTIME_DIR"
-          (cd "$RUNTIME_DIR" && cargo build --release -p peko)
+          (cd "$RUNTIME_DIR" && cargo build --release -p peko-daemon)
           PEKO_RUNTIME_DIR="$RUNTIME_DIR" bash scripts/fetch-peko-sidecar.sh
         env:
           PEKO_RUNTIME_REF: ${{ inputs.tag || github.ref_name }}

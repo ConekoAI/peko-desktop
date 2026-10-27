@@ -7,11 +7,41 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const principalImportMock = vi.fn();
+const principalImportPreviewMock = vi.fn();
 
 vi.mock("../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/api")>()),
   principalImport: (...args: unknown[]) => principalImportMock(...args),
+  principalImportPreview: (...args: unknown[]) => principalImportPreviewMock(...args),
 }));
+
+const PREVIEW = {
+  name: "alice",
+  version: "0.1.0",
+  did: "did:key:z6Mk",
+  description: "a test peko",
+  agents: [],
+  inventory: {
+    did: "did:key:z6Mk",
+    file_count: 12,
+    hooks: [{ id: "log-tools", path: "hooks/log-tools/hook.toml", definition: "" }],
+    mcp_servers: [],
+    skills: ["notes"],
+    executable_files: [],
+  },
+  manifest_checksum: "sha256:abc",
+  validation_errors: [],
+  validation_warnings: [],
+};
+
+/** Enter a path and run the Review step. */
+async function review(path = "~/.peko/alice.peko") {
+  fireEvent.change(screen.getByLabelText(/package path/i), {
+    target: { value: path },
+  });
+  fireEvent.click(screen.getByTestId("import-peko-review"));
+  await screen.findByTestId("import-peko-preview");
+}
 
 import ImportPekoModal from "../components/modals/ImportPekoModal";
 
@@ -31,6 +61,8 @@ function renderModal() {
 describe("ImportPekoModal", () => {
   beforeEach(() => {
     principalImportMock.mockReset();
+    principalImportPreviewMock.mockReset();
+    principalImportPreviewMock.mockResolvedValue(PREVIEW);
   });
 
   it("distinguishes waking the SAME peko from growing a FRESH one from a seed", () => {
@@ -41,24 +73,43 @@ describe("ImportPekoModal", () => {
     expect(copy).toMatch(/seed/i);
   });
 
-  it("keeps Import disabled until a package path is entered, then submits the trimmed path", async () => {
+  it("reviews the package first, then imports with the reviewed checksum", async () => {
     principalImportMock.mockResolvedValue({
       type: "principal_imported",
       name: "alice",
     });
     renderModal();
-    const submit = screen.getByTestId("import-peko-submit") as HTMLButtonElement;
-    expect(submit.disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText(/package path/i), {
-      target: { value: "  ~/.peko/alice.peko  " },
+    const reviewBtn = screen.getByTestId("import-peko-review") as HTMLButtonElement;
+    expect(reviewBtn.disabled).toBe(true);
+    await review("  ~/.peko/alice.peko  ");
+    expect(principalImportPreviewMock).toHaveBeenCalledWith({
+      path: "~/.peko/alice.peko",
+      rotateKeys: false,
     });
-    expect(submit.disabled).toBe(false);
-    fireEvent.click(submit);
+    // Everything that can run is listed before the user wakes it.
+    expect(screen.getByText(/can run code on this computer/i)).toBeInTheDocument();
+    expect(screen.getByText("hook log-tools")).toBeInTheDocument();
+    expect(principalImportMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("import-peko-submit"));
     await waitFor(() => {
       expect(principalImportMock).toHaveBeenCalledWith({
         path: "~/.peko/alice.peko",
+        manifestChecksum: "sha256:abc",
+        rotateKeys: false,
       });
     });
+  });
+
+  it("blocks the import when the preview reports validation errors", async () => {
+    principalImportPreviewMock.mockResolvedValue({
+      ...PREVIEW,
+      validation_errors: ["manifest checksum mismatch"],
+    });
+    renderModal();
+    await review();
+    expect(screen.getByText("manifest checksum mismatch")).toBeInTheDocument();
+    expect((screen.getByTestId("import-peko-submit") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("shows the woken peko's name and invalidates the principals list on success", async () => {
@@ -68,9 +119,7 @@ describe("ImportPekoModal", () => {
       config_path: "/home/u/.peko/principals/alice",
     });
     const { invalidateSpy } = renderModal();
-    fireEvent.change(screen.getByLabelText(/package path/i), {
-      target: { value: "~/.peko/alice.peko" },
-    });
+    await review();
     fireEvent.click(screen.getByTestId("import-peko-submit"));
     await screen.findByTestId("import-peko-success");
     expect(screen.getByText(/alice/)).toBeInTheDocument();
@@ -86,9 +135,7 @@ describe("ImportPekoModal", () => {
       ),
     );
     renderModal();
-    fireEvent.change(screen.getByLabelText(/package path/i), {
-      target: { value: "~/.peko/alice.peko" },
-    });
+    await review();
     fireEvent.click(screen.getByTestId("import-peko-submit"));
     await screen.findByTestId("import-peko-error");
     expect(

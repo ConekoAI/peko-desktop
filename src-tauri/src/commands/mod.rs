@@ -1,13 +1,9 @@
-pub mod capability;
 pub mod channel;
-pub mod cron;
 pub mod daemon;
 pub mod engine;
-pub mod extension;
 pub mod model_admin;
 pub mod oauth_callback;
 pub mod principal;
-pub mod registry;
 pub mod remote_principal;
 pub mod runtime;
 pub mod settings;
@@ -31,25 +27,27 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_remove,
         principal::principal_export,
         principal::principal_import,
+        principal::principal_import_preview,
         principal::principal_reload,
         principal::principal_send,
         principal::principal_send_stream,
-        principal::principal_send_control,
+        principal::principal_stop,
+        principal::principal_log_watch_start,
+        principal::principal_log_watch_stop,
         principal::principal_log,
         principal::principal_set_status,
-        principal::principal_set_exposure,
+        principal::principal_register,
         principal::principal_grant_permission,
         principal::principal_revoke_permission,
         principal::principal_permissions,
         principal::principal_mint_invite,
         principal::principal_revoke_invite,
-        capability::capability_list,
-        capability::capability_grant,
-        capability::capability_revoke,
         channel::channel_list,
         channel::channel_get,
         channel::channel_events,
         channel::channel_members,
+        channel::channel_info,
+        channel::channel_set_wake,
         channel::channel_post,
         channel::channel_create,
         channel::channel_invite,
@@ -62,15 +60,6 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         model_admin::model_remove,
         model_admin::model_test,
         model_admin::model_reload,
-        extension::extension_list,
-        extension::extension_install,
-        extension::extension_uninstall,
-        registry::registry_search,
-        registry::registry_pull,
-        cron::cron_list,
-        cron::cron_add,
-        cron::cron_remove,
-        cron::cron_run,
         settings::settings_get,
         settings::settings_set,
         settings::settings_list,

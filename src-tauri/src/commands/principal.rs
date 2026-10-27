@@ -520,10 +520,7 @@ pub async fn principal_send(
 /// Result envelope returned by the `principal_send_stream` Tauri
 /// command. `request_id` is the runtime's correlation id for the
 /// in-flight run (also minted by `IpcClient::next_request_id` on the
-/// desktop side); the frontend holds onto it so a subsequent
-/// `principal_send_control(steer)` call can target the same run. The
-/// runtime's `streaming_runs` registry is keyed by this id, so a
-/// mismatch silently drops the control packet as `UnknownRun`.
+/// desktop side).
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct PrincipalSendStreamResult {
     pub request_id: u64,
@@ -541,13 +538,10 @@ pub struct PrincipalSendStreamResult {
 /// migration window.
 ///
 /// The `request_id` is supplied by the JS caller (see
-/// `nextRequestId` in `src/hooks/usePrincipals.ts`). The JS side
-/// stashes it in a ref BEFORE awaiting the IPC call, so a subsequent
-/// `principal_send_control(steer)` can target the in-flight run by
-/// id — the runtime's `streaming_runs` registry is keyed by it. If
-/// we minted the id here on the Rust side, the JS caller would not
-/// learn it until the run settled (the result envelope is only
-/// populated on `principal_sent_done`), which is too late to steer.
+/// `nextRequestId` in `src/hooks/usePrincipals.ts`) so concurrent
+/// streams never share a correlation id. If the thread is already
+/// busy the run settles at once with a `queued` event and empty
+/// content; the reply then arrives through `principal_log_watch_start`.
 #[tauri::command]
 pub async fn principal_send_stream(
     app: AppHandle,
@@ -617,57 +611,114 @@ pub async fn principal_send_stream(
     })
 }
 
-/// Send a control packet targeting an in-flight `principal_send_stream`
-/// run. Used by the desktop's chat input when a stream is already
-/// running and the user wants to either interrupt it (`Interrupt`) or
-/// push new context that the next agentic iteration will drain
-/// (`Steer { text }`). `target_request_id` is the id returned by the
-/// originating `principal_send_stream` call. Returns the runtime's
-/// `principal_send_control_done` envelope verbatim so the JS caller
-/// can surface `status: "applied" | "unknown_run"` to the user.
+/// Stop the running turn in the caller's thread with `name`
+/// (`principal_stop`). `peer = None` is the owner's thread. Returns the
+/// daemon's `done` envelope; `success: false` with "no running turn…"
+/// just means there was nothing to stop.
 #[tauri::command]
-pub async fn principal_send_control(
+pub async fn principal_stop(
     state: tauri::State<'_, AppState>,
-    target_request_id: u64,
-    mode: serde_json::Value,
+    name: String,
+    peer: Option<String>,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    // PR #5: only the local runtime supports steering — the hub's
-    // SSE bridge is fire-and-forget, so we surface a clear error
-    // rather than silently dropping the control packet.
     let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
     if matches!(resolved, crate::state::ResolvedRuntime::HubRemote(_)) {
-        return Err(
-            "principal_send_control: steering is not supported for remote principals".to_string(),
-        );
+        return Err("Stopping a run is not supported for remote pekos yet".to_string());
     }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
-    let ipc_mode = match mode
-        .get("mode")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| "principal_send_control: missing `mode` discriminator".to_string())?
-    {
-        "interrupt" => crate::ipc::PrincipalSendControlMode::Interrupt,
-        "steer" => {
-            let text = mode
-                .get("text")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| "principal_send_control: `steer` mode requires `text`".to_string())?
-                .to_string();
-            crate::ipc::PrincipalSendControlMode::Steer { text }
-        }
-        other => {
-            return Err(format!(
-                "principal_send_control: unknown mode `{other}` (expected `interrupt` or `steer`)"
-            ));
-        }
-    };
-    client
-        .principal_send_control(target_request_id, ipc_mode)
+    let value = client
+        .principal_stop(&name, peer.as_deref())
         .await
-        .map_err(|e| format!("principal_send_control failed: {e}"))
+        .map_err(|e| format!("principal_stop failed: {e}"))?;
+    if crate::ipc::is_error_response(&value) {
+        return Err(value
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("principal_stop failed")
+            .to_string());
+    }
+    Ok(value)
+}
+
+/// Live log watches keyed by the id `principal_log_watch_start` returns.
+static LOG_WATCHES: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<u64, tokio::task::AbortHandle>>,
+> = std::sync::LazyLock::new(Default::default);
+static NEXT_LOG_WATCH_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+/// Delay before a log watch re-subscribes after it ended.
+const LOG_WATCH_RETRY: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Start following the caller's thread with `name` live
+/// (`principal_log_watch`). Each new DM row is pushed to `on_message`
+/// in the `principal_log` message shape. Returns a watch id for
+/// `principal_log_watch_stop`. Local runtime only.
+///
+/// `since_cursor` is the newest row number the caller already has (a
+/// log row id is `chan_<line>`), so opening a long thread does not
+/// replay it. The watch outlives a missing thread (a new peko has no
+/// DM channel until its first message — the daemon answers
+/// `[not_found]`) and daemon restarts: it re-subscribes every
+/// [`LOG_WATCH_RETRY`] from the newest row it has seen, until stopped.
+#[tauri::command]
+pub async fn principal_log_watch_start(
+    name: String,
+    peer: Option<String>,
+    since_cursor: Option<String>,
+    on_message: Channel<serde_json::Value>,
+) -> Result<u64, String> {
+    let id = NEXT_LOG_WATCH_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let task = tokio::spawn(async move {
+        let newest = std::sync::Arc::new(std::sync::Mutex::new(
+            since_cursor.and_then(|c| c.parse::<u64>().ok()),
+        ));
+        loop {
+            let since = newest.lock().unwrap().map(|n| n.to_string());
+            let result = match crate::ipc::IpcClient::new().await {
+                Ok(client) => {
+                    let newest = std::sync::Arc::clone(&newest);
+                    let on_message = on_message.clone();
+                    client
+                        .principal_log_watch(&name, peer.as_deref(), since.as_deref(), move |m| {
+                            // Replayed rows carry their store line
+                            // (`chan_<line>`); live rows do not.
+                            if let Some(line) = m
+                                .get("id")
+                                .and_then(|v| v.as_str())
+                                .and_then(|id| id.strip_prefix("chan_"))
+                                .and_then(|n| n.parse::<u64>().ok())
+                            {
+                                let mut newest = newest.lock().unwrap();
+                                *newest = Some(newest.map_or(line, |n| n.max(line)));
+                            }
+                            let _ = on_message.send(m);
+                        })
+                        .await
+                        .map_err(|e| e.to_string())
+                }
+                Err(e) => Err(e.to_string()),
+            };
+            if let Err(e) = result {
+                if !e.contains("[not_found]") {
+                    eprintln!("[peko-desktop] principal_log_watch for {name}: {e}; retrying");
+                }
+            }
+            tokio::time::sleep(LOG_WATCH_RETRY).await;
+        }
+    });
+    LOG_WATCHES.lock().unwrap().insert(id, task.abort_handle());
+    Ok(id)
+}
+
+/// Stop a watch started by `principal_log_watch_start`. Unknown ids are
+/// a no-op (the watch may already have ended).
+#[tauri::command]
+pub fn principal_log_watch_stop(watch_id: u64) {
+    if let Some(handle) = LOG_WATCHES.lock().unwrap().remove(&watch_id) {
+        handle.abort();
+    }
 }
 
 /// Read a peer's conversation thread with a Principal.
@@ -760,11 +811,8 @@ pub async fn principal_set_status(
 /// is re-thrown with this stable prefix instead of a generic failure.
 pub const EXPOSURE_CONFLICT_PREFIX: &str = "[exposure_conflict]";
 
-/// The four exposure modes the hub/runtime model supports
-/// (`unexposed | private | unlisted | public`). `private` — visible
-/// only to the owner and invited pekos — was added in the ADR-005
-/// realignment.
-const EXPOSURE_MODES: &[&str] = &["unexposed", "private", "unlisted", "public"];
+/// The runtime's registration states (ADR-081 `Exposure`).
+const REGISTRATION_MODES: &[&str] = &["local_only", "private", "public"];
 
 /// True when an error message looks like the hub's 409 exposure
 /// conflict ("Another instance … is already publicly exposed for this
@@ -775,35 +823,33 @@ fn is_exposure_conflict(message: &str) -> bool {
         || (message.contains("409") && message.contains("exposure"))
 }
 
-/// Set the local principal's exposure (`unexposed` / `private` /
-/// `public` / `unlisted`). Mirror of `RequestPacket::PrincipalSetExposure`.
+/// Set a local peko's PekoHub registration (`local_only` / `private` /
+/// `public`). Mirror of `RequestPacket::PrincipalRegister` (ADR-081).
 ///
-/// A runtime `error` envelope is mapped to `Err` (previously the
-/// envelope was passed through verbatim, forcing every caller to
-/// re-inspect `type`); an exposure-conflict error is prefixed with
-/// [`EXPOSURE_CONFLICT_PREFIX`] so the frontend can show the specific
-/// "this peko is already exposed elsewhere" dialog.
+/// A runtime `error` envelope is mapped to `Err`; a hub exposure
+/// conflict is prefixed with [`EXPOSURE_CONFLICT_PREFIX`] so the
+/// frontend can show the "already registered elsewhere" notice.
 #[tauri::command]
-pub async fn principal_set_exposure(
+pub async fn principal_register(
     name: String,
     exposure: String,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     reject_if_remote(runtime_id)?;
-    if !EXPOSURE_MODES.contains(&exposure.as_str()) {
+    if !REGISTRATION_MODES.contains(&exposure.as_str()) {
         return Err(format!(
-            "invalid exposure {exposure:?} — expected one of: {}",
-            EXPOSURE_MODES.join(", ")
+            "invalid registration {exposure:?} — expected one of: {}",
+            REGISTRATION_MODES.join(", ")
         ));
     }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     let value = client
-        .principal_set_exposure(&name, &exposure)
+        .principal_register(&name, &exposure)
         .await
-        .map_err(|e| format!("principal_set_exposure failed: {e}"))?;
-    if value.get("type").and_then(|v| v.as_str()) == Some("error") {
+        .map_err(|e| format!("principal_register failed: {e}"))?;
+    if crate::ipc::is_error_response(&value) {
         let message = value
             .get("message")
             .and_then(|v| v.as_str())
@@ -811,18 +857,21 @@ pub async fn principal_set_exposure(
         if is_exposure_conflict(message) {
             return Err(format!("{EXPOSURE_CONFLICT_PREFIX} {message}"));
         }
-        return Err(format!("principal_set_exposure failed: {message}"));
+        return Err(message.to_string());
     }
     Ok(value)
 }
 
 /// Grant a permission on a local principal. Mirror of
-/// `RequestPacket::PrincipalGrantPermission`. The `permission` shape
-/// is the runtime's `PermissionGrant` JSON (`{principal, capabilities, expires_at?}`).
+/// `RequestPacket::PrincipalGrantPermission`. `subject` is an actor in
+/// Display form (`user:<route>`, `principal:<route>`, `visitor:<route>`,
+/// `public`); `permission` is `chat` / `view_settings` /
+/// `manage_settings` / `trusted`.
 #[tauri::command]
 pub async fn principal_grant_permission(
     name: String,
-    permission: serde_json::Value,
+    subject: String,
+    permission: String,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     reject_if_remote(runtime_id)?;
@@ -830,19 +879,19 @@ pub async fn principal_grant_permission(
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     client
-        .principal_grant_permission(&name, &permission)
+        .principal_grant_permission(&name, &subject, &permission)
         .await
         .map_err(|e| format!("principal_grant_permission failed: {e}"))
 }
 
 /// Revoke a previously-granted permission on a local principal.
-/// Mirror of `RequestPacket::PrincipalRevokePermission` — `grant_id`
-/// is the stable id returned in the prior `principal_grant_permission`
-/// response.
+/// Mirror of `RequestPacket::PrincipalRevokePermission` — a grant is
+/// named by its `(subject, permission)` pair.
 #[tauri::command]
 pub async fn principal_revoke_permission(
     name: String,
-    grant_id: String,
+    subject: String,
+    permission: String,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     reject_if_remote(runtime_id)?;
@@ -850,7 +899,7 @@ pub async fn principal_revoke_permission(
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     client
-        .principal_revoke_permission(&name, &grant_id)
+        .principal_revoke_permission(&name, &subject, &permission)
         .await
         .map_err(|e| format!("principal_revoke_permission failed: {e}"))
 }
@@ -895,15 +944,7 @@ pub async fn principal_mint_invite(
     // `peko_auth::Permission` exactly (snake_case); if a new
     // permission is added on the runtime side, this list must be
     // updated.
-    const ALLOWED: &[&str] = &[
-        "chat",
-        "view_settings",
-        "manage_settings",
-        "manage_extensions",
-        "manage_members",
-        "expose",
-        "delete",
-    ];
+    const ALLOWED: &[&str] = &["chat", "view_settings", "manage_settings", "trusted"];
     for s in &scope {
         if !ALLOWED.contains(&s.as_str()) {
             return Err(format!("Unknown permission: {s}"));
@@ -967,8 +1008,9 @@ pub async fn principal_export(
 }
 
 /// Import a `.peko` package from `file_path` (ADR-056). Sends the
-/// runtime's `principal_import` packet (pre-confirmed — the user has
-/// already accepted the import in the file-picker flow) and, on
+/// runtime's `principal_import` packet with the `manifest_checksum`
+/// from the `principal_import_preview` the user reviewed (the runtime
+/// refuses the import if the package changed since) and, on
 /// success, calls `principal_reload` so the daemon's in-memory manager
 /// picks the peko up without a restart (runtime requirement — the cron
 /// engine only drives genesis jobs for loaded principals).
@@ -980,6 +1022,8 @@ pub async fn principal_export(
 pub async fn principal_import(
     file_path: String,
     name: Option<String>,
+    expected_manifest_checksum: String,
+    rotate_keys: Option<bool>,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
     reject_if_remote(runtime_id)?;
@@ -987,7 +1031,12 @@ pub async fn principal_import(
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     let value = client
-        .principal_import(&file_path, name.as_deref())
+        .principal_import(
+            &file_path,
+            name.as_deref(),
+            &expected_manifest_checksum,
+            rotate_keys.unwrap_or(false),
+        )
         .await
         .map_err(|e| format!("principal_import failed: {e}"))?;
     error_envelope_to_err(&value, "principal_import")?;
@@ -1009,6 +1058,29 @@ pub async fn principal_import(
             ));
         }
     }
+    Ok(value)
+}
+
+/// Preview a `.peko` package before importing it
+/// (`principal_import_preview`). Returns the
+/// `principal_import_previewed` envelope; its `manifest_checksum` must
+/// be passed to `principal_import`.
+#[tauri::command]
+pub async fn principal_import_preview(
+    file_path: String,
+    name: Option<String>,
+    rotate_keys: Option<bool>,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    reject_if_remote(runtime_id)?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_import_preview(&file_path, name.as_deref(), rotate_keys.unwrap_or(false))
+        .await
+        .map_err(|e| format!("principal_import_preview failed: {e}"))?;
+    error_envelope_to_err(&value, "principal_import_preview")?;
     Ok(value)
 }
 
@@ -1232,32 +1304,32 @@ mod tests {
         }
     }
 
-    /// The exposure model has four modes — `private` (owner + invited
-    /// pekos only) was added in the ADR-005 realignment and must be
-    /// accepted alongside the legacy three.
+    /// The runtime's three registration states pass desktop-side
+    /// validation; hub-only modes (`unlisted`, `unexposed`) do not.
     #[tokio::test]
-    async fn test_principal_set_exposure_accepts_all_four_modes() {
-        for mode in EXPOSURE_MODES {
-            // All four modes pass desktop-side validation; the call
-            // then fails at IPC-connect time in the test env (no
-            // supervisor), which proves validation didn't reject it.
-            let err = principal_set_exposure("x".to_string(), mode.to_string(), None)
+    async fn test_principal_register_accepts_runtime_modes() {
+        for mode in REGISTRATION_MODES {
+            // Validation passes, then the call fails at IPC-connect
+            // time in the test env (no supervisor).
+            let err = principal_register("x".to_string(), mode.to_string(), None)
                 .await
                 .expect_err("no daemon in test env");
             assert!(
-                !err.contains("invalid exposure"),
+                !err.contains("invalid registration"),
                 "{mode:?} must pass validation, got: {err}"
             );
         }
     }
 
     #[tokio::test]
-    async fn test_principal_set_exposure_rejects_unknown_mode() {
-        let err = principal_set_exposure("x".to_string(), "friends-only".to_string(), None)
-            .await
-            .expect_err("unknown mode must be rejected");
-        assert!(err.contains("invalid exposure"), "got: {err}");
-        assert!(err.contains("private"), "error should list modes: {err}");
+    async fn test_principal_register_rejects_hub_only_modes() {
+        for mode in ["unlisted", "unexposed", "friends-only"] {
+            let err = principal_register("x".to_string(), mode.to_string(), None)
+                .await
+                .expect_err("non-runtime mode must be rejected");
+            assert!(err.contains("invalid registration"), "got: {err}");
+            assert!(err.contains("local_only"), "error should list modes: {err}");
+        }
     }
 
     /// The hub's 409 conflict copy (ADR-056 D7: at most one publicly

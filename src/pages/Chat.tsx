@@ -4,7 +4,10 @@ import {
   usePrincipals,
   usePrincipalSend,
   usePrincipalLog,
+  usePrincipalLogWatch,
+  usePrincipalStop,
   useCallerSubject,
+  newestLogCursor,
 } from "../hooks/usePrincipals";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import {
@@ -16,7 +19,7 @@ import {
   Bot as BotIcon,
   Plus,
   Activity,
-  Shield,
+  Square,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -46,7 +49,12 @@ interface ChatItem {
    * historical chunks in a turn collapse into one bubble.
    */
   iteration?: number;
+  /** A message sent while the peko was busy, waiting for its turn. */
+  queued?: boolean;
 }
+
+/** The error a stream ends with when the user pressed Stop. */
+const STOPPED_BY_USER = "stopped by user";
 
 function formatTime(ts?: string) {
   if (!ts) return "";
@@ -88,6 +96,11 @@ function ChatMessage({ item }: { item: ChatItem }) {
           <span className="text-[11px] text-slate-400 dark:text-slate-500">
             {formatTime(event.timestamp)}
           </span>
+          {item.queued && (
+            <span className="text-[11px] text-amber-600 dark:text-amber-400">
+              Queued — your peko will read this next
+            </span>
+          )}
         </div>
         <div className="mt-0.5 text-sm text-slate-800 dark:text-slate-200">
           {isUser ? (
@@ -191,16 +204,6 @@ function PrincipalToolbar({ principalName }: { principalName: string }) {
       <div className="flex items-center gap-2">
         <button
           onClick={() =>
-            navigate({ to: "/peko/$pekoName", params: { pekoName: principalName } })
-          }
-          title={`Manage what ${principalName} is allowed to do`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-        >
-          <Shield className="h-3.5 w-3.5" />
-          Permissions
-        </button>
-        <button
-          onClick={() =>
             navigate({ to: "/log/$pekoName", params: { pekoName: principalName } })
           }
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -247,16 +250,25 @@ export default function Chat() {
   const selectedPrincipal = principalName ?? principals?.[0]?.name ?? "";
 
   const sendMut = usePrincipalSend();
+  const stopMut = usePrincipalStop();
   const callerSubject = useCallerSubject();
   // ADR-042: scope the chat-history read to the caller's peer thread so
   // the desktop shows only the conversation between `selectedPrincipal`
   // and the active user. The runtime enforces ownership / Chat grants;
   // if the caller is the owner it returns the merged thread, otherwise
   // just the caller's own thread.
-  const { data: logData } = usePrincipalLog(
+  const logQuery = usePrincipalLog(selectedPrincipal || undefined, callerSubject, runtimeId);
+  const logData = logQuery.data;
+
+  // New DM rows (replies to queued messages, cron posts, approval
+  // requests, stop markers) refresh the thread while it is open.
+  // It starts once the thread has loaded (or failed to — a new peko
+  // has no thread yet), from the newest row already shown.
+  const logWatch = usePrincipalLogWatch(
     selectedPrincipal || undefined,
     callerSubject,
     runtimeId,
+    logQuery.isSuccess || logQuery.isError ? newestLogCursor(logData?.messages) : undefined,
   );
 
   useEffect(() => {
@@ -275,7 +287,15 @@ export default function Chat() {
   // merged in `displayItems` below so they survive principal switches
   // and don't clobber in-flight streaming.
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
+  // Messages sent while the peko is busy, shown after the live reply.
+  const [queuedItems, setQueuedItems] = useState<ChatItem[]>([]);
+  // Number of sends still waiting on the runtime. Only one of them is
+  // ever streaming; the rest settle as `queued`.
+  const [activeSends, setActiveSends] = useState(0);
+  const activeSendsRef = useRef(0);
+  const isStreaming = activeSends > 0;
+  // Failed tool calls reported by the last run's `runSummary`.
+  const [toolErrors, setToolErrors] = useState<string[]>([]);
   // `awaitingToken` drives the "Thinking…" pill: it stays `true` from
   // send until the first chunk of the current iteration lands, and
   // flips back to `true` whenever a new `principal_sent_iteration`
@@ -294,6 +314,8 @@ export default function Chat() {
   // half is re-derived from `logData` in the `displayItems` memo.
   useEffect(() => {
     setChatItems([]);
+    setQueuedItems([]);
+    setToolErrors([]);
     setError(null);
   }, [selectedPrincipal]);
 
@@ -301,7 +323,7 @@ export default function Chat() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatItems, isStreaming, logData]);
+  }, [chatItems, queuedItems, isStreaming, logData]);
 
   // Map the runtime's chat log directly onto chat bubbles. The
   // chat log is the only consumer-visible source of truth — no
@@ -319,74 +341,64 @@ export default function Chat() {
     e.preventDefault();
     if (!input.trim() || !selectedPrincipal) return;
     const message = input.trim();
-
-    // Mid-stream steering: if a streaming run is already in flight,
-    // send the typed text as a `Steer` control packet instead of
-    // kicking off a fresh send. The runtime's
-    // `PrincipalSendControlMode::Steer` pushes the text onto the
-    // run's `AsyncInboxItem::Steering` queue and the next agentic
-    // iteration drains it as new context — the existing run
-    // continues, the user just redirected. Falls through to a fresh
-    // send if no run is active (race between submit click and stream
-    // completion).
-    if (isStreaming && sendMut.activeRequestIdRef.current != null) {
-      setError(null);
-      try {
-        // Explicit discriminant so TS narrows the discriminated
-        // union member rather than widening `"steer"` to `string`.
-        await sendMut.sendControl({
-          mode: { mode: "steer", text: message },
-        });
-        // Optimistically echo the steered text into the chat so the
-        // user sees their redirect acknowledged; the runtime will
-        // append the steered text as a `user` message in the chat
-        // log on the next iteration.
-        const userEvent: StreamEvent = {
-          type: "chunk",
-          content: message,
-          timestamp: Date.now().toString(),
-        };
-        setChatItems((prev) => [...prev, { event: userEvent, isUser: true }]);
-        setInput("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-      return;
-    }
-
     setError(null);
     setInput("");
 
-    const userEvent: StreamEvent = {
-      type: "chunk",
-      content: message,
-      timestamp: Date.now().toString(),
+    const userItem: ChatItem = {
+      event: { type: "chunk", content: message, timestamp: Date.now().toString() },
+      isUser: true,
     };
-    setChatItems((prev) => [...prev, { event: userEvent, isUser: true }]);
+    // Sending while the peko is working is how the user steers it: the
+    // runtime queues the message for the running turn. Show it after
+    // the live reply until the thread refetches.
+    const sentWhileBusy = activeSendsRef.current > 0;
+    if (sentWhileBusy) {
+      setQueuedItems((prev) => [...prev, { ...userItem, queued: true }]);
+    } else {
+      setChatItems((prev) => [...prev, userItem]);
+      currentIterationRef.current = 0;
+      setAwaitingToken(true);
+      setToolErrors([]);
+    }
+    activeSendsRef.current += 1;
+    setActiveSends(activeSendsRef.current);
+    // The stream renders this reply itself; the log watch waits.
+    logWatch.pausedRef.current = true;
 
-    setIsStreaming(true);
-    // Reset per-run iteration tracking so a fresh send starts a new
-    // bubble series (prevents the first chunk from collapsing into a
-    // historical bubble whose `iteration` is `undefined`).
-    currentIterationRef.current = 0;
-    setAwaitingToken(true);
+    // A send made while busy can still start a run of its own if the
+    // previous turn finished in between; promote it on its first event.
+    let promoted = !sentWhileBusy;
+    const promote = () => {
+      if (promoted) return;
+      promoted = true;
+      setQueuedItems((prev) => prev.filter((q) => q.event !== userItem.event));
+      setChatItems((prev) => [...prev, userItem]);
+      currentIterationRef.current = 0;
+    };
+
     try {
       await sendMut.mutateAsync({
         name: selectedPrincipal,
         message,
         runtimeId,
         onEvent: (msg: ChatStreamMsg) => {
+          if (msg.kind === "queued") return;
+          if (msg.kind === "runSummary") {
+            setToolErrors(
+              msg.toolErrors.map((t) =>
+                t.toolName ? `${t.toolName}: ${t.errorMessage}` : t.errorMessage,
+              ),
+            );
+            return;
+          }
+          promote();
           if (msg.kind === "iteration") {
-            // Boundary marker from the runtime — a new agentic
-            // iteration started. Stash the iteration number on a ref
-            // (no re-render) so the next chunk can tag itself and
-            // the pill flips back to "Thinking…" until the first
-            // token lands.
+            // A new agentic iteration started: tag the next chunk and
+            // show the pill until its first token lands.
             currentIterationRef.current = msg.iteration;
             setAwaitingToken(true);
             return;
           }
-          // msg.kind === "chunk"
           setAwaitingToken(false);
           const delta = msg.delta;
           const iteration = currentIterationRef.current;
@@ -396,18 +408,13 @@ export default function Chat() {
               last &&
               !last.isUser &&
               last.event.type === "chunk" &&
-              (last.event as { toolCallId?: string }).toolCallId === undefined &&
-              // Append to the trailing bubble only when it belongs to
-              // the SAME agentic iteration; otherwise break a new
-              // bubble. This is the visible iteration boundary.
+              // Append only within the same agentic iteration; a new
+              // iteration starts a new bubble.
               last.iteration === iteration
             ) {
               const updated = [...prev];
               updated[updated.length - 1] = {
-                event: {
-                  ...last.event,
-                  content: (last.event.content ?? "") + delta,
-                },
+                event: { ...last.event, content: (last.event.content ?? "") + delta },
                 isUser: false,
                 iteration: last.iteration ?? iteration,
               };
@@ -416,11 +423,7 @@ export default function Chat() {
             return [
               ...prev,
               {
-                event: {
-                  type: "chunk",
-                  content: delta,
-                  timestamp: Date.now().toString(),
-                } as StreamEvent,
+                event: { type: "chunk", content: delta, timestamp: Date.now().toString() },
                 isUser: false,
                 iteration,
               },
@@ -429,11 +432,31 @@ export default function Chat() {
         },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const text = err instanceof Error ? err.message : String(err);
+      // Stop is not an error: the thread shows the runtime's stop marker.
+      if (!text.includes(STOPPED_BY_USER)) setError(text);
     } finally {
-      setIsStreaming(false);
-      setAwaitingToken(true);
-      currentIterationRef.current = 0;
+      activeSendsRef.current -= 1;
+      setActiveSends(activeSendsRef.current);
+      if (activeSendsRef.current === 0) {
+        setAwaitingToken(true);
+        currentIterationRef.current = 0;
+        logWatch.pausedRef.current = false;
+        // The DM channel is the record: once it has the exchange, the
+        // live copies go.
+        await logWatch.flush();
+        setChatItems([]);
+        setQueuedItems([]);
+      }
+    }
+  }
+
+  async function handleStop() {
+    if (!selectedPrincipal) return;
+    try {
+      await stopMut.mutateAsync({ name: selectedPrincipal, runtimeId });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     }
   }
 
@@ -516,7 +539,25 @@ export default function Chat() {
                 </div>
               </div>
             )}
+            {queuedItems.map((item, idx) => (
+              <ChatMessage key={`queued-${item.event.timestamp ?? idx}`} item={item} />
+            ))}
           </div>
+        )}
+
+        {toolErrors.length > 0 && (
+          <details className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            <summary className="cursor-pointer">
+              {toolErrors.length === 1
+                ? "1 tool call failed during this reply"
+                : `${toolErrors.length} tool calls failed during this reply`}
+            </summary>
+            <ul className="mt-2 list-disc space-y-1 pl-4">
+              {toolErrors.map((t, i) => (
+                <li key={i} className="break-words">{t}</li>
+              ))}
+            </ul>
+          </details>
         )}
 
         {tosText !== null ? (
@@ -542,44 +583,28 @@ export default function Chat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            // The input stays editable while a stream is in flight so
-            // the user can type a follow-up and submit to inject new
-            // context into the in-flight run via `Steer` under the
-            // hood. The submit handler branches on `isStreaming` +
-            // an active request id; a fresh send still requires
-            // `!isStreaming`, so this never lets two streams run in
-            // parallel from the same input. The button stays labeled
-            // "Send" in both cases — non-technical users shouldn't
-            // have to know "Steer" is a verb that means "redirect
-            // mid-stream"; the model's behaviour change is invisible.
+            placeholder={isStreaming ? "Add to what it's doing..." : "Type a message..."}
             className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
           />
+          {isStreaming && (
+            <button
+              type="button"
+              onClick={handleStop}
+              disabled={stopMut.isPending}
+              title="Stop"
+              aria-label="Stop"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <Square className="h-4 w-4 fill-current" />
+            </button>
+          )}
           <button
             type="submit"
             disabled={!input.trim()}
-            // The button stays labeled "Send" in both branches
-            // (fresh send vs. mid-stream steer) — "Steer" is jargon
-            // for non-technical users. Under the hood, `handleSend`
-            // branches on `isStreaming` + an active request id to
-            // route through `principalSendControl(Steer)` instead
-            // of `principalSendStream`; the visible behaviour is
-            // just "your text gets added to the conversation".
-            // Reload-spinner state means a fresh send is in flight
-            // (no stream yet, just sending); we never show the
-            // spinner while a stream is running, so the user sees
-            // an explicit "Send" affordance whenever they can hit
-            // it.
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
-            {isStreaming && sendMut.activeRequestIdRef.current == null ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                Send
-              </>
-            )}
+            <Send className="h-4 w-4" />
+            Send
           </button>
         </form>
       </div>

@@ -101,6 +101,18 @@ describe("useChannels — fan-out + dedupe", () => {
     const ids = (result.current.data ?? []).map((r) => r.channelId);
     expect(ids).toEqual(["chan_alpha", "chan_zulu"]);
   });
+
+  it("leaves out DM channels — each is a peko's chat, not a group", async () => {
+    channelListMock.mockResolvedValue([
+      { channelId: "dm_" + "a".repeat(64), runtimeId: "local" },
+      { channelId: "chan_team", runtimeId: "local" },
+    ]);
+    const qc = freshClient();
+    const { result } = renderHookWith(() => useChannels(["alice"]), qc);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const ids = (result.current.data ?? []).map((r) => r.channelId);
+    expect(ids).toEqual(["chan_team"]);
+  });
 });
 
 describe("useChannelsForPrincipal", () => {

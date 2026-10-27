@@ -1,18 +1,12 @@
 import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
-  Puzzle,
-  Globe,
-  Clock,
   Settings,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 
 const navItems = [
-  { to: "/extensions", label: "Extensions", icon: Puzzle },
-  { to: "/registry", label: "Registry", icon: Globe },
-  { to: "/cron", label: "Cron", icon: Clock },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

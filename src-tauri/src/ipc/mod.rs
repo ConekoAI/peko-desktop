@@ -97,15 +97,78 @@ pub struct StatusSnapshot {
 /// runtime at the start of each agentic loop iteration; the frontend
 /// uses it to (a) break chat bubbles between iterations and (b) drive
 /// the "Thinking…" pill while a new iteration's first token is in
-/// flight. Tool-call / thinking / retry / usage events stay backend-
-/// only and are not surfaced through this channel.
+/// flight. Tool-call / thinking / retry events stay backend-only.
+///
+/// `Queued` means the peko was already working on this thread: the
+/// runtime posted the message to the DM channel and queued it for the
+/// running turn (`[queued]` `Done`). The reply arrives on the DM
+/// channel, not on this stream. `RunSummary` mirrors the runtime's
+/// `run_summary` packet sent once per finished run.
 #[derive(Serialize, Debug, Clone)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum ChatStreamMsg {
     /// A streamed assistant text delta.
     Chunk { delta: String },
     /// Agentic-iteration boundary marker (iteration counter starts at 1).
     Iteration { iteration: u32 },
+    /// The message was queued behind the peko's running turn.
+    Queued { message: String },
+    /// Per-run totals: iterations, token usage, and failed tool calls.
+    RunSummary {
+        iterations: u32,
+        total_tokens: Option<u64>,
+        tool_errors: Vec<RunToolError>,
+    },
+}
+
+/// One failed tool call from a runtime `run_summary` packet.
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RunToolError {
+    pub tool_name: Option<String>,
+    pub error_message: String,
+}
+
+/// The `[queued]` prefix the runtime puts on a streaming send's
+/// `Done { success: false }` when the thread already has a running
+/// turn (`IngressOutcome::Queued`).
+pub const QUEUED_PREFIX: &str = "[queued]";
+
+/// Project a runtime `run_summary` packet into [`ChatStreamMsg::RunSummary`].
+pub fn run_summary_from_packet(raw: &serde_json::Value) -> ChatStreamMsg {
+    let iterations = raw.get("iterations").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let total_tokens = raw
+        .get("usage")
+        .and_then(|u| u.get("total_tokens"))
+        .and_then(|v| v.as_u64());
+    let tool_errors = raw
+        .get("tool_errors")
+        .and_then(|v| v.as_array())
+        .map(|errs| {
+            errs.iter()
+                .map(|e| RunToolError {
+                    tool_name: e
+                        .get("tool_name")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                    error_message: e
+                        .get("error_message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    ChatStreamMsg::RunSummary {
+        iterations,
+        total_tokens,
+        tool_errors,
+    }
 }
 
 /// This is the desktop's unified shape — the daemon uses different
@@ -161,6 +224,11 @@ pub enum StreamEvent {
     Error { message: String, timestamp: String },
 }
 
+/// True when the daemon answered with an `error` packet.
+pub fn is_error_response(response: &serde_json::Value) -> bool {
+    response.get("type").and_then(|v| v.as_str()) == Some("error")
+}
+
 /// Check if a response indicates a protocol version mismatch.
 /// Returns true if the daemon rejected the request due to version.
 pub fn is_version_mismatch(response: &serde_json::Value) -> bool {
@@ -170,16 +238,6 @@ pub fn is_version_mismatch(response: &serde_json::Value) -> bool {
             .and_then(|v| v.as_str())
             .map(|m| m.contains("protocol version") || m.contains("unsupported"))
             .unwrap_or(false)
-}
-
-/// Variant of the runtime's `PrincipalSendControlMode`. The wire shape
-/// is the same `tag = "mode"` enum the runtime deserializes; we keep a
-/// mirror here so `IpcClient::principal_send_control` can build the
-/// payload without re-implementing the discriminator inline.
-#[derive(Debug, Clone)]
-pub enum PrincipalSendControlMode {
-    Interrupt,
-    Steer { text: String },
 }
 
 /// Convert a peer string from the desktop's Display form
@@ -204,6 +262,9 @@ fn peer_str_to_subject_value(peer: &str) -> serde_json::Value {
     }
     if let Some(id) = peer.strip_prefix("principal:") {
         return serde_json::json!({ "kind": "principal", "id": id });
+    }
+    if let Some(id) = peer.strip_prefix("visitor:") {
+        return serde_json::json!({ "kind": "visitor", "id": id });
     }
     serde_json::Value::Null
 }
@@ -538,183 +599,6 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    // ── Cron ──────────────────────────────────────────────────────
-
-    /// List cron jobs
-    pub async fn cron_list(&self) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "cron_list",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "include_disabled": true,
-        });
-        self.request_response(req).await
-    }
-
-    /// Remove a cron job
-    pub async fn cron_remove(&self, id: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "cron_remove",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "job_id": id,
-        });
-        self.request_response(req).await
-    }
-
-    /// Run a cron job now
-    pub async fn cron_run(&self, id: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "cron_run",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "job_id": id,
-        });
-        self.request_response(req).await
-    }
-
-    /// Add a cron job (full CronJob struct as required by runtime's
-    /// `RequestPacket::CronAdd`). The runtime owns id generation,
-    /// timestamps, and run counters; the desktop only supplies the
-    /// user-facing fields (name, schedule, principal, action).
-    pub async fn cron_add(&self, job: serde_json::Value) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "cron_add",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "job": job,
-        });
-        self.request_response(req).await
-    }
-
-    // ── Extension ─────────────────────────────────────────────────
-
-    /// List extensions from daemon
-    pub async fn list_extensions(
-        &self,
-        enabled_only: bool,
-        ext_type: Option<&str>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "extension_list",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "enabled_only": enabled_only,
-            "ext_type": ext_type,
-        });
-        self.request_response(req).await
-    }
-
-    /// Install an extension from a path
-    pub async fn install_extension(&self, path: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "extension_install",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "path": path,
-        });
-        self.request_response(req).await
-    }
-
-    /// Uninstall an extension by ID
-    pub async fn uninstall_extension(&self, id: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "extension_uninstall",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "id": id,
-        });
-        self.request_response(req).await
-    }
-
-    // ── Capability (per-Principal grants) ───────────────────────────
-
-    /// List granted, detected, and active capabilities for a Principal.
-    pub async fn capability_list(&self, principal: &str) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "capability_list",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "principal": principal,
-        });
-        self.request_response(req).await
-    }
-
-    /// Grant a capability to a Principal.
-    pub async fn capability_grant(
-        &self,
-        principal: &str,
-        capability: &str,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "capability_grant",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "principal": principal,
-            "capability": capability,
-        });
-        self.request_response(req).await
-    }
-
-    /// Revoke a capability from a Principal.
-    pub async fn capability_revoke(
-        &self,
-        principal: &str,
-        capability: &str,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "capability_revoke",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "principal": principal,
-            "capability": capability,
-        });
-        self.request_response(req).await
-    }
-
-    // ── Registry ──────────────────────────────────────────────────
-
-    /// Pull a Principal bundle from a registry. Maps to runtime's
-    /// `RequestPacket::PrincipalPull` (the legacy `registry_pull`
-    /// packet was retired with ADR-041; the runtime's surface is
-    /// `principal_pull`). Desktop pre-confirms because the user has
-    /// already accepted the preview in the registry search UI.
-    pub async fn principal_pull(
-        &self,
-        registry_ref: &str,
-        name: Option<&str>,
-        force: bool,
-        allow_unsigned: bool,
-        registry_token: Option<&str>,
-        registry_host: Option<&str>,
-    ) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "principal_pull",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "registry_ref": registry_ref,
-            "name": name,
-            "force": force,
-            "confirmed": true,
-            "selected_capabilities": [],
-            "allow_unsigned": allow_unsigned,
-            "registry_token": registry_token,
-            "registry_host": registry_host,
-        });
-        self.request_response(req).await
-    }
-
     // ── Credential (vault) ─────────────────────────────────────────
 
     /// List credentials from the runtime's vault, optionally filtered by
@@ -904,9 +788,7 @@ impl IpcClient {
     /// string once the supervisor has settled.
     ///
     /// `request_id` is the caller's pre-minted correlation id (see
-    /// `next_request_id`). The runtime's `streaming_runs` registry is
-    /// keyed by this id — the desktop tracks it so a follow-up
-    /// `principal_send_control(steer)` call can target the right run.
+    /// `next_request_id`) so every packet of this run carries it.
     /// Hardcoded `1` would collide if two streams ever ran in parallel
     /// (e.g. two tabs); the runtime caps successor ids at 2^63 (see
     /// `next_successor_request_id` in the IPC handler), so capping ours
@@ -959,17 +841,34 @@ impl IpcClient {
                 .map_err(|e| IpcError::SendFailed(e.to_string()))?;
         }
 
+        // The runtime's success sequence is `principal_sent_done` →
+        // `run_summary` → `done`; a failed run sends `run_summary` →
+        // `error` → `done { success: false }`. A busy thread answers
+        // `done { success: false, error: "[queued]…" }` with no content.
+        // Replies to queued messages are posted to the DM channel after
+        // this stream's `done` — the chat follows them through
+        // `principal_log_watch`, not here.
+        let mut on_done = Some(on_done);
+        let mut final_content: Option<String> = None;
+        let mut pending_error: Option<String> = None;
         let mut buf = vec![0u8; 65536];
         loop {
-            let len = match tokio::time::timeout(
-                Duration::from_secs(120),
-                self.socket.recv_from(&mut buf),
-            )
-            .await
-            {
+            // After an `error` packet only the closing `done` is still
+            // expected; don't wait the full idle budget for it.
+            let idle = if pending_error.is_some() {
+                Duration::from_secs(2)
+            } else {
+                Duration::from_secs(120)
+            };
+            let len = match tokio::time::timeout(idle, self.socket.recv_from(&mut buf)).await {
                 Ok(Ok((len, _))) => len,
                 Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
-                Err(_) => return Err(IpcError::Timeout),
+                Err(_) => {
+                    return Err(match pending_error {
+                        Some(message) => IpcError::ReceiveFailed(message),
+                        None => IpcError::Timeout,
+                    })
+                }
             };
 
             let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
@@ -1014,22 +913,40 @@ impl IpcClient {
                     on_event(ChatStreamMsg::Iteration { iteration });
                 }
                 "principal_sent_done" => {
-                    let content = raw
-                        .get("content")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    on_done(content.clone());
+                    final_content = Some(
+                        raw.get("content")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                    );
                     let _ = app.emit("peko-stream", &StreamEvent::Done { timestamp });
-                    return Ok(());
                 }
-                "done" => return Ok(()),
-                "error" => {
-                    let message = raw
-                        .get("message")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("Unknown error")
-                        .to_string();
+                "run_summary" => on_event(run_summary_from_packet(&raw)),
+                "done" => {
+                    let success = raw
+                        .get("success")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    let error = raw.get("error").and_then(|v| v.as_str()).map(String::from);
+                    if success {
+                        if let Some(done) = on_done.take() {
+                            done(final_content.take().unwrap_or_default());
+                        }
+                        return Ok(());
+                    }
+                    if let Some(queued) = error.as_deref().filter(|e| e.starts_with(QUEUED_PREFIX))
+                    {
+                        on_event(ChatStreamMsg::Queued {
+                            message: queued[QUEUED_PREFIX.len()..].trim().to_string(),
+                        });
+                        if let Some(done) = on_done.take() {
+                            done(String::new());
+                        }
+                        return Ok(());
+                    }
+                    let message = error
+                        .or(pending_error)
+                        .unwrap_or_else(|| "run failed".to_string());
                     let _ = app.emit(
                         "peko-stream",
                         &StreamEvent::Error {
@@ -1038,6 +955,14 @@ impl IpcClient {
                         },
                     );
                     return Err(IpcError::ReceiveFailed(message));
+                }
+                "error" => {
+                    pending_error = Some(
+                        raw.get("message")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("Unknown error")
+                            .to_string(),
+                    );
                 }
                 "heartbeat" => continue,
                 other => {
@@ -1048,45 +973,25 @@ impl IpcClient {
         }
     }
 
-    /// Send a control message targeting an in-flight `principal_send_stream`
-    /// run. `mode` is one of:
-    ///
-    /// - `"interrupt"` — soft-cancel: aborts the run at the next
-    ///   agentic-loop seam and returns the partial assistant text.
-    ///   Mirrors the runtime's `PrincipalSendControlMode::Interrupt`.
-    /// - `"steer"` — user-added text is pushed onto the run's inbox
-    ///   (`AsyncInboxItem::Steering`) and the next agentic iteration
-    ///   drains it as new context. Used by the desktop's chat input
-    ///   when a stream is already running and the user wants to
-    ///   redirect mid-flight. Mirrors
-    ///   `PrincipalSendControlMode::Steer { text }`.
-    ///
-    /// `target_request_id` is the `request_id` returned by the
-    /// originating `principal_send_stream` call. The runtime's
-    /// `streaming_runs` registry is keyed by it — sending the wrong
-    /// id results in `UnknownRun` and the control packet is dropped.
-    ///
-    /// Returns the runtime's single-shot `principal_sent_control_done`
-    /// envelope, which carries a `status: "applied" | "unknown_run"`
-    /// discriminator the caller can surface to the user.
-    pub async fn principal_send_control(
+    /// Stop the run bound to a (principal, peer) thread. Mirror of
+    /// `RequestPacket::PrincipalStop`: the daemon fires the run's cancel
+    /// token (the loop exits at the next iteration boundary) and posts a
+    /// `⏹ stopped by user` marker to the DM channel. `peer: None` is the
+    /// owner's thread. Idempotent — with no running turn the daemon
+    /// answers `done { success: false, error: "no running turn…" }`,
+    /// which is returned as-is rather than as an error.
+    pub async fn principal_stop(
         &self,
-        target_request_id: u64,
-        mode: PrincipalSendControlMode,
+        name: &str,
+        peer: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
-        let mode_payload = match &mode {
-            PrincipalSendControlMode::Interrupt => serde_json::json!({ "mode": "interrupt" }),
-            PrincipalSendControlMode::Steer { text } => {
-                serde_json::json!({ "mode": "steer", "text": text })
-            }
-        };
         let req = serde_json::json!({
-            "type": "principal_send_control",
+            "type": "principal_stop",
             "protocol_version": PROTOCOL_VERSION,
-            "request_id": target_request_id,
-            "target_request_id": target_request_id,
-            "mode": mode_payload,
+            "request_id": 1u64,
+            "name": name,
+            "peer": peer.map(peer_str_to_subject_value),
         });
         self.request_response(req).await
     }
@@ -1154,6 +1059,87 @@ impl IpcClient {
             "cursor": cursor,
         });
         self.request_response(req).await
+    }
+
+    /// Follow a peer's thread with a Principal live. Mirror of
+    /// `RequestPacket::PrincipalLogWatch`: the daemon replays DM rows
+    /// newer than `since_cursor`, then streams new ones as
+    /// `principal_log_appended` packets, with `heartbeat` packets every
+    /// two seconds. There is no terminal `done`; the stream runs until
+    /// the caller drops it (the Tauri command aborts the task) or the
+    /// daemon goes away. Each row is passed to `on_message` in the same
+    /// shape `principal_log` pages carry.
+    pub async fn principal_log_watch<F>(
+        &self,
+        name: &str,
+        peer: Option<&str>,
+        since_cursor: Option<&str>,
+        on_message: F,
+    ) -> Result<()>
+    where
+        F: Fn(serde_json::Value) + Send + Sync + 'static,
+    {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_log_watch",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "peer": peer.map(peer_str_to_subject_value),
+            "since_cursor": since_cursor,
+        });
+        let bytes = serde_json::to_vec(&req).map_err(|e| IpcError::Serialization(e.to_string()))?;
+        #[cfg(windows)]
+        {
+            self.socket
+                .send_to(&bytes, "127.0.0.1:11435")
+                .await
+                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
+        }
+        #[cfg(unix)]
+        {
+            let sock_path = default_socket_path();
+            self.socket
+                .send_to(&bytes, &sock_path)
+                .await
+                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
+        }
+
+        let mut buf = vec![0u8; 65536];
+        loop {
+            // Heartbeats arrive every 2s; 15s of silence means the
+            // daemon is gone.
+            let len = match tokio::time::timeout(
+                Duration::from_secs(15),
+                self.socket.recv_from(&mut buf),
+            )
+            .await
+            {
+                Ok(Ok((len, _))) => len,
+                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
+                Err(_) => return Err(IpcError::Timeout),
+            };
+            let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
+                .map_err(|e| IpcError::Serialization(e.to_string()))?;
+            match raw.get("type").and_then(|v| v.as_str()).unwrap_or("") {
+                "principal_log_appended" => {
+                    if let Some(message) = raw.get("message") {
+                        on_message(message.clone());
+                    }
+                }
+                "heartbeat" => {}
+                "done" => return Ok(()),
+                "error" => {
+                    let message = raw
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unknown error")
+                        .to_string();
+                    return Err(IpcError::ReceiveFailed(message));
+                }
+                other => eprintln!("[peko-desktop] Unknown log-watch packet type: {other}"),
+            }
+        }
     }
 
     /// List all known Principals via the runtime's `principal_list`
@@ -1292,6 +1278,8 @@ impl IpcClient {
         &self,
         file_path: &str,
         name: Option<&str>,
+        expected_manifest_checksum: &str,
+        rotate_keys: bool,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1300,12 +1288,38 @@ impl IpcClient {
             "request_id": 1u64,
             "file_path": file_path,
             "name": name,
-            "allow_unsigned": false,
             "force": false,
-            "confirmed": true,
-            "selected_capabilities": [],
+            "expected_manifest_checksum": expected_manifest_checksum,
+            "rotate_keys": rotate_keys,
         });
         self.request_response_with_timeout(req, GENESIS_REQUEST_TIMEOUT)
+            .await
+    }
+
+    /// Mirror of `RequestPacket::PrincipalImportPreview`: read a `.peko`
+    /// package without importing it. The `principal_import_previewed`
+    /// envelope lists what would run (hook and MCP definitions, skills,
+    /// executable files) plus the `manifest_checksum` the import must
+    /// echo back, so the package cannot change between review and
+    /// import. Without `rotate_keys`, a snapshot of a peko already hosted
+    /// here is refused at this step.
+    pub async fn principal_import_preview(
+        &self,
+        file_path: &str,
+        name: Option<&str>,
+        rotate_keys: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_import_preview",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "file_path": file_path,
+            "name": name,
+            "force": false,
+            "rotate_keys": rotate_keys,
+        });
+        self.request_response_with_timeout(req, Duration::from_secs(60))
             .await
     }
 
@@ -1345,34 +1359,37 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// PR #3: mirror of `RequestPacket::PrincipalSetExposure`. The
-    /// daemon validates the exposure enum and re-announces the
-    /// instance tunnel message.
-    pub async fn principal_set_exposure(
+    /// Mirror of `RequestPacket::PrincipalRegister` (ADR-081): set the
+    /// peko's PekoHub registration — `local_only`, `private`
+    /// (registered, reachable by its contacts), or `public`
+    /// (discoverable). The daemon updates the hub over the tunnel.
+    pub async fn principal_register(
         &self,
         name: &str,
         exposure: &str,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "principal_set_exposure",
+            "type": "principal_register",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
             "exposure": exposure,
         });
-        self.request_response(req).await
+        self.request_response_with_timeout(req, Duration::from_secs(30))
+            .await
     }
 
-    /// PR #3: mirror of `RequestPacket::PrincipalGrantPermission`.
-    /// `permission` is a serialized `PermissionGrant` (the runtime's
-    /// own shape — `{principal, capabilities, expires_at?}`); the
-    /// daemon validates against the principal's `permissions: Vec<PermissionGrant>`
-    /// authoritative ACL.
+    /// Mirror of `RequestPacket::PrincipalGrantPermission`: grant
+    /// `permission` (`chat` / `view_settings` / `manage_settings` /
+    /// `trusted`) on `name` to `subject`, given in Display form
+    /// (`user:<route>`, `principal:<route>`, `visitor:<route>`, or
+    /// `public`) and re-encoded as the runtime's `ActorRef`.
     pub async fn principal_grant_permission(
         &self,
         name: &str,
-        permission: &serde_json::Value,
+        subject: &str,
+        permission: &str,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1380,17 +1397,19 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
+            "subject": peer_str_to_subject_value(subject),
             "permission": permission,
         });
         self.request_response(req).await
     }
 
-    /// PR #3: mirror of `RequestPacket::PrincipalRevokePermission`.
-    /// `grant_id` is the runtime's stable id for the grant (UUID v4).
+    /// Mirror of `RequestPacket::PrincipalRevokePermission`: a grant is
+    /// identified by its `(subject, permission)` pair.
     pub async fn principal_revoke_permission(
         &self,
         name: &str,
-        grant_id: &str,
+        subject: &str,
+        permission: &str,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1398,7 +1417,8 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
-            "grant_id": grant_id,
+            "subject": peer_str_to_subject_value(subject),
+            "permission": permission,
         });
         self.request_response(req).await
     }
@@ -1535,6 +1555,39 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "channel": channel,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::ChannelInfo`: the channel's kind,
+    /// name, members, and each hosted member peko's wake policy.
+    pub async fn channel_info(&self, channel: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_info",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::ChannelSetWake`: set what starts a turn
+    /// for `principal_name` in a group (`human` / `mention` / `off`).
+    pub async fn channel_set_wake(
+        &self,
+        channel: &str,
+        principal_name: &str,
+        wake: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_set_wake",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "principal_name": principal_name,
+            "wake": wake,
         });
         self.request_response(req).await
     }
@@ -2000,25 +2053,6 @@ mod tests {
                 "retired flag {retired} must not be sent"
             );
         }
-    }
-
-    /// Pin the `principal_import` wire shape: the desktop pre-confirms
-    /// (the runtime rejects unconfirmed imports) and selects no
-    /// capabilities beyond the package defaults.
-    #[test]
-    fn principal_import_request_preconfirms() {
-        let req = serde_json::json!({
-            "type": "principal_import",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-            "file_path": "/tmp/alice.peko",
-            "name": null,
-            "allow_unsigned": false,
-            "force": false,
-            "confirmed": true,
-            "selected_capabilities": [],
-        });
-        assert_eq!(req.get("confirmed").and_then(|v| v.as_bool()), Some(true));
     }
 
     /// The runtime's `RequestPacket::PrincipalLog.peer` is

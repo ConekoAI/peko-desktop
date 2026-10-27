@@ -281,6 +281,119 @@ pub async fn channel_members(
     ))
 }
 
+/// One peko hosted on this runtime in a [`ChannelInfo`].
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelPekoWake {
+    pub name: String,
+    pub local_id: String,
+    /// `human` / `mention` / `off` (ADR-082).
+    pub wake: String,
+}
+
+/// A channel's kind, name, members (`kind:id` text), and how each
+/// member peko hosted here wakes in it.
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelInfo {
+    pub channel_id: String,
+    /// `dm` or `group`.
+    pub kind: String,
+    pub name: String,
+    pub members: Vec<String>,
+    pub pekos: Vec<ChannelPekoWake>,
+}
+
+/// Read a channel's kind, members, and pekos' wake policies
+/// (`channel_info`). The caller must be a member.
+#[tauri::command]
+pub async fn channel_info(channel_id: String) -> Result<ChannelInfo, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_info(&channel_id)
+        .await
+        .map_err(|e| format!("channel_info failed: {e}"))?;
+    project_channel_info_envelope(&value)
+}
+
+/// Set how `principal_name` wakes in a group (`channel_set_wake`):
+/// `human`, `mention`, or `off`. Returns the policy now stored.
+#[tauri::command]
+pub async fn channel_set_wake(
+    channel_id: String,
+    principal_name: String,
+    wake: String,
+) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_set_wake(&channel_id, &principal_name, &wake)
+        .await
+        .map_err(|e| format!("channel_set_wake failed: {e}"))?;
+    if crate::ipc::is_error_response(&value) {
+        return Err(runtime_error_message(&value));
+    }
+    Ok(value
+        .get("wake")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&wake)
+        .to_string())
+}
+
+fn runtime_error_message(value: &serde_json::Value) -> String {
+    value
+        .get("message")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown runtime error")
+        .to_string()
+}
+
+/// Project a `channel_info_result` envelope; a runtime `error` becomes `Err`.
+fn project_channel_info_envelope(value: &serde_json::Value) -> Result<ChannelInfo, String> {
+    if crate::ipc::is_error_response(value) {
+        return Err(runtime_error_message(value));
+    }
+    let text = |key: &str| {
+        value
+            .get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let list = |key: &str| {
+        value
+            .get(key)
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default()
+    };
+    Ok(ChannelInfo {
+        channel_id: text("channel"),
+        kind: text("kind"),
+        name: text("name"),
+        members: list("members").iter().filter_map(actor_text).collect(),
+        pekos: list("pekos")
+            .iter()
+            .map(|p| {
+                let field = |k: &str| {
+                    p.get(k)
+                        .and_then(|v| v.as_str())
+                        .unwrap_or_default()
+                        .to_string()
+                };
+                ChannelPekoWake {
+                    name: field("name"),
+                    local_id: field("local_id"),
+                    wake: field("wake"),
+                }
+            })
+            .collect(),
+    })
+}
+
 /// PR-2a: post a message to `channel_id`. `sender_name` is `None` to
 /// speak as the caller's own server-derived identity (ADR-057 — the
 /// common "post as myself" case) or `Some(name)` for a principal the
@@ -556,6 +669,20 @@ fn project_channel_events_envelope(
 }
 
 /// Project the members list into `ChannelMembers`.
+/// An actor from the wire in the desktop's `kind:id` text form. Members
+/// and invitees are `ActorRef`s (`{"kind": "user", "id": "local"}`,
+/// ADR-081); older runtimes sent the text form directly.
+fn actor_text(value: &serde_json::Value) -> Option<String> {
+    if let Some(text) = value.as_str() {
+        return Some(text.to_string());
+    }
+    let kind = value.get("kind")?.as_str()?;
+    Some(match value.get("id").and_then(|v| v.as_str()) {
+        Some(id) => format!("{kind}:{id}"),
+        None => kind.to_string(),
+    })
+}
+
 fn project_channel_members_envelope(
     value: &serde_json::Value,
     channel_id: &str,
@@ -567,7 +694,7 @@ fn project_channel_members_envelope(
         .and_then(|v| v.as_array())
         .unwrap_or(&empty)
         .iter()
-        .filter_map(|m| m.as_str().map(|s| s.to_string()))
+        .filter_map(actor_text)
         .collect();
     ChannelMembers {
         channel_id: channel_id.to_string(),
@@ -618,9 +745,8 @@ fn project_channel_invited_envelope(
         .to_string();
     let invitee = value
         .get("invitee")
-        .and_then(|c| c.as_str())
-        .unwrap_or("")
-        .to_string();
+        .and_then(actor_text)
+        .unwrap_or_default();
     ChannelInviteResult {
         channel_id: channel,
         invitee,
@@ -804,6 +930,68 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert!(matches!(events[0], ChannelEvent::Created { .. }));
         assert!(matches!(events[1], ChannelEvent::Posted { .. }));
+    }
+
+    #[test]
+    fn project_channel_info_envelope_reads_the_runtime_shape() {
+        let v = json!({
+            "type": "channel_info_result",
+            "request_id": 1,
+            "channel": "chan_01qwjy2l",
+            "kind": "group",
+            "name": "team",
+            "members": [{"kind": "principal", "id": "prin_alice"}, {"kind": "user", "id": "local"}],
+            "pekos": [{"name": "alice", "local_id": "prin_alice", "wake": "mention"}],
+        });
+        let info = project_channel_info_envelope(&v).unwrap();
+        assert_eq!(info.kind, "group");
+        assert_eq!(info.members, vec!["principal:prin_alice", "user:local"]);
+        assert_eq!(
+            info.pekos,
+            vec![ChannelPekoWake {
+                name: "alice".into(),
+                local_id: "prin_alice".into(),
+                wake: "mention".into(),
+            }]
+        );
+        let err = project_channel_info_envelope(&json!({
+            "type": "error",
+            "message": "requester 'user:local' is not a member of the channel",
+        }))
+        .unwrap_err();
+        assert!(err.contains("not a member"));
+    }
+
+    #[test]
+    fn project_channel_members_envelope_reads_actor_refs() {
+        // The live runtime shape (ADR-081): members are ActorRefs.
+        let v = json!({
+            "type": "channel_members_result",
+            "channel": "chan_000peo0o",
+            "members": [
+                {"kind": "principal", "id": "prin_6d03818fddf24187a72119c6d395a3d3"},
+                {"kind": "user", "id": "local"}
+            ],
+        });
+        let m = project_channel_members_envelope(&v, "chan_000peo0o", "local");
+        assert_eq!(
+            m.members,
+            vec![
+                "principal:prin_6d03818fddf24187a72119c6d395a3d3",
+                "user:local"
+            ]
+        );
+    }
+
+    #[test]
+    fn project_channel_invited_envelope_reads_an_actor_ref() {
+        let v = json!({
+            "type": "channel_invited",
+            "channel": "chan_000peo0o",
+            "invitee": {"kind": "user", "id": "local"},
+        });
+        let r = project_channel_invited_envelope(&v, "chan_000peo0o", "local");
+        assert_eq!(r.invitee, "user:local");
     }
 
     #[test]

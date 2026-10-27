@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { usePrincipals } from "../hooks/usePrincipals";
-import { useExtensions } from "../hooks/useExtensions";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import {
   Bot,
-  Puzzle,
   Plus,
   Globe,
 } from "lucide-react";
@@ -48,7 +46,6 @@ function StatCard({
 
 export default function Dashboard() {
   const { data: principals } = usePrincipals();
-  const { data: extensions } = useExtensions();
   // ADR-043 §adoption: the engine is invisible on the happy path.
   // The dashboard used to render an "Engine Running" card; that's
   // gone. When the engine fails, the layout-level EngineFailureCard
@@ -74,7 +71,6 @@ export default function Dashboard() {
           value={principals?.length ?? 0}
           sub="top-level runtime actors"
         />
-        <StatCard icon={Puzzle} label="Extensions" value={extensions?.length ?? 0} to="/extensions" />
       </div>
 
       {/* Quick Actions */}
@@ -89,11 +85,11 @@ export default function Dashboard() {
             New Peko
           </button>
           <Link
-            to="/registry"
+            to="/discover"
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <Globe className="h-4 w-4" />
-            Browse Registry
+            Discover pekos
           </Link>
         </div>
       </div>
