@@ -34,6 +34,16 @@ vi.mock("../hooks/usePrincipals", () => ({
   newestLogCursor: () => null,
 }));
 
+const modelsState: { data: unknown } = { data: [] };
+vi.mock("../hooks/useModels", () => ({
+  useModels: () => modelsState,
+}));
+
+const copyMock = vi.fn(async (_text: string) => true);
+vi.mock("../components/chat/copy", () => ({
+  copyText: (text: string) => copyMock(text),
+}));
+
 // The modal pulls in model/genesis hooks that are irrelevant here.
 vi.mock("../components/modals/CreatePrincipalModal", () => ({
   default: () => null,
@@ -42,7 +52,7 @@ vi.mock("../components/modals/CreatePrincipalModal", () => ({
 import Chat from "../pages/Chat";
 
 function sendMessage(text: string) {
-  fireEvent.change(screen.getByRole("textbox"), {
+  fireEvent.change(screen.getByRole("textbox", { name: "Message" }), {
     target: { value: text },
   });
   fireEvent.click(screen.getByRole("button", { name: /send/i }));
@@ -56,6 +66,8 @@ describe("Chat ToS gate", () => {
     logWatch.flush.mockReset();
     logWatch.pausedRef.current = false;
     logState.data = undefined;
+    modelsState.data = [];
+    copyMock.mockClear();
     principalsState.data = [
       { name: "alice", owner: "user:local", runtimeId: "local" },
     ];
@@ -168,6 +180,68 @@ describe("Chat ToS gate", () => {
     });
     await waitFor(() => expect(logWatch.flush).toHaveBeenCalled());
     expect(screen.getByRole("button", { name: /used 1 tool/i })).toBeInTheDocument();
+  });
+
+  it("sends on ⌘↵ but adds a line on Enter", async () => {
+    sendMut.mutateAsync.mockResolvedValue("");
+    render(<Chat />);
+    const box = screen.getByRole("textbox", { name: "Message" });
+    fireEvent.change(box, { target: { value: "line one" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(sendMut.mutateAsync).not.toHaveBeenCalled();
+    fireEvent.keyDown(box, { key: "Enter", metaKey: true });
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({ message: "line one" });
+  });
+
+  it("sends with the model picked for this message", async () => {
+    modelsState.data = [
+      { id: "fast", displayName: "Fast model", enabled: true },
+      { id: "off", displayName: "Disabled", enabled: false },
+    ];
+    sendMut.mutateAsync.mockResolvedValue("");
+    render(<Chat />);
+    const picker = screen.getByRole("combobox", { name: /model for this message/i });
+    expect(screen.queryByRole("option", { name: "Disabled" })).toBeNull();
+    sendMessage("default first");
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(sendMut.mutateAsync.mock.calls[0][0].overrideModel).toBeUndefined();
+
+    fireEvent.change(picker, { target: { value: "fast" } });
+    sendMessage("now fast");
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(2));
+    expect(sendMut.mutateAsync.mock.calls[1][0].overrideModel).toBe("fast");
+  });
+
+  it("retries the latest reply by sending its message again, and copies messages", async () => {
+    logState.data = {
+      messages: [
+        { id: "chan_1", sender: "user:local", text: "summarize the doc", timestamp: "1" },
+        { id: "chan_2", sender: "principal:prin_a", text: "Here it is.", timestamp: "2" },
+      ],
+    };
+    sendMut.mutateAsync.mockResolvedValue("");
+    render(<Chat />);
+    // Only the latest reply offers Retry.
+    const retries = screen.getAllByRole("button", { name: "Retry" });
+    expect(retries).toHaveLength(1);
+    fireEvent.click(retries[0]);
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({ message: "summarize the doc" });
+
+    const copies = screen.getAllByRole("button", { name: "Copy" });
+    fireEvent.click(copies[copies.length - 1]);
+    await waitFor(() => expect(copyMock).toHaveBeenCalledWith("Here it is."));
+  });
+
+  it("shows the peko's name on its replies", () => {
+    logState.data = {
+      messages: [{ id: "chan_1", sender: "principal:prin_a", text: "hi", timestamp: "1" }],
+    };
+    render(<Chat />);
+    // The header names the peko once; its reply names it again.
+    expect(screen.getAllByText("alice").length).toBeGreaterThan(1);
+    expect(screen.queryByText("Assistant")).toBeNull();
   });
 
   it("empty state uses peko copy", () => {

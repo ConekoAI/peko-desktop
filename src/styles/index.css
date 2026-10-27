@@ -65,3 +65,20 @@ body {
 .ansi-bright-magenta { color: #c084fc; }
 .ansi-bright-cyan { color: #22d3ee; }
 .ansi-bright-white { color: #f8fafc; }
+
+/* Code highlighting (rehype-highlight / highlight.js classes), GitHub-like,
+   light and dark. Kept here so it follows the app's .dark toggle. */
+.hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-type, .hljs-doctag { color: #d73a49; }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string { color: #032f62; }
+.hljs-number, .hljs-built_in, .hljs-symbol, .hljs-variable, .hljs-template-variable, .hljs-attr { color: #005cc5; }
+.hljs-title, .hljs-title.function_, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: #6f42c1; }
+.hljs-meta, .hljs-params, .hljs-attribute { color: #e36209; }
+.hljs-deletion { color: #b31d28; }
+.dark .hljs-comment, .dark .hljs-quote { color: #8b949e; }
+.dark .hljs-keyword, .dark .hljs-selector-tag, .dark .hljs-literal, .dark .hljs-type, .dark .hljs-doctag { color: #ff7b72; }
+.dark .hljs-string, .dark .hljs-regexp, .dark .hljs-addition, .dark .hljs-meta .hljs-string { color: #a5d6ff; }
+.dark .hljs-number, .dark .hljs-built_in, .dark .hljs-symbol, .dark .hljs-variable, .dark .hljs-template-variable, .dark .hljs-attr { color: #79c0ff; }
+.dark .hljs-title, .dark .hljs-title.function_, .dark .hljs-section, .dark .hljs-name, .dark .hljs-selector-id, .dark .hljs-selector-class { color: #d2a8ff; }
+.dark .hljs-meta, .dark .hljs-params, .dark .hljs-attribute { color: #ffa657; }
+.dark .hljs-deletion { color: #ffa198; }

@@ -314,6 +314,8 @@ export function usePrincipalSend() {
       message: string;
       onEvent?: (msg: ChatStreamMsg) => void;
       runtimeId?: RuntimeId;
+      /** A configured model id for this message only. */
+      overrideModel?: string;
     }): Promise<string> => {
       const rid = effectiveRuntimeId(vars.runtimeId);
       if (!vars.onEvent) {
@@ -325,6 +327,7 @@ export function usePrincipalSend() {
         nextRequestId(),
         vars.onEvent,
         rid,
+        vars.overrideModel,
       );
       return result.content;
     },

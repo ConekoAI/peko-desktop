@@ -11,9 +11,10 @@ import {
 } from "../hooks/usePrincipals";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import ActivitySteps from "../components/chat/ActivitySteps";
+import Composer, { type ComposerModel } from "../components/chat/Composer";
+import { useModels } from "../hooks/useModels";
 import { applyActivity, EMPTY_ACTIVITY, type Activity as ReplyActivity } from "../components/chat/activity";
 import {
-  Send,
   Loader2,
   MessageCircle,
   X,
@@ -21,11 +22,12 @@ import {
   Bot as BotIcon,
   Plus,
   Activity,
-  Square,
+  Check,
+  Copy,
+  RotateCcw,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeSanitize from "rehype-sanitize";
+import Markdown from "../components/chat/Markdown";
+import { copyText } from "../components/chat/copy";
 import type { ChatLogMessage, StreamEvent } from "../types";
 import type { ChatStreamMsg } from "../lib/api";
 
@@ -69,12 +71,31 @@ function formatTime(ts?: string) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function ChatMessage({ item }: { item: ChatItem }) {
+function ChatMessage({
+  item,
+  pekoName,
+  onRetry,
+}: {
+  item: ChatItem;
+  /** Shown as the reply's author. */
+  pekoName: string;
+  /** Present on the latest reply: send the message before it again. */
+  onRetry?: () => void;
+}) {
   const { event, isUser } = item;
   const isError = event.type === "error";
+  const text = event.content ?? "";
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    if (await copyText(text)) {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    }
+  }
 
   return (
-    <div className="flex w-full gap-3 px-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/50">
+    <div className="group flex w-full gap-3 px-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/50">
       <div className="mt-0.5 shrink-0">
         {isUser ? (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
@@ -93,7 +114,7 @@ function ChatMessage({ item }: { item: ChatItem }) {
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {isUser ? "You" : isError ? "Error" : "Assistant"}
+            {isUser ? "You" : isError ? "Error" : pekoName}
           </span>
           <span className="text-[11px] text-slate-400 dark:text-slate-500">
             {formatTime(event.timestamp)}
@@ -106,21 +127,50 @@ function ChatMessage({ item }: { item: ChatItem }) {
         </div>
         <div className="mt-0.5 text-sm text-slate-800 dark:text-slate-200">
           {isUser ? (
-            <p className="whitespace-pre-wrap break-all">{event.content ?? ""}</p>
+            <p className="whitespace-pre-wrap break-words">{text}</p>
           ) : isError ? (
-            <p className="whitespace-pre-wrap break-all text-red-600 dark:text-red-400">
-              {event.content ?? ""}
-            </p>
+            <p className="whitespace-pre-wrap break-words text-red-600 dark:text-red-400">{text}</p>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none break-all">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                {event.content ?? ""}
-              </ReactMarkdown>
-            </div>
+            <Markdown>{text}</Markdown>
           )}
         </div>
+        {!item.queued && text && (
+          <div className="mt-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <MessageAction label={copied ? "Copied" : "Copy"} onClick={copy}>
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </MessageAction>
+            {onRetry && (
+              <MessageAction label="Retry" onClick={onRetry}>
+                <RotateCcw className="h-3.5 w-3.5" />
+              </MessageAction>
+            )}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function MessageAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+    >
+      {children}
+      {label}
+    </button>
   );
 }
 
@@ -298,6 +348,17 @@ export default function Chat() {
   const isStreaming = activeSends > 0;
   // Failed tool calls reported by the last run's `runSummary`.
   const [toolErrors, setToolErrors] = useState<string[]>([]);
+  // The model for the next message; `null` is the peko's own. Resets
+  // when switching pekos.
+  const [modelChoice, setModelChoice] = useState<string | null>(null);
+  const { data: models } = useModels();
+  const composerModels = useMemo<ComposerModel[]>(
+    () =>
+      (models ?? [])
+        .filter((m) => m.enabled)
+        .map((m) => ({ id: m.id, displayName: m.displayName || m.id })),
+    [models],
+  );
   // The latest reply's thinking and tool calls. Kept after the reply
   // lands (the thread itself records only messages) until the next send.
   const [activity, setActivity] = useState<ReplyActivity>(EMPTY_ACTIVITY);
@@ -322,6 +383,7 @@ export default function Chat() {
     setQueuedItems([]);
     setToolErrors([]);
     setActivity(EMPTY_ACTIVITY);
+    setModelChoice(null);
     setError(null);
   }, [selectedPrincipal]);
 
@@ -343,12 +405,21 @@ export default function Chat() {
     [logData],
   );
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || !selectedPrincipal) return;
+  /** Send what's in the composer. */
+  function handleSend() {
     const message = input.trim();
-    setError(null);
+    if (!message) return;
     setInput("");
+    void sendText(message);
+  }
+
+  /**
+   * Send `message` to the peko, streaming its reply — from the
+   * composer, or again from a message's Retry.
+   */
+  async function sendText(message: string) {
+    if (!message || !selectedPrincipal) return;
+    setError(null);
 
     const userItem: ChatItem = {
       event: { type: "chunk", content: message, timestamp: Date.now().toString() },
@@ -389,6 +460,7 @@ export default function Chat() {
         name: selectedPrincipal,
         message,
         runtimeId,
+        overrideModel: modelChoice ?? undefined,
         onEvent: (msg: ChatStreamMsg) => {
           if (msg.kind === "queued") return;
           if (msg.kind === "runSummary") {
@@ -480,6 +552,10 @@ export default function Chat() {
     for (let i = displayItems.length - 1; i >= 0; i--) if (displayItems[i].isUser) return i;
     return -1;
   }, [displayItems]);
+  // Retry sits on the latest reply and re-sends the message before it.
+  const retryIdx =
+    lastUserIdx >= 0 && lastUserIdx < displayItems.length - 1 ? displayItems.length - 1 : -1;
+  const retryText = lastUserIdx >= 0 ? (displayItems[lastUserIdx].event.content ?? "").trim() : "";
 
   // A "[tos_required]"-tagged send/stream rejection carries the hub's
   // terms text after the prefix; it renders as the acknowledgement
@@ -546,7 +622,15 @@ export default function Chat() {
           <div className="space-y-3">
             {displayItems.map((item, idx) => (
               <Fragment key={item.event.timestamp ?? idx}>
-                <ChatMessage item={item} />
+                <ChatMessage
+                  item={item}
+                  pekoName={selectedPrincipal}
+                  onRetry={
+                    idx === retryIdx && retryText && !isStreaming
+                      ? () => void sendText(retryText)
+                      : undefined
+                  }
+                />
                 {/* The latest reply's activity sits between the last
                     user message and the reply. */}
                 {idx === lastUserIdx && <ActivitySteps activity={activity} live={isStreaming} />}
@@ -561,7 +645,7 @@ export default function Chat() {
               </div>
             )}
             {queuedItems.map((item, idx) => (
-              <ChatMessage key={`queued-${item.event.timestamp ?? idx}`} item={item} />
+              <ChatMessage key={`queued-${item.event.timestamp ?? idx}`} item={item} pekoName={selectedPrincipal} />
             ))}
           </div>
         )}
@@ -599,35 +683,17 @@ export default function Chat() {
       </div>
 
       <div className="border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-        <form onSubmit={handleSend} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={isStreaming ? "Add to what it's doing..." : "Type a message..."}
-            className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-          />
-          {isStreaming && (
-            <button
-              type="button"
-              onClick={handleStop}
-              disabled={stopMut.isPending}
-              title="Stop"
-              aria-label="Stop"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            >
-              <Square className="h-4 w-4 fill-current" />
-            </button>
-          )}
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <Send className="h-4 w-4" />
-            Send
-          </button>
-        </form>
+        <Composer
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          onStop={handleStop}
+          busy={isStreaming}
+          stopping={stopMut.isPending}
+          models={composerModels}
+          model={modelChoice}
+          onModelChange={setModelChoice}
+        />
       </div>
     </div>
   );

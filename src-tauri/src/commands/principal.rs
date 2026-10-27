@@ -550,6 +550,7 @@ pub async fn principal_send_stream(
     request_id: u64,
     on_event: Channel<crate::ipc::ChatStreamMsg>,
     runtime_id: Option<String>,
+    override_model: Option<String>,
 ) -> Result<PrincipalSendStreamResult, String> {
     // PR #5: route by runtime_id. Local → IpcClient; HubRemote →
     // HubRemoteClient::send_stream. The local arm keeps the legacy
@@ -571,8 +572,11 @@ pub async fn principal_send_stream(
                 .principal_send_stream(
                     &app,
                     request_id,
-                    name,
-                    message,
+                    crate::ipc::StreamSend {
+                        name,
+                        message,
+                        override_model,
+                    },
                     {
                         let channel = on_event.clone();
                         move |msg| {

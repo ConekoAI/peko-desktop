@@ -152,6 +152,15 @@ pub struct RunToolError {
     pub error_message: String,
 }
 
+/// What a streaming send carries: the peko, the message, and an optional
+/// configured model id for this message only (`None` = the peko's own).
+#[derive(Debug, Clone)]
+pub struct StreamSend {
+    pub name: String,
+    pub message: String,
+    pub override_model: Option<String>,
+}
+
 /// The `[queued]` prefix the runtime puts on a streaming send's
 /// `Done { success: false }` when the thread already has a running
 /// turn (`IngressOutcome::Queued`).
@@ -841,8 +850,7 @@ impl IpcClient {
         &self,
         app: &tauri::AppHandle,
         request_id: u64,
-        name: String,
-        message: String,
+        send: StreamSend,
         on_event: F,
         on_done: G,
     ) -> Result<()>
@@ -851,6 +859,11 @@ impl IpcClient {
         G: FnOnce(String) + Send + 'static,
     {
         ensure_daemon().await?;
+        let StreamSend {
+            name,
+            message,
+            override_model,
+        } = send;
 
         let request = serde_json::json!({
             "type": "principal_send_stream",
@@ -858,6 +871,9 @@ impl IpcClient {
             "request_id": request_id,
             "name": name,
             "message": message,
+            // Per-message model choice (the configured model id), as
+            // `peko send --model`; `null` uses the peko's own model.
+            "override_model": override_model,
             // ADR-057: caller-declared identity was removed from the
             // wire — the runtime derives the caller's subject from the
             // connection (`CallerContext`), so there is no `user`
