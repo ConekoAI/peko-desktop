@@ -433,6 +433,7 @@ export async function principalSendStream(
   requestId: number,
   onEvent: (msg: ChatStreamMsg) => void,
   runtimeId?: RuntimeId,
+  overrideModel?: string,
 ): Promise<PrincipalSendStreamResult> {
   const channel = new Channel<ChatStreamMsg>();
   channel.onmessage = onEvent;
@@ -442,6 +443,9 @@ export async function principalSendStream(
     requestId,
     onEvent: channel,
     runtimeId: runtimeId ?? null,
+    // A configured model id for this message only; omitted = the
+    // peko's own model. Local runtime only.
+    overrideModel: overrideModel ?? null,
   });
 }
 
