@@ -394,6 +394,19 @@ export type ChatStreamMsg =
   | { kind: "iteration"; iteration: number }
   /** The peko was busy; the message was queued for its running turn. */
   | { kind: "queued"; message: string }
+  /** A tool call started; `input` (owner only) is a short redacted summary. */
+  | { kind: "toolStart"; toolId: string; name: string; input: string | null }
+  /** A tool call finished; `output` (owner only) is a short redacted excerpt. */
+  | {
+      kind: "toolEnd";
+      toolId: string;
+      name: string;
+      success: boolean;
+      durationMs: number;
+      output: string | null;
+    }
+  /** A thinking (reasoning) delta; owner only. */
+  | { kind: "thinking"; delta: string }
   /** Sent once per finished run. */
   | {
       kind: "runSummary";
