@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { Fragment, useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router";
 import {
   usePrincipals,
@@ -10,6 +10,8 @@ import {
   newestLogCursor,
 } from "../hooks/usePrincipals";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
+import ActivitySteps from "../components/chat/ActivitySteps";
+import { applyActivity, EMPTY_ACTIVITY, type Activity as ReplyActivity } from "../components/chat/activity";
 import {
   Send,
   Loader2,
@@ -296,6 +298,9 @@ export default function Chat() {
   const isStreaming = activeSends > 0;
   // Failed tool calls reported by the last run's `runSummary`.
   const [toolErrors, setToolErrors] = useState<string[]>([]);
+  // The latest reply's thinking and tool calls. Kept after the reply
+  // lands (the thread itself records only messages) until the next send.
+  const [activity, setActivity] = useState<ReplyActivity>(EMPTY_ACTIVITY);
   // `awaitingToken` drives the "Thinking…" pill: it stays `true` from
   // send until the first chunk of the current iteration lands, and
   // flips back to `true` whenever a new `principal_sent_iteration`
@@ -316,6 +321,7 @@ export default function Chat() {
     setChatItems([]);
     setQueuedItems([]);
     setToolErrors([]);
+    setActivity(EMPTY_ACTIVITY);
     setError(null);
   }, [selectedPrincipal]);
 
@@ -359,6 +365,7 @@ export default function Chat() {
       currentIterationRef.current = 0;
       setAwaitingToken(true);
       setToolErrors([]);
+      setActivity(EMPTY_ACTIVITY);
     }
     activeSendsRef.current += 1;
     setActiveSends(activeSendsRef.current);
@@ -374,6 +381,7 @@ export default function Chat() {
       setQueuedItems((prev) => prev.filter((q) => q.event !== userItem.event));
       setChatItems((prev) => [...prev, userItem]);
       currentIterationRef.current = 0;
+      setActivity(EMPTY_ACTIVITY);
     };
 
     try {
@@ -392,6 +400,10 @@ export default function Chat() {
             return;
           }
           promote();
+          if (msg.kind === "thinking" || msg.kind === "toolStart" || msg.kind === "toolEnd") {
+            setActivity((prev) => applyActivity(prev, msg));
+            return;
+          }
           if (msg.kind === "iteration") {
             // A new agentic iteration started: tag the next chunk and
             // show the pill until its first token lands.
@@ -464,6 +476,10 @@ export default function Chat() {
     () => mergeAssistantChunks([...historyItems, ...chatItems]),
     [historyItems, chatItems],
   );
+  const lastUserIdx = useMemo(() => {
+    for (let i = displayItems.length - 1; i >= 0; i--) if (displayItems[i].isUser) return i;
+    return -1;
+  }, [displayItems]);
 
   // A "[tos_required]"-tagged send/stream rejection carries the hub's
   // terms text after the prefix; it renders as the acknowledgement
@@ -529,7 +545,12 @@ export default function Chat() {
         ) : (
           <div className="space-y-3">
             {displayItems.map((item, idx) => (
-              <ChatMessage key={item.event.timestamp ?? idx} item={item} />
+              <Fragment key={item.event.timestamp ?? idx}>
+                <ChatMessage item={item} />
+                {/* The latest reply's activity sits between the last
+                    user message and the reply. */}
+                {idx === lastUserIdx && <ActivitySteps activity={activity} live={isStreaming} />}
+              </Fragment>
             ))}
             {isStreaming && awaitingToken && (
               <div className="flex justify-start">

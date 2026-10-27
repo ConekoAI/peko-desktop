@@ -113,6 +113,9 @@ Docs: AGENTS.md §1 still lists an "HTTP/WS daemon" and Axum. The daemon is IPC-
   export/import).
 
 **Phase 1 — Chat that feels like Grok (≈2 weeks).** Runtime item 1 lands first.
+*Status 2026-10-27:* runtime item 1 is done (peko-runtime#513: tool-step and thinking
+packets, owner-only inputs/outputs, redacted). The chat shows a reply's steps as one
+collapsible row.
 - Peko identity (avatar, name, accent) in header, messages, and sidebar.
 - New composer: textarea, ⌘↵, Stop/steer, model picker (`override_model`), @mention.
 - Tool/thinking step rows, code highlighting + copy, message actions, day separators,

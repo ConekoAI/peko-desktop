@@ -3,7 +3,7 @@
 // text — never as a generic red error bubble with the tag showing.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({
@@ -16,6 +16,8 @@ vi.mock("@tanstack/react-router", () => ({
 const sendMut = { mutateAsync: vi.fn() };
 const stopMut = { mutateAsync: vi.fn(), isPending: false };
 const logWatch = { pausedRef: { current: false }, flush: vi.fn() };
+// What the thread holds; a test sets it to simulate the refetch.
+const logState: { data: unknown } = { data: undefined };
 
 const principalsState: { data: unknown; isLoading: boolean } = {
   data: [{ name: "alice", owner: "user:local", runtimeId: "local" }],
@@ -25,7 +27,7 @@ const principalsState: { data: unknown; isLoading: boolean } = {
 vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: () => principalsState,
   usePrincipalSend: () => sendMut,
-  usePrincipalLog: () => ({ data: undefined, isSuccess: true, isError: false }),
+  usePrincipalLog: () => ({ data: logState.data, isSuccess: true, isError: false }),
   usePrincipalStop: () => stopMut,
   usePrincipalLogWatch: () => logWatch,
   useCallerSubject: () => "user:local",
@@ -53,6 +55,7 @@ describe("Chat ToS gate", () => {
     stopMut.mutateAsync.mockReset();
     logWatch.flush.mockReset();
     logWatch.pausedRef.current = false;
+    logState.data = undefined;
     principalsState.data = [
       { name: "alice", owner: "user:local", runtimeId: "local" },
     ];
@@ -129,6 +132,42 @@ describe("Chat ToS gate", () => {
     expect(logWatch.flush).not.toHaveBeenCalled();
     settleFirst("done");
     await waitFor(() => expect(logWatch.flush).toHaveBeenCalledTimes(1));
+  });
+
+  it("shows the reply's tool steps live and keeps them after it lands", async () => {
+    let settle: (v: string) => void = () => {};
+    let emit: (m: unknown) => void = () => {};
+    sendMut.mutateAsync.mockImplementation(
+      (vars: { onEvent: (m: unknown) => void }) => {
+        emit = vars.onEvent;
+        return new Promise<string>((r) => (settle = r));
+      },
+    );
+    render(<Chat />);
+    sendMessage("what day is it?");
+
+    await act(async () => {
+      emit({ kind: "iteration", iteration: 1 });
+      emit({ kind: "toolStart", toolId: "c1", name: "Bash", input: '{"command":"date"}' });
+    });
+    expect(screen.getByRole("button", { name: /running bash/i })).toBeInTheDocument();
+
+    // The refetch after the reply returns the exchange from the thread.
+    logWatch.flush.mockImplementation(async () => {
+      logState.data = {
+        messages: [
+          { id: "chan_1", sender: "user:local", text: "what day is it?", timestamp: "1" },
+          { id: "chan_2", sender: "principal:prin_a", text: "It is Tuesday.", timestamp: "2" },
+        ],
+      };
+    });
+    await act(async () => {
+      emit({ kind: "toolEnd", toolId: "c1", name: "Bash", success: true, durationMs: 12, output: "Tue" });
+      emit({ kind: "chunk", delta: "It is Tuesday." });
+      settle("It is Tuesday.");
+    });
+    await waitFor(() => expect(logWatch.flush).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: /used 1 tool/i })).toBeInTheDocument();
   });
 
   it("empty state uses peko copy", () => {

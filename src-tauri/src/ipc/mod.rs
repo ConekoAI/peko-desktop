@@ -97,7 +97,10 @@ pub struct StatusSnapshot {
 /// runtime at the start of each agentic loop iteration; the frontend
 /// uses it to (a) break chat bubbles between iterations and (b) drive
 /// the "Thinking…" pill while a new iteration's first token is in
-/// flight. Tool-call / thinking / retry events stay backend-only.
+/// flight. `ToolStart` / `ToolEnd` are the run's tool steps and
+/// `Thinking` its reasoning deltas; the runtime sends tool inputs,
+/// outputs, and thinking only to the peko's owner (others get tool
+/// names and status).
 ///
 /// `Queued` means the peko was already working on this thread: the
 /// runtime posted the message to the DM channel and queued it for the
@@ -117,6 +120,22 @@ pub enum ChatStreamMsg {
     Iteration { iteration: u32 },
     /// The message was queued behind the peko's running turn.
     Queued { message: String },
+    /// A tool call started. `input` is a short redacted summary.
+    ToolStart {
+        tool_id: String,
+        name: String,
+        input: Option<String>,
+    },
+    /// A tool call finished. `output` is a short redacted excerpt.
+    ToolEnd {
+        tool_id: String,
+        name: String,
+        success: bool,
+        duration_ms: u64,
+        output: Option<String>,
+    },
+    /// A thinking (reasoning) text delta.
+    Thinking { delta: String },
     /// Per-run totals: iterations, token usage, and failed tool calls.
     RunSummary {
         iterations: u32,
@@ -137,6 +156,31 @@ pub struct RunToolError {
 /// `Done { success: false }` when the thread already has a running
 /// turn (`IngressOutcome::Queued`).
 pub const QUEUED_PREFIX: &str = "[queued]";
+
+/// Project a runtime tool-step or thinking packet
+/// (`principal_sent_tool_start` / `_tool_end` / `_thinking`) into its
+/// [`ChatStreamMsg`]; `None` for any other packet.
+pub fn step_from_packet(raw: &serde_json::Value) -> Option<ChatStreamMsg> {
+    let text = |key: &str| raw.get(key).and_then(|v| v.as_str()).map(String::from);
+    match raw.get("type")?.as_str()? {
+        "principal_sent_tool_start" => Some(ChatStreamMsg::ToolStart {
+            tool_id: text("tool_id")?,
+            name: text("name")?,
+            input: text("input"),
+        }),
+        "principal_sent_tool_end" => Some(ChatStreamMsg::ToolEnd {
+            tool_id: text("tool_id")?,
+            name: text("name")?,
+            success: raw.get("success")?.as_bool()?,
+            duration_ms: raw.get("duration_ms").and_then(|v| v.as_u64()).unwrap_or(0),
+            output: text("output"),
+        }),
+        "principal_sent_thinking" => Some(ChatStreamMsg::Thinking {
+            delta: text("delta")?,
+        }),
+        _ => None,
+    }
+}
 
 /// Project a runtime `run_summary` packet into [`ChatStreamMsg::RunSummary`].
 pub fn run_summary_from_packet(raw: &serde_json::Value) -> ChatStreamMsg {
@@ -922,6 +966,13 @@ impl IpcClient {
                     let _ = app.emit("peko-stream", &StreamEvent::Done { timestamp });
                 }
                 "run_summary" => on_event(run_summary_from_packet(&raw)),
+                "principal_sent_tool_start"
+                | "principal_sent_tool_end"
+                | "principal_sent_thinking" => {
+                    if let Some(step) = step_from_packet(&raw) {
+                        on_event(step);
+                    }
+                }
                 "done" => {
                     let success = raw
                         .get("success")
@@ -2053,6 +2104,50 @@ mod tests {
                 "retired flag {retired} must not be sent"
             );
         }
+    }
+
+    /// The runtime's tool-step and thinking packets (shapes pinned by
+    /// peko-runtime's `fixtures/desktop_stream_responses.json`).
+    #[test]
+    fn step_from_packet_reads_tool_steps_and_thinking() {
+        let start = step_from_packet(&serde_json::json!({
+            "type": "principal_sent_tool_start", "request_id": 7,
+            "tool_id": "call_1", "name": "Bash", "input": "{\"command\":\"date\"}",
+        }));
+        assert!(matches!(
+            start,
+            Some(ChatStreamMsg::ToolStart { ref name, input: Some(_), .. }) if name == "Bash"
+        ));
+        // A non-owner caller gets no input/output fields.
+        let end = step_from_packet(&serde_json::json!({
+            "type": "principal_sent_tool_end", "request_id": 7,
+            "tool_id": "call_2", "name": "Read", "success": false, "duration_ms": 3,
+        }));
+        assert!(matches!(
+            end,
+            Some(ChatStreamMsg::ToolEnd {
+                success: false,
+                duration_ms: 3,
+                output: None,
+                ..
+            })
+        ));
+        let thinking = step_from_packet(&serde_json::json!({
+            "type": "principal_sent_thinking", "request_id": 7, "delta": "hm",
+        }));
+        assert!(matches!(thinking, Some(ChatStreamMsg::Thinking { ref delta }) if delta == "hm"));
+        assert!(step_from_packet(&serde_json::json!({"type": "heartbeat"})).is_none());
+        // The wire form the frontend reads is camelCase-tagged by `kind`.
+        let wire = serde_json::to_value(ChatStreamMsg::ToolEnd {
+            tool_id: "c".into(),
+            name: "Bash".into(),
+            success: true,
+            duration_ms: 1,
+            output: None,
+        })
+        .unwrap();
+        assert_eq!(wire["kind"], "toolEnd");
+        assert_eq!(wire["durationMs"], 1);
     }
 
     /// The runtime's `RequestPacket::PrincipalLog.peer` is

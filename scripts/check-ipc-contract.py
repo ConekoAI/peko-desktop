@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Check the desktop's IPC requests against the runtime's contract fixture.
 
-peko-runtime keeps `peko-rs/core/src/ipc/fixtures/desktop_requests.json`:
-one sample of every request this app sends, which a runtime unit test
-decodes as `RequestPacket`. This script checks the other half: every
-`json!({"type": ...})` request built in `src-tauri/src/ipc/mod.rs` has a
-fixture entry with the same field names, and the fixture lists nothing
-the desktop no longer sends. Together the two keep the wire in step.
+peko-runtime keeps two fixtures under `peko-rs/core/src/ipc/fixtures/`:
+
+- `desktop_requests.json` — one sample of every request this app sends;
+  a runtime test decodes each as `RequestPacket`. This script checks
+  that every `json!({"type": ...})` request built in
+  `src-tauri/src/ipc/mod.rs` has an entry with the same field names, and
+  that the fixture lists nothing the desktop no longer sends.
+- `desktop_stream_responses.json` — the stream packets this app parses;
+  a runtime test pins their exact shape. This script checks that the
+  parser in `ipc/mod.rs` handles each packet type and reads each field.
+
+Together they keep the wire in step.
 
 Usage: scripts/check-ipc-contract.py [path/to/peko-runtime]
 (defaults to $PEKO_RUNTIME_DIR, then ../peko-runtime)
@@ -21,12 +27,17 @@ from pathlib import Path
 DESKTOP = Path(__file__).resolve().parent.parent
 IPC_SOURCE = DESKTOP / "src-tauri/src/ipc/mod.rs"
 FIXTURE = "peko-rs/core/src/ipc/fixtures/desktop_requests.json"
+STREAM_FIXTURE = "peko-rs/core/src/ipc/fixtures/desktop_stream_responses.json"
+
+
+def desktop_source() -> str:
+    source = IPC_SOURCE.read_text()
+    # Code inside the unit-test module does not run in the app.
+    return source[: source.rfind("#[cfg(test)]")]
 
 
 def desktop_requests() -> dict[str, set[str]]:
-    source = IPC_SOURCE.read_text()
-    # Requests built inside the unit-test module are not sent.
-    source = source[: source.rfind("#[cfg(test)]")]
+    source = desktop_source()
     requests: dict[str, set[str]] = {}
     for match in re.finditer(r'json!\(\{\s*"type":\s*"([a-z_]+)"(.*?)\}\);', source, re.S):
         fields = set(re.findall(r'^\s*"([a-z_]+)":', match.group(2), re.M))
@@ -56,13 +67,27 @@ def main() -> int:
             only_fixture = sorted(fixture[ty] - sent[ty])
             problems.append(f"`{ty}` fields differ: desktop-only {only_desktop}, fixture-only {only_fixture}")
 
+    stream_path = runtime / STREAM_FIXTURE
+    if not stream_path.is_file():
+        print(f"❌ runtime stream fixture not found: {stream_path}", file=sys.stderr)
+        return 2
+    source = desktop_source()
+    stream = json.loads(stream_path.read_text())
+    for packet in stream:
+        ty = packet["type"]
+        if f'"{ty}"' not in source:
+            problems.append(f"stream packet `{ty}` is not handled by the desktop parser")
+        for field in sorted(set(packet) - {"type", "request_id"}):
+            if f'"{field}"' not in source:
+                problems.append(f"stream packet `{ty}` field `{field}` is never read")
+
     if problems:
-        print("❌ desktop IPC requests do not match the runtime contract fixture:")
+        print("❌ desktop IPC does not match the runtime contract fixtures:")
         for problem in problems:
             print(f"   - {problem}")
-        print(f"   Update {FIXTURE} in peko-runtime together with src-tauri/src/ipc/mod.rs.")
+        print("   Update peko-runtime's peko-rs/core/src/ipc/fixtures/ together with src-tauri/src/ipc/mod.rs.")
         return 1
-    print(f"✓ {len(sent)} desktop IPC requests match {fixture_path}")
+    print(f"✓ {len(sent)} desktop IPC requests and {len(stream)} stream packets match {runtime}")
     return 0
 
 
