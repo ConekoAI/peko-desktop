@@ -76,9 +76,6 @@ export default function ChannelSidebar({
         <h3 className="truncate text-sm font-semibold text-fg">
           Groups
         </h3>
-        <p className="mt-0.5 line-clamp-2 text-xs text-fg-muted">
-          Multi-principal chat
-        </p>
       </div>
 
       <div className="border-b border-line p-2">

@@ -78,9 +78,10 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
       data-testid={`model-card-${model.id}`}
       className="flex h-full flex-col rounded-xl border border-line bg-surface-card p-4 transition-shadow hover:shadow-md"
     >
-      {/* Header: name + apiFormat pill + status pills */}
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
+      {/* Header: the name gets the full width; the format sits with
+          the status pills below, so it never truncates the name. */}
+      <div className="mb-2">
+        <div className="min-w-0">
           <h3
             className={[
               "truncate text-base font-semibold",
@@ -93,19 +94,16 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             {model.displayName}
           </h3>
         </div>
-        <span
-          title="API format"
-          className="rounded-md border border-line bg-surface-card px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-fg-muted"
-        >
-          {apiFormatShort(model.apiFormat)}
-        </span>
       </div>
 
-      {/* Status pills */}
-      {(model.enabled === false ||
-        (model.requiresKey && !model.credentialId) ||
-        model.credentialId) && (
-        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+      {/* Format + status pills */}
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <span
+            title="API format"
+            className="rounded-md border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-fg-muted"
+          >
+            {apiFormatShort(model.apiFormat)}
+          </span>
           {!model.enabled && (
             <span
               data-testid={`model-card-status-disabled-${model.id}`}
@@ -125,8 +123,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
               Key set
             </span>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Capability badges */}
       {badges.length > 0 && (
@@ -190,7 +187,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             checked={model.enabled}
             onChange={handleToggleEnabled}
             data-testid={`model-card-enabled-${model.id}`}
-            className="h-3.5 w-3.5 rounded border-line text-brand focus:ring-brand"
+            className="h-3.5 w-3.5 rounded border-line accent-brand focus:ring-brand"
           />
           Enabled
         </label>

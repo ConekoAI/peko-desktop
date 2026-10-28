@@ -23,7 +23,8 @@ import { rethrowAsChannelError, type ChannelError } from "../lib/channelErrors";
 
 export interface UseChannelPostArgs {
   channelId: string;
-  senderName: string;
+  /** A peko to post as; `null` (the composer) posts as you. */
+  senderName: string | null;
   text: string;
   parent?: string | null;
   runtimeId?: RuntimeId;

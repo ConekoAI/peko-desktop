@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Hash, Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { useSearch } from "@tanstack/react-router";
 
 /**
@@ -35,7 +35,7 @@ export default function Channels() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-      <Hash className="h-10 w-10 text-fg-subtle" />
+      <Users className="h-10 w-10 text-fg-subtle" />
       <h2 className="text-base font-semibold text-fg-soft">
         Groups
       </h2>

@@ -82,6 +82,9 @@ export default function NewPekoForm({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
             disabled={busy}
             aria-invalid={trimmed.length > 0 && !nameOk}
             className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"

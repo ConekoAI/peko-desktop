@@ -92,7 +92,11 @@ fn summary_from_wire(
         local_id: text("local_id").unwrap_or_default(),
         avatar: text("avatar"),
         exposure: text("exposure").unwrap_or_else(|| "unexposed".to_string()),
-        status: text("status").unwrap_or_else(|| "offline".to_string()),
+        // No stored status means the live engine is the truth — and an
+        // engine that answered is up, so its pekos are online (the
+        // runtime's `PrincipalConfig::status` contract). Defaulting to
+        // `offline` showed every running local peko as offline.
+        status: text("status").unwrap_or_else(|| "online".to_string()),
         description: text("description"),
         preferred_model_id: text("preferred_model_id"),
         owner: p.get("owner").and_then(actor_text).unwrap_or_default(),
@@ -1069,7 +1073,10 @@ mod tests {
         assert_eq!(p.owner, "user:alice");
         assert_eq!(p.local_id, "");
         assert!(p.avatar.is_none());
-        assert_eq!(p.status, "offline");
+        assert_eq!(
+            p.status, "online",
+            "no stored status: the live engine is up"
+        );
     }
 
     use super::*;
@@ -1151,7 +1158,7 @@ mod tests {
         let p = project_principal_get_envelope(&envelope, "local").unwrap();
         assert_eq!(p.name, "minimal");
         assert_eq!(p.exposure, "unexposed");
-        assert_eq!(p.status, "offline");
+        assert_eq!(p.status, "online");
         assert_eq!(p.description, None);
         assert_eq!(p.owner, "");
         assert_eq!(p.runtime_id, "local");

@@ -94,6 +94,9 @@ export default function EndpointForm({
       <label className="block">
         <span className={LABEL}>Base URL</span>
         <input
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={value.baseUrl}
           onChange={(e) => set({ baseUrl: e.target.value })}
           placeholder="https://api.example.com/v1"
@@ -122,6 +125,9 @@ export default function EndpointForm({
       <label className="block">
         <span className={LABEL}>Model id</span>
         <input
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           value={value.modelId}
           onChange={(e) => set({ modelId: e.target.value })}
           placeholder="The provider's model name, e.g. gpt-5 or mimo-v2.6-flash"
@@ -134,6 +140,9 @@ export default function EndpointForm({
           <label className="block">
             <span className={LABEL}>API key</span>
             <input
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               type="password"
               autoComplete="off"
               value={value.key}
@@ -164,6 +173,9 @@ export default function EndpointForm({
               <label className="block">
                 <span className={LABEL}>Name in Peko (optional)</span>
                 <input
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={value.name}
                   onChange={(e) => set({ name: e.target.value })}
                   placeholder={value.modelId.trim() || "Defaults to the model id"}

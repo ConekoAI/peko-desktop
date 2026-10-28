@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Hash, X } from "lucide-react";
+import { Check, Users, X } from "lucide-react";
 
 import { useChannelCreate } from "../../hooks/useChannels";
 import { usePrincipals } from "../../hooks/usePrincipals";
@@ -84,7 +84,7 @@ export default function ChannelCreateModal({
     () =>
       (principals ?? []).map((p) => ({
         name: p.name,
-        label: p.description ? `${p.name} — ${p.description}` : p.name,
+        label: p.name,
       })),
     [principals],
   );
@@ -96,11 +96,18 @@ export default function ChannelCreateModal({
         ? String(createMut.error)
         : null;
 
-  if (!open) return null;
+  // Escape closes the modal and focus stays inside it. Hooks run on
 
-  // P1.5: Escape closes the modal + focus is trapped inside it.
+  // every render, open or not: called after the early return, they
+
+  // crashed the app the first time the dialog opened (React #310).
+
   const containerRef = useRef<HTMLDivElement | null>(null);
+
   useModalA11y(open, containerRef, onClose);
+
+
+  if (!open) return null;
 
   return (
     <div
@@ -119,7 +126,7 @@ export default function ChannelCreateModal({
       <div className="flex w-full max-w-md flex-col rounded-xl border border-line bg-surface-card shadow-xl">
         <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
           <div className="flex items-center gap-2">
-            <Hash className="h-5 w-5 text-brand" />
+            <Users className="h-5 w-5 text-brand" />
             <h2
               id="channel-create-modal-title"
               className="text-base font-semibold text-fg"
@@ -170,7 +177,7 @@ export default function ChannelCreateModal({
               htmlFor="channel-creator"
               className="mb-1 block text-xs font-medium text-fg-muted"
             >
-              Creator <span className="text-red-500">*</span>
+              Started by <span className="text-red-500">*</span>
             </label>
             {principalsLoading && (
               <p className="text-xs text-fg-muted">

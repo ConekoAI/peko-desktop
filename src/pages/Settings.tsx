@@ -112,7 +112,7 @@ function StoredKeys() {
 
   return (
     <div>
-      <div className="rounded-xl border border-line bg-surface-card p-4">
+      <div className={CARD}>
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-fg">
             Stored keys
@@ -126,45 +126,60 @@ function StoredKeys() {
         <form
           data-testid="add-credential-form"
           onSubmit={handleSave}
-          className="mb-4 rounded-lg border border-line p-3"
+          className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-line p-3"
         >
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            Add credential
-          </h4>
-          <div className="flex flex-wrap items-center gap-2">
+          <h4 className="col-span-2 text-xs font-semibold text-fg-soft">Add a key</h4>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-fg-muted">Namespace</span>
             <input
               type="text"
               value={namespace}
               onChange={(e) => setNamespace(e.target.value)}
-              placeholder="Namespace"
-              className="min-w-[6rem] rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-fg outline-none focus:border-brand"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none focus:border-brand"
             />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-fg-muted">Name</span>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Name"
-              className="min-w-[6rem] rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-fg outline-none focus:border-brand"
+              placeholder="e.g. github"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none focus:border-brand"
             />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-fg-muted">Kind</span>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as CredentialKind)}
-              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-fg outline-none focus:border-brand"
+              className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none focus:border-brand"
             >
-              <option value="api_key">api_key</option>
-              <option value="bearer_token">bearer_token</option>
-              <option value="oauth_token">oauth_token</option>
-              <option value="basic_auth">basic_auth</option>
-              <option value="private_key">private_key</option>
-              <option value="generic_secret">generic_secret</option>
+              <option value="api_key">API key</option>
+              <option value="bearer_token">Bearer token</option>
+              <option value="oauth_token">OAuth token</option>
+              <option value="basic_auth">Basic auth</option>
+              <option value="private_key">Private key</option>
+              <option value="generic_secret">Other secret</option>
             </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] text-fg-muted">Secret</span>
             <input
               type="password"
               value={material}
               onChange={(e) => setMaterial(e.target.value)}
-              placeholder="Secret"
-              className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-fg outline-none focus:border-brand"
+              autoComplete="off"
+              className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none focus:border-brand"
             />
+          </label>
+          <div className="col-span-2 flex justify-end">
             <button
               type="submit"
               disabled={!name.trim() || !material.trim() || setCred.isPending}
@@ -175,7 +190,7 @@ function StoredKeys() {
               ) : (
                 <Save className="h-3 w-3" />
               )}
-              Save
+              Save key
             </button>
           </div>
         </form>
@@ -193,10 +208,10 @@ function StoredKeys() {
           >
             <Key className="mx-auto mb-2 h-6 w-6 text-fg-subtle" />
             <p className="text-sm font-medium text-fg-soft">
-              No credentials stored yet
+              No stored keys
             </p>
             <p className="mt-1 text-xs text-fg-muted">
-              Add a generic secret above, or link one while adding a model.
+              Keys you add for models or tools appear here.
             </p>
           </div>
         )}
@@ -344,9 +359,6 @@ function ModelsSection() {
             data-testid="models-gallery"
             className="max-h-[60vh] overflow-y-auto rounded-lg"
           >
-            <p className="mb-2 text-[11px] text-fg-muted">
-              Showing {models!.length} model{models!.length === 1 ? "" : "s"}.
-            </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {models?.map((m) => <ModelGalleryCard key={m.id} model={m} />)}
             </div>

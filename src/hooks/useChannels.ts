@@ -181,7 +181,8 @@ export function useChannelMembers(
  * the sidebar shows the new row.
  */
 /** The desktop's own actor: the terminal is always the local user (ADR-081). */
-const LOCAL_USER = "user:local";
+/** You, as the engine names you in rosters. */
+export const LOCAL_USER = "user:local";
 
 /**
  * Create a group with `creatorName` as its first member, then have

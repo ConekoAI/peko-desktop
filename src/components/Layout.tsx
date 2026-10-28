@@ -166,7 +166,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Content */}
-          <main className={["flex-1 overflow-hidden", isChatRoute ? "" : "overflow-auto p-6"].join(" ")}>
+          {/* Chats and groups manage their own scrolling; full pages
+              (Settings) scroll here. One overflow class each: with both,
+              `overflow-hidden` won and Settings could not scroll. */}
+          <main
+            className={[
+              "flex-1",
+              isChatRoute || isChannelsRoute ? "overflow-hidden" : "overflow-auto p-6",
+            ].join(" ")}
+          >
             {/* Engine failure card. Only renders on Failed. On every
                 other state (Stopped, Starting, Restarting, Running)
                 the engine is invisible in the chrome — the user only

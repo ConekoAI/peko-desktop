@@ -57,7 +57,7 @@ export default function ChannelEventRow({
           className="rounded-lg bg-brand-soft p-3 text-xs text-brand"
           data-testid="channel-event-row-created"
         >
-          Channel <span className="font-semibold">{event.name}</span> created by{" "}
+          Group <span className="font-semibold">{event.name}</span> created by{" "}
           <span title={event.creator}>{directory.resolve(event.creator).label}</span> ·{" "}
           {new Date(event.at).toLocaleString()}
         </div>
