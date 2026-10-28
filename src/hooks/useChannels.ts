@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   channelCreate,
   channelGet,
+  channelInfo,
+  channelSetWake,
   channelInvite,
   channelLeave,
   channelList,
@@ -14,6 +16,8 @@ import {
   type ChannelMembers,
   type ChannelSummary,
   type RuntimeId,
+  type ChannelInfo,
+  type WakePolicy,
 } from "../lib/api";
 import { rethrowAsChannelError, type ChannelError } from "../lib/channelErrors";
 
@@ -254,6 +258,38 @@ export function useChannelLeave(channelId: string | undefined, runtimeId?: Runti
       qc.invalidateQueries({ queryKey: ["channel", rid, channelId] });
       qc.invalidateQueries({ queryKey: ["channel-members", rid, channelId] });
       qc.invalidateQueries({ queryKey: ["channel-events", rid, channelId] });
+    },
+  });
+}
+// ─── Kind and wake policy (ADR-082) ───────────────────────────────
+
+/**
+ * A channel's kind (`dm` / `group`), members, and how each of its pekos
+ * on this runtime wakes. Members only; local runtime only.
+ */
+export function useChannelInfo(channelId: string | undefined) {
+  return useQuery<ChannelInfo, ChannelError>({
+    queryKey: ["channel-info", channelId] as const,
+    enabled: !!channelId,
+    queryFn: () => channelInfo(channelId!).catch(rethrowAsChannelError),
+    staleTime: 10_000,
+  });
+}
+
+/**
+ * Set what starts a turn for one of your pekos in a group: every human
+ * message (`human`), messages that @mention it (`mention`, the default),
+ * or nothing (`off`). Refreshes the channel's info on success.
+ */
+export function useSetChannelWake(channelId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation<WakePolicy, ChannelError, { pekoName: string; wake: WakePolicy }>({
+    mutationFn: (vars) => {
+      if (!channelId) return Promise.reject(new Error("channel id required"));
+      return channelSetWake(channelId, vars.pekoName, vars.wake).catch(rethrowAsChannelError);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["channel-info", channelId] });
     },
   });
 }

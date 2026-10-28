@@ -9,9 +9,14 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const useChannelMock = vi.fn();
+const infoState: { data: unknown } = { data: undefined };
 
 vi.mock("../hooks/useChannels", () => ({
   useChannel: (...args: unknown[]) => useChannelMock(...args),
+  useChannelInfo: () => infoState,
+}));
+vi.mock("../hooks/usePrincipals", () => ({
+  usePrincipals: () => ({ data: [{ name: "alice", localId: "prin_alice", runtimeId: "local" }] }),
 }));
 
 import ChannelHeader from "../components/ChannelHeader";
@@ -39,13 +44,34 @@ const detail = {
 describe("ChannelHeader", () => {
   beforeEach(() => {
     useChannelMock.mockReset();
+    infoState.data = undefined;
+  });
+
+  it("badges a group, or a direct message, from the channel's kind", () => {
+    useChannelMock.mockReturnValue({ data: detail });
+    infoState.data = { kind: "group", pekos: [] };
+    const { unmount } = renderHeader();
+    expect(screen.getByTestId("channel-kind-badge")).toHaveTextContent("Group");
+    unmount();
+    infoState.data = { kind: "dm", pekos: [] };
+    renderHeader();
+    expect(screen.getByTestId("channel-kind-badge")).toHaveTextContent("Direct message");
+  });
+
+  it("names the creator", () => {
+    useChannelMock.mockReturnValue({
+      data: { ...detail, creator: "principal:local:prin_alice" },
+    });
+    renderHeader();
+    expect(screen.getByText("alice")).toHaveAttribute("title", "principal:local:prin_alice");
   });
 
   it("renders the channel name + creator line when detail is loaded", () => {
     useChannelMock.mockReturnValue({ data: detail });
     renderHeader();
     expect(screen.getByRole("heading", { name: /design/ })).toBeInTheDocument();
-    expect(screen.getByText(/prin_alice/)).toBeInTheDocument();
+    // A local peko's id resolves to its name.
+    expect(screen.getByText("alice")).toBeInTheDocument();
   });
 
   it("shows the View only chip when isMember === false (P1.10)", () => {

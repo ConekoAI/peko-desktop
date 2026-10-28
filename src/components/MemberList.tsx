@@ -1,4 +1,5 @@
-import { useChannelMembers } from "../hooks/useChannels";
+import { useChannelInfo, useChannelMembers, useSetChannelWake } from "../hooks/useChannels";
+import type { WakePolicy } from "../lib/api";
 import { Globe, Loader2, User } from "lucide-react";
 import { usePekoDirectory } from "../hooks/usePekoDirectory";
 import PekoAvatar from "./peko/PekoAvatar";
@@ -28,6 +29,12 @@ export default function MemberList({
 }) {
   const { data, isLoading } = useChannelMembers(channelId, runtimeId);
   const directory = usePekoDirectory();
+  const { data: info } = useChannelInfo(channelId);
+  // Wake policy per peko hosted here, by local id (groups only: a DM
+  // always wakes on human posts).
+  const wakeOf = new Map(
+    info?.kind === "group" ? info.pekos.map((p) => [p.localId, p] as const) : [],
+  );
 
   if (isLoading) {
     return (
@@ -79,6 +86,7 @@ export default function MemberList({
         <ul className="space-y-1">
           {local.map((did) => {
             const who = directory.resolve(did);
+            const wakePeko = wakeOf.get(did.replace(/^principal:(local:)?/, ""));
             return (
               <li
                 key={did}
@@ -94,7 +102,11 @@ export default function MemberList({
                   </span>
                 )}
                 <span className="min-w-0 flex-1 truncate font-medium">{who.label}</span>
-                <RuntimeBadge runtimeId="local" />
+                {wakePeko ? (
+                  <WakePicker channelId={channelId} pekoName={wakePeko.name} wake={wakePeko.wake} />
+                ) : (
+                  <RuntimeBadge runtimeId="local" />
+                )}
               </li>
             );
           })}
@@ -127,5 +139,51 @@ export default function MemberList({
         </section>
       )}
     </div>
+  );
+}
+const WAKE_OPTIONS: { value: WakePolicy; label: string; hint: string }[] = [
+  { value: "human", label: "Every message", hint: "Replies to every message from a person" },
+  { value: "mention", label: "@mentions", hint: "Replies when someone @mentions it" },
+  { value: "off", label: "Never", hint: "Reads along; replies only when it checks in" },
+];
+
+/**
+ * What starts a turn for one of your pekos in this group (ADR-082):
+ * every human message, @mentions (the default), or nothing. Saved as
+ * soon as it changes; a refusal (not your peko) shows inline.
+ */
+function WakePicker({
+  channelId,
+  pekoName,
+  wake,
+}: {
+  channelId: string;
+  pekoName: string;
+  wake: WakePolicy;
+}) {
+  const setWake = useSetChannelWake(channelId);
+  const current = setWake.isPending ? setWake.variables?.wake ?? wake : wake;
+  return (
+    <span className="flex shrink-0 flex-col items-end">
+      <select
+        aria-label={`When ${pekoName} replies`}
+        value={current}
+        disabled={setWake.isPending}
+        title={WAKE_OPTIONS.find((o) => o.value === current)?.hint}
+        onChange={(e) => setWake.mutate({ pekoName, wake: e.target.value as WakePolicy })}
+        className="rounded-md border border-line bg-surface-card px-1.5 py-0.5 text-[11px] text-fg-soft outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-60"
+      >
+        {WAKE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {setWake.error && (
+        <span role="alert" className="mt-0.5 max-w-[12rem] truncate text-[10px] text-danger" title={setWake.error.message}>
+          {setWake.error.message}
+        </span>
+      )}
+    </span>
   );
 }
