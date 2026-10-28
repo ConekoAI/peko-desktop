@@ -34,7 +34,10 @@ vi.mock("../hooks/usePrincipals", () => ({
   usePrincipalLogWatch: () => logWatch,
   useCallerSubject: () => "user:local",
   newestLogCursor: () => null,
+  fetchOlderPrincipalLog: (args: unknown) => fetchOlderMock(args),
 }));
+
+const fetchOlderMock = vi.fn();
 
 const modelsState: { data: unknown } = { data: [] };
 vi.mock("../hooks/useModels", () => ({
@@ -272,5 +275,66 @@ describe("Chat ToS gate", () => {
     expect(
       screen.getByRole("button", { name: /create a peko/i }),
     ).toBeInTheDocument();
+  });
+});
+
+const msg = (id: string, sender: string, text: string) => ({
+  id,
+  sender,
+  text,
+  timestamp: "2026-10-28T10:00:00Z",
+});
+
+describe("Chat thread and peko lifecycle", () => {
+  beforeEach(() => {
+    navigateMock.mockReset();
+    fetchOlderMock.mockReset();
+    logState.data = undefined;
+    principalsState.data = [{ name: "alice", owner: "user:local", runtimeId: "local" }];
+    principalsState.isLoading = false;
+  });
+
+  it("leaves the address of a peko that no longer exists", () => {
+    principalsState.data = [{ name: "bob", owner: "user:local", runtimeId: "local" }];
+    render(<Chat />);
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/chat", replace: true });
+  });
+
+  it("stays on a peko that exists", () => {
+    render(<Chat />);
+    expect(navigateMock).not.toHaveBeenCalledWith({ to: "/chat", replace: true });
+  });
+
+  it("loads earlier messages above the latest page", async () => {
+    logState.data = {
+      messages: [msg("m3", "user:local", "latest question")],
+      nextCursor: "c1",
+      hasMore: true,
+    };
+    fetchOlderMock.mockResolvedValue({
+      messages: [msg("m1", "user:local", "first question"), msg("m2", "principal:alice", "first answer")],
+      nextCursor: null,
+      hasMore: false,
+    });
+    render(<Chat />);
+    expect(screen.queryByText("first question")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
+
+    expect(await screen.findByText("first question")).toBeInTheDocument();
+    expect(fetchOlderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "alice", cursor: "c1", peer: "user:local" }),
+    );
+    const order = ["first question", "first answer", "latest question"].map(
+      (t) => screen.getByText(t).compareDocumentPosition(screen.getByText("latest question")),
+    );
+    expect(order.slice(0, 2).every((pos) => pos & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    // Nothing older remains.
+    expect(screen.queryByRole("button", { name: "Load earlier messages" })).toBeNull();
+  });
+
+  it("offers no earlier messages on a short thread", () => {
+    logState.data = { messages: [msg("m1", "user:local", "hi")], nextCursor: null, hasMore: false };
+    render(<Chat />);
+    expect(screen.queryByRole("button", { name: "Load earlier messages" })).toBeNull();
   });
 });

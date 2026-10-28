@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { Check, Loader2, LogIn, LogOut, RefreshCw, Settings as SettingsIcon, User } from "lucide-react";
+import { Check, Loader2, LogIn, LogOut, RefreshCw, User } from "lucide-react";
 import {
   usePekohubBundle,
   usePekohubLogout,
@@ -29,7 +28,6 @@ import { useSettings } from "../hooks/useSettings";
  *     by runOAuthFlow.
  */
 export default function ProfileMenu() {
-  const navigate = useNavigate();
   const { data: settings } = useSettings();
   const { data: bundle, isPending } = usePekohubBundle();
   const logout = usePekohubLogout();
@@ -145,21 +143,6 @@ export default function ProfileMenu() {
           </div>
 
           <div className="my-1 h-px bg-slate-200 dark:bg-slate-800" />
-
-          <button
-            role="menuitem"
-            onClick={() => {
-              navigate({ to: "/settings" });
-              handleMenuItemClose();
-            }}
-            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <span className="flex items-center gap-2">
-              <SettingsIcon className="h-4 w-4" />
-              Settings
-            </span>
-            <span aria-hidden>→</span>
-          </button>
 
           {!signedIn && (
             <button

@@ -21,8 +21,6 @@ import {
   Search,
   Loader2,
   UserCircle,
-  Activity,
-  Monitor,
   Globe,
   Plus,
   Settings,
@@ -62,17 +60,94 @@ function groupByRuntime(
   }));
 }
 
+/**
+ * One entry point for adding a peko: create one, wake one from a
+ * `.peko` file, connect to someone else's, or browse public ones.
+ */
+function NewPekoMenu({
+  onCreate,
+  onImport,
+  onConnect,
+  onDiscover,
+}: {
+  onCreate?: () => void;
+  onImport?: () => void;
+  onConnect?: () => void;
+  onDiscover: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  const items = [
+    { label: "Create a peko", icon: Plus, run: onCreate },
+    { label: "Import a .peko file", icon: Package, run: onImport },
+    { label: "Connect to a remote peko", icon: LinkIcon, run: onConnect },
+    { label: "Discover public pekos", icon: Compass, run: onDiscover },
+  ].filter((item) => item.run);
+
+  return (
+    <div ref={ref} className="relative">
+      {open && (
+        <div
+          role="menu"
+          className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-line bg-surface-card py-1 shadow-lg"
+        >
+          {items.map(({ label, icon: Icon, run }) => (
+            <button
+              key={label}
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                run?.();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg-soft hover:bg-surface-sunken"
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+      >
+        <Plus className="h-4 w-4" />
+        New peko
+      </button>
+    </div>
+  );
+}
+
 function PrincipalContextMenu({
   position,
   onClose,
   onOpenChat,
-  onOpenLog,
   onOpenProfile,
 }: {
   position: { x: number; y: number };
   onClose: () => void;
   onOpenChat: () => void;
-  onOpenLog: () => void;
   onOpenProfile: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -104,16 +179,6 @@ function PrincipalContextMenu({
         <UserCircle className="h-4 w-4" />
         Open Chat
       </button>
-      <button
-        onClick={() => {
-          onOpenLog();
-          onClose();
-        }}
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg-soft hover:bg-surface-sunken"
-      >
-        <Activity className="h-4 w-4" />
-        View Activity
-      </button>
       <div className="my-1 border-t border-line" />
       <button
         onClick={() => {
@@ -123,7 +188,7 @@ function PrincipalContextMenu({
         className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg-soft hover:bg-surface-sunken"
       >
         <Settings className="h-4 w-4" />
-        Settings
+        Profile
       </button>
     </div>
   );
@@ -137,7 +202,7 @@ function PrincipalContextMenu({
  * every row and never updated).
  *
  * The `runtime` prop is kept around purely so we can pick the right
- * icon shape (Monitor vs Globe) and pass the hub URL down for the
+ * remote globe and pass the hub URL down for the
  * remote polling path. If the runtime row isn't registered (e.g.
  * the principal record is stale), we fall back to "unknown".
  */
@@ -162,18 +227,19 @@ function PrincipalStatusIndicator({
   );
   const status: PrincipalStatusValue = data?.status ?? "unknown";
   const badge = statusBadge(status);
-  const Icon = type === "local" ? Monitor : Globe;
+  // Local is the norm: only a remote peko gets the globe, and a status
+  // nobody reported gets no dot.
+  if (type === "local" && status === "unknown") return null;
   return (
     <span
       className={`inline-flex items-center gap-1 ${badge.color}`}
       data-testid={`principal-status-${principalName}`}
-      title={`${badge.label} · ${type}`}
+      title={type === "remote" ? `${badge.label} · remote` : badge.label}
     >
-      <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      <Circle
-        className="h-1.5 w-1.5 fill-current"
-        aria-hidden="true"
-      />
+      {type === "remote" && <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />}
+      {status !== "unknown" && (
+        <Circle className="h-1.5 w-1.5 fill-current" aria-hidden="true" />
+      )}
       <span className="sr-only">{badge.label}</span>
     </span>
   );
@@ -253,9 +319,6 @@ function RemotePrincipalRow({
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
-      {active && (
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-      )}
     </div>
   );
 }
@@ -404,9 +467,6 @@ export default function PrincipalSidebar({
         <h3 className="truncate text-sm font-semibold text-fg">
           Pekos
         </h3>
-        <p className="mt-0.5 line-clamp-2 text-xs text-fg-muted">
-          Your pekos, grouped by runtime
-        </p>
       </div>
 
       <div className="border-b border-line p-2">
@@ -498,9 +558,6 @@ export default function PrincipalSidebar({
                   }
                   type={isLocal ? "local" : "remote"}
                 />
-                {active && (
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                )}
               </button>
             );
               })}
@@ -588,51 +645,14 @@ export default function PrincipalSidebar({
         ) : null}
       </div>
 
-      {(onCreateClick || onConnectClick || onImportClick) && (
-        <div className="space-y-1 border-t border-line p-2">
-          {onCreateClick && (
-            <button
-              type="button"
-              onClick={onCreateClick}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Create peko</span>
-            </button>
-          )}
-          {onImportClick && (
-            <button
-              type="button"
-              onClick={onImportClick}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
-            >
-              <Package className="h-4 w-4" />
-              <span>Import .peko</span>
-            </button>
-          )}
-          {onConnectClick && (
-            <button
-              type="button"
-              onClick={onConnectClick}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
-            >
-              <LinkIcon className="h-4 w-4" />
-              <span>Connect to a remote peko</span>
-            </button>
-          )}
-          {/* PR #8: in-app discovery button. Always rendered so a
-              user who hasn't added any remote pekos can still
-              browse the public hub from inside the desktop. */}
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/discover" })}
-            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
-          >
-            <Compass className="h-4 w-4" />
-            <span>Discover public pekos</span>
-          </button>
-        </div>
-      )}
+      <div className="border-t border-line p-2">
+        <NewPekoMenu
+          onCreate={onCreateClick}
+          onImport={onImportClick}
+          onConnect={onConnectClick}
+          onDiscover={() => navigate({ to: "/discover" })}
+        />
+      </div>
 
       {contextMenu && (
         <PrincipalContextMenu
@@ -641,12 +661,6 @@ export default function PrincipalSidebar({
           onOpenChat={() =>
             navigate({
               to: "/chat/$pekoName",
-              params: { pekoName: contextMenu.principalName },
-            })
-          }
-          onOpenLog={() =>
-            navigate({
-              to: "/log/$pekoName",
               params: { pekoName: contextMenu.principalName },
             })
           }

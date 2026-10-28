@@ -161,6 +161,10 @@ export function usePrincipalCreate() {
     mutationFn: (req: PrincipalCreateRequest) => principalCreate(req),
     onSuccess: (created, vars) => {
       const rid = effectiveRuntimeId(vars.runtimeId);
+      // Listed at once, so the chat that opens next finds it.
+      qc.setQueryData<PrincipalSummary[]>(["principals", rid], (list) =>
+        list && !list.some((p) => p.name === created.name) ? [...list, created] : list,
+      );
       void qc.invalidateQueries({ queryKey: ["principals"] });
       if (isGenesisPending(created)) {
         void pollBootStateUntilOrganized(qc, created.name, rid);
@@ -196,8 +200,16 @@ export function usePrincipalRemove() {
   return useMutation({
     mutationFn: (vars: { name: string; runtimeId?: RuntimeId }) =>
       principalRemove(vars.name, vars.runtimeId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["principals"] });
+    onSuccess: (_data, vars) => {
+      const rid = effectiveRuntimeId(vars.runtimeId);
+      // Gone at once: no view may fall back to it, and a new peko of
+      // the same name starts with an empty thread.
+      qc.setQueryData<PrincipalSummary[]>(["principals", rid], (list) =>
+        list?.filter((p) => p.name !== vars.name),
+      );
+      qc.removeQueries({ queryKey: ["principals", rid, vars.name] });
+      qc.removeQueries({ queryKey: ["principal-log", rid, vars.name] });
+      void qc.invalidateQueries({ queryKey: ["principals"] });
     },
   });
 }

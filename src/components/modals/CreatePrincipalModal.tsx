@@ -46,9 +46,12 @@ const GENESIS_WAIT_CAP_MS = 310_000;
 export default function CreatePrincipalModal({
   open,
   onClose,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
+  /** The new peko exists: open its chat. */
+  onCreated?: (name: string) => void;
 }) {
   const { data: models, isLoading: modelsLoading } = useModels();
 
@@ -112,6 +115,7 @@ export default function CreatePrincipalModal({
   function handleSubmit() {
     if (!name.trim() || !modelId) return;
     const onSuccess = (created: PrincipalSummary) => {
+      onCreated?.(created.name);
       if (isGenesisPending(created)) {
         // Mid-genesis: hold the modal on the progress state.
         setCreatedName(created.name);

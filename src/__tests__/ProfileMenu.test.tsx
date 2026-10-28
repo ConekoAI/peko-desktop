@@ -190,14 +190,11 @@ describe("ProfileMenu", () => {
     );
   });
 
-  it("Settings link navigates to /settings and closes the menu", () => {
+  it("is the account menu only: Settings lives in the rail", () => {
     const wrapper = makeWrapper();
     render(<ProfileMenu />, { wrapper });
 
     fireEvent.click(screen.getByRole("button", { name: /PekoHub account menu/i }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /Settings/i }));
-
-    expect(navigateMock).toHaveBeenCalledWith({ to: "/settings" });
-    expect(screen.queryByText("PekoHub · not signed in")).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /Settings/i })).toBeNull();
   });
 });

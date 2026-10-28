@@ -24,7 +24,6 @@ import {
 import type { PekoRegistration } from "../../types";
 import {
   X,
-  Activity,
   MessageSquare,
   Loader2,
   Settings,
@@ -675,6 +674,60 @@ export default function PrincipalProfileModal({
                   </div>
                 </div>
               )}
+
+              <section
+                aria-labelledby="peko-danger-zone"
+                className="rounded-lg border border-danger/30 p-3"
+              >
+                <h3
+                  id="peko-danger-zone"
+                  className="text-xs font-semibold uppercase tracking-wide text-danger"
+                >
+                  Danger zone
+                </h3>
+                {confirmingRemove ? (
+                  <div className="mt-2">
+                    <p className="text-xs text-fg">
+                      Remove <strong>{principal.name}</strong>? This deletes its
+                      workspace, memory, and conversations. It cannot be undone.
+                    </p>
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button
+                        onClick={() => setConfirmingRemove(false)}
+                        disabled={removeMut.isPending}
+                        className="rounded-lg border border-line bg-surface-card px-3 py-1.5 text-xs font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                      >
+                        Keep {principal.name}
+                      </button>
+                      <button
+                        onClick={handleRemove}
+                        disabled={removeMut.isPending}
+                        data-testid="confirm-remove-peko"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                      >
+                        {removeMut.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        Remove {principal.name}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <p className="text-xs text-fg-muted">
+                      Delete this peko and everything it knows.
+                    </p>
+                    <button
+                      onClick={() => setConfirmingRemove(true)}
+                      className="shrink-0 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger-soft"
+                    >
+                      Remove…
+                    </button>
+                  </div>
+                )}
+              </section>
             </>
           )}
 
@@ -859,136 +912,62 @@ export default function PrincipalProfileModal({
             )
           )}
 
-          {confirmingRemove && principal && (
-            <div className="rounded-lg border border-danger/30 bg-danger-soft p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
-                <div className="text-xs text-red-800 dark:text-red-300">
-                  <p className="font-medium">
-                    Remove <code>{principal.name}</code>?
-                  </p>
-                  <p className="mt-1">
-                    This deletes the peko&apos;s workspace and all of its
-                    history. This cannot be undone.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-line px-5 py-3">
-          {principal && (isEditing || confirmingRemove) ? (
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">
+          {principal && !isEditing && (
             <button
-              onClick={() =>
-                confirmingRemove
-                  ? setConfirmingRemove(false)
-                  : setConfirmingRemove(true)
-              }
-              disabled={removeMut.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/30"
+              onClick={() => {
+                onClose();
+                navigate({
+                  to: "/chat/$pekoName",
+                  params: { pekoName: principal.name },
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              {confirmingRemove ? "Cancel remove" : "Remove"}
+              <MessageSquare className="h-3.5 w-3.5" />
+              Chat
             </button>
-          ) : (
-            <div />
           )}
 
-          <div className="flex items-center gap-2">
-            {principal && !isEditing && !confirmingRemove && (
-              <>
-                <button
-                  onClick={() => {
-                    onClose();
-                    navigate({
-                      to: "/chat/$pekoName",
-                      params: { pekoName: principal.name },
-                    });
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-fg transition-colors hover:bg-brand-hover"
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  Chat
-                </button>
-                <button
-                  onClick={() => {
-                    onClose();
-                    navigate({
-                      to: "/log/$pekoName",
-                      params: { pekoName: principal.name },
-                    });
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-card px-3 py-1.5 text-xs font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
-                >
-                  <Activity className="h-3.5 w-3.5" />
-                  Activity Log
-                </button>
-              </>
-            )}
-
-            {isEditing && (
-              <>
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    if (principal) {
-                      setDescription(principal.description ?? "");
-                      setAvatar(principal.avatar ?? "");
-                      setStatus(principal.status ?? "");
-                      setExposure(principal.exposure ?? "");
-                      setModelId(principal.preferredModelId ?? "");
-                    }
-                  }}
-                  disabled={updateMut.isPending || registering}
-                  className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={updateMut.isPending || registering}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
-                >
-                  {updateMut.isPending || registering ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : null}
-                  Save
-                </button>
-              </>
-            )}
-
-            {confirmingRemove && (
-              <>
-                <button
-                  onClick={() => setConfirmingRemove(false)}
-                  disabled={removeMut.isPending}
-                  className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRemove}
-                  disabled={removeMut.isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                >
-                  {removeMut.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : null}
-                  Confirm remove
-                </button>
-              </>
-            )}
-
-            {!isEditing && !confirmingRemove && (
+          {isEditing ? (
+            <>
               <button
-                onClick={onClose}
-                className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+                onClick={() => {
+                  setIsEditing(false);
+                  if (principal) {
+                    setDescription(principal.description ?? "");
+                    setAvatar(principal.avatar ?? "");
+                    setStatus(principal.status ?? "");
+                    setExposure(principal.exposure ?? "");
+                    setModelId(principal.preferredModelId ?? "");
+                  }
+                }}
+                disabled={updateMut.isPending || registering}
+                className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
               >
-                Close
+                Cancel
               </button>
-            )}
-          </div>
+              <button
+                onClick={handleSave}
+                disabled={updateMut.isPending || registering}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
+              >
+                {updateMut.isPending || registering ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                Save
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
     </div>
