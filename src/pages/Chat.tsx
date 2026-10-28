@@ -551,6 +551,24 @@ export default function Chat() {
     }
   }
 
+  // A first message handed over by onboarding (`?say=`): send it once,
+  // then drop it from the URL so a reload doesn't send it again.
+  const firstMessageSent = useRef(false);
+  const say = search.say;
+  useEffect(() => {
+    if (!say || firstMessageSent.current || !selectedPrincipal || !principalName) return;
+    firstMessageSent.current = true;
+    navigate({
+      to: "/chat/$pekoName",
+      params: { pekoName: selectedPrincipal },
+      search: { runtimeId: search.runtimeId },
+      replace: true,
+    });
+    void sendText(say);
+    // sendText reads current state; run once per arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [say, selectedPrincipal, principalName]);
+
   async function handleStop() {
     if (!selectedPrincipal) return;
     try {

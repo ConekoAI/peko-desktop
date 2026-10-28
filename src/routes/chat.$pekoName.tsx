@@ -10,6 +10,9 @@ import Chat from "../pages/Chat";
 // resolve to the local IPC client downstream.
 const chatSearchSchema = z.object({
   runtimeId: z.string().optional(),
+  // A first message to send on arrival (onboarding's "Say hello");
+  // the chat sends it once and drops it from the URL.
+  say: z.string().optional(),
 });
 
 export const Route = createFileRoute("/chat/$pekoName")({
