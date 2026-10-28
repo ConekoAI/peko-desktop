@@ -21,7 +21,6 @@ import {
   Search,
   Loader2,
   UserCircle,
-  Monitor,
   Globe,
   Plus,
   Settings,
@@ -203,7 +202,7 @@ function PrincipalContextMenu({
  * every row and never updated).
  *
  * The `runtime` prop is kept around purely so we can pick the right
- * icon shape (Monitor vs Globe) and pass the hub URL down for the
+ * remote globe and pass the hub URL down for the
  * remote polling path. If the runtime row isn't registered (e.g.
  * the principal record is stale), we fall back to "unknown".
  */
@@ -228,18 +227,19 @@ function PrincipalStatusIndicator({
   );
   const status: PrincipalStatusValue = data?.status ?? "unknown";
   const badge = statusBadge(status);
-  const Icon = type === "local" ? Monitor : Globe;
+  // Local is the norm: only a remote peko gets the globe, and a status
+  // nobody reported gets no dot.
+  if (type === "local" && status === "unknown") return null;
   return (
     <span
       className={`inline-flex items-center gap-1 ${badge.color}`}
       data-testid={`principal-status-${principalName}`}
-      title={`${badge.label} · ${type}`}
+      title={type === "remote" ? `${badge.label} · remote` : badge.label}
     >
-      <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-      <Circle
-        className="h-1.5 w-1.5 fill-current"
-        aria-hidden="true"
-      />
+      {type === "remote" && <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />}
+      {status !== "unknown" && (
+        <Circle className="h-1.5 w-1.5 fill-current" aria-hidden="true" />
+      )}
       <span className="sr-only">{badge.label}</span>
     </span>
   );
@@ -467,9 +467,6 @@ export default function PrincipalSidebar({
         <h3 className="truncate text-sm font-semibold text-fg">
           Pekos
         </h3>
-        <p className="mt-0.5 line-clamp-2 text-xs text-fg-muted">
-          Your pekos, grouped by runtime
-        </p>
       </div>
 
       <div className="border-b border-line p-2">
