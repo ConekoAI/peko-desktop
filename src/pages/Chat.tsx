@@ -13,13 +13,15 @@ import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import ActivitySteps from "../components/chat/ActivitySteps";
 import Composer, { type ComposerModel } from "../components/chat/Composer";
 import { useModels } from "../hooks/useModels";
+import PekoAvatar from "../components/peko/PekoAvatar";
+import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
+import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
 import { applyActivity, EMPTY_ACTIVITY, type Activity as ReplyActivity } from "../components/chat/activity";
 import {
   Loader2,
   MessageCircle,
   X,
   User,
-  Bot as BotIcon,
   Plus,
   Activity,
   Check,
@@ -73,12 +75,12 @@ function formatTime(ts?: string) {
 
 function ChatMessage({
   item,
-  pekoName,
+  peko,
   onRetry,
 }: {
   item: ChatItem;
-  /** Shown as the reply's author. */
-  pekoName: string;
+  /** The reply's author. */
+  peko: PekoIdentity;
   /** Present on the latest reply: send the message before it again. */
   onRetry?: () => void;
 }) {
@@ -95,7 +97,7 @@ function ChatMessage({
   }
 
   return (
-    <div className="group flex w-full gap-3 px-4 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/50">
+    <div className="group flex w-full gap-3 px-4 py-1 hover:bg-surface-raised">
       <div className="mt-0.5 shrink-0">
         {isUser ? (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
@@ -103,33 +105,31 @@ function ChatMessage({
           </div>
         ) : isError ? (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-            <X className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <X className="h-4 w-4 text-danger" />
           </div>
         ) : (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-            <BotIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          </div>
+          <PekoAvatar peko={peko} size="md" />
         )}
       </div>
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="flex items-baseline gap-2">
-          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {isUser ? "You" : isError ? "Error" : pekoName}
+          <span className="text-sm font-semibold text-fg">
+            {isUser ? "You" : isError ? "Error" : peko.name}
           </span>
-          <span className="text-[11px] text-slate-400 dark:text-slate-500">
+          <span className="text-[11px] text-fg-subtle">
             {formatTime(event.timestamp)}
           </span>
           {item.queued && (
-            <span className="text-[11px] text-amber-600 dark:text-amber-400">
+            <span className="text-[11px] text-warn">
               Queued — your peko will read this next
             </span>
           )}
         </div>
-        <div className="mt-0.5 text-sm text-slate-800 dark:text-slate-200">
+        <div className="mt-0.5 text-sm text-fg">
           {isUser ? (
             <p className="whitespace-pre-wrap break-words">{text}</p>
           ) : isError ? (
-            <p className="whitespace-pre-wrap break-words text-red-600 dark:text-red-400">{text}</p>
+            <p className="whitespace-pre-wrap break-words text-danger">{text}</p>
           ) : (
             <Markdown>{text}</Markdown>
           )}
@@ -166,7 +166,7 @@ function MessageAction({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
     >
       {children}
       {label}
@@ -236,34 +236,43 @@ export function chatLogMessagesToChatItems(
   return out;
 }
 
-function PrincipalToolbar({ principalName }: { principalName: string }) {
+function PrincipalToolbar({
+  peko,
+  description,
+}: {
+  peko: PekoIdentity;
+  description?: string;
+}) {
   const navigate = useNavigate();
+  const [profileOpen, setProfileOpen] = useState(false);
   return (
-    <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-          <BotIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+    <div className="flex items-center justify-between border-b border-line px-4 py-3">
+      <button
+        type="button"
+        onClick={() => setProfileOpen(true)}
+        title={`${peko.name}'s profile`}
+        className="flex min-w-0 items-center gap-3 rounded-lg p-1 -m-1 text-left hover:bg-surface-sunken"
+      >
+        <PekoAvatar peko={peko} size="md" />
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-semibold text-fg">{peko.name}</h3>
+          <p className="truncate text-xs text-fg-muted">{description || "Your peko"}</p>
         </div>
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-            {principalName}
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Private conversation
-          </p>
-        </div>
-      </div>
+      </button>
       <div className="flex items-center gap-2">
         <button
-          onClick={() =>
-            navigate({ to: "/log/$pekoName", params: { pekoName: principalName } })
-          }
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          onClick={() => navigate({ to: "/log/$pekoName", params: { pekoName: peko.name } })}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
         >
           <Activity className="h-3.5 w-3.5" />
           Activity
         </button>
       </div>
+      <PrincipalProfileModal
+        open={profileOpen}
+        principalName={peko.name}
+        onClose={() => setProfileOpen(false)}
+      />
     </div>
   );
 }
@@ -300,6 +309,13 @@ export default function Chat() {
   if (paramName) principalName = paramName;
 
   const selectedPrincipal = principalName ?? principals?.[0]?.name ?? "";
+  const pekoFace = useMemo(
+    () =>
+      pekoIdentity(
+        principals?.find((p) => p.name === selectedPrincipal) ?? { name: selectedPrincipal },
+      ),
+    [principals, selectedPrincipal],
+  );
 
   const sendMut = usePrincipalSend();
   const stopMut = usePrincipalStop();
@@ -568,7 +584,7 @@ export default function Chat() {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-300 dark:text-slate-700" />
+        <Loader2 className="h-8 w-8 animate-spin text-fg-subtle" />
       </div>
     );
   }
@@ -576,18 +592,18 @@ export default function Chat() {
   if (!principals || principals.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
+        <MessageCircle className="h-12 w-12 text-fg-subtle" />
         <div className="text-center">
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+          <p className="text-sm font-medium text-fg-muted">
             No pekos yet
           </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500">
+          <p className="text-xs text-fg-subtle">
             Create your first peko to start chatting.
           </p>
         </div>
         <button
           onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover"
         >
           <Plus className="h-4 w-4" />
           Create a peko
@@ -600,8 +616,8 @@ export default function Chat() {
   if (!selectedPrincipal) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <MessageCircle className="h-12 w-12 text-slate-300 dark:text-slate-700" />
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <MessageCircle className="h-12 w-12 text-fg-subtle" />
+        <p className="text-sm text-fg-muted">
           Select a peko from the sidebar
         </p>
       </div>
@@ -610,11 +626,14 @@ export default function Chat() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <PrincipalToolbar principalName={selectedPrincipal} />
+      <PrincipalToolbar
+        peko={pekoFace}
+        description={principals?.find((p) => p.name === selectedPrincipal)?.description}
+      />
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-white p-4 dark:bg-slate-950">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-surface p-4">
         {displayItems.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+          <div className="flex h-full flex-col items-center justify-center text-fg-subtle">
             <MessageCircle className="h-10 w-10" />
             <p className="mt-2 text-sm">Send a message to begin...</p>
           </div>
@@ -624,7 +643,7 @@ export default function Chat() {
               <Fragment key={item.event.timestamp ?? idx}>
                 <ChatMessage
                   item={item}
-                  pekoName={selectedPrincipal}
+                  peko={pekoFace}
                   onRetry={
                     idx === retryIdx && retryText && !isStreaming
                       ? () => void sendText(retryText)
@@ -638,20 +657,20 @@ export default function Chat() {
             ))}
             {isStreaming && awaitingToken && (
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+                <div className="flex items-center gap-2 rounded-xl bg-brand-soft px-4 py-2 text-sm text-brand">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>...</span>
                 </div>
               </div>
             )}
             {queuedItems.map((item, idx) => (
-              <ChatMessage key={`queued-${item.event.timestamp ?? idx}`} item={item} pekoName={selectedPrincipal} />
+              <ChatMessage key={`queued-${item.event.timestamp ?? idx}`} item={item} peko={pekoFace} />
             ))}
           </div>
         )}
 
         {toolErrors.length > 0 && (
-          <details className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+          <details className="mt-3 rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs text-warn">
             <summary className="cursor-pointer">
               {toolErrors.length === 1
                 ? "1 tool call failed during this reply"
@@ -668,7 +687,7 @@ export default function Chat() {
         {tosText !== null ? (
           <div
             data-testid="tos-required-notice"
-            className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+            className="mt-3 rounded-lg border border-warn/30 bg-warn-soft p-3 text-sm text-warn"
           >
             <p className="font-medium">
               This peko requires you to acknowledge its terms before chatting.
@@ -676,13 +695,13 @@ export default function Chat() {
             <p className="mt-1 whitespace-pre-wrap break-all">{tosText}</p>
           </div>
         ) : error ? (
-          <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400">
+          <div className="mt-3 rounded-lg bg-danger-soft p-3 text-sm text-danger">
             {error}
           </div>
         ) : null}
       </div>
 
-      <div className="border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+      <div className="border-t border-line bg-surface p-4">
         <Composer
           value={input}
           onChange={setInput}

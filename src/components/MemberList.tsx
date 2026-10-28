@@ -1,5 +1,7 @@
 import { useChannelMembers } from "../hooks/useChannels";
-import { Bot, Globe, Loader2 } from "lucide-react";
+import { Globe, Loader2, User } from "lucide-react";
+import { usePekoDirectory } from "../hooks/usePekoDirectory";
+import PekoAvatar from "./peko/PekoAvatar";
 import RuntimeBadge from "./RuntimeBadge";
 import type { MemberProvenance } from "../types";
 
@@ -25,6 +27,7 @@ export default function MemberList({
   runtimeId?: string;
 }) {
   const { data, isLoading } = useChannelMembers(channelId, runtimeId);
+  const directory = usePekoDirectory();
 
   if (isLoading) {
     return (
@@ -40,7 +43,7 @@ export default function MemberList({
 
   if (members.length === 0) {
     return (
-      <div className="p-4 text-xs text-slate-400 dark:text-slate-600">
+      <div className="p-4 text-xs text-fg-subtle">
         No members yet.
       </div>
     );
@@ -70,39 +73,49 @@ export default function MemberList({
   return (
     <div className="p-3">
       <section data-testid="channel-members-local">
-        <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
           Local
         </div>
         <ul className="space-y-1">
-          {local.map((did) => (
-            <li
-              key={did}
-              className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              data-testid={`channel-member-${did}`}
-            >
-              <Bot className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
-              <span className="min-w-0 flex-1 truncate font-medium">{did}</span>
-              <RuntimeBadge runtimeId="local" />
-            </li>
-          ))}
+          {local.map((did) => {
+            const who = directory.resolve(did);
+            return (
+              <li
+                key={did}
+                title={did}
+                className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-fg-soft hover:bg-surface-sunken"
+                data-testid={`channel-member-${did}`}
+              >
+                {who.peko ? (
+                  <PekoAvatar peko={who.peko} size="sm" />
+                ) : (
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken">
+                    <User className="h-3.5 w-3.5 text-fg-muted" />
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate font-medium">{who.label}</span>
+                <RuntimeBadge runtimeId="local" />
+              </li>
+            );
+          })}
         </ul>
       </section>
 
       {remote.length > 0 && (
         <section className="mt-3" data-testid="channel-members-remote">
-          <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
             Remote
           </div>
           <ul className="space-y-1">
             {remote.map((row) => (
               <li
                 key={row.principal}
-                className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-fg-soft hover:bg-surface-sunken"
                 data-testid={`channel-member-${row.principal}`}
               >
-                <Globe className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
-                <span className="min-w-0 flex-1 truncate font-medium">
-                  {row.principal}
+                <Globe className="h-4 w-4 shrink-0 text-fg-subtle" />
+                <span className="min-w-0 flex-1 truncate font-medium" title={row.principal}>
+                  {directory.resolve(row.principal).label}
                 </span>
                 <RuntimeBadge
                   runtimeId={row.runtimeId ?? "local"}

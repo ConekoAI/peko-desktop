@@ -153,7 +153,7 @@ export default function ChannelView() {
         ) : eventsError ? (
           isChannelForbidden(eventsError) ? (
             <div
-              className="mx-auto my-6 max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+              className="mx-auto my-6 max-w-md rounded-lg border border-warn/30 bg-warn-soft px-4 py-3 text-xs text-warn"
               role="alert"
               aria-live="assertive"
               data-testid="channel-events-forbidden"
@@ -173,7 +173,7 @@ export default function ChannelView() {
             </div>
           ) : (
           <div
-            className="mx-auto my-6 max-w-md rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+            className="mx-auto my-6 max-w-md rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-xs text-red-700 dark:text-red-300"
             role="alert"
             aria-live="assertive"
             data-testid="channel-events-error"
@@ -211,16 +211,16 @@ export default function ChannelView() {
             className="mx-auto my-12 max-w-md text-center"
             data-testid="channel-events-empty"
           >
-            <div className="mb-2 text-sm text-slate-500 dark:text-slate-400">
+            <div className="mb-2 text-sm text-fg-muted">
               No events yet.
             </div>
             {detail?.name && (
-              <div className="text-xs text-slate-400 dark:text-slate-500">
+              <div className="text-xs text-fg-subtle">
                 Be the first to post in <span className="font-mono">{detail.name}</span>.
               </div>
             )}
             {!isMember && (
-              <div className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+              <div className="mt-3 text-xs text-fg-subtle">
                 Ask a current member to invite you, then return to
                 this channel to start posting.
               </div>
@@ -237,7 +237,7 @@ export default function ChannelView() {
         />
       ) : (
         <div
-          className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400"
+          className="border-t border-line bg-surface-raised px-4 py-3 text-xs text-fg-muted"
           data-testid="channel-composer-no-sender"
         >
           Select a channel from the sidebar to start posting.

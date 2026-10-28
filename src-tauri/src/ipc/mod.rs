@@ -1279,6 +1279,7 @@ impl IpcClient {
         status: Option<&str>,
         exposure: Option<&str>,
         preferred_model_id: Option<&str>,
+        avatar: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1290,6 +1291,7 @@ impl IpcClient {
             "status": status,
             "exposure": exposure,
             "preferred_model_id": preferred_model_id,
+            "avatar": avatar,
         });
         self.request_response(req).await
     }

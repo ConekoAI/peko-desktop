@@ -66,7 +66,7 @@ export default function Composer({
         e.preventDefault();
         if (canSend) onSend();
       }}
-      className="rounded-xl border border-slate-200 bg-slate-50 focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
+      className="rounded-xl border border-line bg-surface-raised focus-within:border-brand focus-within:ring-1 focus-within:ring-brand"
     >
       <textarea
         ref={ref}
@@ -76,7 +76,7 @@ export default function Composer({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={busy ? "Add to what it's doing…" : "Message your peko…"}
-        className="block max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
+        className="block max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm text-fg outline-none placeholder:text-slate-400"
       />
       <div className="flex items-center gap-2 px-2 pb-2">
         {models.length > 0 && (
@@ -84,7 +84,7 @@ export default function Composer({
             aria-label="Model for this message"
             value={model ?? ""}
             onChange={(e) => onModelChange(e.target.value || null)}
-            className="max-w-[14rem] truncate rounded-md border-none bg-transparent px-2 py-1 text-xs text-slate-500 outline-none hover:bg-slate-200 focus:ring-1 focus:ring-emerald-500 dark:text-slate-400 dark:hover:bg-slate-800"
+            className="max-w-[14rem] truncate rounded-md border-none bg-transparent px-2 py-1 text-xs text-fg-muted outline-none hover:bg-surface-sunken focus:ring-1 focus:ring-brand"
           >
             <option value="">Peko&apos;s model</option>
             {models.map((m) => (
@@ -94,7 +94,7 @@ export default function Composer({
             ))}
           </select>
         )}
-        <span className="ml-auto hidden text-[11px] text-slate-400 sm:inline dark:text-slate-500">
+        <span className="ml-auto hidden text-[11px] text-fg-subtle sm:inline">
           {IS_MAC ? "⌘↵" : "Ctrl+↵"} to send
         </span>
         {busy && (
@@ -104,7 +104,7 @@ export default function Composer({
             disabled={stopping}
             title="Stop"
             aria-label="Stop"
-            className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            className="inline-flex items-center rounded-lg border border-line bg-surface-card p-2 text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
           >
             <Square className="h-4 w-4 fill-current" />
           </button>
@@ -114,7 +114,7 @@ export default function Composer({
           disabled={!canSend}
           aria-label="Send"
           title={`Send (${IS_MAC ? "⌘↵" : "Ctrl+↵"})`}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
         >
           <Send className="h-4 w-4" />
         </button>

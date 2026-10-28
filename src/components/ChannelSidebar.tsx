@@ -65,17 +65,17 @@ export default function ChannelSidebar({
   }
 
   return (
-    <div className="flex h-full w-60 flex-col border-r border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
-      <div className="border-b border-slate-200 p-3 dark:border-slate-800">
-        <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+    <div className="flex h-full w-60 flex-col border-r border-line bg-surface-raised">
+      <div className="border-b border-line p-3">
+        <h3 className="truncate text-sm font-semibold text-fg">
           Channels
         </h3>
-        <p className="mt-0.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-0.5 line-clamp-2 text-xs text-fg-muted">
           Multi-principal chat
         </p>
       </div>
 
-      <div className="border-b border-slate-200 p-2 dark:border-slate-800">
+      <div className="border-b border-line p-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
           <input
@@ -83,7 +83,7 @@ export default function ChannelSidebar({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search channels..."
-            className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            className="w-full rounded-lg border border-line bg-surface-card py-1.5 pl-8 pr-3 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             data-testid="channel-search"
           />
         </div>
@@ -113,11 +113,11 @@ export default function ChannelSidebar({
                   className={[
                     "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                     active
-                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                      : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+                      ? "bg-brand-soft text-brand"
+                      : "text-fg-soft hover:bg-surface-sunken",
                   ].join(" ")}
                 >
-                  <Hash className="h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                  <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
                   <span className="min-w-0 flex-1 truncate font-mono">
                     {c.channelId}
                   </span>
@@ -131,7 +131,7 @@ export default function ChannelSidebar({
           </div>
         ) : (
           <div
-            className="px-2 py-8 text-center text-xs text-slate-400 dark:text-slate-600"
+            className="px-2 py-8 text-center text-xs text-fg-subtle"
             data-testid="channel-empty"
           >
             {search.trim()
@@ -142,11 +142,11 @@ export default function ChannelSidebar({
       </div>
 
       {onCreateClick && (
-        <div className="border-t border-slate-200 p-2 dark:border-slate-800">
+        <div className="border-t border-line p-2">
           <button
             type="button"
             onClick={onCreateClick}
-            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
             data-testid="channel-new"
           >
             <Plus className="h-4 w-4" />
