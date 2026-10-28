@@ -771,17 +771,6 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// List the built-in model presets the runtime ships with.
-    pub async fn model_templates(&self) -> Result<serde_json::Value> {
-        ensure_daemon().await?;
-        let req = serde_json::json!({
-            "type": "model_templates",
-            "protocol_version": PROTOCOL_VERSION,
-            "request_id": 1u64,
-        });
-        self.request_response(req).await
-    }
-
     /// Add a model to the runtime catalog.
     pub async fn model_add(&self, args: serde_json::Value) -> Result<serde_json::Value> {
         ensure_daemon().await?;

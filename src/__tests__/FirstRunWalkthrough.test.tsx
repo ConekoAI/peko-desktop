@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const principalsSignal: { value: unknown } = { value: [] };
 const modelsSignal: { value: unknown; loading: boolean } = { value: [], loading: false };
-const templatesSignal: { value: unknown } = { value: [] };
 
 const createMock = vi.fn(async (_req: unknown) => ({ name: "nova" }));
 const updateMock = vi.fn(async (_req: unknown) => ({}));
@@ -24,12 +23,9 @@ vi.mock("../hooks/usePrincipals", () => ({
 }));
 vi.mock("../hooks/useModels", () => ({
   useModels: () => ({ data: modelsSignal.value, isLoading: modelsSignal.loading }),
-  useModelTemplates: () => ({ data: templatesSignal.value, isLoading: false }),
   useAddModel: () => mutation(addModelMock as never),
   useTestModel: () => mutation(testModelMock as never),
 }));
-// The custom-endpoint dialog is the full Add Model flow, tested on its own.
-vi.mock("../components/modals/AddModelModal", () => ({ default: () => null }));
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", async () => {
@@ -41,26 +37,6 @@ vi.mock("@tanstack/react-router", async () => {
 
 import FirstRunWalkthrough, { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 
-const PRESETS = [
-  {
-    id: "anthropic",
-    displayName: "Anthropic",
-    apiType: "anthropic",
-    baseUrl: "https://api.anthropic.com",
-    requiresKey: true,
-    defaultModel: "claude-sonnet-5-5",
-    models: [{ id: "claude-sonnet-5-5" }, { id: "claude-haiku-5-5" }],
-  },
-  {
-    id: "ollama",
-    displayName: "Ollama",
-    apiType: "openai",
-    baseUrl: "http://localhost:11434/v1",
-    requiresKey: false,
-    defaultModel: "llama3",
-    models: [{ id: "llama3" }],
-  },
-];
 
 function renderWalkthrough() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -76,7 +52,6 @@ beforeEach(() => {
   principalsSignal.value = [];
   modelsSignal.value = [];
   modelsSignal.loading = false;
-  templatesSignal.value = PRESETS;
   for (const m of [createMock, updateMock, addModelMock, testModelMock, navigateMock]) m.mockClear();
   testModelMock.mockImplementation(async () => ({ ok: true, message: "" }));
 });
@@ -110,56 +85,58 @@ describe("visibility", () => {
 });
 
 describe("step 1: connect a model", () => {
-  it("adds the provider's default model with the pasted key, tests it, and moves on", async () => {
+  const field = (label: RegExp) => screen.getByLabelText(label);
+
+  function fillEndpoint(key = " sk-mimo ") {
+    fireEvent.change(field(/base url/i), {
+      target: { value: "https://token-plan-cn.xiaomimimo.com/v1" },
+    });
+    fireEvent.change(field(/model id/i), { target: { value: "mimo-v2.6-flash" } });
+    fireEvent.change(field(/api key/i), { target: { value: key } });
+  }
+
+  it("is the endpoint form — no vendor presets", () => {
+    renderWalkthrough();
+    expect(screen.queryByRole("group", { name: /providers/i })).toBeNull();
+    expect(field(/base url/i)).toBeInTheDocument();
+    expect(field(/api format/i)).toHaveValue("openai");
+  });
+
+  it("adds the endpoint with its key, tests it, and moves on", async () => {
     renderWalkthrough();
     const connect = screen.getByRole("button", { name: /connect/i });
     expect(connect).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: /anthropic/i }));
-    expect(connect).toBeDisabled(); // a key is required
-    fireEvent.change(screen.getByPlaceholderText("Paste your key"), {
-      target: { value: " sk-test " },
-    });
+    fillEndpoint();
     fireEvent.click(connect);
     await waitFor(() =>
       expect(addModelMock).toHaveBeenCalledWith({
-        template: "anthropic",
-        custom: false,
-        model: ["claude-sonnet-5-5"],
-        key: "sk-test",
+        custom: true,
+        apiFormat: "openai",
+        baseUrl: "https://token-plan-cn.xiaomimimo.com/v1",
+        model: ["mimo-v2.6-flash"],
+        requiresKey: true,
+        key: "sk-mimo",
       }),
     );
     expect(testModelMock).toHaveBeenCalledWith("anthropic-sonnet");
     expect(await screen.findByRole("heading", { name: "Name your peko" })).toBeInTheDocument();
   });
 
-  it("keeps the model choice under Advanced", async () => {
+  it("keeps the name and keyless options under Advanced", () => {
     renderWalkthrough();
-    fireEvent.click(screen.getByRole("button", { name: /anthropic/i }));
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByLabelText(/name in peko/i)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "claude-haiku-5-5" } });
-    fireEvent.change(screen.getByPlaceholderText("Paste your key"), { target: { value: "k" } });
-    fireEvent.click(screen.getByRole("button", { name: /connect/i }));
-    await waitFor(() =>
-      expect(addModelMock.mock.calls[0][0]).toMatchObject({ model: ["claude-haiku-5-5"] }),
-    );
-  });
-
-  it("needs no key for a local provider", () => {
-    renderWalkthrough();
-    fireEvent.click(screen.getByRole("button", { name: /ollama/i }));
-    expect(screen.queryByPlaceholderText("Paste your key")).toBeNull();
-    expect(screen.getByRole("button", { name: /connect/i })).toBeEnabled();
+    expect(field(/name in peko/i)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /no key needed/i })).toBeInTheDocument();
   });
 
   it("says when the model can't be reached, and lets you continue anyway", async () => {
-    testModelMock.mockImplementation(async () => ({ ok: false, message: "401 invalid x-api-key" }));
+    testModelMock.mockImplementation(async () => ({ ok: false, message: "401 invalid api key" }));
     renderWalkthrough();
-    fireEvent.click(screen.getByRole("button", { name: /anthropic/i }));
-    fireEvent.change(screen.getByPlaceholderText("Paste your key"), { target: { value: "bad" } });
+    fillEndpoint("bad");
     fireEvent.click(screen.getByRole("button", { name: /connect/i }));
     const error = await screen.findByTestId("onboarding-model-error");
-    expect(error).toHaveTextContent("401 invalid x-api-key");
+    expect(error).toHaveTextContent("401 invalid api key");
     fireEvent.click(screen.getByRole("button", { name: "Continue anyway" }));
     expect(await screen.findByRole("heading", { name: "Name your peko" })).toBeInTheDocument();
   });

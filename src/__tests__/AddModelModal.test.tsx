@@ -1,277 +1,154 @@
+// Add Model is an endpoint form (ADR-068): base URL, API format, model
+// id, and a key or stored credential — no vendor presets.
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// Mutable signals: the modal reads templates via `useModelTemplates`
-// and invokes `useAddModel().mutate` on submit. Capturing the last
-// mutate call lets each test assert exactly what the modal would have
-// sent over IPC.
-const templatesSignal: {
-  value: Array<{
-    id: string;
-    displayName: string;
-    apiType: string;
-    baseUrl: string;
-    requiresKey: boolean;
-    defaultModel: string;
-    models: Array<{
-      id: string;
-      displayName?: string;
-      contextLength?: number;
-      maxOutputTokens?: number;
-      spec?: {
-        image_input?: boolean;
-        audio_input?: boolean;
-        tool_support?: "none" | "function_calling" | "full";
-        streaming?: boolean;
-        thinking?: "disabled" | "optional" | "required" | "custom_budget";
-        json_mode?: boolean;
-        pricing?: { input_per_million?: number; output_per_million?: number };
-      } | null;
-    }>;
-  }>;
-  loading: boolean;
-} = { value: [], loading: false };
-
 const mutateMock = vi.fn();
+const modelsState: { data: unknown[] } = { data: [] };
+const credentialsState: { data: unknown[] } = { data: [] };
 
 vi.mock("../hooks/useModels", () => ({
-  useModels: () => ({ data: [], isLoading: false }),
-  useModelTemplates: () => ({
-    data: templatesSignal.value,
-    isLoading: templatesSignal.loading,
-  }),
-  useAddModel: () => ({
-    mutate: mutateMock,
-    isPending: false,
-    error: null,
-    reset: vi.fn(),
-  }),
+  useModels: () => ({ data: modelsState.data, isLoading: false }),
+  useAddModel: () => ({ mutate: mutateMock, isPending: false, error: null, reset: vi.fn() }),
 }));
-
 vi.mock("../hooks/useSettings", () => ({
-  useGenericCredentialList: () => ({
-    data: [],
-    isLoading: false,
-  }),
+  useGenericCredentialList: () => ({ data: credentialsState.data, isLoading: false }),
 }));
 
 import AddModelModal from "../components/modals/AddModelModal";
-import type { ModelAddArgs } from "../types";
 
-function renderModal(
-  props: Partial<{
-    open: boolean;
-    onClose: () => void;
-    onSuccess: (id: string) => void;
-  }> = {},
-) {
+function renderModal(open = true) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const onClose = props.onClose ?? vi.fn();
-  const onSuccess = props.onSuccess ?? vi.fn();
+  const onClose = vi.fn();
   const utils = render(
     <QueryClientProvider client={qc}>
-      <AddModelModal open={props.open ?? true} onClose={onClose} onSuccess={onSuccess} />
+      <AddModelModal open={open} onClose={onClose} />
     </QueryClientProvider>,
   );
-  return { ...utils, onClose, onSuccess };
+  return { ...utils, onClose };
 }
 
-function setInput(testid: string, value: string) {
-  const input = screen.getByTestId(testid);
-  fireEvent.change(input, { target: { value } });
+const field = (label: RegExp) => screen.getByLabelText(label);
+const submit = () => screen.getByTestId("add-model-submit");
+
+function fillMimo() {
+  fireEvent.change(field(/base url/i), {
+    target: { value: "https://token-plan-cn.xiaomimimo.com/v1" },
+  });
+  fireEvent.change(field(/model id/i), { target: { value: "mimo-v2.6-flash" } });
+  fireEvent.change(field(/api key/i), { target: { value: " sk-mimo " } });
 }
 
-function clickCheckbox(label: RegExp) {
-  fireEvent.click(screen.getByRole("checkbox", { name: label }));
-}
+beforeEach(() => {
+  mutateMock.mockReset();
+  modelsState.data = [];
+  credentialsState.data = [];
+});
 
 describe("AddModelModal", () => {
-  beforeEach(() => {
-    mutateMock.mockReset();
-    templatesSignal.value = [
-      {
-        id: "anthropic",
-        displayName: "Anthropic",
-        apiType: "anthropic",
-        baseUrl: "https://api.anthropic.com",
-        requiresKey: true,
-        defaultModel: "claude-opus-4-7",
-        models: [
-          { id: "claude-opus-4-7", contextLength: 200_000, maxOutputTokens: 8_192, spec: { image_input: true, tool_support: "full", thinking: "custom_budget" } },
-          { id: "claude-sonnet-4-6", contextLength: 200_000, maxOutputTokens: 8_192 },
-        ],
-      },
-      {
-        id: "openai",
-        displayName: "OpenAI",
-        apiType: "openai",
-        baseUrl: "https://api.openai.com/v1",
-        requiresKey: true,
-        defaultModel: "gpt-5",
-        models: [{ id: "gpt-5", contextLength: 400_000 }],
-      },
-      {
-        id: "ollama",
-        displayName: "Ollama (local)",
-        apiType: "openai",
-        baseUrl: "http://localhost:11434/v1",
-        requiresKey: false,
-        defaultModel: "llama-3.1",
-        models: [{ id: "llama-3.1" }],
-      },
-    ];
-    templatesSignal.loading = false;
-  });
-
   it("renders nothing when closed", () => {
-    renderModal({ open: false });
-    expect(screen.queryByText("Add a Model")).toBeNull();
+    const { container } = renderModal(false);
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders the preset list with api type + key badges", () => {
+  it("has no vendor presets, only the endpoint form", () => {
     renderModal();
-    expect(screen.getByText("Add a Model")).toBeInTheDocument();
-    expect(screen.getByTestId("add-model-template-anthropic")).toBeInTheDocument();
-    expect(screen.getByTestId("add-model-template-openai")).toBeInTheDocument();
-    expect(screen.getByTestId("add-model-template-ollama")).toBeInTheDocument();
+    expect(screen.queryByText(/preset/i)).toBeNull();
+    expect(field(/base url/i)).toBeInTheDocument();
+    expect(field(/api format/i)).toBeInTheDocument();
   });
 
-  it("Add is disabled with no template selected", () => {
+  it("offers the three API formats the runtime has adapters for", () => {
     renderModal();
-    expect(screen.getByTestId("add-model-submit")).toBeDisabled();
+    const options = Array.from((field(/api format/i) as HTMLSelectElement).options).map((o) => [
+      o.value,
+      o.textContent,
+    ]);
+    expect(options).toEqual([
+      ["openai", "OpenAI-compatible (Chat Completions)"],
+      ["anthropic", "Anthropic-compatible (Messages)"],
+      ["responses", "OpenAI Responses"],
+    ]);
   });
 
-  it("selecting a preset + entering key + clicking Add calls mutate with the template contract", () => {
+  it("adds an OpenAI-compatible endpoint with its key", () => {
     renderModal();
-    fireEvent.click(screen.getByTestId("add-model-template-anthropic"));
-    setInput("add-model-api-key", "sk-test-key");
-    const submit = screen.getByTestId("add-model-submit");
-    expect(submit).not.toBeDisabled();
-    fireEvent.click(submit);
-    expect(mutateMock).toHaveBeenCalledTimes(1);
-    const [args] = mutateMock.mock.calls[0] as [ModelAddArgs];
-    expect(args.template).toBe("anthropic");
-    expect(args.custom).toBe(false);
-    expect(args.key).toBe("sk-test-key");
-    expect(args.model).toEqual(["claude-opus-4-7"]);
-    expect(args.name).toBeUndefined();
+    expect(submit()).toBeDisabled();
+    fillMimo();
+    fireEvent.click(submit());
+    expect(mutateMock.mock.calls[0][0]).toEqual({
+      custom: true,
+      apiFormat: "openai",
+      baseUrl: "https://token-plan-cn.xiaomimimo.com/v1",
+      model: ["mimo-v2.6-flash"],
+      requiresKey: true,
+      key: "sk-mimo",
+    });
   });
 
-  it("name override flow through to mutate", () => {
+  it("sends the Responses format and an optional name", () => {
     renderModal();
-    fireEvent.click(screen.getByTestId("add-model-template-anthropic"));
-    setInput("add-model-name-override", "my-anthropic");
-    setInput("add-model-api-key", "sk-test-key");
-    fireEvent.click(screen.getByTestId("add-model-submit"));
-    const [args] = mutateMock.mock.calls[0] as [ModelAddArgs];
-    expect(args.template).toBe("anthropic");
-    expect(args.name).toBe("my-anthropic");
+    fillMimo();
+    fireEvent.change(field(/api format/i), { target: { value: "responses" } });
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.change(field(/name in peko/i), { target: { value: "mimo-fast" } });
+    fireEvent.click(submit());
+    expect(mutateMock.mock.calls[0][0]).toMatchObject({ apiFormat: "responses", name: "mimo-fast" });
   });
 
-  it("ollama preset (no key) hides the apiKey input and submits without a key", () => {
+  it("needs a key unless the endpoint is keyless", () => {
     renderModal();
-    fireEvent.click(screen.getByTestId("add-model-template-ollama"));
-    expect(screen.queryByTestId("add-model-api-key")).toBeNull();
-    const submit = screen.getByTestId("add-model-submit");
-    expect(submit).not.toBeDisabled();
-    fireEvent.click(submit);
-    const [args] = mutateMock.mock.calls[0] as [ModelAddArgs];
-    expect(args.template).toBe("ollama");
-    expect(args.key).toBeUndefined();
+    fireEvent.change(field(/base url/i), { target: { value: "http://localhost:11434/v1" } });
+    fireEvent.change(field(/model id/i), { target: { value: "llama3" } });
+    expect(submit()).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /no key needed/i }));
+    expect(screen.queryByLabelText(/api key/i)).toBeNull();
+    fireEvent.click(submit());
+    expect(mutateMock.mock.calls[0][0]).toEqual({
+      custom: true,
+      apiFormat: "openai",
+      baseUrl: "http://localhost:11434/v1",
+      model: ["llama3"],
+      requiresKey: false,
+    });
   });
 
-  it("switching to custom mode hides the template list and shows the form", () => {
+  it("can reuse a stored credential instead of a new key", () => {
+    credentialsState.data = [
+      { id: "cred_1", namespace: "provider", name: "mimo", kind: "api_key", hasKey: true },
+    ];
     renderModal();
-    fireEvent.click(screen.getByTestId("add-model-mode-custom"));
-    expect(screen.queryByTestId("add-model-template-list")).toBeNull();
-    expect(screen.getByTestId("add-model-custom-id")).toBeInTheDocument();
-    expect(screen.getByTestId("add-model-custom-base-url")).toBeInTheDocument();
-    expect(screen.getByTestId("add-model-custom-model-id")).toBeInTheDocument();
-    // Submit disabled until required fields are filled.
-    expect(screen.getByTestId("add-model-submit")).toBeDisabled();
+    fireEvent.change(field(/base url/i), { target: { value: "https://api.example.com/v1" } });
+    fireEvent.change(field(/model id/i), { target: { value: "m-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.change(field(/stored credential/i), { target: { value: "cred_1" } });
+    fireEvent.click(submit());
+    expect(mutateMock.mock.calls[0][0]).toMatchObject({ credentialId: "cred_1" });
+    expect(mutateMock.mock.calls[0][0]).not.toHaveProperty("key");
   });
 
-  it("custom submission sends the full payload via mutate", () => {
+  it("refuses a bad URL, a bad name, or a name already taken", () => {
+    modelsState.data = [{ id: "mimo-v2.6-flash" }];
     renderModal();
-    fireEvent.click(screen.getByTestId("add-model-mode-custom"));
-    setInput("add-model-custom-id", "my-llama");
-    setInput("add-model-custom-display-name", "My Llama");
-    setInput("add-model-custom-base-url", "https://api.example.com/v1");
-    setInput("add-model-custom-model-id", "llama-3.1-70b");
-    clickCheckbox(/requires api key/i); // uncheck so no key is required
-    const submit = screen.getByTestId("add-model-submit");
-    expect(submit).not.toBeDisabled();
-    fireEvent.click(submit);
-    const [args] = mutateMock.mock.calls[0] as [ModelAddArgs];
-    expect(args.custom).toBe(true);
-    expect(args.name).toBe("my-llama");
-    expect(args.displayName).toBe("My Llama");
-    expect(args.apiFormat).toBe("openai");
-    expect(args.baseUrl).toBe("https://api.example.com/v1");
-    expect(args.model).toEqual(["llama-3.1-70b"]);
-    expect(args.requiresKey).toBe(false);
-    expect(args.key).toBeUndefined();
+    fillMimo();
+    expect(screen.getByTestId("add-model-conflict")).toBeInTheDocument();
+    expect(submit()).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.change(field(/name in peko/i), { target: { value: "has space" } });
+    expect(submit()).toBeDisabled();
+    fireEvent.change(field(/name in peko/i), { target: { value: "mimo-2" } });
+    expect(submit()).toBeEnabled();
+    fireEvent.change(field(/base url/i), { target: { value: "not a url" } });
+    expect(submit()).toBeDisabled();
   });
 
-  it("custom + requiresKey + apiKey routes the key through mutate", () => {
-    renderModal();
-    fireEvent.click(screen.getByTestId("add-model-mode-custom"));
-    setInput("add-model-custom-id", "my-llama");
-    setInput("add-model-custom-base-url", "https://api.example.com/v1");
-    setInput("add-model-custom-model-id", "llama-3.1-70b");
-    setInput("add-model-custom-api-key", "sk-llama-123");
-    fireEvent.click(screen.getByTestId("add-model-submit"));
-    const [args] = mutateMock.mock.calls[0] as [ModelAddArgs];
-    expect(args.key).toBe("sk-llama-123");
-  });
-
-  it("custom form invalid id characters keep the submit disabled", () => {
-    renderModal();
-    fireEvent.click(screen.getByTestId("add-model-mode-custom"));
-    setInput("add-model-custom-id", "bad name with spaces");
-    setInput("add-model-custom-base-url", "https://api.example.com/v1");
-    setInput("add-model-custom-model-id", "llama-3.1-70b");
-    expect(screen.getByTestId("add-model-submit")).toBeDisabled();
-  });
-
-  it("close button invokes onClose and does not call mutate", () => {
-    const onClose = vi.fn();
-    renderModal({ onClose });
-    fireEvent.click(screen.getByTestId("add-model-close"));
-    expect(onClose).toHaveBeenCalledTimes(1);
+  it("Close calls onClose without adding", () => {
+    const { onClose } = renderModal();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalled();
     expect(mutateMock).not.toHaveBeenCalled();
-  });
-
-  it("template name override with illegal characters keeps submit disabled", () => {
-    renderModal();
-    fireEvent.click(screen.getByTestId("add-model-template-anthropic"));
-    setInput("add-model-name-override", "bad name");
-    setInput("add-model-api-key", "sk-test-key");
-    expect(screen.getByTestId("add-model-submit")).toBeDisabled();
-  });
-
-  it("reopening resets the template selection", () => {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { rerender } = render(
-      <QueryClientProvider client={qc}>
-        <AddModelModal open={true} onClose={vi.fn()} onSuccess={vi.fn()} />
-      </QueryClientProvider>,
-    );
-    fireEvent.click(screen.getByTestId("add-model-template-anthropic"));
-    setInput("add-model-api-key", "sk-test-key");
-    expect(screen.getByTestId("add-model-submit")).not.toBeDisabled();
-    // Close + reopen: should reset back to "no selection".
-    rerender(
-      <QueryClientProvider client={qc}>
-        <AddModelModal open={false} onClose={vi.fn()} onSuccess={vi.fn()} />
-      </QueryClientProvider>,
-    );
-    rerender(
-      <QueryClientProvider client={qc}>
-        <AddModelModal open={true} onClose={vi.fn()} onSuccess={vi.fn()} />
-      </QueryClientProvider>,
-    );
-    expect(screen.getByTestId("add-model-submit")).toBeDisabled();
   });
 });
