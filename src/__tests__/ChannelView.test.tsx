@@ -212,7 +212,7 @@ describe("ChannelView", () => {
       expect(screen.getByTestId("channel-events-error")).toBeInTheDocument();
     });
     expect(screen.getByTestId("channel-events-retry")).toBeInTheDocument();
-    expect(screen.getByText(/Couldn't load channel events/)).toBeInTheDocument();
+    expect(screen.getByText(/Couldn't load this group's messages/)).toBeInTheDocument();
     expect(
       screen.getByText(/channel_events connection refused/),
     ).toBeInTheDocument();
@@ -231,7 +231,7 @@ describe("ChannelView", () => {
       expect(screen.getByTestId("channel-events-forbidden")).toBeInTheDocument();
     });
     expect(
-      screen.getByText(/You don't have access to this channel/i),
+      screen.getByText(/You aren't in this group/i),
     ).toBeInTheDocument();
     // The generic error + retry affordance must NOT render for a
     // membership refusal — retrying won't mint membership.

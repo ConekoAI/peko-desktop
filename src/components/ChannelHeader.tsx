@@ -44,7 +44,7 @@ export default function ChannelHeader({
 
   if (!detail) {
     return (
-      <div className="flex items-center gap-2 border-b border-line px-4 py-3 text-sm text-slate-400">
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3 text-sm text-fg-subtle">
         <Hash className="h-4 w-4" />
         <span className="truncate font-mono">{channelId}</span>
       </div>
@@ -86,7 +86,7 @@ export default function ChannelHeader({
             <span
               className="inline-flex items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-fg-muted"
               data-testid="channel-guest-chip"
-              title="You aren't a member of this channel — read-only view."
+              title="You aren't in this group — you can read but not post."
             >
               View only
             </span>
@@ -106,7 +106,7 @@ export default function ChannelHeader({
             <button
               type="button"
               onClick={onLeaveClick}
-              title={isCreator ? "Leave channel (you'll remain the creator)" : "Leave channel"}
+              title={isCreator ? "Leave group (you'll stay its creator)" : "Leave group"}
               className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-fg-soft transition-colors hover:bg-surface-sunken"
               data-testid="channel-leave-button"
             >

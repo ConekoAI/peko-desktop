@@ -162,7 +162,7 @@ describe("ChannelCreateModal", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog.getAttribute("aria-modal")).toBe("true");
     expect(dialog.getAttribute("aria-labelledby")).toBe("channel-create-modal-title");
-    expect(screen.getByText("Create a Channel")).toHaveAttribute(
+    expect(screen.getByText("New group")).toHaveAttribute(
       "id",
       "channel-create-modal-title",
     );

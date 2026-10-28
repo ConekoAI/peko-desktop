@@ -15,12 +15,15 @@ import { useModalA11y } from "../../hooks/useModalA11y";
 export default function ChannelLeaveConfirmModal({
   open,
   channelId,
+  channelName,
   isCreator,
   onConfirm,
   onCancel,
 }: {
   open: boolean;
   channelId: string;
+  /** The group's name; its id is shown only when it has none. */
+  channelName?: string;
   isCreator: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -42,28 +45,28 @@ export default function ChannelLeaveConfirmModal({
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-950">
+      <div className="w-full max-w-md rounded-xl border border-line bg-surface-card p-6 shadow-xl">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/50">
             <LogOut className="h-5 w-5 text-amber-600 dark:text-amber-400" />
           </div>
           <h2
             id="channel-leave-modal-title"
-            className="text-lg font-semibold text-slate-900 dark:text-white"
+            className="text-lg font-semibold text-fg"
           >
-            Leave <span className="font-mono">{channelId}</span>?
+            Leave {channelName || <span className="font-mono">{channelId}</span>}?
           </h2>
           <button
             onClick={onCancel}
-            className="ml-auto rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="ml-auto rounded-lg p-1 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
-          You&apos;ll stop receiving new events on this channel. You can rejoin
-          later if a current member invites you back.
+        <p className="mb-3 text-sm text-fg-muted">
+          You&apos;ll stop seeing new messages here. A member can add you
+          back later.
         </p>
 
         {isCreator && (
@@ -76,7 +79,7 @@ export default function ChannelLeaveConfirmModal({
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-lg border border-line bg-surface-card px-4 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>
@@ -85,7 +88,7 @@ export default function ChannelLeaveConfirmModal({
             className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
             data-testid="channel-leave-confirm"
           >
-            Leave channel
+            Leave group
           </button>
         </div>
       </div>
