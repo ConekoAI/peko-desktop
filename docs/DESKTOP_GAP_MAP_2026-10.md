@@ -120,7 +120,10 @@ and highlighting landed (#92); identity and design tokens follow — each peko
 has an emoji/monogram avatar (`identity.avatar`, peko-runtime) and an accent
 from its id, and the chat, channel, sidebar, and shell surfaces use semantic
 tokens that switch with the theme. Onboarding is three steps (connect a model with its key → name and avatar →
-first message, advanced options folded away). Left: group wake picker.
+first message, advanced options folded away). Groups show a DM/group badge
+and a per-peko "replies to" picker (every message / @mentions / never).
+**Phase 1 is complete;** Phase 2 (approvals, goals, activity, memory) needs
+the runtime read APIs in §5 item 3–4 first.
 - Peko identity (avatar, name, accent) in header, messages, and sidebar.
 - New composer: textarea, ⌘↵, Stop/steer, model picker (`override_model`), @mention.
 - Tool/thinking step rows, code highlighting + copy, message actions, day separators,

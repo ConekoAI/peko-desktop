@@ -7,15 +7,24 @@
 //   • row uses the principal DID as the visible label
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const useChannelMembersMock = vi.fn();
+const infoState: { data: unknown } = { data: undefined };
+const setWakeState = {
+  mutate: vi.fn(),
+  isPending: false,
+  variables: undefined as unknown,
+  error: null as Error | null,
+};
 
 vi.mock("../hooks/useChannels", () => ({
   useChannels: () => ({ data: [] }),
   useChannel: () => ({ data: undefined }),
   useChannelMembers: (...args: unknown[]) => useChannelMembersMock(...args),
+  useChannelInfo: () => infoState,
+  useSetChannelWake: () => setWakeState,
 }));
 
 import MemberList from "../components/MemberList";
@@ -32,6 +41,55 @@ function renderList() {
 describe("MemberList", () => {
   beforeEach(() => {
     useChannelMembersMock.mockReset();
+    infoState.data = undefined;
+    setWakeState.mutate.mockReset();
+    setWakeState.isPending = false;
+    setWakeState.error = null;
+  });
+
+  it("lets you choose when each of your pekos replies in a group", () => {
+    useChannelMembersMock.mockReturnValue({
+      data: { members: ["principal:prin_a", "user:local"] },
+      isLoading: false,
+    });
+    infoState.data = {
+      kind: "group",
+      pekos: [{ name: "alice", localId: "prin_a", wake: "mention" }],
+    };
+    renderList();
+    const picker = screen.getByRole("combobox", { name: "When alice replies" });
+    expect(picker).toHaveValue("mention");
+    // Only pekos get a picker; the person does not.
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
+    fireEvent.change(picker, { target: { value: "off" } });
+    expect(setWakeState.mutate).toHaveBeenCalledWith({ pekoName: "alice", wake: "off" });
+  });
+
+  it("offers no picker in a DM, which always wakes", () => {
+    useChannelMembersMock.mockReturnValue({
+      data: { members: ["principal:prin_a", "user:local"] },
+      isLoading: false,
+    });
+    infoState.data = {
+      kind: "dm",
+      pekos: [{ name: "alice", localId: "prin_a", wake: "human" }],
+    };
+    renderList();
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("shows why a change was refused", () => {
+    useChannelMembersMock.mockReturnValue({
+      data: { members: ["principal:prin_a"] },
+      isLoading: false,
+    });
+    infoState.data = {
+      kind: "group",
+      pekos: [{ name: "alice", localId: "prin_a", wake: "mention" }],
+    };
+    setWakeState.error = new Error("[forbidden] only alice's owner can change how it wakes");
+    renderList();
+    expect(screen.getByRole("alert")).toHaveTextContent("only alice's owner");
   });
 
   it("renders the loading spinner while members are in-flight", () => {

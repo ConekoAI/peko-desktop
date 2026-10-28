@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Hash, Users, ChevronDown, ChevronUp, UserPlus, LogOut } from "lucide-react";
-import { useChannel } from "../hooks/useChannels";
+import { useChannel, useChannelInfo } from "../hooks/useChannels";
+import { usePekoDirectory } from "../hooks/usePekoDirectory";
 import RuntimeBadge from "./RuntimeBadge";
 import MemberList from "./MemberList";
 
@@ -35,7 +36,11 @@ export default function ChannelHeader({
   onLeaveClick?: () => void;
 }) {
   const { data: detail } = useChannel(channelId, runtimeId);
+  const { data: info } = useChannelInfo(channelId);
+  const directory = usePekoDirectory();
   const [showMembers, setShowMembers] = useState(false);
+  // ADR-082: a channel is a DM (two members, always wakes) or a group.
+  const kind = info?.kind ?? (channelId.startsWith("dm_") ? "dm" : "group");
 
   if (!detail) {
     return (
@@ -63,12 +68,16 @@ export default function ChannelHeader({
     <div className="border-b border-line">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Hash className="h-4 w-4 shrink-0 text-slate-400" />
+          <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
           <h2 className="truncate text-base font-semibold text-fg">
             {detail.name}
           </h2>
-          <span className="shrink-0 text-xs text-fg-subtle">
-            {detail.channelId}
+          <span
+            data-testid="channel-kind-badge"
+            className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-fg-muted"
+            title={detail.channelId}
+          >
+            {kind === "dm" ? "Direct message" : "Group"}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-3">
@@ -122,7 +131,7 @@ export default function ChannelHeader({
         </div>
       </div>
       <div className="px-4 pb-2 text-xs text-fg-muted">
-        Created by <span className="font-mono">{detail.creator}</span> ·{" "}
+        Created by <span title={detail.creator}>{directory.resolve(detail.creator).label}</span> ·{" "}
         {new Date(detail.createdAt).toLocaleString()}
       </div>
       {showMembers && (
