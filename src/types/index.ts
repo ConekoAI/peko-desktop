@@ -272,14 +272,6 @@ export interface ModelSummary {
   spec?: ModelSpec | null;
 }
 
-export interface ModelTemplateInfo {
-  id: string;
-  displayName?: string;
-  contextLength?: number;
-  maxOutputTokens?: number;
-  spec?: ModelSpec | null;
-}
-
 // ── ModelSpec types (PR 4 / feature/model-first-config) ────────────
 //
 // One-way wire mirror of `peko_runtime::providers::spec::ModelSpec`.
@@ -334,18 +326,7 @@ export function resolveSpec(m: { spec?: ModelSpec | null }): ModelSpec {
   return m.spec ?? MODEL_SPEC_DEFAULT;
 }
 
-export interface ModelPresetInfo {
-  id: string;
-  displayName: string;
-  apiType: string;
-  baseUrl: string;
-  requiresKey: boolean;
-  defaultModel: string;
-  models: ModelTemplateInfo[];
-}
-
 export interface ModelAddArgs {
-  template?: string;
   name?: string;
   displayName?: string;
   custom: boolean;

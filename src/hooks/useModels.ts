@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   modelList,
-  modelTemplates,
   modelAdd,
   modelUpdate,
   modelRemove,
@@ -21,18 +20,6 @@ export function useModels() {
   return useQuery({
     queryKey: ["models"],
     queryFn: () => modelList(),
-  });
-}
-
-/**
- * List the runtime's built-in model presets (formerly provider
- * templates). Presets are static, so we cache them for five minutes.
- */
-export function useModelTemplates() {
-  return useQuery({
-    queryKey: ["model-templates"],
-    queryFn: () => modelTemplates(),
-    staleTime: 5 * 60_000,
   });
 }
 

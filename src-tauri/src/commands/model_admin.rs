@@ -9,7 +9,7 @@
 //!
 //! Field-name contract: the runtime emits snake_case fields (matching the
 //! rest of the IPC envelope); the projections below rename to camelCase on
-//! the JS side, matching the `ModelSummary` / `ModelPresetInfo` shapes the
+//! the JS side, matching the `ModelSummary` shapes the
 //! TS frontend consumes.
 
 use serde::{Deserialize, Serialize};
@@ -106,35 +106,6 @@ pub struct ModelSummary {
     pub spec: Option<ModelSpec>,
 }
 
-/// One model declared by a built-in model preset.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelTemplateInfo {
-    pub id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub context_length: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_output_tokens: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub spec: Option<ModelSpec>,
-}
-
-/// One built-in model preset.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ModelPresetInfo {
-    pub id: String,
-    pub display_name: String,
-    /// `"openai"` or `"anthropic"`.
-    pub api_type: String,
-    pub base_url: String,
-    pub requires_key: bool,
-    pub default_model: String,
-    pub models: Vec<ModelTemplateInfo>,
-}
-
 /// Result of live-testing a configured model.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -155,8 +126,6 @@ pub struct ModelTestResult {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelAddArgs {
-    #[serde(default)]
-    pub template: Option<String>,
     #[serde(default)]
     pub name: Option<String>,
     #[serde(default)]
@@ -182,9 +151,6 @@ impl ModelAddArgs {
     /// shape the runtime's `ModelAddArgs` expects.
     fn into_runtime_value(self) -> serde_json::Value {
         let mut value = serde_json::json!({});
-        if let Some(v) = self.template {
-            value["template"] = v.into();
-        }
         if let Some(v) = self.name {
             value["name"] = v.into();
         }
@@ -363,66 +329,6 @@ fn project_model(m: &serde_json::Value) -> Option<ModelSummary> {
     })
 }
 
-fn project_model_template(m: &serde_json::Value) -> Option<ModelTemplateInfo> {
-    let spec = m
-        .get("spec")
-        .filter(|v| !v.is_null())
-        .and_then(|v| serde_json::from_value::<ModelSpec>(v.clone()).ok());
-    Some(ModelTemplateInfo {
-        id: m.get("id")?.as_str()?.to_string(),
-        display_name: m
-            .get("display_name")
-            .and_then(|v| v.as_str())
-            .map(std::string::ToString::to_string),
-        context_length: m
-            .get("context_length")
-            .and_then(|v| v.as_u64())
-            .and_then(|n| u32::try_from(n).ok()),
-        max_output_tokens: m
-            .get("max_output_tokens")
-            .and_then(|v| v.as_u64())
-            .and_then(|n| u32::try_from(n).ok()),
-        spec,
-    })
-}
-
-fn project_preset(p: &serde_json::Value) -> Option<ModelPresetInfo> {
-    let models = p
-        .get("models")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(project_model_template).collect())
-        .unwrap_or_default();
-
-    Some(ModelPresetInfo {
-        id: p.get("id")?.as_str()?.to_string(),
-        display_name: p
-            .get("display_name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        api_type: p
-            .get("api_type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        base_url: p
-            .get("base_url")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        requires_key: p
-            .get("requires_key")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true),
-        default_model: p
-            .get("default_model")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        models,
-    })
-}
-
 fn project_model_tested(value: &serde_json::Value) -> Option<ModelTestResult> {
     Some(ModelTestResult {
         id: value.get("id")?.as_str()?.to_string(),
@@ -470,25 +376,6 @@ pub async fn model_list() -> Result<Vec<ModelSummary>, String> {
         .map(|arr| arr.iter().filter_map(project_model).collect())
         .unwrap_or_default();
     Ok(models)
-}
-
-/// List the built-in model presets the runtime ships with.
-#[tauri::command]
-pub async fn model_templates() -> Result<Vec<ModelPresetInfo>, String> {
-    let client = crate::ipc::IpcClient::new()
-        .await
-        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
-    let value = client
-        .model_templates()
-        .await
-        .map_err(|e| format!("model_templates failed: {e}"))?;
-    check_runtime_error(&value)?;
-    let presets = value
-        .get("presets")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(project_preset).collect())
-        .unwrap_or_default();
-    Ok(presets)
 }
 
 /// Add a model to the runtime catalog.
@@ -598,19 +485,24 @@ mod tests {
     #[test]
     fn model_add_args_converts_to_runtime_snake_case() {
         let args = ModelAddArgs {
-            template: Some("anthropic".to_string()),
             name: Some("my-claude".to_string()),
             display_name: Some("My Claude".to_string()),
-            custom: false,
-            api_format: None,
-            base_url: None,
+            custom: true,
+            api_format: Some("responses".to_string()),
+            base_url: Some("https://api.example.com/v1".to_string()),
             requires_key: Some(true),
             model: vec!["claude-3-5-haiku-latest".to_string()],
             key: Some("secret".to_string()),
             credential_id: None,
         };
         let value = args.into_runtime_value();
-        assert_eq!(value["template"].as_str(), Some("anthropic"));
+        assert!(value.get("template").is_none());
+        assert_eq!(value["api_format"].as_str(), Some("responses"));
+        assert_eq!(
+            value["base_url"].as_str(),
+            Some("https://api.example.com/v1")
+        );
+        assert_eq!(value["custom"].as_bool(), Some(true));
         assert_eq!(value["name"].as_str(), Some("my-claude"));
         assert_eq!(value["display_name"].as_str(), Some("My Claude"));
         assert_eq!(value["requires_key"].as_bool(), Some(true));
@@ -795,56 +687,6 @@ mod tests {
         assert!(!spec.streaming);
         assert_eq!(spec.thinking, ModelThinkingMode::Required);
         assert!(!spec.image_input);
-    }
-
-    #[test]
-    fn project_model_template_propagates_spec() {
-        let value = serde_json::json!({
-            "id": "claude-sonnet-4-5",
-            "display_name": "Claude Sonnet 4.5",
-            "context_length": 200000,
-            "max_output_tokens": 8192,
-            "spec": {
-                "image_input": true,
-                "audio_input": false,
-                "tool_support": "full",
-                "streaming": true,
-                "thinking": "custom_budget",
-                "json_mode": true,
-            }
-        });
-        let mt = project_model_template(&value).expect("should project");
-        let spec = mt.spec.expect("spec projected");
-        assert_eq!(spec.tool_support, ModelToolSupport::Full);
-        assert_eq!(spec.thinking, ModelThinkingMode::CustomBudget);
-    }
-
-    #[test]
-    fn project_preset_maps_models() {
-        let value = serde_json::json!({
-            "id": "anthropic",
-            "display_name": "Anthropic",
-            "api_type": "anthropic",
-            "base_url": "https://api.anthropic.com",
-            "requires_key": true,
-            "default_model": "claude-3-5-haiku-latest",
-            "models": [
-                {
-                    "id": "claude-3-5-haiku-latest",
-                    "display_name": "Claude 3.5 Haiku",
-                    "context_length": 200000,
-                    "max_output_tokens": 4096
-                }
-            ]
-        });
-        let p = project_preset(&value).expect("should project");
-        assert_eq!(p.id, "anthropic");
-        assert_eq!(p.api_type, "anthropic");
-        assert_eq!(p.default_model, "claude-3-5-haiku-latest");
-        assert_eq!(p.models.len(), 1);
-        let mt = p.models.first().unwrap();
-        assert_eq!(mt.id, "claude-3-5-haiku-latest");
-        assert_eq!(mt.context_length, Some(200000));
     }
 
     #[test]

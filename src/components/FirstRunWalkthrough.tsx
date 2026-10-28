@@ -1,22 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, KeyRound, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Loader2 } from "lucide-react";
 
 import { usePrincipals, usePrincipalCreate, usePrincipalUpdate } from "../hooks/usePrincipals";
-import { useAddModel, useModelTemplates, useModels, useTestModel } from "../hooks/useModels";
+import { useAddModel, useModels, useTestModel } from "../hooks/useModels";
 import { isValidPrincipalName } from "../lib/validatePrincipalName";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../lib/pekoIdentity";
 import PekoAvatar from "./peko/PekoAvatar";
-import AddModelModal from "./modals/AddModelModal";
-import type { ModelPresetInfo } from "../types";
+import EndpointForm, {
+  EMPTY_ENDPOINT,
+  endpointArgs,
+  isEndpointValid,
+  type EndpointDraft,
+} from "./models/EndpointForm";
 
 /**
  * First-run onboarding: from a fresh install to talking with a peko in
  * three steps.
  *
- *   1. Connect a model — pick a provider and paste its key (or, with
- *      models already set up, pick one). The model is added and tested;
- *      the model choice and a custom endpoint sit under "Advanced".
+ *   1. Connect a model — the endpoint from the provider's docs (base
+ *      URL, API format, model id, key; ADR-068 has no vendor presets),
+ *      or, with models already set up, pick one. The model is added and
+ *      tested; its name and keyless/stored-credential options sit under
+ *      "Advanced".
  *   2. Name your peko — a name and an avatar; the description and the
  *      model it uses sit under "Advanced". Creating it runs the runtime's
  *      genesis turn, which can take a minute.
@@ -224,44 +230,24 @@ function ModelStep({ onNext }: { onNext: (modelId: string) => void }) {
 }
 
 /**
- * Pick a provider, paste its key, and the model is added and tested.
- * "Advanced" picks a specific model; a custom endpoint opens the full
- * Add Model dialog.
+ * The endpoint from your provider's docs — base URL, API format, model
+ * id, key (ADR-068: no vendor presets). The model is added and tested;
+ * a failed test shows the provider's message and can be passed.
  */
 function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
-  const { data: templates, isLoading } = useModelTemplates();
-  const presets = useMemo(() => (templates ?? []) as ModelPresetInfo[], [templates]);
   const addMut = useAddModel();
   const testMut = useTestModel();
-  const [presetId, setPresetId] = useState<string | null>(null);
-  const [key, setKey] = useState("");
-  const [model, setModel] = useState("");
-  const [advanced, setAdvanced] = useState(false);
-  const [customOpen, setCustomOpen] = useState(false);
+  const [draft, setDraft] = useState<EndpointDraft>(EMPTY_ENDPOINT);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
-  const preset = presets.find((p) => p.id === presetId) ?? null;
   const busy = addMut.isPending || testMut.isPending;
-  const ready = !!preset && (!preset.requiresKey || key.trim().length > 0) && !busy;
-
-  function pick(p: ModelPresetInfo) {
-    setPresetId(p.id);
-    setModel(p.defaultModel || p.models[0]?.id || "");
-    setTestError(null);
-    addMut.reset();
-  }
+  const ready = isEndpointValid(draft) && !busy;
 
   async function connect() {
-    if (!preset) return;
     setTestError(null);
     try {
-      const info = await addMut.mutateAsync({
-        template: preset.id,
-        custom: false,
-        model: model ? [model] : [],
-        ...(key.trim() && { key: key.trim() }),
-      });
+      const info = await addMut.mutateAsync(endpointArgs(draft));
       setAddedId(info.id);
       const result = await testMut.mutateAsync(info.id);
       if (result.ok) onAdded(info.id);
@@ -278,77 +264,18 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-fg-muted">
-        A model is a peko&apos;s mind. Choose a provider and paste your API key — it is stored in
-        your system keychain, not in a file.
+        A model is a peko&apos;s mind. Enter the endpoint from your provider&apos;s docs — most
+        say &quot;OpenAI-compatible&quot;, which is Chat Completions.
       </p>
 
-      {isLoading ? (
-        <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
-      ) : (
-        <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3" role="group" aria-label="Providers">
-          {presets.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => pick(p)}
-              aria-pressed={p.id === presetId}
-              className={[
-                "rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                p.id === presetId
-                  ? "border-brand bg-brand-soft text-fg"
-                  : "border-line text-fg-soft hover:bg-surface-sunken",
-              ].join(" ")}
-            >
-              <span className="block truncate font-medium">{p.displayName}</span>
-              <span className="block text-[11px] text-fg-subtle">
-                {p.requiresKey ? "API key" : "Local, no key"}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {preset?.requiresKey && (
-        <label className="block">
-          <span className="mb-1 flex items-center gap-1 text-xs font-medium text-fg-muted">
-            <KeyRound className="h-3.5 w-3.5" /> {preset.displayName} API key
-          </span>
-          <input
-            type="password"
-            autoComplete="off"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="Paste your key"
-            className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 font-mono text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-          />
-        </label>
-      )}
-
-      <Disclosure open={advanced} onToggle={() => setAdvanced((a) => !a)} label="Advanced">
-        {preset && preset.models.length > 0 && (
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-fg-muted">Model</span>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-            >
-              {preset.models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName || m.id}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button
-          type="button"
-          onClick={() => setCustomOpen(true)}
-          className="text-xs text-fg-muted underline hover:text-fg-soft"
-        >
-          Use a custom endpoint (base URL, API format)…
-        </button>
-      </Disclosure>
+      <EndpointForm
+        value={draft}
+        onChange={(next) => {
+          setDraft(next);
+          setTestError(null);
+        }}
+        disabled={busy}
+      />
 
       {failureText && (
         <div
@@ -358,11 +285,7 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
           <p className="font-medium">Couldn&apos;t reach the model.</p>
           <p className="mt-0.5 break-words">{failureText}</p>
           {addedId && (
-            <button
-              type="button"
-              onClick={() => onAdded(addedId)}
-              className="mt-1 underline"
-            >
+            <button type="button" onClick={() => onAdded(addedId)} className="mt-1 underline">
               Continue anyway
             </button>
           )}
@@ -383,12 +306,6 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
           )}
         </PrimaryButton>
       </div>
-
-      <AddModelModal
-        open={customOpen}
-        onClose={() => setCustomOpen(false)}
-        onSuccess={(id) => onAdded(id)}
-      />
     </div>
   );
 }

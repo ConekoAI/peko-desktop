@@ -4,11 +4,8 @@ import { Check, Plus, Trash2, X } from "lucide-react";
 import { useUpdateModel } from "../../hooks/useModels";
 import { useGenericCredentialList } from "../../hooks/useSettings";
 import type { ModelSummary, ModelUpdateArgs } from "../../types";
+import { API_FORMATS } from "../../lib/apiFormats";
 
-const API_FORMAT_OPTIONS = [
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
-];
 
 interface HeaderRow {
   key: string;
@@ -186,7 +183,7 @@ export default function EditModelModal({
                 onChange={(e) => setApiFormat(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
               >
-                {API_FORMAT_OPTIONS.map((o) => (
+                {API_FORMATS.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>

@@ -28,7 +28,6 @@ import type {
   DaemonStatus,
   LogResponse,
   ModelAddArgs,
-  ModelPresetInfo,
   ModelSummary,
   ModelTestResult,
   ModelUpdateArgs,
@@ -775,16 +774,8 @@ export async function modelList(): Promise<ModelSummary[]> {
 }
 
 /**
- * List built-in model presets (formerly provider templates). Each
- * preset carries a curated model list and default endpoint metadata.
- */
-export async function modelTemplates(): Promise<ModelPresetInfo[]> {
-  return invoke<ModelPresetInfo[]>("model_templates");
-}
-
-/**
- * Add a configured model. Either a `template` id (binds to one of
- * `model_templates()`) or `custom: true` with the full endpoint shape.
+ * Add a configured model from its endpoint: base URL, API format, wire
+ * model id, and a key or stored credential (ADR-068; no presets).
  */
 export async function modelAdd(args: ModelAddArgs): Promise<ModelSummary> {
   return invoke<ModelSummary>("model_add", { args });

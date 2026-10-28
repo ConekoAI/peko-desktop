@@ -3,7 +3,6 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const modelListMock = vi.fn();
-const modelTemplatesMock = vi.fn();
 const modelAddMock = vi.fn();
 const modelUpdateMock = vi.fn();
 const modelRemoveMock = vi.fn();
@@ -12,7 +11,6 @@ const modelReloadMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   modelList: () => modelListMock(),
-  modelTemplates: () => modelTemplatesMock(),
   modelAdd: (args: unknown) => modelAddMock(args),
   modelUpdate: (args: unknown) => modelUpdateMock(args),
   modelRemove: (id: string) => modelRemoveMock(id),
@@ -22,7 +20,6 @@ vi.mock("../lib/api", () => ({
 
 import {
   useModels,
-  useModelTemplates,
   useAddModel,
   useUpdateModel,
   useRemoveModel,
@@ -41,7 +38,6 @@ function renderHookWith<T>(hook: () => T, qc: QueryClient) {
 describe("useModels hooks", () => {
   beforeEach(() => {
     modelListMock.mockReset();
-    modelTemplatesMock.mockReset();
     modelAddMock.mockReset();
     modelUpdateMock.mockReset();
     modelRemoveMock.mockReset();
@@ -74,7 +70,6 @@ describe("useModels hooks", () => {
         },
       },
     ]);
-    modelTemplatesMock.mockResolvedValue([]);
     modelAddMock.mockResolvedValue({ id: "anthropic", displayName: "Anthropic" });
     modelUpdateMock.mockResolvedValue({ id: "anthropic", displayName: "Anthropic (edited)" });
     modelRemoveMock.mockResolvedValue(true);
@@ -126,42 +121,17 @@ describe("useModels hooks", () => {
     });
   });
 
-  describe("useModelTemplates", () => {
-    it("lists built-in presets from modelTemplates", async () => {
-      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      modelTemplatesMock.mockResolvedValue([
-        {
-          id: "anthropic",
-          displayName: "Anthropic",
-          apiType: "anthropic",
-          baseUrl: "https://api.anthropic.com",
-          requiresKey: true,
-          defaultModel: "claude-opus-4-7",
-          models: [],
-        },
-      ]);
-      const { result } = renderHookWith(() => useModelTemplates(), qc);
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-      expect(result.current.data?.[0].id).toBe("anthropic");
-    });
-  });
-
   describe("useAddModel", () => {
     it("refetches the models and credentials queries after a successful add", async () => {
       const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       const refetchSpy = vi.spyOn(qc, "refetchQueries");
 
       const { result } = renderHookWith(() => useAddModel(), qc);
-      result.current.mutate({ template: "anthropic", custom: false, model: ["claude-opus-4-7"], key: "sk-test" });
+      result.current.mutate({ custom: true, apiFormat: "openai", baseUrl: "https://api.example.com/v1", model: ["m-1"], requiresKey: true, key: "sk-test" });
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-      expect(modelAddMock).toHaveBeenCalledWith({
-        template: "anthropic",
-        custom: false,
-        model: ["claude-opus-4-7"],
-        key: "sk-test",
-      });
+      expect(modelAddMock).toHaveBeenCalledWith({ custom: true, apiFormat: "openai", baseUrl: "https://api.example.com/v1", model: ["m-1"], requiresKey: true, key: "sk-test" });
       expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ["models"] });
       expect(refetchSpy).toHaveBeenCalledWith({ queryKey: ["credentials"] });
     });

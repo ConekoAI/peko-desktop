@@ -24,6 +24,7 @@ import {
 import { specBadgeList } from "../../lib/model-spec";
 import { resolveSpec, type ModelSummary } from "../../types";
 import SpecBadge from "./SpecBadge";
+import { apiFormatShort } from "../../lib/apiFormats";
 
 interface ModelGalleryCardProps {
   model: ModelSummary;
@@ -96,7 +97,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
           title="API format"
           className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
         >
-          {model.apiFormat}
+          {apiFormatShort(model.apiFormat)}
         </span>
       </div>
 
