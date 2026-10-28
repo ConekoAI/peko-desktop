@@ -10,11 +10,10 @@ export interface ComposerModel {
 /** Max textarea height before it scrolls, in px. */
 const MAX_HEIGHT = 200;
 
-const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /**
- * The chat input: a textarea that grows with its text, where ⌘↵ (Ctrl+↵
- * off macOS) sends and Enter adds a line, plus a per-message model
+ * The chat input: a textarea that grows with its text, where Enter
+ * sends and Shift+Enter adds a line, plus a per-message model
  * picker and Stop while the peko is working. Sending while it works
  * queues the message for its running turn.
  */
@@ -53,11 +52,11 @@ export default function Composer({
   const canSend = value.trim().length > 0;
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
-    if (e.metaKey || e.ctrlKey) {
-      e.preventDefault();
-      if (canSend) onSend();
-    }
+    // Enter sends; Shift+Enter adds a line; an IME composition's Enter
+    // confirms the candidate and never sends.
+    if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    if (canSend) onSend();
   }
 
   return (
@@ -95,7 +94,7 @@ export default function Composer({
           </select>
         )}
         <span className="ml-auto hidden text-[11px] text-fg-subtle sm:inline">
-          {IS_MAC ? "⌘↵" : "Ctrl+↵"} to send
+          ↵ to send · ⇧↵ for a new line
         </span>
         {busy && (
           <button
@@ -113,7 +112,7 @@ export default function Composer({
           type="submit"
           disabled={!canSend}
           aria-label="Send"
-          title={`Send (${IS_MAC ? "⌘↵" : "Ctrl+↵"})`}
+          title="Send (Enter)"
           className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
         >
           <Send className="h-4 w-4" />

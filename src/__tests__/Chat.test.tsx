@@ -189,14 +189,15 @@ describe("Chat ToS gate", () => {
     expect(screen.getByRole("button", { name: /used 1 tool/i })).toBeInTheDocument();
   });
 
-  it("sends on ⌘↵ but adds a line on Enter", async () => {
+  it("sends on Enter, adds a line on Shift+Enter, and never mid-composition", async () => {
     sendMut.mutateAsync.mockResolvedValue("");
     render(<Chat />);
     const box = screen.getByRole("textbox", { name: "Message" });
     fireEvent.change(box, { target: { value: "line one" } });
-    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+    fireEvent.keyDown(box, { key: "Enter", isComposing: true });
     expect(sendMut.mutateAsync).not.toHaveBeenCalled();
-    fireEvent.keyDown(box, { key: "Enter", metaKey: true });
+    fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
     expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({ message: "line one" });
   });
