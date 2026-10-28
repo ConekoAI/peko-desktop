@@ -71,6 +71,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         settings::credential_list_generic,
         settings::pekohub_logout,
         system::system_status,
+        system::peko_home_dir,
         system::system_doctor,
         system::system_clean,
         runtime::runtime_list,
