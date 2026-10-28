@@ -39,11 +39,11 @@ describe("Channels landing page", () => {
     dispatchSpy.mockRestore();
   });
 
-  it("renders the in-app New channel CTA", () => {
+  it("renders the in-app New group CTA", () => {
     renderPage();
     const cta = screen.getByTestId("channels-empty-new-button");
     expect(cta).toBeInTheDocument();
-    expect(cta).toHaveTextContent(/New channel/);
+    expect(cta).toHaveTextContent(/New group/);
   });
 
   it("clicking the CTA emits peko:open-channel-create", () => {

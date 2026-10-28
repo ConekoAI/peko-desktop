@@ -37,11 +37,10 @@ export default function Channels() {
     <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
       <Hash className="h-10 w-10 text-fg-subtle" />
       <h2 className="text-base font-semibold text-fg-soft">
-        Channels
+        Groups
       </h2>
       <p className="max-w-sm text-sm text-fg-muted">
-        Select a channel from the sidebar to start posting, or create
-        a new one.
+        Pick a group from the sidebar, or start one with your pekos.
       </p>
       <button
         type="button"
@@ -52,14 +51,8 @@ export default function Channels() {
         data-testid="channels-empty-new-button"
       >
         <Plus className="h-4 w-4" />
-        New channel
+        New group
       </button>
-      <p className="mt-2 text-xs text-fg-subtle">
-        Or via the CLI:{" "}
-        <code className="rounded bg-surface-sunken px-1.5 py-0.5">
-          peko channel create
-        </code>
-      </p>
     </div>
   );
 }

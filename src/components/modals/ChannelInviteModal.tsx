@@ -144,36 +144,34 @@ export default function ChannelInviteModal({
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
-      <div className="flex w-full max-w-md flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+      <div className="flex w-full max-w-md flex-col rounded-xl border border-line bg-surface-card shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
           <div className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <UserPlus className="h-5 w-5 text-brand" />
             <h2
               id="channel-invite-modal-title"
-              className="text-base font-semibold text-slate-900 dark:text-white"
+              className="text-base font-semibold text-fg"
             >
               Invite to <span className="font-mono">{channel}</span>
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="rounded-lg p-1.5 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-4 p-5 text-sm text-slate-700 dark:text-slate-300">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Pick a peko to invite. Cross-runtime invites bootstrap
-            a local mirror on the recipient&apos;s runtime.
+        <div className="space-y-4 p-5 text-sm text-fg-soft">
+          <p className="text-xs text-fg-muted">
+            Pick a peko to add to this group.
           </p>
 
           {!inviterName && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400">
-              You need a local peko that&apos;s already a member of this
-              channel to invite others. Ask a current member to invite you
-              first, or invite from the CLI.
+              Only a member can add others. Ask someone in this group to add
+              one of your pekos first.
             </div>
           )}
 
@@ -184,23 +182,23 @@ export default function ChannelInviteModal({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search pekos…"
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+              className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               data-testid="channel-invite-search"
             />
           </div>
 
           <div
-            className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800"
+            className="max-h-72 overflow-y-auto rounded-lg border border-line"
             data-testid="channel-invite-candidates"
           >
             {filtered.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-slate-600">
+              <div className="px-3 py-4 text-center text-xs text-fg-subtle">
                 {candidates.length === 0
                   ? "No inviteable pekos yet — every local peko is already a member."
                   : "No pekos match your search."}
               </div>
             ) : (
-              <ul className="divide-y divide-slate-200 dark:divide-slate-800">
+              <ul className="divide-y divide-line">
                 {filtered.map((c) => (
                   <li key={c.name}>
                     <button
@@ -209,20 +207,20 @@ export default function ChannelInviteModal({
                       className={[
                         "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
                         selected === c.name
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-                          : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+                          ? "bg-brand-soft text-brand"
+                          : "text-fg-soft hover:bg-surface-sunken",
                       ].join(" ")}
                       data-testid={`channel-invite-row-${c.name}`}
                     >
                       {c.kind === "local" ? (
-                        <Monitor className="h-3.5 w-3.5 text-slate-400" />
+                        <Monitor className="h-3.5 w-3.5 text-fg-subtle" />
                       ) : (
-                        <Globe className="h-3.5 w-3.5 text-slate-400" />
+                        <Globe className="h-3.5 w-3.5 text-fg-subtle" />
                       )}
                       <span className="min-w-0 flex-1 truncate font-mono">
                         {c.label}
                       </span>
-                      <Hash className="hidden h-3.5 w-3.5 text-slate-300" />
+                      <Hash className="hidden h-3.5 w-3.5 text-fg-subtle" />
                     </button>
                   </li>
                 ))}
@@ -231,23 +229,23 @@ export default function ChannelInviteModal({
           </div>
 
           {errorMessage && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+            <div className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
               {errorMessage}
             </div>
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 px-5 py-3 dark:border-slate-800">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
             data-testid="channel-invite-submit"
           >
             <Check className="h-3.5 w-3.5" />

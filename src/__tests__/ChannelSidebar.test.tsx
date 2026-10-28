@@ -22,9 +22,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const useChannelsMock = vi.fn();
 const usePrincipalsMock = vi.fn();
 const navigateMock = vi.fn();
+const groupNames: Record<string, string> = {};
 
 vi.mock("../hooks/useChannels", () => ({
   useChannels: (...args: unknown[]) => useChannelsMock(...args),
+  useChannelInfo: (id: string) => ({ data: groupNames[id] ? { name: groupNames[id] } : undefined }),
   useChannel: () => ({ data: undefined }),
   useChannelMembers: () => ({ data: undefined }),
 }));
@@ -77,11 +79,11 @@ describe("ChannelSidebar", () => {
     renderSidebar();
     expect(screen.getByTestId("channel-empty")).toBeInTheDocument();
     expect(
-      screen.getByText(/No channels yet\. Create one with/i),
+      screen.getByText(/No groups yet\./i),
     ).toBeInTheDocument();
   });
 
-  it("renders a row per channel with the runtime badge testid", () => {
+  it("renders a row per group, badging only remote ones", () => {
     useChannelsMock.mockReturnValue({
       data: sampleRows,
       isLoading: false,
@@ -89,7 +91,7 @@ describe("ChannelSidebar", () => {
     renderSidebar();
     expect(screen.getByTestId("channel-row-chan_alpha")).toBeInTheDocument();
     expect(screen.getByTestId("channel-row-chan_bravo")).toBeInTheDocument();
-    expect(screen.getByTestId("runtime-badge-local")).toBeInTheDocument();
+    expect(screen.queryByTestId("runtime-badge-local")).toBeNull();
     expect(
       screen.getByTestId("runtime-badge-hub:https://hub.example.com"),
     ).toBeInTheDocument();
@@ -136,4 +138,23 @@ describe("ChannelSidebar", () => {
     fireEvent.click(cta);
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
+
+  it("shows each group's name, not its id, once the name loads", () => {
+    useChannelsMock.mockReturnValue({ data: sampleRows, isLoading: false });
+    groupNames.chan_alpha = "Launch crew";
+    renderSidebar();
+    expect(screen.getByText("Launch crew")).toBeInTheDocument();
+    expect(screen.queryByText("chan_alpha")).toBeNull();
+    // Still loading: the id stands in.
+    expect(screen.getByText("chan_bravo")).toBeInTheDocument();
+    delete groupNames.chan_alpha;
+  });
+
+  it("names the section Groups and never points at the CLI", () => {
+    useChannelsMock.mockReturnValue({ data: [], isLoading: false });
+    renderSidebar();
+    expect(screen.getByText("Groups")).toBeInTheDocument();
+    expect(screen.queryByText(/peko channel/)).toBeNull();
+  });
 });
+
