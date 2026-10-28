@@ -134,8 +134,7 @@ export type BootState = "provisioned" | "defined" | "genesis_pending" | "organiz
  * `sender` is a `Subject` string the runtime renders in tagged form
  * on the wire (`user:<id>` for end users, `principal:<did>` for
  * principal-to-principal exchanges). The Chat page treats any
- * non-`user:*` sender as the principal; the PrincipalLog page shows
- * the sender verbatim.
+ * non-`user:*` sender as the principal.
  */
 export interface ChatLogMessage {
   /** Chat-log schema version; always `1` for now. */
@@ -172,7 +171,7 @@ export interface ChatLogPage {
  * Legacy alias. The runtime no longer returns session-event arrays
  * over IPC; this name was kept so callers built before the
  * chat-session split (e.g. older Storybook stories) still typecheck.
- * The Chat and PrincipalLog pages now consume `ChatLogPage`
+ * The Chat page now consumes `ChatLogPage`
  * directly. New code should not reference `LogResponse`.
  *
  * @deprecated Use `ChatLogPage`.

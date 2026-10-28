@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import Sidebar from "./Sidebar";
 import AppRail from "./AppRail";
 import PrincipalSidebar from "./PrincipalSidebar";
 import ChannelSidebar from "./ChannelSidebar";
@@ -15,10 +14,9 @@ import ImportPekoModal from "./modals/ImportPekoModal";
 import ChannelCreateModal from "./modals/ChannelCreateModal";
 import { useEngineStatus } from "../hooks/useEngine";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
-import { getTheme, setTheme, applyTheme } from "../lib/theme";
+import { applyTheme } from "../lib/theme";
 import { installDeepLinkHandler } from "../lib/deepLink";
 import { useQueryClient } from "@tanstack/react-query";
-import { Sun, Moon, Monitor } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   // Engine state is invisible on the happy path (ADR-043 §adoption).
@@ -28,7 +26,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // the header is gone — version/about links live in Settings → About.
   const { data: engine } = useEngineStatus();
   const { mismatch, dismiss } = useEngineVersionMismatch();
-  const [theme, setThemeState] = useState<"light" | "dark" | "system">("system");
   // T-105: hoisted CreatePrincipalModal state so the sidebar's
   // empty-state CTA can open it. Chat.tsx and Dashboard.tsx keep
   // their own local instances (each already wired before the hoist);
@@ -56,7 +53,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
 
   useEffect(() => {
-    setThemeState(getTheme());
     applyTheme();
   }, []);
 
@@ -125,22 +121,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     };
   }, [qc, navigate]);
 
-  useEffect(() => {
-    setThemeState(getTheme());
-    applyTheme();
-  }, []);
-
-  function cycleTheme() {
-    const next = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
-    setThemeState(next);
-    setTheme(next);
-  }
-
-  const ThemeIcon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
   const engineFailed = engine?.kind === "failed";
 
   const isChatRoute =
     location.pathname === "/" || location.pathname === "/chat" || location.pathname.startsWith("/chat/");
+  // Discover lists pekos to add: it keeps the peko list beside it.
+  const isPekoRoute = isChatRoute || location.pathname === "/discover";
 
   const isChannelsRoute =
     location.pathname === "/channels" ||
@@ -165,11 +151,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Far left: app rail (always visible) */}
         <AppRail />
 
-        {/* Context sidebar: principal list on chat routes,
-            channel list on channels routes, tools elsewhere.
-            Order matches `AppRail` icon order (Direct Messages,
-            Channels, Tools). */}
-        {isChatRoute ? (
+        {/* Context sidebar: the peko list beside chats, the group
+            list beside groups, nothing beside full pages (Settings). */}
+        {isPekoRoute ? (
           <PrincipalSidebar
             onCreateClick={() => setCreateOpen(true)}
             onConnectClick={() => setConnectOpen(true)}
@@ -177,33 +161,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           />
         ) : isChannelsRoute ? (
           <ChannelSidebar onCreateClick={() => setChannelCreateOpen(true)} />
-        ) : (
-          <Sidebar />
-        )}
+        ) : null}
 
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Header */}
-          <header className="flex h-12 shrink-0 items-center justify-between border-b border-line bg-surface px-4">
-            <div className="flex items-center gap-3">
-              {!isChatRoute && (
-                <h1 className="text-base font-semibold text-fg">
-                  Peko
-                </h1>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={cycleTheme}
-                className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface-sunken hover:text-fg-soft"
-                title={`Theme: ${theme}`}
-              >
-                <ThemeIcon className="h-4 w-4" />
-              </button>
-            </div>
-          </header>
-
           {/* Content */}
           <main className={["flex-1 overflow-hidden", isChatRoute ? "" : "overflow-auto p-6"].join(" ")}>
             {/* Engine failure card. Only renders on Failed. On every
@@ -243,7 +204,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* T-105: layout-level CreatePrincipalModal so the sidebar's
           empty-state CTA can open it. Chat and Dashboard keep their
           own local instances; only one is open at a time. */}
-      <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreatePrincipalModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(name) => navigate({ to: "/chat/$pekoName", params: { pekoName: name } })}
+      />
       <AddRemotePrincipalModal open={connectOpen} onClose={() => setConnectOpen(false)} />
       <ImportPekoModal open={importOpen} onClose={() => setImportOpen(false)} />
       <ChannelCreateModal

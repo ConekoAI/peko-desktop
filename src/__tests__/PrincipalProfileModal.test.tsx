@@ -217,4 +217,32 @@ describe("PrincipalProfileModal", () => {
       screen.getByPlaceholderText("What this peko does"),
     ).toBeInTheDocument();
   });
+
+  it("puts Remove in a Danger zone with one confirmation", () => {
+    const onClose = vi.fn();
+    const onRemoved = vi.fn();
+    principalState.data = LOCAL_PUBLIC;
+    removeState.mutate.mockImplementation(
+      (_vars: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.(),
+    );
+    render(
+      <PrincipalProfileModal open principalName="helper" onClose={onClose} onRemoved={onRemoved} />,
+    );
+    // No Activity page any more; one footer, no stray cancel buttons.
+    expect(screen.queryByRole("button", { name: /activity/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /cancel/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove…" }));
+    expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep helper" }));
+    expect(screen.queryByText(/cannot be undone/i)).toBeNull();
+    expect(removeState.mutate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove…" }));
+    fireEvent.click(screen.getByTestId("confirm-remove-peko"));
+    expect(removeState.mutate).toHaveBeenCalledWith({ name: "helper" }, expect.any(Object));
+    expect(onRemoved).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
 });
+

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { MessageCircle, Hash } from "lucide-react";
+import { MessageCircle, Hash, Settings } from "lucide-react";
 import ProfileMenu from "./ProfileMenu";
 
 export default function AppRail() {
@@ -14,6 +14,8 @@ export default function AppRail() {
   const isChannels =
     location.pathname === "/channels" ||
     location.pathname.startsWith("/channels/");
+
+  const isSettings = location.pathname === "/settings";
 
   return (
     <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-line bg-surface-raised py-3">
@@ -49,6 +51,21 @@ export default function AppRail() {
       </button>
 
       <div className="flex-1" />
+
+      <button
+        onClick={() => navigate({ to: "/settings" })}
+        className={[
+          "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
+          isSettings
+            ? "bg-brand-soft text-brand"
+            : "text-fg-muted hover:bg-surface-sunken hover:text-fg-soft",
+        ].join(" ")}
+        title="Settings"
+        aria-label="Settings"
+        aria-current={isSettings ? "page" : undefined}
+      >
+        <Settings className="h-5 w-5" />
+      </button>
 
       {/* PekoHub account — chrome-level sign-in / sign-out, accessible
           from any route. Owns the OAuth flow (ProfileMenu reuses

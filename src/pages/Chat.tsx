@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect, useMemo } from "react";
+import { Fragment, useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router";
 import {
   usePrincipals,
@@ -8,6 +8,7 @@ import {
   usePrincipalStop,
   useCallerSubject,
   newestLogCursor,
+  fetchOlderPrincipalLog,
 } from "../hooks/usePrincipals";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import ActivitySteps from "../components/chat/ActivitySteps";
@@ -23,7 +24,6 @@ import {
   X,
   User,
   Plus,
-  Activity,
   Check,
   Copy,
   RotateCcw,
@@ -259,19 +259,11 @@ function PrincipalToolbar({
           <p className="truncate text-xs text-fg-muted">{description || "Your peko"}</p>
         </div>
       </button>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => navigate({ to: "/log/$pekoName", params: { pekoName: peko.name } })}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
-        >
-          <Activity className="h-3.5 w-3.5" />
-          Activity
-        </button>
-      </div>
       <PrincipalProfileModal
         open={profileOpen}
         principalName={peko.name}
         onClose={() => setProfileOpen(false)}
+        onRemoved={() => navigate({ to: "/chat", replace: true })}
       />
     </div>
   );
@@ -296,7 +288,7 @@ export default function Chat() {
 
   const runtimeId = search.runtimeId ?? "local";
 
-  const { data: principals, isLoading } = usePrincipals();
+  const { data: principals, isLoading, isFetching: principalsFetching } = usePrincipals();
 
   let principalName: string | undefined;
   if (pathname === "/" || pathname === "/chat") {
@@ -338,6 +330,18 @@ export default function Chat() {
     runtimeId,
     logQuery.isSuccess || logQuery.isError ? newestLogCursor(logData?.messages) : undefined,
   );
+
+  // A local peko that no longer exists (removed here or elsewhere):
+  // leave its address instead of showing a stale thread.
+  const missingLocalPeko =
+    runtimeId === "local" &&
+    !!principalName &&
+    !!principals &&
+    !principalsFetching &&
+    !principals.some((p) => p.name === principalName);
+  useEffect(() => {
+    if (missingLocalPeko) navigate({ to: "/chat", replace: true });
+  }, [missingLocalPeko, navigate]);
 
   useEffect(() => {
     if ((pathname === "/" || pathname === "/chat") && selectedPrincipal) {
@@ -391,6 +395,13 @@ export default function Chat() {
   const currentIterationRef = useRef<number>(0);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Messages older than the latest page, loaded on demand (oldest
+  // first), and the cursor for the next older page.
+  const [older, setOlder] = useState<ChatLogMessage[]>([]);
+  const [olderCursor, setOlderCursor] = useState<string | null | undefined>(undefined);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  // Keeps the view on the same message while older ones are added above.
+  const scrollAnchorRef = useRef<number | null>(null);
 
   // Reset live items when the selected principal changes; the historical
   // half is re-derived from `logData` in the `displayItems` memo.
@@ -401,7 +412,43 @@ export default function Chat() {
     setActivity(EMPTY_ACTIVITY);
     setModelChoice(null);
     setError(null);
+    setOlder([]);
+    setOlderCursor(undefined);
   }, [selectedPrincipal]);
+
+  // Until an older page is loaded, the next one starts where the
+  // latest page ends.
+  const nextOlderCursor = olderCursor === undefined ? (logData?.nextCursor ?? null) : olderCursor;
+
+  async function loadOlder() {
+    if (!nextOlderCursor || loadingOlder || !selectedPrincipal) return;
+    setLoadingOlder(true);
+    try {
+      const page = await fetchOlderPrincipalLog({
+        name: selectedPrincipal,
+        peer: callerSubject,
+        cursor: nextOlderCursor,
+        runtimeId,
+      });
+      scrollAnchorRef.current = scrollRef.current
+        ? scrollRef.current.scrollHeight - scrollRef.current.scrollTop
+        : null;
+      setOlder((prev) => [...page.messages, ...prev]);
+      setOlderCursor(page.hasMore ? (page.nextCursor ?? null) : null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el && scrollAnchorRef.current !== null) {
+      el.scrollTop = el.scrollHeight - scrollAnchorRef.current;
+      scrollAnchorRef.current = null;
+    }
+  }, [older]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -416,10 +463,11 @@ export default function Chat() {
   // `principal_log` IPC anymore. Empty messages are filtered so
   // a streamed reply that collapses to "" doesn't render a blank
   // bubble.
-  const historyItems = useMemo<ChatItem[]>(
-    () => (logData?.messages ? chatLogMessagesToChatItems(logData.messages) : []),
-    [logData],
-  );
+  const historyItems = useMemo<ChatItem[]>(() => {
+    const latest = logData?.messages ?? [];
+    const seen = new Set(latest.map((m) => m.id));
+    return chatLogMessagesToChatItems([...older.filter((m) => !seen.has(m.id)), ...latest]);
+  }, [logData, older]);
 
   /** Send what's in the composer. */
   function handleSend() {
@@ -626,7 +674,11 @@ export default function Chat() {
           <Plus className="h-4 w-4" />
           Create a peko
         </button>
-        <CreatePrincipalModal open={createOpen} onClose={() => setCreateOpen(false)} />
+        <CreatePrincipalModal
+          open={createOpen}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(name) => navigate({ to: "/chat/$pekoName", params: { pekoName: name } })}
+        />
       </div>
     );
   }
@@ -657,6 +709,19 @@ export default function Chat() {
           </div>
         ) : (
           <div className="space-y-3">
+            {nextOlderCursor && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void loadOlder()}
+                  disabled={loadingOlder}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-fg-muted transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                >
+                  {loadingOlder && <Loader2 className="h-3 w-3 animate-spin" />}
+                  Load earlier messages
+                </button>
+              </div>
+            )}
             {displayItems.map((item, idx) => (
               <Fragment key={item.event.timestamp ?? idx}>
                 <ChatMessage
