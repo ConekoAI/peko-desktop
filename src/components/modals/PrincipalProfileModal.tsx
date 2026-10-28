@@ -24,7 +24,6 @@ import {
 import type { PekoRegistration } from "../../types";
 import {
   X,
-  Bot,
   Activity,
   MessageSquare,
   Loader2,
@@ -37,6 +36,8 @@ import {
   Circle,
   Package,
 } from "lucide-react";
+import PekoAvatar from "../peko/PekoAvatar";
+import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
 
 interface PrincipalProfileModalProps {
   open: boolean;
@@ -125,6 +126,7 @@ export default function PrincipalProfileModal({
   const [isEditing, setIsEditing] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [description, setDescription] = useState("");
+  const [avatar, setAvatar] = useState("");
   const [status, setStatus] = useState("");
   const [exposure, setExposure] = useState("");
   const [registerError, setRegisterError] = useState<string | null>(null);
@@ -214,6 +216,7 @@ export default function PrincipalProfileModal({
       setIsEditing(false);
       setConfirmingRemove(false);
       setDescription("");
+      setAvatar("");
       setStatus("");
       setExposure("");
       setRegisterError(null);
@@ -233,6 +236,7 @@ export default function PrincipalProfileModal({
   useEffect(() => {
     if (principal) {
       setDescription(principal.description ?? "");
+      setAvatar(principal.avatar ?? "");
       setStatus(principal.status ?? "");
       setExposure(principal.exposure ?? "");
       setModelId(principal.preferredModelId ?? "");
@@ -249,6 +253,8 @@ export default function PrincipalProfileModal({
     const payload = {
       name: principalName,
       description: description.trim() || undefined,
+      // Sent only when changed; "" clears it.
+      avatar: avatar.trim() !== (principal.avatar ?? "") ? avatar.trim() : undefined,
       status: status || undefined,
       preferredModelId: modelId || undefined,
     };
@@ -386,27 +392,32 @@ export default function PrincipalProfileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[75vh] w-full max-w-lg flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+      <div className="flex max-h-[75vh] w-full max-w-lg flex-col rounded-xl border border-line bg-surface shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/50">
-              <Bot className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
+            <PekoAvatar
+              peko={pekoIdentity(
+                principal
+                  ? { ...principal, avatar: isEditing ? avatar : principal.avatar }
+                  : { name: principalName },
+              )}
+              size="lg"
+            />
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
             ) : principal ? (
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                <h2 className="text-lg font-semibold text-fg">
                   {principal.name}
                 </h2>
                 {principal.description && !isEditing && (
-                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  <p className="mt-0.5 text-xs text-fg-muted">
                     {principal.description}
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-fg-muted">
                 Peko not found
               </p>
             )}
@@ -415,7 +426,7 @@ export default function PrincipalProfileModal({
             {principal && !isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-surface-sunken hover:text-fg-soft"
                 title="Edit"
               >
                 <Settings className="h-4 w-4" />
@@ -423,7 +434,7 @@ export default function PrincipalProfileModal({
             )}
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-surface-sunken hover:text-fg-soft"
             >
               <X className="h-4 w-4" />
             </button>
@@ -465,19 +476,19 @@ export default function PrincipalProfileModal({
                   pattern: read-only URL + a click-to-copy button that
                   briefly swaps to a check mark. */}
               {shareUrl !== null && (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div className="rounded-lg border border-emerald-200 bg-brand-soft p-3 dark:border-emerald-900">
                   <div className="flex items-start gap-2">
-                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200">
                         Share link
                       </p>
-                      <p className="mt-0.5 break-all font-mono text-[11px] text-emerald-700 dark:text-emerald-300">
+                      <p className="mt-0.5 break-all font-mono text-[11px] text-brand">
                         {shareUrl}
                       </p>
                       <button
                         onClick={handleCopyShareLink}
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/50 dark:hover:bg-emerald-950"
                         data-testid="copy-share-link"
                       >
                         {copied ? (
@@ -601,14 +612,14 @@ export default function PrincipalProfileModal({
                   plugin is available, so the destination is a validated
                   text input. */}
               {principal.runtimeId === "local" && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+                <div className="rounded-lg border border-warn/30 bg-warn-soft p-3">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
                         Export .peko package
                       </p>
-                      <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-300">
+                      <p className="mt-0.5 text-[11px] text-warn">
                         The package contains this peko&apos;s{" "}
                         <strong>private keys</strong> — its full existence.
                         Treat it like a password: anyone holding it can wake
@@ -624,10 +635,10 @@ export default function PrincipalProfileModal({
                         id="peko-export-path"
                         value={exportPath}
                         onChange={(e) => setExportPath(e.target.value)}
-                        className="w-full rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 font-mono text-[11px] text-slate-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-amber-800 dark:bg-slate-950 dark:text-amber-100"
+                        className="w-full rounded-lg border border-amber-200 bg-surface px-2.5 py-1.5 font-mono text-[11px] text-slate-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-amber-800 dark:text-amber-100"
                       />
                       {trimmedExportPath.length > 0 && !exportPathValid && (
-                        <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                        <p className="mt-1 text-[11px] text-warn">
                           The destination must end in <code>.peko</code>.
                         </p>
                       )}
@@ -635,7 +646,7 @@ export default function PrincipalProfileModal({
                         onClick={handleExport}
                         disabled={!exportPathValid || exportMut.isPending}
                         data-testid="export-peko-submit"
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:bg-slate-950 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-surface px-2.5 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
                       >
                         {exportMut.isPending ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -655,7 +666,7 @@ export default function PrincipalProfileModal({
                       {exportedTo && (
                         <p
                           data-testid="export-peko-success"
-                          className="mt-2 break-all text-[11px] text-emerald-700 dark:text-emerald-400"
+                          className="mt-2 break-all text-[11px] text-brand"
                         >
                           Exported to <span className="font-mono">{exportedTo}</span>
                         </p>
@@ -669,10 +680,58 @@ export default function PrincipalProfileModal({
 
           {principal && isEditing && (
             <>
+              {!isRemote && (
+                <div>
+                  <label
+                    htmlFor="principal-avatar"
+                    className="mb-1 block text-xs font-medium text-fg-muted"
+                  >
+                    Avatar
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="principal-avatar"
+                      value={avatar}
+                      onChange={(e) => setAvatar(e.target.value)}
+                      placeholder="An emoji or two letters"
+                      maxLength={16}
+                      className="w-40 rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    />
+                    {avatar && (
+                      <button
+                        type="button"
+                        onClick={() => setAvatar("")}
+                        className="text-xs text-fg-muted hover:text-fg-soft"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Avatar suggestions">
+                    {AVATAR_SUGGESTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setAvatar(emoji)}
+                        aria-label={`Use ${emoji}`}
+                        aria-pressed={avatar === emoji}
+                        className={[
+                          "flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors",
+                          avatar === emoji
+                            ? "bg-brand-soft ring-1 ring-emerald-500"
+                            : "hover:bg-surface-sunken",
+                        ].join(" ")}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <label
                   htmlFor="principal-description"
-                  className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                  className="mb-1 block text-xs font-medium text-fg-muted"
                 >
                   Description
                 </label>
@@ -682,7 +741,7 @@ export default function PrincipalProfileModal({
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What this peko does"
                   rows={2}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                  className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                 />
               </div>
 
@@ -700,7 +759,7 @@ export default function PrincipalProfileModal({
                   <div>
                     <label
                       htmlFor="principal-status"
-                      className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                      className="mb-1 block text-xs font-medium text-fg-muted"
                     >
                       Quick status
                     </label>
@@ -708,7 +767,7 @@ export default function PrincipalProfileModal({
                       id="principal-status"
                       value={status}
                       onChange={(e) => handleQuickStatusChange(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                      className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                     >
                       <option value="">—</option>
                       {STATUS_OPTIONS.map((o) => (
@@ -724,7 +783,7 @@ export default function PrincipalProfileModal({
                   <div>
                     <label
                       htmlFor="principal-exposure"
-                      className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                      className="mb-1 block text-xs font-medium text-fg-muted"
                     >
                       PekoHub
                     </label>
@@ -732,7 +791,7 @@ export default function PrincipalProfileModal({
                       id="principal-exposure"
                       value={exposure}
                       onChange={(e) => setExposure(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                      className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                     >
                       {REGISTRATION_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -740,7 +799,7 @@ export default function PrincipalProfileModal({
                         </option>
                       ))}
                     </select>
-                    <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                    <p className="mt-1 text-[11px] text-fg-subtle">
                       {REGISTRATION_OPTIONS.find((o) => o.value === exposure)?.hint ?? ""}
                     </p>
                   </div>
@@ -750,14 +809,14 @@ export default function PrincipalProfileModal({
               <div>
                 <label
                   htmlFor="principal-model"
-                  className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                  className="mb-1 block text-xs font-medium text-fg-muted"
                 >
                   Preferred model
                 </label>
                 {modelsLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                 ) : modelItems.length === 0 ? (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                  <p className="text-xs text-warn">
                     No configured models. Add one in Settings → Models first.
                   </p>
                 ) : (
@@ -765,7 +824,7 @@ export default function PrincipalProfileModal({
                     id="principal-model"
                     value={modelId}
                     onChange={(e) => setModelId(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                    className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   >
                     <option value="">— None —</option>
                     {modelItems.map((m) => (
@@ -782,7 +841,7 @@ export default function PrincipalProfileModal({
           {exposureConflictDetail !== null ? (
             <div
               data-testid="exposure-conflict"
-              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+              className="rounded-lg border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn"
             >
               <p className="font-medium">
                 This peko is already registered from another computer —
@@ -794,16 +853,16 @@ export default function PrincipalProfileModal({
             </div>
           ) : (
             (updateError || registerError || removeError) && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+              <div className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
                 {updateError || registerError || removeError}
               </div>
             )
           )}
 
           {confirmingRemove && principal && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/30">
+            <div className="rounded-lg border border-danger/30 bg-danger-soft p-3">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
                 <div className="text-xs text-red-800 dark:text-red-300">
                   <p className="font-medium">
                     Remove <code>{principal.name}</code>?
@@ -818,7 +877,7 @@ export default function PrincipalProfileModal({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 px-5 py-3 dark:border-slate-800">
+        <div className="flex shrink-0 items-center justify-between border-t border-line px-5 py-3">
           {principal && (isEditing || confirmingRemove) ? (
             <button
               onClick={() =>
@@ -827,7 +886,7 @@ export default function PrincipalProfileModal({
                   : setConfirmingRemove(true)
               }
               disabled={removeMut.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/30"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/30"
             >
               <Trash2 className="h-3.5 w-3.5" />
               {confirmingRemove ? "Cancel remove" : "Remove"}
@@ -847,7 +906,7 @@ export default function PrincipalProfileModal({
                       params: { pekoName: principal.name },
                     });
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-fg transition-colors hover:bg-brand-hover"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
                   Chat
@@ -860,7 +919,7 @@ export default function PrincipalProfileModal({
                       params: { pekoName: principal.name },
                     });
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-card px-3 py-1.5 text-xs font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
                 >
                   <Activity className="h-3.5 w-3.5" />
                   Activity Log
@@ -875,20 +934,21 @@ export default function PrincipalProfileModal({
                     setIsEditing(false);
                     if (principal) {
                       setDescription(principal.description ?? "");
+                      setAvatar(principal.avatar ?? "");
                       setStatus(principal.status ?? "");
                       setExposure(principal.exposure ?? "");
                       setModelId(principal.preferredModelId ?? "");
                     }
                   }}
                   disabled={updateMut.isPending || registering}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={updateMut.isPending || registering}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
                 >
                   {updateMut.isPending || registering ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -903,7 +963,7 @@ export default function PrincipalProfileModal({
                 <button
                   onClick={() => setConfirmingRemove(false)}
                   disabled={removeMut.isPending}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -923,7 +983,7 @@ export default function PrincipalProfileModal({
             {!isEditing && !confirmingRemove && (
               <button
                 onClick={onClose}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
               >
                 Close
               </button>
@@ -938,10 +998,10 @@ export default function PrincipalProfileModal({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      <span className="text-xs uppercase tracking-wide text-fg-muted">
         {label}
       </span>
-      <span className="font-medium text-slate-900 dark:text-white">{value}</span>
+      <span className="font-medium text-fg">{value}</span>
     </div>
   );
 }
@@ -970,16 +1030,16 @@ function StatusBadgeRow({
   const badge = statusBadge(status);
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      <span className="text-xs uppercase tracking-wide text-fg-muted">
         Status
       </span>
-      <span className="inline-flex items-center gap-1.5 font-medium text-slate-900 dark:text-white">
+      <span className="inline-flex items-center gap-1.5 font-medium text-fg">
         <Circle
           className={`h-2.5 w-2.5 fill-current ${badge.color}`}
           aria-hidden="true"
         />
         <span data-testid="live-status-label">{loading ? "…" : badge.label}</span>
-        <span className="ml-1 text-[10px] font-normal text-slate-400 dark:text-slate-500">
+        <span className="ml-1 text-[10px] font-normal text-fg-subtle">
           {isRemote ? "hub heartbeat" : "runtime heartbeat"}
         </span>
       </span>

@@ -16,15 +16,15 @@ export default function AppRail() {
     location.pathname.startsWith("/channels/");
 
   return (
-    <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-slate-200 bg-slate-50 py-3 dark:border-slate-800 dark:bg-slate-900">
+    <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-line bg-surface-raised py-3">
       {/* Home / Direct Messages */}
       <button
         onClick={() => navigate({ to: "/chat" })}
         className={[
           "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
           isHome
-            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-            : "text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200",
+            ? "bg-brand-soft text-brand"
+            : "text-fg-muted hover:bg-surface-sunken hover:text-fg-soft",
         ].join(" ")}
         title="Direct Messages"
       >
@@ -39,8 +39,8 @@ export default function AppRail() {
         className={[
           "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
           isChannels
-            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-            : "text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200",
+            ? "bg-brand-soft text-brand"
+            : "text-fg-muted hover:bg-surface-sunken hover:text-fg-soft",
         ].join(" ")}
         title="Channels"
         data-testid="app-rail-channels"

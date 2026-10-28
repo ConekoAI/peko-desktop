@@ -21,6 +21,11 @@ use crate::state::AppState;
 #[serde(rename_all = "camelCase")]
 pub struct PrincipalSummary {
     pub name: String,
+    /// The runtime's stable local id (`prin_…`), which channel members
+    /// and authors refer to. Empty for pekos from older runtimes.
+    pub local_id: String,
+    /// An emoji or short monogram (`identity.avatar`), if set.
+    pub avatar: Option<String>,
     pub exposure: String,
     pub status: String,
     pub description: Option<String>,
@@ -63,40 +68,49 @@ pub async fn principal_list(
         .unwrap_or(&empty);
     let mut out: Vec<PrincipalSummary> = Vec::with_capacity(items.len());
     for v in items {
-        out.push(PrincipalSummary {
-            name: v
-                .get("name")
-                .and_then(|s| s.as_str())
-                .unwrap_or("")
-                .to_string(),
-            exposure: v
-                .get("exposure")
-                .and_then(|s| s.as_str())
-                .unwrap_or("unexposed")
-                .to_string(),
-            status: v
-                .get("status")
-                .and_then(|s| s.as_str())
-                .unwrap_or("offline")
-                .to_string(),
-            description: v
-                .get("description")
-                .and_then(|s| s.as_str())
-                .map(|s| s.to_string()),
-            preferred_model_id: v
-                .get("preferred_model_id")
-                .and_then(|s| s.as_str())
-                .map(|s| s.to_string()),
-            owner: v
-                .get("owner")
-                .and_then(|s| s.as_str())
-                .unwrap_or("")
-                .to_string(),
-            runtime_id: runtime_id.clone(),
-            boot_state: extract_boot_state(v.get("boot_state")),
-        });
+        out.push(summary_from_wire(
+            v.as_object().unwrap_or(&serde_json::Map::new()),
+            runtime_id.clone(),
+            "",
+        ));
     }
     Ok(out)
+}
+
+/// The desktop's summary of one runtime `PrincipalSummary` object.
+/// `owner` is an `ActorRef` (`{"kind": "user", "id": "local"}`) on
+/// current runtimes and a string on older ones; both read as
+/// `kind:id` text.
+fn summary_from_wire(
+    p: &serde_json::Map<String, serde_json::Value>,
+    runtime_id: impl Into<String>,
+    fallback_name: &str,
+) -> PrincipalSummary {
+    let text = |key: &str| p.get(key).and_then(|v| v.as_str()).map(String::from);
+    PrincipalSummary {
+        name: text("name").unwrap_or_else(|| fallback_name.to_string()),
+        local_id: text("local_id").unwrap_or_default(),
+        avatar: text("avatar"),
+        exposure: text("exposure").unwrap_or_else(|| "unexposed".to_string()),
+        status: text("status").unwrap_or_else(|| "offline".to_string()),
+        description: text("description"),
+        preferred_model_id: text("preferred_model_id"),
+        owner: p.get("owner").and_then(actor_text).unwrap_or_default(),
+        runtime_id: runtime_id.into(),
+        boot_state: extract_boot_state(p.get("boot_state")),
+    }
+}
+
+/// An actor in `kind:id` text form, from an `ActorRef` object or text.
+fn actor_text(value: &serde_json::Value) -> Option<String> {
+    if let Some(text) = value.as_str() {
+        return Some(text.to_string());
+    }
+    let kind = value.get("kind")?.as_str()?;
+    Some(match value.get("id").and_then(|v| v.as_str()) {
+        Some(id) => format!("{kind}:{id}"),
+        None => kind.to_string(),
+    })
 }
 
 /// Pull `boot_state` off a runtime summary object, tolerating its
@@ -140,38 +154,7 @@ fn project_principal_get_envelope(
     runtime_id: &str,
 ) -> Option<PrincipalSummary> {
     let p = value.get("principal").and_then(|v| v.as_object())?;
-    Some(PrincipalSummary {
-        name: p
-            .get("name")
-            .and_then(|s| s.as_str())
-            .unwrap_or("")
-            .to_string(),
-        exposure: p
-            .get("exposure")
-            .and_then(|s| s.as_str())
-            .unwrap_or("unexposed")
-            .to_string(),
-        status: p
-            .get("status")
-            .and_then(|s| s.as_str())
-            .unwrap_or("offline")
-            .to_string(),
-        description: p
-            .get("description")
-            .and_then(|s| s.as_str())
-            .map(|s| s.to_string()),
-        preferred_model_id: p
-            .get("preferred_model_id")
-            .and_then(|s| s.as_str())
-            .map(|s| s.to_string()),
-        owner: p
-            .get("owner")
-            .and_then(|s| s.as_str())
-            .unwrap_or("")
-            .to_string(),
-        runtime_id: runtime_id.to_string(),
-        boot_state: extract_boot_state(p.get("boot_state")),
-    })
+    Some(summary_from_wire(p, runtime_id.to_string(), ""))
 }
 
 /// Create a new Principal on the local runtime. Mirrors
@@ -297,38 +280,7 @@ fn project_principal_create_envelope(
                 value
             )
         })?;
-    Ok(PrincipalSummary {
-        name: p
-            .get("name")
-            .and_then(|s| s.as_str())
-            .unwrap_or(fallback_name)
-            .to_string(),
-        exposure: p
-            .get("exposure")
-            .and_then(|s| s.as_str())
-            .unwrap_or("unexposed")
-            .to_string(),
-        status: p
-            .get("status")
-            .and_then(|s| s.as_str())
-            .unwrap_or("offline")
-            .to_string(),
-        description: p
-            .get("description")
-            .and_then(|s| s.as_str())
-            .map(|s| s.to_string()),
-        preferred_model_id: p
-            .get("preferred_model_id")
-            .and_then(|s| s.as_str())
-            .map(|s| s.to_string()),
-        owner: p
-            .get("owner")
-            .and_then(|s| s.as_str())
-            .unwrap_or("")
-            .to_string(),
-        runtime_id: "local".to_string(),
-        boot_state: extract_boot_state(p.get("boot_state")),
-    })
+    Ok(summary_from_wire(p, "local".to_string(), fallback_name))
 }
 
 /// Update an existing Principal's mutable config (description, status,
@@ -344,6 +296,8 @@ pub struct PrincipalUpdateRequest {
     pub status: Option<String>,
     pub exposure: Option<String>,
     pub preferred_model_id: Option<String>,
+    /// An emoji or short monogram; `""` clears it.
+    pub avatar: Option<String>,
     /// PR #3: defaults to `"local"`. Forwarded through the
     /// `RuntimeConnection` registry; only "local" is accepted in
     /// PR #3, PR #5 will add remote support.
@@ -374,6 +328,7 @@ pub async fn principal_update(req: PrincipalUpdateRequest) -> Result<PrincipalSu
             req.status.as_deref(),
             req.exposure.as_deref(),
             req.preferred_model_id.as_deref(),
+            req.avatar.as_deref(),
         )
         .await
         .map_err(|e| format!("principal_update failed: {e}"))?;
@@ -425,38 +380,7 @@ fn project_principal_update_envelope(
                 value
             )
         })?;
-    Ok(PrincipalSummary {
-        name: p
-            .get("name")
-            .and_then(|s| s.as_str())
-            .unwrap_or("")
-            .to_string(),
-        exposure: p
-            .get("exposure")
-            .and_then(|s| s.as_str())
-            .unwrap_or("unexposed")
-            .to_string(),
-        status: p
-            .get("status")
-            .and_then(|s| s.as_str())
-            .unwrap_or("offline")
-            .to_string(),
-        description: p
-            .get("description")
-            .and_then(|s| s.as_str())
-            .map(|s| s.to_string()),
-        preferred_model_id: p
-            .get("preferred_model_id")
-            .and_then(|s| s.as_str())
-            .map(|s| s.to_string()),
-        owner: p
-            .get("owner")
-            .and_then(|s| s.as_str())
-            .unwrap_or("")
-            .to_string(),
-        runtime_id: runtime_id.to_string(),
-        boot_state: extract_boot_state(p.get("boot_state")),
-    })
+    Ok(summary_from_wire(p, runtime_id.to_string(), ""))
 }
 
 /// Project the runtime's `principal_removed` envelope down to a boolean.
@@ -1126,6 +1050,28 @@ fn error_envelope_to_err(value: &serde_json::Value, op: &str) -> Result<(), Stri
 
 #[cfg(test)]
 mod tests {
+    /// Current runtimes send `owner` as an `ActorRef` object and carry
+    /// `local_id` and `avatar`; older ones sent `owner` as text.
+    #[test]
+    fn summary_from_wire_reads_current_and_older_shapes() {
+        let current = serde_json::json!({
+            "local_id": "prin_a", "name": "alice", "avatar": "🦊",
+            "owner": {"kind": "user", "id": "local"}, "exposure": "private",
+        });
+        let p = summary_from_wire(current.as_object().unwrap(), "local", "");
+        assert_eq!(p.local_id, "prin_a");
+        assert_eq!(p.avatar.as_deref(), Some("🦊"));
+        assert_eq!(p.owner, "user:local");
+        assert_eq!(p.exposure, "private");
+
+        let older = serde_json::json!({"name": "bob", "owner": "user:alice"});
+        let p = summary_from_wire(older.as_object().unwrap(), "local", "");
+        assert_eq!(p.owner, "user:alice");
+        assert_eq!(p.local_id, "");
+        assert!(p.avatar.is_none());
+        assert_eq!(p.status, "offline");
+    }
+
     use super::*;
 
     // PR #3: the local-only gate rejects any non-`"local"` runtime_id

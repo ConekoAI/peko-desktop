@@ -54,20 +54,20 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   }
 
   return (
-    <div className="not-prose my-2 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
-      <div className="flex items-center justify-between bg-slate-100 px-3 py-1 text-[11px] text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+    <div className="not-prose my-2 overflow-hidden rounded-lg border border-line">
+      <div className="flex items-center justify-between bg-surface-sunken px-3 py-1 text-[11px] text-fg-muted">
         <span>{language ?? "code"}</span>
         <button
           type="button"
           onClick={copy}
           aria-label={copied ? "Copied" : "Copy code"}
-          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-sunken hover:text-fg-soft"
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <pre className="overflow-x-auto bg-slate-50 p-3 text-[12.5px] leading-relaxed dark:bg-slate-950">
+      <pre className="overflow-x-auto bg-surface-raised p-3 text-[12.5px] leading-relaxed">
         {children}
       </pre>
     </div>

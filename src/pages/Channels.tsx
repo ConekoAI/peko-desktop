@@ -35,11 +35,11 @@ export default function Channels() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-      <Hash className="h-10 w-10 text-slate-300 dark:text-slate-700" />
-      <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300">
+      <Hash className="h-10 w-10 text-fg-subtle" />
+      <h2 className="text-base font-semibold text-fg-soft">
         Channels
       </h2>
-      <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">
+      <p className="max-w-sm text-sm text-fg-muted">
         Select a channel from the sidebar to start posting, or create
         a new one.
       </p>
@@ -48,15 +48,15 @@ export default function Channels() {
         onClick={() => {
           window.dispatchEvent(new CustomEvent("peko:open-channel-create"));
         }}
-        className="mt-1 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+        className="mt-1 inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover"
         data-testid="channels-empty-new-button"
       >
         <Plus className="h-4 w-4" />
         New channel
       </button>
-      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+      <p className="mt-2 text-xs text-fg-subtle">
         Or via the CLI:{" "}
-        <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">
+        <code className="rounded bg-surface-sunken px-1.5 py-0.5">
           peko channel create
         </code>
       </p>

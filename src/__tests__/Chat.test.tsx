@@ -44,6 +44,10 @@ vi.mock("../components/chat/copy", () => ({
   copyText: (text: string) => copyMock(text),
 }));
 
+vi.mock("../components/modals/PrincipalProfileModal", () => ({
+  default: () => null,
+}));
+
 // The modal pulls in model/genesis hooks that are irrelevant here.
 vi.mock("../components/modals/CreatePrincipalModal", () => ({
   default: () => null,

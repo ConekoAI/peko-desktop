@@ -61,18 +61,18 @@ export default function TitleBar() {
   return (
     <div
       onMouseDown={handleMouseDown}
-      className="flex h-9 shrink-0 select-none items-center justify-between border-b border-slate-200 bg-slate-100/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
+      className="flex h-9 shrink-0 select-none items-center justify-between border-b border-line bg-slate-100/80 backdrop-blur dark:bg-slate-900/80"
     >
       {/* Left: app branding */}
       <div className="flex items-center gap-2 px-3">
-        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-600">
+        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-brand">
           <span className="text-[10px] font-bold text-white">P</span>
         </div>
-        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+        <span className="text-xs font-semibold text-fg-muted">
           Peko Desktop
         </span>
         {appVersion && (
-          <span className="text-[10px] text-slate-400 dark:text-slate-600">
+          <span className="text-[10px] text-fg-subtle">
             v{appVersion}
           </span>
         )}
@@ -85,14 +85,14 @@ export default function TitleBar() {
       <div className="flex items-center">
         <button
           onClick={handleMinimize}
-          className="flex h-9 w-9 items-center justify-center text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-surface-sunken hover:text-fg-soft"
           title="Minimize"
         >
           <Minus className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={handleMaximize}
-          className="flex h-9 w-9 items-center justify-center text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-surface-sunken hover:text-fg-soft"
           title={isMaximized ? "Restore" : "Maximize"}
         >
           {isMaximized ? (
@@ -103,7 +103,7 @@ export default function TitleBar() {
         </button>
         <button
           onClick={handleClose}
-          className="flex h-9 w-9 items-center justify-center text-slate-500 transition-colors hover:bg-red-500 hover:text-white dark:text-slate-400 dark:hover:bg-red-500 dark:hover:text-white"
+          className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-red-500 hover:text-white dark:hover:bg-red-500 dark:hover:text-white"
           title="Close"
         >
           <X className="h-3.5 w-3.5" />

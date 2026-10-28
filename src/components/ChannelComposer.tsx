@@ -65,11 +65,11 @@ export default function ChannelComposer({
   }
 
   return (
-    <div className="border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+    <div className="border-t border-line bg-surface p-3">
       {mutation.isError && (
         isChannelForbidden(mutation.error) ? (
           <div
-            className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+            className="mb-2 rounded-lg border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn"
             data-testid="channel-composer-forbidden"
           >
             You don&apos;t have access to this channel — only members can
@@ -77,7 +77,7 @@ export default function ChannelComposer({
           </div>
         ) : (
           <div
-            className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+            className="mb-2 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-red-700 dark:text-red-300"
             data-testid="channel-composer-error"
           >
             {errorMessage}
@@ -94,7 +94,7 @@ export default function ChannelComposer({
           rows={2}
           disabled={mutation.isPending}
           data-testid="channel-composer-input"
-          className="flex-1 resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="flex-1 resize-none rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
         />
         <button
           type="button"
@@ -111,7 +111,7 @@ export default function ChannelComposer({
           )}
         </button>
       </div>
-      <div className="mt-1 px-1 text-[10px] text-slate-400 dark:text-slate-500">
+      <div className="mt-1 px-1 text-[10px] text-fg-subtle">
         Sending as <span className="font-mono">{senderName}</span>
       </div>
     </div>

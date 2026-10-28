@@ -125,6 +125,10 @@ export async function engineRestart(): Promise<number> {
  */
 export interface PrincipalSummary {
   name: string;
+  /** The runtime's stable local id (`prin_…`); empty from older runtimes. */
+  localId?: string;
+  /** An emoji or short monogram, if set. */
+  avatar?: string | null;
   exposure: PrincipalExposure;
   status: string;
   description?: string;
@@ -226,19 +230,26 @@ export interface PrincipalUpdateRequest {
   status?: string;
   exposure?: string;
   preferredModelId?: string;
+  /** An emoji or short monogram; `""` clears it. */
+  avatar?: string;
   runtimeId?: RuntimeId;
 }
 
 export async function principalUpdate(
   req: PrincipalUpdateRequest,
 ): Promise<PrincipalSummary> {
+  // The Rust command takes one struct argument named `req`, so the
+  // fields travel inside it (flat keys fail Tauri's argument check).
   return invoke<PrincipalSummary>("principal_update", {
-    name: req.name,
-    description: req.description ?? null,
-    status: req.status ?? null,
-    exposure: req.exposure ?? null,
-    preferredModelId: req.preferredModelId ?? null,
-    runtimeId: req.runtimeId ?? null,
+    req: {
+      name: req.name,
+      description: req.description ?? null,
+      status: req.status ?? null,
+      exposure: req.exposure ?? null,
+      preferredModelId: req.preferredModelId ?? null,
+      avatar: req.avatar ?? null,
+      runtimeId: req.runtimeId ?? null,
+    },
   });
 }
 

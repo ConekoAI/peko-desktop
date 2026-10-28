@@ -190,6 +190,26 @@ describe("PrincipalProfileModal", () => {
     expect(exportState.mutate).not.toHaveBeenCalled();
   });
 
+  it("saves a picked avatar, and sends none when it is unchanged", () => {
+    renderModal({ ...LOCAL_PUBLIC, avatar: "🐱" });
+    fireEvent.click(screen.getByTitle("Edit"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(updateState.mutate.mock.calls[0][0]).toMatchObject({ avatar: undefined });
+
+    // The mocked update never succeeds, so the form stays open.
+    fireEvent.click(screen.getByRole("button", { name: "Use 🦉" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(updateState.mutate.mock.calls[1][0]).toMatchObject({ avatar: "🦉" });
+  });
+
+  it("clears the avatar with an empty value", () => {
+    renderModal({ ...LOCAL_PUBLIC, avatar: "🐱" });
+    fireEvent.click(screen.getByTitle("Edit"));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(updateState.mutate.mock.calls[0][0]).toMatchObject({ avatar: "" });
+  });
+
   it("edit mode uses peko copy for the description placeholder", () => {
     renderModal();
     fireEvent.click(screen.getByTitle("Edit"));

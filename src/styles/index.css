@@ -11,6 +11,106 @@
   --color-sidebar-border-dark: #1e293b;
 }
 
+/*
+ * Design tokens. Semantic colours live in CSS variables that switch under
+ * .dark, so a component uses one class (`bg-surface`, `text-fg`,
+ * `border-line`) for both themes instead of a light/dark pair.
+ *
+ *   surface         page and message background
+ *   surface-card    modals and panels on the page
+ *   surface-raised  composer, sidebars, subtle fills
+ *   surface-sunken  hover and pressed fills, code headers
+ *   line            borders and dividers
+ *   fg / fg-soft / fg-muted / fg-subtle   text, by emphasis
+ *   brand / brand-soft / brand-fg   primary actions and selection
+ *   danger(-soft) / warn(-soft)     errors and notices
+ */
+:root {
+  --surface: #ffffff;
+  --surface-card: #ffffff;
+  --surface-raised: #f8fafc;
+  --surface-sunken: #f1f5f9;
+  --line: #e2e8f0;
+  --fg: #0f172a;
+  --fg-soft: #334155;
+  --fg-muted: #64748b;
+  --fg-subtle: #94a3b8;
+  --brand: #059669;
+  --brand-hover: #047857;
+  --brand-soft: #ecfdf5;
+  --brand-fg: #ffffff;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --warn: #b45309;
+  --warn-soft: #fffbeb;
+}
+
+.dark {
+  --surface: #020617;
+  --surface-card: #0f172a;
+  --surface-raised: #0f172a;
+  --surface-sunken: #1e293b;
+  --line: #1e293b;
+  --fg: #f1f5f9;
+  --fg-soft: #cbd5e1;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+  --brand: #10b981;
+  --brand-hover: #34d399;
+  --brand-soft: rgb(6 78 59 / 0.35);
+  --brand-fg: #022c22;
+  --danger: #f87171;
+  --danger-soft: rgb(127 29 29 / 0.3);
+  --warn: #fcd34d;
+  --warn-soft: rgb(120 53 15 / 0.3);
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-card: var(--surface-card);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-fg-soft: var(--fg-soft);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-fg: var(--brand-fg);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+}
+
+/*
+ * Peko accents: each peko gets one hue (from its id) for its avatar and
+ * reply accents — a soft fill and a strong foreground, per theme.
+ */
+:root {
+  --peko-emerald-soft: #d1fae5; --peko-emerald-fg: #047857;
+  --peko-sky-soft: #e0f2fe;     --peko-sky-fg: #0369a1;
+  --peko-violet-soft: #ede9fe;  --peko-violet-fg: #6d28d9;
+  --peko-amber-soft: #fef3c7;   --peko-amber-fg: #b45309;
+  --peko-rose-soft: #ffe4e6;    --peko-rose-fg: #be123c;
+  --peko-teal-soft: #ccfbf1;    --peko-teal-fg: #0f766e;
+  --peko-indigo-soft: #e0e7ff;  --peko-indigo-fg: #4338ca;
+  --peko-orange-soft: #ffedd5;  --peko-orange-fg: #c2410c;
+}
+
+.dark {
+  --peko-emerald-soft: rgb(6 78 59 / 0.5);    --peko-emerald-fg: #6ee7b7;
+  --peko-sky-soft: rgb(12 74 110 / 0.5);      --peko-sky-fg: #7dd3fc;
+  --peko-violet-soft: rgb(76 29 149 / 0.5);   --peko-violet-fg: #c4b5fd;
+  --peko-amber-soft: rgb(120 53 15 / 0.5);    --peko-amber-fg: #fcd34d;
+  --peko-rose-soft: rgb(136 19 55 / 0.5);     --peko-rose-fg: #fda4af;
+  --peko-teal-soft: rgb(19 78 74 / 0.5);      --peko-teal-fg: #5eead4;
+  --peko-indigo-soft: rgb(49 46 129 / 0.5);   --peko-indigo-fg: #a5b4fc;
+  --peko-orange-soft: rgb(124 45 18 / 0.5);   --peko-orange-fg: #fdba74;
+}
+
 html {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -23,7 +123,7 @@ button, [role="button"], a, input[type="submit"], input[type="button"], label[fo
 }
 
 body {
-  @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  @apply bg-surface text-fg;
 }
 
 #root {

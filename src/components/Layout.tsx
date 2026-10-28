@@ -147,7 +147,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     location.pathname.startsWith("/channels/");
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-white dark:bg-slate-950">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-surface">
       {/* Custom title bar */}
       <TitleBar />
 
@@ -156,7 +156,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           on first-run flows. Auto-clears via the 5s timeout in
           the listener. */}
       {deepLinkError && (
-        <div className="fixed right-4 top-12 z-50 max-w-sm rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shadow-lg dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <div className="fixed right-4 top-12 z-50 max-w-sm rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-red-700 shadow-lg dark:text-red-300">
           {deepLinkError}
         </div>
       )}
@@ -184,10 +184,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Main content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header */}
-          <header className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-950">
+          <header className="flex h-12 shrink-0 items-center justify-between border-b border-line bg-surface px-4">
             <div className="flex items-center gap-3">
               {!isChatRoute && (
-                <h1 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+                <h1 className="text-base font-semibold text-fg">
                   Peko
                 </h1>
               )}
@@ -196,7 +196,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2">
               <button
                 onClick={cycleTheme}
-                className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="rounded-lg p-2 text-fg-muted transition-colors hover:bg-surface-sunken hover:text-fg-soft"
                 title={`Theme: ${theme}`}
               >
                 <ThemeIcon className="h-4 w-4" />
