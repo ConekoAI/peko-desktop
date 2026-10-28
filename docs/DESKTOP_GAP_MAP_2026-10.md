@@ -119,7 +119,8 @@ collapsible row. 2026-10-28: composer, per-message model, message actions,
 and highlighting landed (#92); identity and design tokens follow — each peko
 has an emoji/monogram avatar (`identity.avatar`, peko-runtime) and an accent
 from its id, and the chat, channel, sidebar, and shell surfaces use semantic
-tokens that switch with the theme. Left: group wake picker, shorter onboarding.
+tokens that switch with the theme. Onboarding is three steps (connect a model with its key → name and avatar →
+first message, advanced options folded away). Left: group wake picker.
 - Peko identity (avatar, name, accent) in header, messages, and sidebar.
 - New composer: textarea, ⌘↵, Stop/steer, model picker (`override_model`), @mention.
 - Tool/thinking step rows, code highlighting + copy, message actions, day separators,

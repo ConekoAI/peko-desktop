@@ -1,108 +1,67 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  ArrowRight,
-  ArrowLeft,
-  Check,
-  Cpu,
-  Loader2,
-  Sparkles,
-  X,
-  Bot,
-  Settings,
-  Link as LinkIcon,
-  Compass,
-  User,
-  Plus,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, KeyRound, Loader2 } from "lucide-react";
 
-import { usePrincipals, usePrincipalCreate } from "../hooks/usePrincipals";
-import { useModels } from "../hooks/useModels";
-import {
-  usePekohubBundle,
-  runOAuthFlow,
-} from "../hooks/useRuntimes";
-import { useSettings } from "../hooks/useSettings";
-import { resolveSpec } from "../types";
-import { specBadgeList } from "../lib/model-spec";
-import SpecBadge from "./models/SpecBadge";
+import { usePrincipals, usePrincipalCreate, usePrincipalUpdate } from "../hooks/usePrincipals";
+import { useAddModel, useModelTemplates, useModels, useTestModel } from "../hooks/useModels";
 import { isValidPrincipalName } from "../lib/validatePrincipalName";
-import CreatePrincipalModal from "./modals/CreatePrincipalModal";
-import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
+import { AVATAR_SUGGESTIONS, pekoIdentity } from "../lib/pekoIdentity";
+import PekoAvatar from "./peko/PekoAvatar";
+import AddModelModal from "./modals/AddModelModal";
+import type { ModelPresetInfo } from "../types";
 
 /**
- * First-run walkthrough overlay (T-105 Phase D, model-first; PR #10
- * adds steps 3 + 4 for the social/remote model).
+ * First-run onboarding: from a fresh install to talking with a peko in
+ * three steps.
  *
- * Closes the desktop's "drop to CLI" dead end on a fresh profile.
- * Auto-appears when there are zero principals AND the user hasn't
- * dismissed it before (`localStorage["peko.onboarding.seen"] !== "1"`).
+ *   1. Connect a model — pick a provider and paste its key (or, with
+ *      models already set up, pick one). The model is added and tested;
+ *      the model choice and a custom endpoint sit under "Advanced".
+ *   2. Name your peko — a name and an avatar; the description and the
+ *      model it uses sit under "Advanced". Creating it runs the runtime's
+ *      genesis turn, which can take a minute.
+ *   3. Say hello — the first message, sent from the chat so the reply
+ *      streams there (`/chat/<name>?say=…`).
  *
- * Four steps:
- *   1. pick-model — choose from the runtime's configured models
- *   2. create-principal — name + optional description → usePrincipalCreate
- *   3. connect-hub — optional PekoHub OAuth sign-in. Skip transitions
- *      to step 4 (the user can use the desktop fully local-only).
- *   4. add-remote — landing card with three follow-up actions:
- *        - open CreatePrincipalModal (add another local principal)
- *        - open AddRemotePrincipalModal (paste a hub share link)
- *        - navigate to /discover (browse the public directory)
- *      "Done" dismisses the walkthrough.
- *
- * If no models are configured yet, the user is pointed to Settings → Models
- * to add one first.
- *
- * Each step has a Back/Next pair and a top-level Skip that closes the
- * overlay and sets the localStorage flag. Step-2 success also sets the
- * flag and closes (and the principal lands in the sidebar via
- * usePrincipalCreate's cache invalidation).
- *
- * Replay: Settings → About → "Replay onboarding" clears the flag
- * and dispatches `peko:replay-onboarding`; this overlay listens and
- * re-shows.
+ * It shows on a profile with no pekos unless dismissed before
+ * (`localStorage[ONBOARDING_KEY] === "1"`); Skip dismisses it. Settings →
+ * About → "Replay onboarding" dispatches REPLAY_EVENT to show it again.
+ * PekoHub sign-in is not part of first run; it lives in the profile menu.
  */
 export const ONBOARDING_KEY = "peko.onboarding.seen";
 export const REPLAY_EVENT = "peko:replay-onboarding";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 
 const STEPS: { id: Step; label: string }[] = [
-  { id: 1, label: "Pick model" },
-  { id: 2, label: "Create peko" },
-  // PR #10: PekoHub OAuth is OPTIONAL. Users without an account
-  // (or who want to keep their runtimes local-only) just hit Skip.
-  { id: 3, label: "Connect to PekoHub" },
-  // PR #10: step 4 is the social follow-up — once a local
-  // principal exists (step 2) and PekoHub is optionally linked
-  // (step 3), step 4 surfaces the three ways to add more: a
-  // local create modal, a remote share-link paste, or the public
-  // discover feed. The "Done" button closes the overlay.
-  { id: 4, label: "Add your first peko" },
+  { id: 1, label: "Connect a model" },
+  { id: 2, label: "Name your peko" },
+  { id: 3, label: "Say hello" },
+];
+
+/** Names offered by default, first free one wins. */
+const NAME_IDEAS = ["nova", "pip", "sage", "juno", "miso", "atlas"];
+
+const FIRST_MESSAGES = [
+  "Hi! What can you help me with?",
+  "Remind me to stretch in 30 minutes.",
+  "Help me plan my week.",
 ];
 
 export default function FirstRunWalkthrough() {
   const { data: principals, isLoading: principalsLoading } = usePrincipals();
-  const { data: models, isLoading: modelsLoading } = useModels();
-
-  // Only show the overlay when:
-  //   - principals have loaded (not isLoading)
-  //   - there are zero principals
-  //   - the dismiss flag is not set
-  //   - the walkthrough hasn't been explicitly dismissed in this session
   const [dismissed, setDismissed] = useState(false);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const seen = localStorage.getItem(ONBOARDING_KEY) === "1";
-    if (principalsLoading) return;
-    if (seen) return;
+    if (principalsLoading || dismissed) return;
+    if (localStorage.getItem(ONBOARDING_KEY) === "1") return;
     if (!principals || principals.length > 0) return;
-    if (dismissed) return;
     setVisible(true);
   }, [principals, principalsLoading, dismissed]);
 
-  // Listen for the Replay-onboarding broadcast from Settings.
+  // Settings → About → "Replay onboarding".
   useEffect(() => {
     if (typeof window === "undefined") return;
     function handle() {
@@ -113,10 +72,8 @@ export default function FirstRunWalkthrough() {
     return () => window.removeEventListener(REPLAY_EVENT, handle);
   }, []);
 
-  function handleDismiss() {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(ONBOARDING_KEY, "1");
-    }
+  function close() {
+    if (typeof window !== "undefined") localStorage.setItem(ONBOARDING_KEY, "1");
     setDismissed(true);
     setVisible(false);
   }
@@ -131,725 +88,561 @@ export default function FirstRunWalkthrough() {
       data-testid="first-run-walkthrough"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
     >
-      <WalkthroughCard
-        onDismiss={handleDismiss}
-        models={models}
-        modelsLoading={modelsLoading}
-      />
+      <Onboarding onClose={close} takenNames={(principals ?? []).map((p) => p.name)} />
     </div>
   );
 }
 
-function WalkthroughCard({
-  onDismiss,
-  models,
-  modelsLoading,
-}: {
-  onDismiss: () => void;
-  models: ReturnType<typeof useModels>["data"];
-  modelsLoading: boolean;
-}) {
+function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: string[] }) {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(1);
   const [modelId, setModelId] = useState<string | null>(null);
-  const [principalName, setPrincipalName] = useState("");
-  const [principalDescription, setPrincipalDescription] = useState("");
-  // PR #10: step 3 mounts an in-card OAuth button. The actual flow
-  // delegates to runOAuthFlow (PR #9 + existing ProfileMenu pattern).
-  const [signingIn, setSigningIn] = useState(false);
-  const [oauthError, setOauthError] = useState<string | null>(null);
-  // PR #10: step 4 owns two follow-up modals. They're local to the
-  // walkthrough so the overlay stays the single source of truth for
-  // the onboarding lifecycle — no need to thread open state into the
-  // sidebar or AppRail.
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showAddRemoteModal, setShowAddRemoteModal] = useState(false);
+  const [pekoName, setPekoName] = useState<string | null>(null);
 
-  const modelItems = useMemo(
-    () => resolveModelItems(models ?? undefined, modelsLoading),
-    [models, modelsLoading],
-  );
-
-  // Pre-select the first available model once the list loads.
-  useEffect(() => {
-    if (modelId !== null) return;
-    if (modelItems.length === 0) return;
-    setModelId(modelItems[0].id);
-  }, [modelItems, modelId]);
-
-  const createMut = usePrincipalCreate();
-
-  // PR #10: peek at the OAuth bundle + pekohub base URL the same way
-  // ProfileMenu does. The "You're already signed in" copy in step 3
-  // uses `signedIn` to skip the OAuth button and jump straight to
-  // Next.
-  const { data: settings } = useSettings();
-  const { data: bundle, isPending: bundlePending } = usePekohubBundle();
-  const pekohubBaseUrl =
-    settings?.find((s) => s.key === "pekohub.base_url")?.value ??
-    "https://pekohub.org";
-  const oauthScope =
-    settings?.find((s) => s.key === "pekohub.oauth_scope")?.value ??
-    "runtimes:read";
-  const signedIn = bundle !== null && bundle !== undefined && !bundlePending;
-
-  async function handleConnectHub() {
-    setOauthError(null);
-    setSigningIn(true);
-    try {
-      const result = await runOAuthFlow({
-        baseUrl: pekohubBaseUrl,
-        scope: oauthScope,
-      });
-      if (result.added === 0) {
-        setOauthError(
-          "Signed in to PekoHub, but no runtimes were found for this account.",
-        );
-      }
-    } catch (err) {
-      setOauthError(
-        err instanceof Error
-          ? err.message
-          : "Sign-in failed. Check your browser and try again.",
-      );
-    } finally {
-      setSigningIn(false);
-    }
+  function finish(firstMessage: string | null) {
+    onClose();
+    if (!pekoName) return;
+    navigate({
+      to: "/chat/$pekoName",
+      params: { pekoName },
+      search: firstMessage ? { say: firstMessage } : {},
+    });
   }
-
-  function handleNext() {
-    if (step === 1) {
-      setStep(2);
-      return;
-    }
-    if (step === 2) {
-      // PR #10: step 2 advances to step 3 instead of dismissing the
-      // overlay. The pre-#10 contract was onSuccess -> onDismiss, but
-      // that path short-circuits the social follow-ups (PekoHub OAuth
-      // + add remote principal) and made them unreachable from the
-      // walkthrough. The visibility effect that hid the overlay on
-      // zero principals is unchanged — once the new principal lands
-      // in the cache, the outer FirstRunWalkthrough still hides itself
-      // if the user closes the overlay without advancing.
-      createMut.mutate(
-        {
-          name: principalName.trim(),
-          description: principalDescription.trim() || undefined,
-          modelId: modelId ?? "",
-        },
-        {
-          onSuccess: () => setStep(3),
-        },
-      );
-      return;
-    }
-    if (step === 3) {
-      setStep(4);
-      return;
-    }
-    if (step === 4) {
-      // "Done" — close the overlay. The follow-up modals (Create +
-      // Add remote) each have their own open/close lifecycles.
-      onDismiss();
-      return;
-    }
-  }
-
-  function handleBack() {
-    if (step === 1) return;
-    setStep((step - 1) as Step);
-  }
-
-  const canAdvance = (() => {
-    switch (step) {
-      case 1:
-        return modelId !== null;
-      case 2:
-        return isValidPrincipalName(principalName);
-      // Step 3 is skippable from the card itself, but the Next button
-      // is always enabled so the user can advance past a successful
-      // OAuth without re-clicking the in-card CTA.
-      case 3:
-        return true;
-      case 4:
-        return true;
-    }
-  })();
-
-  const errorMessage =
-    createMut.error instanceof Error
-      ? createMut.error.message
-      : createMut.error
-        ? String(createMut.error)
-        : null;
-
-  // PR #10: step 4 deliberately does NOT auto-dismiss on principal
-  // count changes. The user opens CreatePrincipalModal /
-  // AddRemotePrincipalModal — those modals own their own lifecycle
-  // and let the user click multiple times before "Done" closes the
-  // walkthrough. Auto-dismissing the moment the cache refetches
-  // would feel like the overlay vanished out from under the user.
 
   return (
-    <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+    <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-surface-card shadow-2xl">
+      <div className="flex items-start justify-between px-6 pt-5">
         <div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <h2
-              id="first-run-walkthrough-title"
-              className="text-base font-semibold text-slate-900 dark:text-white"
-            >
-              Welcome to Peko
-            </h2>
-          </div>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Pick a configured model and name your first peko.
-          </p>
+          <p className="text-xs font-medium text-brand">Welcome to Peko</p>
+          <h2 id="first-run-walkthrough-title" className="mt-0.5 text-lg font-semibold text-fg">
+            {STEPS[step - 1].label}
+          </h2>
         </div>
         <button
           type="button"
-          onClick={onDismiss}
-          aria-label="Skip onboarding"
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          onClick={onClose}
+          className="rounded-lg px-2 py-1 text-xs text-fg-muted hover:bg-surface-sunken hover:text-fg-soft"
         >
-          <X className="h-4 w-4" />
+          Skip
         </button>
       </div>
 
-      <Stepper current={step} />
+      <ol className="flex gap-2 px-6 pt-3" aria-label="Onboarding progress">
+        {STEPS.map((s) => (
+          <li
+            key={s.id}
+            data-testid={`onboarding-step-${s.id}`}
+            aria-current={s.id === step ? "step" : undefined}
+            className={[
+              "h-1 flex-1 rounded-full",
+              s.id <= step ? "bg-brand" : "bg-surface-sunken",
+            ].join(" ")}
+          />
+        ))}
+      </ol>
 
-      <div className="px-6 py-5">
+      <div className="overflow-y-auto px-6 py-5">
         {step === 1 && (
-          <Step1
-            models={modelItems}
-            loading={modelsLoading}
-            selected={modelId}
-            onSelect={setModelId}
-          />
-        )}
-        {step === 2 && (
-          <Step2
-            name={principalName}
-            onNameChange={setPrincipalName}
-            description={principalDescription}
-            onDescriptionChange={setPrincipalDescription}
-            modelLabel={
-              modelId
-                ? modelItems.find((m) => m.id === modelId)?.displayName ?? modelId
-                : null
-            }
-          />
-        )}
-        {step === 3 && (
-          <Step3ConnectHub
-            pekohubBaseUrl={pekohubBaseUrl}
-            signingIn={signingIn}
-            signedIn={signedIn}
-            onConnect={handleConnectHub}
-            onSkipToStep4={() => setStep(4)}
-          />
-        )}
-        {step === 4 && (
-          <Step4AddPrincipal
-            onCreateLocal={() => setShowCreateModal(true)}
-            onAddRemote={() => setShowAddRemoteModal(true)}
-            onBrowse={() => {
-              // PR #10: leaving the walkthrough mid-flow lands the
-              // user in the Discover SPA. The overlay closes via
-              // onDismiss so it doesn't shadow the navigated view.
-              onDismiss();
-              navigate({ to: "/discover" });
+          <ModelStep
+            onNext={(id) => {
+              setModelId(id);
+              setStep(2);
             }}
           />
         )}
-
-        {(errorMessage || oauthError) && (
-          <div
-            role="alert"
-            className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400"
-          >
-            {errorMessage || oauthError}
-          </div>
+        {step === 2 && modelId && (
+          <PekoStep
+            modelId={modelId}
+            takenNames={takenNames}
+            onBack={() => setStep(1)}
+            onNext={(name) => {
+              setPekoName(name);
+              setStep(3);
+            }}
+          />
         )}
+        {step === 3 && pekoName && <HelloStep pekoName={pekoName} onFinish={finish} />}
       </div>
+    </div>
+  );
+}
 
-      <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+// ─── Step 1: connect a model ────────────────────────────────────────
+
+function ModelStep({ onNext }: { onNext: (modelId: string) => void }) {
+  const { data: models, isLoading: modelsLoading } = useModels();
+  const enabled = useMemo(() => (models ?? []).filter((m) => m.enabled), [models]);
+  const [addingNew, setAddingNew] = useState(false);
+  const [existing, setExisting] = useState<string>("");
+
+  useEffect(() => {
+    if (!existing && enabled.length > 0) setExisting(enabled[0].id);
+  }, [enabled, existing]);
+
+  if (modelsLoading) {
+    return <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />;
+  }
+
+  if (enabled.length > 0 && !addingNew) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-fg-muted">
+          A model is a peko&apos;s mind. You already have some — pick the one your first peko will
+          use.
+        </p>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-fg-muted">Model</span>
+          <select
+            value={existing}
+            onChange={(e) => setExisting(e.target.value)}
+            className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          >
+            {enabled.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.displayName || m.id}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setAddingNew(true)}
+            className="text-xs text-fg-muted hover:text-fg-soft"
+          >
+            Add another model instead
+          </button>
+          <PrimaryButton onClick={() => onNext(existing)} disabled={!existing}>
+            Continue <ArrowRight className="h-4 w-4" />
+          </PrimaryButton>
+        </div>
+      </div>
+    );
+  }
+
+  return <AddModel onAdded={onNext} />;
+}
+
+/**
+ * Pick a provider, paste its key, and the model is added and tested.
+ * "Advanced" picks a specific model; a custom endpoint opens the full
+ * Add Model dialog.
+ */
+function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
+  const { data: templates, isLoading } = useModelTemplates();
+  const presets = useMemo(() => (templates ?? []) as ModelPresetInfo[], [templates]);
+  const addMut = useAddModel();
+  const testMut = useTestModel();
+  const [presetId, setPresetId] = useState<string | null>(null);
+  const [key, setKey] = useState("");
+  const [model, setModel] = useState("");
+  const [advanced, setAdvanced] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [addedId, setAddedId] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  const preset = presets.find((p) => p.id === presetId) ?? null;
+  const busy = addMut.isPending || testMut.isPending;
+  const ready = !!preset && (!preset.requiresKey || key.trim().length > 0) && !busy;
+
+  function pick(p: ModelPresetInfo) {
+    setPresetId(p.id);
+    setModel(p.defaultModel || p.models[0]?.id || "");
+    setTestError(null);
+    addMut.reset();
+  }
+
+  async function connect() {
+    if (!preset) return;
+    setTestError(null);
+    try {
+      const info = await addMut.mutateAsync({
+        template: preset.id,
+        custom: false,
+        model: model ? [model] : [],
+        ...(key.trim() && { key: key.trim() }),
+      });
+      setAddedId(info.id);
+      const result = await testMut.mutateAsync(info.id);
+      if (result.ok) onAdded(info.id);
+      else setTestError(result.message || "The model did not answer.");
+    } catch {
+      // `addMut.error` / `testMut.error` render below.
+    }
+  }
+
+  const failure = addMut.error ?? testMut.error;
+  const failureText =
+    failure instanceof Error ? failure.message : failure ? String(failure) : testError;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-fg-muted">
+        A model is a peko&apos;s mind. Choose a provider and paste your API key — it is stored in
+        your system keychain, not in a file.
+      </p>
+
+      {isLoading ? (
+        <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
+      ) : (
+        <div className="grid max-h-56 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3" role="group" aria-label="Providers">
+          {presets.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => pick(p)}
+              aria-pressed={p.id === presetId}
+              className={[
+                "rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                p.id === presetId
+                  ? "border-brand bg-brand-soft text-fg"
+                  : "border-line text-fg-soft hover:bg-surface-sunken",
+              ].join(" ")}
+            >
+              <span className="block truncate font-medium">{p.displayName}</span>
+              <span className="block text-[11px] text-fg-subtle">
+                {p.requiresKey ? "API key" : "Local, no key"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {preset?.requiresKey && (
+        <label className="block">
+          <span className="mb-1 flex items-center gap-1 text-xs font-medium text-fg-muted">
+            <KeyRound className="h-3.5 w-3.5" /> {preset.displayName} API key
+          </span>
+          <input
+            type="password"
+            autoComplete="off"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="Paste your key"
+            className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 font-mono text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          />
+        </label>
+      )}
+
+      <Disclosure open={advanced} onToggle={() => setAdvanced((a) => !a)} label="Advanced">
+        {preset && preset.models.length > 0 && (
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-fg-muted">Model</span>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            >
+              {preset.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.displayName || m.id}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button
           type="button"
-          onClick={
-            // PR #10: on step 3 the Skip button transitions to step
-            // 4 instead of dismissing the whole overlay — that way
-            // the user who declines PekoHub still sees the social
-            // follow-ups (browse / paste a share link) without
-            // having to re-open onboarding. Other steps keep the
-            // original dismiss-on-skip behavior.
-            step === 3 ? () => setStep(4) : onDismiss
-          }
-          className="text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          onClick={() => setCustomOpen(true)}
+          className="text-xs text-fg-muted underline hover:text-fg-soft"
         >
-          {step === 3 ? "Skip — go local-only" : "Skip for now"}
+          Use a custom endpoint (base URL, API format)…
         </button>
-        <div className="flex items-center gap-2">
-          {step > 1 && (
+      </Disclosure>
+
+      {failureText && (
+        <div
+          data-testid="onboarding-model-error"
+          className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger"
+        >
+          <p className="font-medium">Couldn&apos;t reach the model.</p>
+          <p className="mt-0.5 break-words">{failureText}</p>
+          {addedId && (
             <button
               type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              onClick={() => onAdded(addedId)}
+              className="mt-1 underline"
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back
+              Continue anyway
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={!canAdvance || (step === 2 && createMut.isPending)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {step === 2 && createMut.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : step === 2 ? (
-              <Bot className="h-3.5 w-3.5" />
-            ) : (
-              <ArrowRight className="h-3.5 w-3.5" />
-            )}
-            {step === 2 ? "Create" : step === 4 ? "Done" : "Next"}
-          </button>
         </div>
+      )}
+
+      <div className="flex justify-end">
+        <PrimaryButton onClick={connect} disabled={!ready}>
+          {busy ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {addMut.isPending ? "Adding…" : "Checking…"}
+            </>
+          ) : (
+            <>
+              Connect <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </PrimaryButton>
       </div>
 
-      {/* PR #10: step-4 modals. They render at the same z-index
-          as the walkthrough card so closing either modal returns
-          the user to step 4 rather than to a blank viewport. */}
-      <CreatePrincipalModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-      />
-      <AddRemotePrincipalModal
-        open={showAddRemoteModal}
-        onClose={() => setShowAddRemoteModal(false)}
+      <AddModelModal
+        open={customOpen}
+        onClose={() => setCustomOpen(false)}
+        onSuccess={(id) => onAdded(id)}
       />
     </div>
   );
 }
 
-function Stepper({ current }: { current: Step }) {
-  return (
-    <ol
-      className="flex items-center gap-2 border-b border-slate-200 px-6 py-3 dark:border-slate-800"
-      aria-label="Onboarding progress"
-    >
-      {STEPS.map((s, i) => {
-        const isActive = s.id === current;
-        const isDone = s.id < current;
-        return (
-          <li key={s.id} className="flex flex-1 items-center gap-2">
-            <span
-              className={[
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
-                isActive
-                  ? "bg-emerald-600 text-white"
-                  : isDone
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                    : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
-              ].join(" ")}
-            >
-              {isDone ? <Check className="h-3 w-3" /> : s.id}
-            </span>
-            <span
-              className={[
-                "truncate text-xs",
-                isActive
-                  ? "font-medium text-slate-800 dark:text-slate-100"
-                  : "text-slate-500 dark:text-slate-400",
-              ].join(" ")}
-            >
-              {s.label}
-            </span>
-            {i < STEPS.length - 1 && (
-              <span
-                aria-hidden="true"
-                className={[
-                  "h-px flex-1",
-                  isDone
-                    ? "bg-emerald-300 dark:bg-emerald-700"
-                    : "bg-slate-200 dark:bg-slate-800",
-                ].join(" ")}
-              />
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
+// ─── Step 2: name and avatar ────────────────────────────────────────
 
-function Step1({
-  models,
-  loading,
-  selected,
-  onSelect,
+function PekoStep({
+  modelId,
+  takenNames,
+  onBack,
+  onNext,
 }: {
-  models: ModelItem[];
-  loading: boolean;
-  selected: string | null;
-  onSelect: (id: string) => void;
+  modelId: string;
+  takenNames: string[];
+  onBack: () => void;
+  onNext: (name: string) => void;
 }) {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-slate-700 dark:text-slate-300">
-        Choose the model your first peko will use. You can change this
-        later and add more models in Settings → Models.
-      </p>
-
-      {loading && (
-        <div className="flex items-center gap-2 py-4 text-xs text-slate-500 dark:text-slate-400">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading models…
-        </div>
-      )}
-
-      {!loading && models.length === 0 && (
-        <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center dark:border-slate-700">
-          <Cpu className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            No models configured yet
-          </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400"
-          >
-            Add a model in Settings → Models before creating a peko.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              // Closing the overlay lets the user open Settings.
-              // The overlay will reappear on reload until dismissed.
-              window.location.hash = "settings";
-            }}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-          >
-            <Settings className="h-3.5 w-3.5" />
-            Open Settings
-          </button>
-        </div>
-      )}
-
-      {!loading && models.length > 0 && (
-        <div className="grid gap-2">
-          {models.map((m) => {
-            const badges = specBadgeList(resolveSpec({ spec: m.spec as never }));
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => onSelect(m.id)}
-                data-testid={`walkthrough-model-${m.id}`}
-                className={[
-                  "flex flex-col gap-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors",
-                  selected === m.id
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
-                ].join(" ")}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{m.displayName}</span>
-                  <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
-                    {m.apiFormat} · {m.modelId}
-                  </span>
-                </div>
-                {badges.length > 0 && (
-                  <div
-                    className="flex flex-wrap gap-1.5"
-                    data-testid={`walkthrough-specs-${m.id}`}
-                  >
-                    {badges.map((b) => (
-                      <SpecBadge
-                        key={b.kind}
-                        kind={b.kind}
-                        label={b.label}
-                        testId={`walkthrough-spec-${b.kind}-${m.id}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+  const { data: models } = useModels();
+  const createMut = usePrincipalCreate();
+  const updateMut = usePrincipalUpdate();
+  const [name, setName] = useState(
+    () => NAME_IDEAS.find((n) => !takenNames.includes(n)) ?? "",
   );
-}
+  const [avatar, setAvatar] = useState(AVATAR_SUGGESTIONS[0]);
+  const [advanced, setAdvanced] = useState(false);
+  const [description, setDescription] = useState("");
+  const [model, setModel] = useState(modelId);
 
-function Step2({
-  name,
-  onNameChange,
-  description,
-  onDescriptionChange,
-  modelLabel,
-}: {
-  name: string;
-  onNameChange: (v: string) => void;
-  description: string;
-  onDescriptionChange: (v: string) => void;
-  modelLabel: string | null;
-}) {
   const trimmed = name.trim();
-  const nameValid = isValidPrincipalName(trimmed);
+  const nameOk = isValidPrincipalName(trimmed) && !takenNames.includes(trimmed);
+  const busy = createMut.isPending || updateMut.isPending;
+
+  async function create() {
+    try {
+      await createMut.mutateAsync({
+        name: trimmed,
+        modelId: model,
+        ...(description.trim() && { description: description.trim() }),
+      });
+      if (avatar) await updateMut.mutateAsync({ name: trimmed, avatar });
+      onNext(trimmed);
+    } catch {
+      // Rendered below.
+    }
+  }
+
+  const failure = createMut.error ?? updateMut.error;
+  const failureText = failure instanceof Error ? failure.message : failure ? String(failure) : null;
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-slate-700 dark:text-slate-300">
-        Name your first peko. It&apos;s the identity you&apos;ll chat with.
-      </p>
-      {modelLabel && (
-        <div
-          role="status"
-          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
-        >
-          <Check className="h-3 w-3" />
-          Model: {modelLabel}
+    <div className="space-y-4">
+      <div className="flex items-center gap-4">
+        <PekoAvatar peko={pekoIdentity({ name: trimmed || "?", avatar })} size="lg" />
+        <label className="block flex-1">
+          <span className="mb-1 block text-xs font-medium text-fg-muted">Name</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={busy}
+            aria-invalid={trimmed.length > 0 && !nameOk}
+            className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          />
+          {trimmed.length > 0 && !nameOk && (
+            <span className="mt-1 block text-[11px] text-danger">
+              {takenNames.includes(trimmed)
+                ? "You already have a peko with this name."
+                : "Use letters, numbers, - or _."}
+            </span>
+          )}
+        </label>
+      </div>
+
+      <div>
+        <span className="mb-1 block text-xs font-medium text-fg-muted">Avatar</span>
+        <div className="flex flex-wrap gap-1" role="group" aria-label="Avatar">
+          {AVATAR_SUGGESTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              disabled={busy}
+              onClick={() => setAvatar(emoji)}
+              aria-label={`Use ${emoji}`}
+              aria-pressed={avatar === emoji}
+              className={[
+                "flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-colors",
+                avatar === emoji ? "bg-brand-soft ring-1 ring-brand" : "hover:bg-surface-sunken",
+              ].join(" ")}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Disclosure open={advanced} onToggle={() => setAdvanced((a) => !a)} label="Advanced">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-fg-muted">Description</span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="What this peko is for (optional)"
+            className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          />
+        </label>
+        {(models ?? []).filter((m) => m.enabled).length > 1 && (
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-fg-muted">Model</span>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            >
+              {(models ?? [])
+                .filter((m) => m.enabled)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.displayName || m.id}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+      </Disclosure>
+
+      {failureText && (
+        <div className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger" data-testid="onboarding-create-error">
+          {failureText}
         </div>
       )}
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-          Name <span className="text-red-500">*</span>
-        </label>
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => onNameChange(e.target.value)}
-          placeholder="alice"
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-        />
-        {name && !nameValid && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-            Use 1–64 chars: letters, digits, &quot;-&quot;, &quot;_&quot;. No
-            leading/trailing hyphen, &quot;..&quot;, or path separators.
-          </p>
-        )}
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-          Description (optional)
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          placeholder="Personal coding assistant"
-          rows={2}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
-        />
-      </div>
-    </div>
-  );
-}
 
-/**
- * PR #10 step 3: optional PekoHub OAuth. Mirrors ProfileMenu's
- * sign-in copy + state machine, but inlined into the walkthrough
- * so the user doesn't have to leave the overlay and re-enter.
- *
- * If the user is already signed in (e.g. they replayed onboarding
- * after a successful sign-in), we render a "you're already
- * connected" badge and let them advance with Next.
- */
-function Step3ConnectHub({
-  pekohubBaseUrl,
-  signingIn,
-  signedIn,
-  onConnect,
-  onSkipToStep4,
-}: {
-  pekohubBaseUrl: string;
-  signingIn: boolean;
-  signedIn: boolean;
-  onConnect: () => void;
-  onSkipToStep4: () => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-slate-700 dark:text-slate-300">
-        Sign in to PekoHub to publish your peko, share it with a
-        friend, or browse what other people have made. Optional — you
-        can use the desktop fully local-only.
-      </p>
-
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
-        Hub: <code className="font-mono">{pekohubBaseUrl}</code>
-      </div>
-
-      {signedIn ? (
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
-          <Check className="h-3 w-3" />
-          Already connected to PekoHub
-        </div>
-      ) : (
+      <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={onConnect}
-          disabled={signingIn}
-          data-testid="onboarding-connect-hub"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          onClick={onBack}
+          disabled={busy}
+          className="inline-flex items-center gap-1 text-xs text-fg-muted hover:text-fg-soft"
         >
-          {signingIn ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <User className="h-3.5 w-3.5" />
-          )}
-          {signingIn ? "Opening browser…" : "Sign in with PekoHub"}
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
-      )}
+        <PrimaryButton onClick={create} disabled={!nameOk || busy}>
+          {busy ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Waking up {trimmed}… this can take a minute
+            </>
+          ) : (
+            <>
+              Create {trimmed || "peko"} <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </PrimaryButton>
+      </div>
+    </div>
+  );
+}
 
+// ─── Step 3: say hello ──────────────────────────────────────────────
+
+function HelloStep({
+  pekoName,
+  onFinish,
+}: {
+  pekoName: string;
+  onFinish: (firstMessage: string | null) => void;
+}) {
+  const [text, setText] = useState(FIRST_MESSAGES[0]);
+  return (
+    <div className="space-y-4">
+      <p className="flex items-center gap-1.5 text-sm text-fg-muted">
+        <Check className="h-4 w-4 text-brand" />
+        {pekoName} is awake. What would you like to say first?
+      </p>
+      <textarea
+        aria-label="First message"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {FIRST_MESSAGES.map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setText(m)}
+            className="rounded-full border border-line px-3 py-1 text-xs text-fg-soft hover:bg-surface-sunken"
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => onFinish(null)}
+          className="text-xs text-fg-muted hover:text-fg-soft"
+        >
+          Go to the chat without a message
+        </button>
+        <PrimaryButton onClick={() => onFinish(text.trim())} disabled={!text.trim()}>
+          Send <ArrowRight className="h-4 w-4" />
+        </PrimaryButton>
+      </div>
+    </div>
+  );
+}
+
+// ─── Shared ─────────────────────────────────────────────────────────
+
+function PrimaryButton({
+  onClick,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+function Disclosure({
+  open,
+  onToggle,
+  label,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
       <button
         type="button"
-        onClick={onSkipToStep4}
-        className="block text-[11px] text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline dark:text-slate-400 dark:hover:text-slate-200"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted hover:text-fg-soft"
       >
-        Skip — stay local-only
+        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
+        {label}
       </button>
+      {open && <div className="mt-2 space-y-3 border-l-2 border-line pl-3">{children}</div>}
     </div>
   );
-}
-
-/**
- * PR #10 step 4: social follow-up. Three action cards:
- *   - Create another local principal (opens CreatePrincipalModal)
- *   - Paste a share link from a friend (opens AddRemotePrincipalModal)
- *   - Browse the public directory (navigates to /discover)
- *
- * The Create + Add-remote actions render modals in-place (mounted
- * alongside the walkthrough card via the parent) so the user can
- * chain several actions before clicking Done. The Browse action
- * closes the overlay and navigates; the Discover SPA is its own
- * page so re-entering the walkthrough mid-flow would be jarring.
- */
-function Step4AddPrincipal({
-  onCreateLocal,
-  onAddRemote,
-  onBrowse,
-}: {
-  onCreateLocal: () => void;
-  onAddRemote: () => void;
-  onBrowse: () => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-slate-700 dark:text-slate-300">
-        You&apos;re all set. Add more pekos, or browse what others have
-        shared on PekoHub.
-      </p>
-
-      <div className="grid gap-2">
-        <button
-          type="button"
-          onClick={onCreateLocal}
-          data-testid="onboarding-add-local"
-          className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs transition-colors hover:border-emerald-500 hover:bg-emerald-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-emerald-950/30"
-        >
-          <span className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
-            <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">Create another local peko</span>
-          </span>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">
-            Local only
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onAddRemote}
-          data-testid="onboarding-add-remote"
-          className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs transition-colors hover:border-emerald-500 hover:bg-emerald-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-emerald-950/30"
-        >
-          <span className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
-            <LinkIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">Paste a share link</span>
-          </span>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">
-            From a friend
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onBrowse}
-          data-testid="onboarding-browse-discover"
-          className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs transition-colors hover:border-emerald-500 hover:bg-emerald-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-emerald-950/30"
-        >
-          <span className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
-            <Compass className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">Browse public pekos</span>
-          </span>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">
-            PekoHub directory
-          </span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Model items compatible with the modal's picker. Defensive: an
- * unknown `models` shape renders as "no models" rather than crashing.
- *
- * PR 4 / feature/model-first-config: also carries the runtime's
- * `spec` field so the picker preview can render capability badges.
- * Specs arrive snake_case (the runtime's IPC envelope is
- * snake_case end-to-end) — the resolver below mirrors the same
- * field names so the gallery card stays consistent.
- */
-interface ModelItem {
-  id: string;
-  displayName: string;
-  apiFormat: string;
-  modelId: string;
-  spec?: unknown;
-}
-
-function resolveModelItems(
-  models: unknown,
-  loading: boolean,
-): ModelItem[] {
-  if (loading || !Array.isArray(models)) return [];
-  const items: (ModelItem | null)[] = models.map((m) => {
-    if (!m || typeof m !== "object") return null;
-    const obj = m as Record<string, unknown>;
-    const id =
-      typeof obj.id === "string"
-        ? obj.id
-        : typeof obj.model_id === "string"
-          ? obj.model_id
-          : null;
-    const displayName =
-      typeof obj.displayName === "string"
-        ? obj.displayName
-        : typeof obj.display_name === "string"
-          ? obj.display_name
-          : id;
-    const apiFormat =
-      typeof obj.apiFormat === "string"
-        ? obj.apiFormat
-        : typeof obj.api_format === "string"
-          ? obj.api_format
-          : "";
-    const modelId =
-      typeof obj.modelId === "string"
-        ? obj.modelId
-        : typeof obj.model_id === "string"
-          ? obj.model_id
-          : "";
-    const spec = obj.spec ?? obj.Spec ?? null;
-    if (!id) return null;
-    return {
-      id,
-      displayName: displayName ?? id,
-      apiFormat,
-      modelId,
-      spec: (spec ?? undefined) as unknown,
-    };
-  });
-  return items.filter((x): x is ModelItem => x !== null);
 }

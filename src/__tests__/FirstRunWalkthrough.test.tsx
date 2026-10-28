@@ -1,70 +1,66 @@
+// First-run onboarding: connect a model → name your peko → say hello.
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-// Mock all the data hooks the walkthrough consumes. Returning a
-// mutable signal lets each test drive the visibility branch it
-// cares about without restaging the full React Query cache.
 const principalsSignal: { value: unknown } = { value: [] };
-const modelsSignal: { value: unknown; loading: boolean } = {
-  value: [],
-  loading: false,
-};
-const settingsSignal: { value: unknown } = { value: [] };
-const pekohubBundleSignal: { value: unknown; loading: boolean } = {
-  value: null,
-  loading: false,
-};
+const modelsSignal: { value: unknown; loading: boolean } = { value: [], loading: false };
+const templatesSignal: { value: unknown } = { value: [] };
 
-const runOAuthFlowMock = vi.fn();
+const createMock = vi.fn(async (_req: unknown) => ({ name: "nova" }));
+const updateMock = vi.fn(async (_req: unknown) => ({}));
+const addModelMock = vi.fn(async (_args: unknown) => ({ id: "anthropic-sonnet" }));
+const testModelMock = vi.fn(async (_id: string) => ({ ok: true, message: "" }));
 
-// PR #10: the production `usePrincipalCreate.mutate({...}, {onSuccess})`
-// is what advances step 2 → step 3. The default `mutate: vi.fn()` would
-// swallow onSuccess entirely, leaving the test stuck on step 2. We
-// mirror the production shape: invoke onSuccess synchronously so step
-// advancement is observable in tests.
-const principalCreateMutateMock = vi.fn((_req: unknown, opts?: { onSuccess?: () => void }) => {
-  if (opts?.onSuccess) opts.onSuccess();
-});
+function mutation(fn: (arg: never) => Promise<unknown>) {
+  return { mutateAsync: fn, isPending: false, error: null, reset: vi.fn() };
+}
 
 vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: () => ({ data: principalsSignal.value, isLoading: false }),
-  usePrincipalCreate: () => ({
-    mutate: principalCreateMutateMock,
-    isPending: false,
-    reset: vi.fn(),
-  }),
+  usePrincipalCreate: () => mutation(createMock as never),
+  usePrincipalUpdate: () => mutation(updateMock as never),
 }));
 vi.mock("../hooks/useModels", () => ({
   useModels: () => ({ data: modelsSignal.value, isLoading: modelsSignal.loading }),
+  useModelTemplates: () => ({ data: templatesSignal.value, isLoading: false }),
+  useAddModel: () => mutation(addModelMock as never),
+  useTestModel: () => mutation(testModelMock as never),
 }));
-vi.mock("../hooks/useRuntimes", () => ({
-  usePekohubBundle: () => ({
-    data: pekohubBundleSignal.value,
-    isPending: pekohubBundleSignal.loading,
-  }),
-  runOAuthFlow: (...args: unknown[]) => runOAuthFlowMock(...args),
-}));
-vi.mock("../hooks/useSettings", () => ({
-  useSettings: () => ({ data: settingsSignal.value }),
-}));
+// The custom-endpoint dialog is the full Add Model flow, tested on its own.
+vi.mock("../components/modals/AddModelModal", () => ({ default: () => null }));
 
-// PR #10: step 4's Browse action calls useNavigate; mock it so the
-// test renders without a <RouterProvider>. The browse action is
-// covered separately in the integration tests; here we just need
-// the call site to not throw.
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", async () => {
   const actual = await vi.importActual<typeof import("@tanstack/react-router")>(
     "@tanstack/react-router",
   );
-  return {
-    ...actual,
-    useNavigate: () => navigateMock,
-  };
+  return { ...actual, useNavigate: () => navigateMock };
 });
 
 import FirstRunWalkthrough, { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
+
+const PRESETS = [
+  {
+    id: "anthropic",
+    displayName: "Anthropic",
+    apiType: "anthropic",
+    baseUrl: "https://api.anthropic.com",
+    requiresKey: true,
+    defaultModel: "claude-sonnet-5-5",
+    models: [{ id: "claude-sonnet-5-5" }, { id: "claude-haiku-5-5" }],
+  },
+  {
+    id: "ollama",
+    displayName: "Ollama",
+    apiType: "openai",
+    baseUrl: "http://localhost:11434/v1",
+    requiresKey: false,
+    defaultModel: "llama3",
+    models: [{ id: "llama3" }],
+  },
+];
 
 function renderWalkthrough() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -75,233 +71,181 @@ function renderWalkthrough() {
   );
 }
 
-describe("FirstRunWalkthrough visibility (T-105)", () => {
-  beforeEach(() => {
-    localStorage.clear();
-    principalsSignal.value = [];
-    modelsSignal.value = [];
-    modelsSignal.loading = false;
-    settingsSignal.value = [];
-    pekohubBundleSignal.value = null;
-    pekohubBundleSignal.loading = false;
-    runOAuthFlowMock.mockReset();
-  });
+beforeEach(() => {
+  localStorage.clear();
+  principalsSignal.value = [];
+  modelsSignal.value = [];
+  modelsSignal.loading = false;
+  templatesSignal.value = PRESETS;
+  for (const m of [createMock, updateMock, addModelMock, testModelMock, navigateMock]) m.mockClear();
+  testModelMock.mockImplementation(async () => ({ ok: true, message: "" }));
+});
 
-  it("does not render when the onboarding flag is set", () => {
-    localStorage.setItem(ONBOARDING_KEY, "1");
-    renderWalkthrough();
-    expect(screen.queryByTestId("first-run-walkthrough")).toBeNull();
-  });
-
-  it("does not render when principals already exist", () => {
-    principalsSignal.value = [
-      { name: "alice", exposure: "Private", status: "online", owner: "user:local", runtimeId: "local" },
-    ];
-    renderWalkthrough();
-    expect(screen.queryByTestId("first-run-walkthrough")).toBeNull();
-  });
-
-  it("renders on a fresh profile with no principals", () => {
+describe("visibility", () => {
+  it("shows on a fresh profile with no pekos", () => {
     renderWalkthrough();
     expect(screen.getByTestId("first-run-walkthrough")).toBeInTheDocument();
-    expect(screen.getByText("Welcome to Peko")).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^onboarding-step-/)).toHaveLength(3);
   });
 
-  it("dismissing sets the flag and removes the overlay", () => {
+  it("stays hidden once dismissed, or when pekos exist", () => {
+    localStorage.setItem(ONBOARDING_KEY, "1");
+    const { unmount } = renderWalkthrough();
+    expect(screen.queryByTestId("first-run-walkthrough")).toBeNull();
+    unmount();
+    localStorage.clear();
+    principalsSignal.value = [{ name: "alice" }];
     renderWalkthrough();
-    const closeBtn = screen.getByRole("button", { name: /skip onboarding/i });
-    fireEvent.click(closeBtn);
+    expect(screen.queryByTestId("first-run-walkthrough")).toBeNull();
+  });
+
+  it("Skip dismisses it for good; the replay event brings it back", async () => {
+    renderWalkthrough();
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    expect(screen.queryByTestId("first-run-walkthrough")).toBeNull();
     expect(localStorage.getItem(ONBOARDING_KEY)).toBe("1");
-    expect(screen.queryByTestId("first-run-walkthrough")).toBeNull();
-  });
-
-  it("re-shows when the replay event fires", async () => {
-    renderWalkthrough();
-    const closeBtn = screen.getByRole("button", { name: /skip onboarding/i });
-    fireEvent.click(closeBtn);
-    expect(screen.queryByTestId("first-run-walkthrough")).toBeNull();
-
     window.dispatchEvent(new Event(REPLAY_EVENT));
     expect(await screen.findByTestId("first-run-walkthrough")).toBeInTheDocument();
   });
+});
 
-  it("lists configured models in step 1", () => {
-    modelsSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiFormat: "openai", modelId: "gpt-4o" },
-      { id: "anthropic", displayName: "Anthropic", apiFormat: "anthropic", modelId: "claude-sonnet-4-6" },
-    ];
+describe("step 1: connect a model", () => {
+  it("adds the provider's default model with the pasted key, tests it, and moves on", async () => {
     renderWalkthrough();
-    expect(screen.getByText(/Pick a configured model/i)).toBeInTheDocument();
-    expect(screen.getByText("OpenAI")).toBeInTheDocument();
-    expect(screen.getByText("Anthropic")).toBeInTheDocument();
+    const connect = screen.getByRole("button", { name: /connect/i });
+    expect(connect).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /anthropic/i }));
+    expect(connect).toBeDisabled(); // a key is required
+    fireEvent.change(screen.getByPlaceholderText("Paste your key"), {
+      target: { value: " sk-test " },
+    });
+    fireEvent.click(connect);
+    await waitFor(() =>
+      expect(addModelMock).toHaveBeenCalledWith({
+        template: "anthropic",
+        custom: false,
+        model: ["claude-sonnet-5-5"],
+        key: "sk-test",
+      }),
+    );
+    expect(testModelMock).toHaveBeenCalledWith("anthropic-sonnet");
+    expect(await screen.findByRole("heading", { name: "Name your peko" })).toBeInTheDocument();
   });
 
-  it("pre-selects the first configured model", () => {
-    modelsSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiFormat: "openai", modelId: "gpt-4o" },
-      { id: "anthropic", displayName: "Anthropic", apiFormat: "anthropic", modelId: "claude-sonnet-4-6" },
-    ];
+  it("keeps the model choice under Advanced", async () => {
     renderWalkthrough();
-    expect(screen.getByRole("button", { name: /next/i })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /anthropic/i }));
+    expect(screen.queryByRole("combobox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "claude-haiku-5-5" } });
+    fireEvent.change(screen.getByPlaceholderText("Paste your key"), { target: { value: "k" } });
+    fireEvent.click(screen.getByRole("button", { name: /connect/i }));
+    await waitFor(() =>
+      expect(addModelMock.mock.calls[0][0]).toMatchObject({ model: ["claude-haiku-5-5"] }),
+    );
   });
 
-  it("shows an empty-state helper when no models are configured", () => {
-    modelsSignal.value = [];
+  it("needs no key for a local provider", () => {
     renderWalkthrough();
-    expect(screen.getByText(/No models configured yet/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /ollama/i }));
+    expect(screen.queryByPlaceholderText("Paste your key")).toBeNull();
+    expect(screen.getByRole("button", { name: /connect/i })).toBeEnabled();
+  });
+
+  it("says when the model can't be reached, and lets you continue anyway", async () => {
+    testModelMock.mockImplementation(async () => ({ ok: false, message: "401 invalid x-api-key" }));
+    renderWalkthrough();
+    fireEvent.click(screen.getByRole("button", { name: /anthropic/i }));
+    fireEvent.change(screen.getByPlaceholderText("Paste your key"), { target: { value: "bad" } });
+    fireEvent.click(screen.getByRole("button", { name: /connect/i }));
+    const error = await screen.findByTestId("onboarding-model-error");
+    expect(error).toHaveTextContent("401 invalid x-api-key");
+    fireEvent.click(screen.getByRole("button", { name: "Continue anyway" }));
+    expect(await screen.findByRole("heading", { name: "Name your peko" })).toBeInTheDocument();
+  });
+
+  it("offers models already set up instead of asking for a key", () => {
+    modelsSignal.value = [
+      { id: "fast", displayName: "Fast", enabled: true },
+      { id: "off", displayName: "Off", enabled: false },
+    ];
+    renderWalkthrough();
+    expect(screen.getByRole("option", { name: "Fast" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Off" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    expect(screen.getByRole("heading", { name: "Name your peko" })).toBeInTheDocument();
   });
 });
 
-describe("FirstRunWalkthrough step-2 name validation (path-traversal defense)", () => {
-  beforeEach(() => {
+/** Get to step 2 with an existing model. */
+function toStep2() {
+  modelsSignal.value = [{ id: "fast", displayName: "Fast", enabled: true }];
+  renderWalkthrough();
+  fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+}
+
+describe("step 2: name and avatar", () => {
+  it("creates the peko with the model, then saves its avatar", async () => {
+    toStep2();
+    fireEvent.change(screen.getByRole("textbox", { name: /name/i }), { target: { value: "juno" } });
+    fireEvent.click(screen.getByRole("button", { name: "Use 🦉" }));
+    fireEvent.click(screen.getByRole("button", { name: /create juno/i }));
+    await waitFor(() => expect(createMock).toHaveBeenCalledWith({ name: "juno", modelId: "fast" }));
+    await waitFor(() => expect(updateMock).toHaveBeenCalledWith({ name: "juno", avatar: "🦉" }));
+    expect(await screen.findByRole("heading", { name: "Say hello" })).toBeInTheDocument();
+  });
+
+  it("refuses unsafe and taken names", () => {
     principalsSignal.value = [];
-    modelsSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiFormat: "openai", modelId: "gpt-4o" },
-    ];
-    localStorage.removeItem(ONBOARDING_KEY);
-    settingsSignal.value = [];
-    pekohubBundleSignal.value = null;
-    pekohubBundleSignal.loading = false;
+    toStep2();
+    const name = screen.getByRole("textbox", { name: /name/i });
+    fireEvent.change(name, { target: { value: "../etc" } });
+    expect(screen.getByRole("button", { name: /create/i })).toBeDisabled();
+    fireEvent.change(name, { target: { value: "ok-name" } });
+    expect(screen.getByRole("button", { name: /create ok-name/i })).toBeEnabled();
   });
 
-  function advanceToStep2() {
-    fireEvent.click(screen.getByRole("button", { name: /next/i }));
-  }
-
-  // The step-2 input has no htmlFor/id association, so reach it
-  // via its unique placeholder ("alice"). The description textarea
-  // has placeholder "Personal coding assistant" so the two are
-  // disambiguated by role+placeholder.
-  function getStep2NameInput() {
-    return screen.getByPlaceholderText("alice") as HTMLInputElement;
-  }
-
-  it.each([
-    "..", // double-dot (path traversal)
-    ".", // single dot
-    "../escape",
-    "foo..bar",
-    "-leading-hyphen",
-    "trailing-hyphen-",
-  ])("disables Create button when name is %s", (badName) => {
-    renderWalkthrough();
-    advanceToStep2();
-    fireEvent.change(getStep2NameInput(), { target: { value: badName } });
-    const createBtn = screen.getByRole("button", { name: /create/i });
-    expect(createBtn).toBeDisabled();
-    // And the hint copy surfaces the `..` exclusion (or the
-    // path-separator / leading-trailing hyphen line — the regex
-    // is shared with CreatePrincipalModal).
-    expect(
-      screen.getByText(/leading\/trailing hyphen|path separators|\.\./i),
-    ).toBeInTheDocument();
-  });
-
-  it("enables Create when name is a valid principal name", () => {
-    renderWalkthrough();
-    advanceToStep2();
-    fireEvent.change(getStep2NameInput(), { target: { value: "alice" } });
-    expect(screen.getByRole("button", { name: /create/i })).not.toBeDisabled();
+  it("keeps the description under Advanced", async () => {
+    toStep2();
+    expect(screen.queryByPlaceholderText(/what this peko is for/i)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.change(screen.getByPlaceholderText(/what this peko is for/i), {
+      target: { value: "Plans my week" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create/i }));
+    await waitFor(() =>
+      expect(createMock.mock.calls[0][0]).toMatchObject({ description: "Plans my week" }),
+    );
   });
 });
 
-describe("FirstRunWalkthrough PR #10 steps 3 + 4", () => {
-  beforeEach(() => {
-    localStorage.clear();
-    principalsSignal.value = [];
-    modelsSignal.value = [
-      { id: "openai", displayName: "OpenAI", apiFormat: "openai", modelId: "gpt-4o" },
-    ];
-    settingsSignal.value = [
-      { key: "pekohub.base_url", value: "https://hub.example.com" },
-      { key: "pekohub.oauth_scope", value: "runtimes:read" },
-    ];
-    pekohubBundleSignal.value = null;
-    pekohubBundleSignal.loading = false;
-    runOAuthFlowMock.mockReset();
-    principalCreateMutateMock.mockClear();
-  });
-
-  // Drive step 1 → step 2 → step 3. Step 1 has a pre-selected model
-  // (the useEffect picks the first configured model on mount); step 2
-  // needs a valid principal name; the Create button click fires
-  // mutate whose onSuccess advances to step 3.
-  function advanceToStep3() {
-    fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-    fireEvent.change(screen.getByPlaceholderText("alice"), {
-      target: { value: "alice" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
+describe("step 3: say hello", () => {
+  async function toStep3() {
+    toStep2();
+    fireEvent.click(screen.getByRole("button", { name: /create nova/i }));
+    await screen.findByRole("heading", { name: "Say hello" });
   }
 
-  function advanceToStep4() {
-    advanceToStep3();
-    fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
-  }
-
-  it("renders 4 step pills in the stepper", () => {
-    renderWalkthrough();
-    const list = screen.getByRole("list", { name: /onboarding progress/i });
-    expect(list.querySelectorAll("li")).toHaveLength(4);
-  });
-
-  it("step 3 surfaces a Sign in with PekoHub button that calls runOAuthFlow", async () => {
-    runOAuthFlowMock.mockResolvedValue({ added: 1, runtimes: [] });
-    renderWalkthrough();
-    advanceToStep3();
-    const connectBtn = screen.getByTestId("onboarding-connect-hub");
-    fireEvent.click(connectBtn);
-    // Allow the awaited runOAuthFlow microtask to settle.
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(runOAuthFlowMock).toHaveBeenCalledTimes(1);
-    expect(runOAuthFlowMock).toHaveBeenCalledWith({
-      baseUrl: "https://hub.example.com",
-      scope: "runtimes:read",
+  it("opens the chat with the first message to send", async () => {
+    await toStep3();
+    fireEvent.click(screen.getByRole("button", { name: "Help me plan my week." }));
+    fireEvent.click(screen.getByRole("button", { name: /send/i }));
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: "/chat/$pekoName",
+      params: { pekoName: "nova" },
+      search: { say: "Help me plan my week." },
     });
-  });
-
-  it("step 3 surfaces 'Already connected' when a PekoHub bundle is stored", () => {
-    pekohubBundleSignal.value = { access_token: "tok" };
-    pekohubBundleSignal.loading = false;
-    renderWalkthrough();
-    advanceToStep3();
-    expect(screen.getByText(/Already connected to PekoHub/i)).toBeInTheDocument();
-    expect(screen.queryByTestId("onboarding-connect-hub")).toBeNull();
-  });
-
-  it("step 3's footer Skip button transitions to step 4 without dismissing", () => {
-    renderWalkthrough();
-    advanceToStep3();
-    // Footer button label is "Skip — go local-only"; the in-body
-    // button is "Skip — stay local-only". Use the footer label to
-    // disambiguate.
-    fireEvent.click(screen.getByRole("button", { name: /skip.*go local-only/i }));
-    expect(screen.getByTestId("onboarding-add-local")).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-add-remote")).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-browse-discover")).toBeInTheDocument();
-    expect(screen.getByTestId("first-run-walkthrough")).toBeInTheDocument();
-    expect(localStorage.getItem(ONBOARDING_KEY)).not.toBe("1");
-  });
-
-  it("step 4's Done button dismisses the walkthrough", () => {
-    renderWalkthrough();
-    advanceToStep4();
-    // The Next button on step 4 is labelled "Done".
-    fireEvent.click(screen.getByRole("button", { name: /^done$/i }));
     expect(screen.queryByTestId("first-run-walkthrough")).toBeNull();
     expect(localStorage.getItem(ONBOARDING_KEY)).toBe("1");
   });
 
-  it("step 4 action buttons mount the local-create trigger without auto-dismissing", () => {
-    renderWalkthrough();
-    advanceToStep4();
-    expect(screen.getByTestId("onboarding-add-local")).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-add-remote")).toBeInTheDocument();
-    // Clicking the local-create trigger does NOT auto-dismiss; the
-    // user is still on step 4 (we verify by re-finding the action
-    // buttons and the overlay test id).
-    fireEvent.click(screen.getByTestId("onboarding-add-local"));
-    expect(screen.getByTestId("first-run-walkthrough")).toBeInTheDocument();
+  it("can open the chat without a message", async () => {
+    await toStep3();
+    fireEvent.click(screen.getByRole("button", { name: /without a message/i }));
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: "/chat/$pekoName",
+      params: { pekoName: "nova" },
+      search: {},
+    });
   });
 });

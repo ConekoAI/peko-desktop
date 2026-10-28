@@ -6,11 +6,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 const navigateMock = vi.fn();
+// The chat route's search params (`?say=` hands over a first message).
+const searchState: Record<string, string | undefined> = {};
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
   useParams: () => ({ pekoName: "alice" }),
   useRouterState: () => ({ location: { pathname: "/chat/alice" } }),
-  useSearch: () => ({}),
+  useSearch: () => searchState,
 }));
 
 const sendMut = { mutateAsync: vi.fn() };
@@ -70,6 +72,7 @@ describe("Chat ToS gate", () => {
     logWatch.flush.mockReset();
     logWatch.pausedRef.current = false;
     logState.data = undefined;
+    for (const k of Object.keys(searchState)) delete searchState[k];
     modelsState.data = [];
     copyMock.mockClear();
     principalsState.data = [
@@ -246,6 +249,19 @@ describe("Chat ToS gate", () => {
     // The header names the peko once; its reply names it again.
     expect(screen.getAllByText("alice").length).toBeGreaterThan(1);
     expect(screen.queryByText("Assistant")).toBeNull();
+  });
+
+  it("sends a first message handed over in the URL once, and drops it", async () => {
+    searchState.say = "Help me plan my week.";
+    sendMut.mutateAsync.mockResolvedValue("");
+    const { rerender } = render(<Chat />);
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({ message: "Help me plan my week." });
+    expect(navigateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "/chat/$pekoName", replace: true, search: { runtimeId: undefined } }),
+    );
+    rerender(<Chat />);
+    expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1);
   });
 
   it("empty state uses peko copy", () => {
