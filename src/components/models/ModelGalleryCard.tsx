@@ -76,7 +76,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
   return (
     <div
       data-testid={`model-card-${model.id}`}
-      className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+      className="flex h-full flex-col rounded-xl border border-line bg-surface-card p-4 transition-shadow hover:shadow-md"
     >
       {/* Header: name + apiFormat pill + status pills */}
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -85,8 +85,8 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             className={[
               "truncate text-base font-semibold",
               model.enabled
-                ? "text-slate-900 dark:text-white"
-                : "text-slate-400 dark:text-slate-500",
+                ? "text-fg"
+                : "text-fg-subtle",
             ].join(" ")}
             title={model.displayName}
           >
@@ -95,7 +95,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
         </div>
         <span
           title="API format"
-          className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+          className="rounded-md border border-line bg-surface-card px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-fg-muted"
         >
           {apiFormatShort(model.apiFormat)}
         </span>
@@ -109,20 +109,20 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
           {!model.enabled && (
             <span
               data-testid={`model-card-status-disabled-${model.id}`}
-              className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+              className="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-fg-muted"
             >
               Disabled
             </span>
           )}
           {model.requiresKey && !model.credentialId && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
-              No credential
+            <span className="inline-flex items-center gap-1 rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn">
+              No key — add one under Edit
             </span>
           )}
           {model.credentialId && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand">
               <Check className="h-2.5 w-2.5" />
-              Credential set
+              Key set
             </span>
           )}
         </div>
@@ -146,7 +146,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
       )}
 
       {/* Metadata */}
-      <div className="mb-4 flex-1 space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+      <div className="mb-4 flex-1 space-y-1 text-[11px] text-fg-muted">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
           <span className="font-mono" title={model.modelId}>
             {model.modelId}
@@ -159,7 +159,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
           )}
         </div>
         <div
-          className="truncate font-mono text-[10px] text-slate-400 dark:text-slate-500"
+          className="truncate font-mono text-[10px] text-fg-subtle"
           title={model.baseUrl}
         >
           {model.baseUrl}
@@ -172,8 +172,8 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
           className={[
             "mb-2 text-[11px]",
             feedback.ok
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-red-600 dark:text-red-400",
+              ? "text-brand"
+              : "text-danger",
           ].join(" ")}
           data-testid={`model-card-feedback-${model.id}`}
         >
@@ -183,14 +183,14 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
       )}
 
       {/* Actions */}
-      <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
-        <label className="flex cursor-pointer items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
+      <div className="flex items-center justify-between gap-2 border-t border-line pt-3">
+        <label className="flex cursor-pointer items-center gap-1 text-[11px] text-fg-muted">
           <input
             type="checkbox"
             checked={model.enabled}
             onChange={handleToggleEnabled}
             data-testid={`model-card-enabled-${model.id}`}
-            className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            className="h-3.5 w-3.5 rounded border-line text-brand focus:ring-brand"
           />
           Enabled
         </label>
@@ -200,7 +200,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             disabled={testModel.isPending}
             title="Test model"
             data-testid={`model-card-test-${model.id}`}
-            className="rounded p-1.5 text-slate-400 transition-colors hover:text-emerald-600 dark:hover:text-emerald-400"
+            className="rounded p-1.5 text-fg-subtle transition-colors hover:text-brand"
           >
             {testModel.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -212,13 +212,13 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             onClick={() => setShowEdit(true)}
             title="Edit"
             data-testid={`model-card-edit-${model.id}`}
-            className="rounded p-1.5 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
+            className="rounded p-1.5 text-fg-subtle transition-colors hover:text-fg-soft"
           >
             <Edit3 className="h-3.5 w-3.5" />
           </button>
           {confirmingRemove ? (
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="text-[11px] text-fg-muted">
                 Remove?
               </span>
               <button
@@ -237,7 +237,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
               <button
                 onClick={() => setConfirmingRemove(false)}
                 disabled={removeModel.isPending}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface-card px-2 py-1 text-[11px] font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -247,7 +247,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
               onClick={() => setConfirmingRemove(true)}
               title="Remove"
               data-testid={`model-card-remove-${model.id}`}
-              className="rounded p-1.5 text-slate-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
+              className="rounded p-1.5 text-fg-subtle transition-colors hover:text-red-600"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

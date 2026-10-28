@@ -197,8 +197,8 @@ describe("ModelGalleryCard", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders No credential pill when requires key but no credentialId", () => {
+  it("says the key is missing when one is required and none is set", () => {
     renderCard({ ...baseModel, requiresKey: true, credentialId: undefined });
-    expect(screen.getByText(/No credential/)).toBeInTheDocument();
+    expect(screen.getByText(/No key/)).toBeInTheDocument();
   });
 });

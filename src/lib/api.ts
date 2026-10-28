@@ -820,6 +820,11 @@ export async function settingsSet(key: string, value: string): Promise<void> {
   return invoke("settings_set", { key, value });
 }
 
+/** The folder the engine keeps pekos, models, and keys in. */
+export async function pekoHomeDir(): Promise<string> {
+  return invoke<string>("peko_home_dir");
+}
+
 export async function settingsList(): Promise<Setting[]> {
   return invoke("settings_list");
 }

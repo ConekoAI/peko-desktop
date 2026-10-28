@@ -102,6 +102,25 @@ vi.mock("../hooks/useRuntimes", () => ({
   startOAuthConnect: () => Promise.resolve("https://pekohub.org/auth"),
 }));
 
+const pekoHomeMock = vi.fn(async () => "/Users/me/.peko");
+vi.mock("../lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/api")>()),
+  pekoHomeDir: () => pekoHomeMock(),
+}));
+
+const revealMock = vi.fn();
+const openUrlMock = vi.fn();
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  revealItemInDir: (p: string) => revealMock(p),
+  openUrl: (u: string) => openUrlMock(u),
+}));
+vi.mock("@tauri-apps/api/app", () => ({ getVersion: async () => "0.3.1" }));
+
+const engineSignal: { value: unknown } = { value: { kind: "running", pid: 1, version: "0.1.0", uptime_secs: 5 } };
+vi.mock("../hooks/useEngine", () => ({
+  useEngineStatus: () => ({ data: engineSignal.value }),
+}));
+
 vi.mock("../components/modals/AddModelModal", () => ({
   default: ({ open }: { open: boolean }) =>
     open ? <div data-testid="add-model-modal">Add a Model</div> : null,
@@ -146,7 +165,7 @@ function modelFixture(overrides?: Partial<ModelSummary>): ModelSummary {
   };
 }
 
-describe("Settings → Credentials & Models tabs", () => {
+describe("Settings sections", () => {
   beforeEach(() => {
     setGenericCredentialMut.mockReset();
     deleteCredentialByIdMut.mockReset();
@@ -176,11 +195,11 @@ describe("Settings → Credentials & Models tabs", () => {
     credentialMaterialSignal.loading = false;
   });
 
-  describe("Credentials tab", () => {
+  describe("Advanced → Stored keys", () => {
     it("renders the empty state when there are no credentials", () => {
       credentialsSignal.value = [];
       renderSettings();
-      switchTab(/credentials/i);
+      switchTab(/advanced/i);
       expect(screen.getByTestId("credentials-empty-state")).toBeInTheDocument();
     });
 
@@ -204,7 +223,7 @@ describe("Settings → Credentials & Models tabs", () => {
         },
       ];
       renderSettings();
-      switchTab(/credentials/i);
+      switchTab(/advanced/i);
       expect(screen.getByTestId("credentials-rows")).toBeInTheDocument();
       expect(screen.getByTestId("credential-row-cred-1")).toBeInTheDocument();
       expect(screen.getByTestId("credential-row-cred-2")).toBeInTheDocument();
@@ -213,7 +232,7 @@ describe("Settings → Credentials & Models tabs", () => {
     it("adds a generic credential via useSetGenericCredential", () => {
       credentialsSignal.value = [];
       renderSettings();
-      switchTab(/credentials/i);
+      switchTab(/advanced/i);
 
       const form = screen.getByTestId("add-credential-form");
       const inputs = form.querySelectorAll("input");
@@ -238,7 +257,7 @@ describe("Settings → Credentials & Models tabs", () => {
         { id: "cred-1", namespace: "llm", name: "openai", kind: "api_key", hasKey: true },
       ];
       renderSettings();
-      switchTab(/credentials/i);
+      switchTab(/advanced/i);
       const row = screen.getByTestId("credential-row-cred-1");
       fireEvent.click(within(row).getByText("Delete"));
       expect(deleteCredentialByIdMut).toHaveBeenCalledWith("cred-1");
@@ -340,4 +359,44 @@ describe("Settings → Credentials & Models tabs", () => {
       expect(screen.getByTestId("models-catalog-unavailable")).toBeInTheDocument();
     });
   });
+
+  describe("General", () => {
+    it("shows the theme you chose, not always System", () => {
+      localStorage.setItem("peko-theme", "dark");
+      renderSettings();
+      expect(screen.getByRole("radio", { name: /dark/i })).toHaveAttribute("aria-checked", "true");
+      expect(screen.getByRole("radio", { name: /system/i })).toHaveAttribute("aria-checked", "false");
+      localStorage.clear();
+    });
+
+    it("has no data-directory card or raw config editor", () => {
+      renderSettings();
+      expect(screen.queryByText(/data directory/i)).toBeNull();
+      expect(screen.queryByRole("textbox")).toBeNull();
+    });
+  });
+
+  describe("Advanced", () => {
+    it("shows the peko folder and reveals it", async () => {
+      renderSettings();
+      switchTab(/advanced/i);
+      expect(await screen.findByText("/Users/me/.peko")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /show folder/i }));
+      expect(revealMock).toHaveBeenCalledWith("/Users/me/.peko");
+      expect(screen.getByText("Runtimes")).toBeInTheDocument();
+    });
+  });
+
+  describe("About", () => {
+    it("shows the real app and engine versions and help links", async () => {
+      renderSettings();
+      switchTab(/about/i);
+      expect(await screen.findByText("0.3.1")).toBeInTheDocument();
+      expect(screen.getByTestId("engine-version")).toHaveTextContent("0.1.0");
+      expect(screen.queryByText(/tailwind|react 19/i)).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /report a problem/i }));
+      expect(openUrlMock).toHaveBeenCalledWith("https://github.com/ConekoAI/peko-desktop/issues");
+    });
+  });
 });
+
