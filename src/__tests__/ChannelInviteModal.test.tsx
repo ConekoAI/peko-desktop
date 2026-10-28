@@ -173,7 +173,7 @@ describe("ChannelInviteModal", () => {
       },
     });
     expect(
-      screen.getByText(/You need a local peko that.?s already a member/i),
+      screen.getByText(/Only a member can add others/i),
     ).toBeInTheDocument();
   });
 

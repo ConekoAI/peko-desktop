@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { MessageCircle, Hash, Settings } from "lucide-react";
+import { MessageCircle, Users, Settings } from "lucide-react";
 import ProfileMenu from "./ProfileMenu";
 
 export default function AppRail() {
@@ -28,7 +28,8 @@ export default function AppRail() {
             ? "bg-brand-soft text-brand"
             : "text-fg-muted hover:bg-surface-sunken hover:text-fg-soft",
         ].join(" ")}
-        title="Direct Messages"
+        title="Chats"
+        aria-label="Chats"
       >
         <MessageCircle className="h-5 w-5" />
       </button>
@@ -44,10 +45,11 @@ export default function AppRail() {
             ? "bg-brand-soft text-brand"
             : "text-fg-muted hover:bg-surface-sunken hover:text-fg-soft",
         ].join(" ")}
-        title="Channels"
+        title="Groups"
+        aria-label="Groups"
         data-testid="app-rail-channels"
       >
-        <Hash className="h-5 w-5" />
+        <Users className="h-5 w-5" />
       </button>
 
       <div className="flex-1" />

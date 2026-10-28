@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Search, Hash, Loader2, Plus } from "lucide-react";
-import { useChannels } from "../hooks/useChannels";
+import { useChannelInfo, useChannels } from "../hooks/useChannels";
 import { usePrincipals } from "../hooks/usePrincipals";
 import RuntimeBadge from "./RuntimeBadge";
 
@@ -38,13 +39,18 @@ export default function ChannelSidebar({
   );
 
   const { data: channels, isLoading } = useChannels(principalNames);
+  const qc = useQueryClient();
 
+  // Search by the group's name (once its info has loaded) or its id.
   const filtered = useMemo(() => {
     if (!channels) return [];
     if (!search.trim()) return channels;
     const q = search.toLowerCase();
-    return channels.filter((c) => c.channelId.toLowerCase().includes(q));
-  }, [channels, search]);
+    return channels.filter((c) => {
+      const name = qc.getQueryData<{ name?: string }>(["channel-info", c.channelId])?.name ?? "";
+      return name.toLowerCase().includes(q) || c.channelId.toLowerCase().includes(q);
+    });
+  }, [channels, search, qc]);
 
   function handleSelect(
     selectedId: string,
@@ -68,7 +74,7 @@ export default function ChannelSidebar({
     <div className="flex h-full w-60 flex-col border-r border-line bg-surface-raised">
       <div className="border-b border-line p-3">
         <h3 className="truncate text-sm font-semibold text-fg">
-          Channels
+          Groups
         </h3>
         <p className="mt-0.5 line-clamp-2 text-xs text-fg-muted">
           Multi-principal chat
@@ -77,12 +83,12 @@ export default function ChannelSidebar({
 
       <div className="border-b border-line p-2">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-fg-subtle" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search channels..."
+            placeholder="Search groups…"
             className="w-full rounded-lg border border-line bg-surface-card py-1.5 pl-8 pr-3 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             data-testid="channel-search"
           />
@@ -92,8 +98,8 @@ export default function ChannelSidebar({
       <div className="flex-1 overflow-y-auto p-2">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-            <span className="text-xs text-slate-400">Loading…</span>
+            <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
+            <span className="text-xs text-fg-subtle">Loading…</span>
           </div>
         ) : filtered.length > 0 ? (
           <div className="space-y-1">
@@ -118,12 +124,9 @@ export default function ChannelSidebar({
                   ].join(" ")}
                 >
                   <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
-                  <span className="min-w-0 flex-1 truncate font-mono">
-                    {c.channelId}
-                  </span>
-                  <RuntimeBadge runtimeId={c.runtimeId || "local"} />
-                  {active && (
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  <GroupName channelId={c.channelId} />
+                  {c.runtimeId && c.runtimeId !== "local" && (
+                    <RuntimeBadge runtimeId={c.runtimeId} />
                   )}
                 </button>
               );
@@ -135,8 +138,8 @@ export default function ChannelSidebar({
             data-testid="channel-empty"
           >
             {search.trim()
-              ? "No channels match"
-              : "No channels yet. Create one with `peko channel create`."}
+              ? "No groups match"
+              : "No groups yet."}
           </div>
         )}
       </div>
@@ -150,10 +153,20 @@ export default function ChannelSidebar({
             data-testid="channel-new"
           >
             <Plus className="h-4 w-4" />
-            <span>New channel</span>
+            <span>New group</span>
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+/** A group's name; its id until the name loads (or if it has none). */
+function GroupName({ channelId }: { channelId: string }) {
+  const { data: info } = useChannelInfo(channelId);
+  return info?.name ? (
+    <span className="min-w-0 flex-1 truncate">{info.name}</span>
+  ) : (
+    <span className="min-w-0 flex-1 truncate font-mono text-xs">{channelId}</span>
   );
 }

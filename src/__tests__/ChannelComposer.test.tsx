@@ -129,7 +129,7 @@ describe("ChannelComposer", () => {
       ).toBeInTheDocument();
     });
     expect(
-      screen.getByText(/You don't have access to this channel/i),
+      screen.getByText(/You aren't in this group/i),
     ).toBeInTheDocument();
     // The generic error chip must NOT render for the forbidden case.
     expect(screen.queryByTestId("channel-composer-error")).toBeNull();

@@ -116,38 +116,37 @@ export default function ChannelCreateModal({
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
-      <div className="flex w-full max-w-md flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+      <div className="flex w-full max-w-md flex-col rounded-xl border border-line bg-surface-card shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
           <div className="flex items-center gap-2">
-            <Hash className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <Hash className="h-5 w-5 text-brand" />
             <h2
               id="channel-create-modal-title"
-              className="text-base font-semibold text-slate-900 dark:text-white"
+              className="text-base font-semibold text-fg"
             >
-              Create a Channel
+              New group
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="rounded-lg p-1.5 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-4 p-5 text-sm text-slate-700 dark:text-slate-300">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Channels are multi-principal chats. The creator owns the
-            channel and can invite other principals (local or on
-            remote runtimes) to join.
+        <div className="space-y-4 p-5 text-sm text-fg-soft">
+          <p className="text-xs text-fg-muted">
+            A group is a chat with you and several pekos. You can add more
+            people and pekos later.
           </p>
 
           <div>
             <label
               htmlFor="channel-name"
-              className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+              className="mb-1 block text-xs font-medium text-fg-muted"
             >
-              Channel name <span className="text-red-500">*</span>
+              Group name <span className="text-red-500">*</span>
             </label>
             <input
               id="channel-name"
@@ -156,11 +155,11 @@ export default function ChannelCreateModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="team"
               maxLength={64}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+              className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               data-testid="channel-create-name"
             />
             {name && !nameValid && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              <p className="mt-1 text-xs text-danger">
                 Use 1–64 characters.
               </p>
             )}
@@ -169,12 +168,12 @@ export default function ChannelCreateModal({
           <div>
             <label
               htmlFor="channel-creator"
-              className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+              className="mb-1 block text-xs font-medium text-fg-muted"
             >
               Creator <span className="text-red-500">*</span>
             </label>
             {principalsLoading && (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-fg-muted">
                 Loading principals…
               </p>
             )}
@@ -189,7 +188,7 @@ export default function ChannelCreateModal({
                 id="channel-creator"
                 value={creatorName ?? ""}
                 onChange={(e) => setCreatorName(e.target.value || null)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                 data-testid="channel-create-creator"
               >
                 {principalItems.map((p) => (
@@ -202,23 +201,23 @@ export default function ChannelCreateModal({
           </div>
 
           {errorMessage && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+            <div className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
               {errorMessage}
             </div>
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 px-5 py-3 dark:border-slate-800">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
             data-testid="channel-create-submit"
           >
             <Check className="h-3.5 w-3.5" />

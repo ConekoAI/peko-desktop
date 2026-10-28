@@ -146,7 +146,7 @@ export default function ChannelView() {
         data-testid="channel-events"
       >
         {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-12 text-xs text-slate-400">
+          <div className="flex items-center justify-center gap-2 py-12 text-xs text-fg-subtle">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Loading events…
           </div>
@@ -162,10 +162,10 @@ export default function ChannelView() {
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="flex-1">
                   <p className="font-medium">
-                    You don&apos;t have access to this channel.
+                    You aren&apos;t in this group.
                   </p>
                   <p className="mt-1 opacity-80">
-                    Only members can read channel events. Ask a current
+                    Only members can read it. Ask a current
                     member to invite you — the invite mints your membership.
                   </p>
                 </div>
@@ -173,7 +173,7 @@ export default function ChannelView() {
             </div>
           ) : (
           <div
-            className="mx-auto my-6 max-w-md rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-xs text-red-700 dark:text-red-300"
+            className="mx-auto my-6 max-w-md rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-xs text-danger"
             role="alert"
             aria-live="assertive"
             data-testid="channel-events-error"
@@ -181,14 +181,14 @@ export default function ChannelView() {
             <div className="flex items-start gap-2">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <div className="flex-1">
-                <p className="font-medium">Couldn't load channel events.</p>
+                <p className="font-medium">Couldn't load this group's messages.</p>
                 <p className="mt-1 opacity-80">
                   {eventsErrorMessage}
                 </p>
                 <button
                   type="button"
                   onClick={() => void refetchEvents()}
-                  className="mt-2 inline-flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
+                  className="mt-2 inline-flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs hover:bg-red-100"
                   data-testid="channel-events-retry"
                 >
                   <RefreshCw className="h-3 w-3" />
@@ -216,13 +216,13 @@ export default function ChannelView() {
             </div>
             {detail?.name && (
               <div className="text-xs text-fg-subtle">
-                Be the first to post in <span className="font-mono">{detail.name}</span>.
+                Be the first to post in <strong>{detail.name}</strong>.
               </div>
             )}
             {!isMember && (
               <div className="mt-3 text-xs text-fg-subtle">
                 Ask a current member to invite you, then return to
-                this channel to start posting.
+                this group to start posting.
               </div>
             )}
           </div>
@@ -240,7 +240,7 @@ export default function ChannelView() {
           className="border-t border-line bg-surface-raised px-4 py-3 text-xs text-fg-muted"
           data-testid="channel-composer-no-sender"
         >
-          Select a channel from the sidebar to start posting.
+          Pick a group from the sidebar.
         </div>
       )}
 
@@ -255,6 +255,7 @@ export default function ChannelView() {
       <ChannelLeaveConfirmModal
         open={leaveOpen}
         channelId={channelId}
+        channelName={detail?.name}
         isCreator={isCreator}
         onConfirm={handleLeaveConfirm}
         onCancel={() => setLeaveOpen(false)}

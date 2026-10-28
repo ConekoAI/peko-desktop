@@ -38,7 +38,7 @@ export default function MemberList({
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 p-4 text-xs text-slate-400">
+      <div className="flex items-center gap-2 p-4 text-xs text-fg-subtle">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Loading members…
       </div>
