@@ -10,8 +10,8 @@ import type { RuntimeId } from "../lib/api";
  * mutation invalidates `["channel-events", channelId]` on success so
  * the new message appears in the list without a manual refresh.
  *
- * `Cmd+Enter` submits, matching the established chat composer pattern
- * (`src/components/ChatComposer.tsx`). Submit is disabled while the
+ * Enter submits and Shift+Enter adds a line, like the chat composer
+ * (`src/components/chat/Composer.tsx`). Submit is disabled while the
  * mutation is pending; the textarea stays focusable so the user can
  * keep typing into a follow-up message while the previous one
  * commits.
@@ -58,10 +58,10 @@ export default function ChannelComposer({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      void submit();
-    }
+    // Enter sends; Shift+Enter adds a line; never mid-IME-composition.
+    if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    void submit();
   }
 
   return (
@@ -90,7 +90,7 @@ export default function ChannelComposer({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={`Message #${channelId} (Cmd+Enter to send)`}
+          placeholder={`Message #${channelId}`}
           rows={2}
           disabled={mutation.isPending}
           data-testid="channel-composer-input"

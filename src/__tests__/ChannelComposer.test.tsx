@@ -2,7 +2,7 @@
 //
 // PR-2a / feature/desktop-channels: render the post composer. Validates:
 //   • empty state with disabled send button
-//   • Cmd+Enter submits the trimmed text via useChannelPost
+//   • Enter submits the trimmed text via useChannelPost; Shift+Enter adds a line
 //   • mutation error surfaces as an inline error chip with the message
 //   • successful submit clears the textarea
 //   • disabled-while-pending keeps the spinner visible
@@ -57,12 +57,12 @@ describe("ChannelComposer", () => {
     expect(send.disabled).toBe(true);
   });
 
-  it("submits the trimmed text via channelPost on Cmd+Enter", async () => {
+  it("submits the trimmed text via channelPost on Enter", async () => {
     channelPostMock.mockResolvedValue("task_123");
     renderComposer();
     const input = screen.getByTestId("channel-composer-input");
     fireEvent.change(input, { target: { value: "  hello world  " } });
-    fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+    fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => {
       expect(channelPostMock).toHaveBeenCalledWith(
         "chan_alpha",
@@ -74,15 +74,12 @@ describe("ChannelComposer", () => {
     });
   });
 
-  it("submits on Ctrl+Enter for non-mac users", async () => {
-    channelPostMock.mockResolvedValue("task_123");
+  it("adds a line on Shift+Enter instead of submitting", () => {
     renderComposer();
     const input = screen.getByTestId("channel-composer-input");
     fireEvent.change(input, { target: { value: "hi" } });
-    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
-    await waitFor(() => {
-      expect(channelPostMock).toHaveBeenCalled();
-    });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(channelPostMock).not.toHaveBeenCalled();
   });
 
   it("clears the textarea after a successful submit", async () => {
@@ -90,7 +87,7 @@ describe("ChannelComposer", () => {
     renderComposer();
     const input = screen.getByTestId("channel-composer-input") as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: "hi" } });
-    fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+    fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => {
       expect(input.value).toBe("");
     });
@@ -101,7 +98,7 @@ describe("ChannelComposer", () => {
     renderComposer();
     const input = screen.getByTestId("channel-composer-input");
     fireEvent.change(input, { target: { value: "hi" } });
-    fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+    fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => {
       expect(screen.getByTestId("channel-composer-error")).toBeInTheDocument();
       expect(screen.getByText("daemon unreachable")).toBeInTheDocument();
@@ -113,7 +110,7 @@ describe("ChannelComposer", () => {
     renderComposer();
     const input = screen.getByTestId("channel-composer-input") as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: "hi" } });
-    fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+    fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => {
       expect(screen.getByTestId("channel-composer-error")).toBeInTheDocument();
     });
@@ -125,7 +122,7 @@ describe("ChannelComposer", () => {
     renderComposer();
     const input = screen.getByTestId("channel-composer-input");
     fireEvent.change(input, { target: { value: "hi" } });
-    fireEvent.keyDown(input, { key: "Enter", metaKey: true });
+    fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => {
       expect(
         screen.getByTestId("channel-composer-forbidden"),
