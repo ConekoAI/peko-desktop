@@ -24,7 +24,8 @@ describe("TitleBar", () => {
   it("leaves the window buttons to macOS", async () => {
     await renderWithUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15");
     expect(screen.queryByTitle("Close")).toBeNull();
-    expect(screen.getByText("Peko")).toBeInTheDocument();
+    // The buttons take the left edge; the bar stays empty.
+    expect(screen.queryByText("Peko")).toBeNull();
   });
 
   it("draws its own window buttons elsewhere", async () => {

@@ -67,15 +67,16 @@ export default function TitleBar() {
       onMouseDown={handleMouseDown}
       className="flex h-9 shrink-0 select-none items-center justify-between border-b border-line bg-slate-100/80 backdrop-blur dark:bg-slate-900/80"
     >
-      {/* Left: app branding, after the macOS window buttons */}
-      <div className={["flex items-center gap-2", IS_MAC ? "pl-20" : "px-3"].join(" ")}>
-        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-brand">
-          <span className="text-[10px] font-bold text-white">P</span>
+      {/* Left: app branding. On macOS the window buttons sit here and
+          the bar stays empty, like other Mac apps. */}
+      {!IS_MAC && (
+        <div className="flex items-center gap-2 px-3">
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-brand">
+            <span className="text-[10px] font-bold text-white">P</span>
+          </div>
+          <span className="text-xs font-semibold text-fg-muted">Peko</span>
         </div>
-        <span className="text-xs font-semibold text-fg-muted">
-          Peko
-        </span>
-      </div>
+      )}
 
       {/* Center — empty, draggable */}
       <div className="flex-1" />
