@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  useCallerSubject,
   usePrincipal,
   usePrincipalExport,
   usePrincipalRemove,
@@ -26,7 +27,7 @@ import {
   X,
   MessageSquare,
   Loader2,
-  Settings,
+  Pencil,
   Trash2,
   AlertTriangle,
   Link2,
@@ -109,6 +110,7 @@ export default function PrincipalProfileModal({
   // (same source the share-link panel uses below) so polling lands
   // on the same hub that minted the share URL.
   const isRemote = !!principal && principal.runtimeId !== "local" && !!principal.runtimeId;
+  const caller = useCallerSubject();
   const statusQuery = usePrincipalStatus(
     principal?.runtimeId ?? "local",
     principalName,
@@ -124,6 +126,12 @@ export default function PrincipalProfileModal({
 
   const [isEditing, setIsEditing] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  // The remove confirmation opens below the fold of a long profile:
+  // bring it into view.
+  const dangerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (confirmingRemove) dangerRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [confirmingRemove]);
   const [description, setDescription] = useState("");
   const [avatar, setAvatar] = useState("");
   const [status, setStatus] = useState("");
@@ -427,8 +435,9 @@ export default function PrincipalProfileModal({
                 onClick={() => setIsEditing(true)}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-surface-sunken hover:text-fg-soft"
                 title="Edit"
+                aria-label="Edit"
               >
-                <Settings className="h-4 w-4" />
+                <Pencil className="h-4 w-4" />
               </button>
             )}
             <button
@@ -467,8 +476,8 @@ export default function PrincipalProfileModal({
                   "—"
                 }
               />
-              <Row label="Owner" value={principal.owner} />
-              <Row label="Runtime" value={principal.runtimeId} />
+              <Row label="Owner" value={principal.owner === caller ? "You" : principal.owner} />
+              {isRemote && <Row label="Runtime" value={principal.runtimeId} />}
               {/* Public share link (PR-D). Only meaningful when exposure
                   is `public` — otherwise the link would 404 on the
                   hub. Mirrors the BundleCard copy-install-command
@@ -676,6 +685,7 @@ export default function PrincipalProfileModal({
               )}
 
               <section
+                ref={dangerRef}
                 aria-labelledby="peko-danger-zone"
                 className="rounded-lg border border-danger/30 p-3"
               >
@@ -977,9 +987,7 @@ export default function PrincipalProfileModal({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs uppercase tracking-wide text-fg-muted">
-        {label}
-      </span>
+      <span className="text-sm text-fg-muted">{label}</span>
       <span className="font-medium text-fg">{value}</span>
     </div>
   );
@@ -1009,18 +1017,16 @@ function StatusBadgeRow({
   const badge = statusBadge(status);
   return (
     <div className="flex items-center justify-between">
-      <span className="text-xs uppercase tracking-wide text-fg-muted">
-        Status
-      </span>
+      <span className="text-sm text-fg-muted">Status</span>
       <span className="inline-flex items-center gap-1.5 font-medium text-fg">
         <Circle
           className={`h-2.5 w-2.5 fill-current ${badge.color}`}
           aria-hidden="true"
         />
         <span data-testid="live-status-label">{loading ? "…" : badge.label}</span>
-        <span className="ml-1 text-[10px] font-normal text-fg-subtle">
-          {isRemote ? "hub heartbeat" : "runtime heartbeat"}
-        </span>
+        {isRemote && (
+          <span className="ml-1 text-[10px] font-normal text-fg-subtle">via PekoHub</span>
+        )}
       </span>
     </div>
   );

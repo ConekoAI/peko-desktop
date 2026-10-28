@@ -117,7 +117,8 @@ describe("ChannelView", () => {
     channelMembersMock.mockResolvedValue({
       channelId: "chan_alpha",
       runtimeId: "local",
-      members: ["alice", "bob"],
+      // Rosters name actors by id, as the engine sends them.
+      members: ["principal:prin_alice", "user:local"],
     });
   });
 
@@ -190,7 +191,11 @@ describe("ChannelView", () => {
   });
 
   it("hides Invite + Leave when the local user is not a member", async () => {
-    usePrincipalsMock.mockReturnValue({ data: [{ name: "carol" }] });
+    channelMembersMock.mockResolvedValue({
+      channelId: "chan_alpha",
+      runtimeId: "local",
+      members: ["principal:prin_alice"],
+    });
     channelEventsMock.mockResolvedValue(sampleEvents);
     renderView();
     await waitFor(() => {

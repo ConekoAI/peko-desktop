@@ -81,7 +81,9 @@ export default function ChannelHeader({
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <RuntimeBadge runtimeId={detail.runtimeId || "local"} />
+          {detail.runtimeId && detail.runtimeId !== "local" && (
+            <RuntimeBadge runtimeId={detail.runtimeId} />
+          )}
           {isGuest && (
             <span
               className="inline-flex items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-fg-muted"
@@ -121,7 +123,8 @@ export default function ChannelHeader({
             data-testid="channel-toggle-members"
           >
             <Users className="h-3.5 w-3.5" />
-            <span>{detail.memberCount}</span>
+            {/* The roster, not the join events (the creator never "joins"). */}
+            <span>{info?.members?.length ?? detail.memberCount}</span>
             {showMembers ? (
               <ChevronUp className="h-3 w-3" />
             ) : (

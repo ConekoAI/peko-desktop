@@ -512,9 +512,18 @@ function subjectToString(subject: WireSubject): string {
   return id ? `${kind}:${id}` : kind;
 }
 
+/** The page envelope as the engine sends it (snake_case). */
+type WireLogPage = LogResponse & { next_cursor?: string | null; has_more?: boolean };
+
 function normalizePrincipalLog(response: LogResponse): LogResponse {
+  // The engine names the paging fields `next_cursor` / `has_more`; read
+  // as camelCase they were always undefined, so older pages were
+  // unreachable.
+  const wire = response as WireLogPage;
   return {
     ...response,
+    nextCursor: wire.nextCursor ?? wire.next_cursor ?? null,
+    hasMore: wire.hasMore ?? wire.has_more ?? false,
     peer: subjectToString(response.peer as WireSubject),
     messages: response.messages.map((message) => ({
       ...message,
@@ -1219,7 +1228,8 @@ export async function channelSetWake(
  */
 export async function channelPost(
   channelId: string,
-  senderName: string,
+  /** A peko to post as; `null` posts as you. */
+  senderName: string | null,
   text: string,
   parent?: string | null,
   runtimeId?: RuntimeId,

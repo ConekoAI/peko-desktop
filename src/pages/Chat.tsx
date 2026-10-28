@@ -97,7 +97,7 @@ function ChatMessage({
   }
 
   return (
-    <div className="group flex w-full gap-3 px-4 py-1 hover:bg-surface-raised">
+    <div className="group relative flex w-full gap-3 px-4 py-1.5 hover:bg-surface-raised">
       <div className="mt-0.5 shrink-0">
         {isUser ? (
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
@@ -134,8 +134,10 @@ function ChatMessage({
             <Markdown>{text}</Markdown>
           )}
         </div>
+        {/* Floats over the message on hover, like Slack: it takes no
+            room, so messages sit close together. */}
         {!item.queued && text && (
-          <div className="mt-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <div className="absolute -top-3 right-4 flex gap-1 rounded-md border border-line bg-surface-card p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             <MessageAction label={copied ? "Copied" : "Copy"} onClick={copy}>
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             </MessageAction>
@@ -288,7 +290,7 @@ export default function Chat() {
 
   const runtimeId = search.runtimeId ?? "local";
 
-  const { data: principals, isLoading, isFetching: principalsFetching } = usePrincipals();
+  const { data: principals, isLoading } = usePrincipals();
 
   let principalName: string | undefined;
   if (pathname === "/" || pathname === "/chat") {
@@ -332,12 +334,13 @@ export default function Chat() {
   );
 
   // A local peko that no longer exists (removed here or elsewhere):
-  // leave its address instead of showing a stale thread.
+  // leave its address instead of showing a stale thread. The cached
+  // list is the authority: removing and creating update it at once, so
+  // this does not wait for a refetch (which a busy engine can hold up).
   const missingLocalPeko =
     runtimeId === "local" &&
     !!principalName &&
     !!principals &&
-    !principalsFetching &&
     !principals.some((p) => p.name === principalName);
   useEffect(() => {
     if (missingLocalPeko) navigate({ to: "/chat", replace: true });
@@ -708,7 +711,7 @@ export default function Chat() {
             <p className="mt-2 text-sm">Send a message to begin...</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-1">
             {nextOlderCursor && (
               <div className="flex justify-center">
                 <button

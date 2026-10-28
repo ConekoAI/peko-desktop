@@ -12,8 +12,7 @@ import ChannelInviteToast, {
 import {
   useChannel,
   useChannelMembers,
-  useChannelLeave,
-} from "../hooks/useChannels";
+  useChannelLeave, LOCAL_USER } from "../hooks/useChannels";
 import {
   useChannelEvents,
   useChannelEventsWatch,
@@ -51,6 +50,8 @@ export default function ChannelView() {
   const channelId =
     (params as Record<string, string | undefined>).channelId ?? "";
   const runtimeId = search.runtimeId;
+  // The peko Leave removes (the one the sidebar opened the group with).
+  // You post as yourself; leaving as yourself needs engine support.
   const senderName = search.sender ?? "";
 
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -88,8 +89,10 @@ export default function ChannelView() {
   // principal set. A local principal that matches a `ChannelMembers`
   // row means the user can post + invite + leave.
   const localPrincipals = principals ?? [];
+  // Rosters name actors by id (`user:local`, `principal:<id>`), not by
+  // peko name: compared with names, you never counted as a member.
   const memberSet = new Set(membersData?.members ?? []);
-  const isMember = localPrincipals.some((p) => memberSet.has(p.name));
+  const isMember = memberSet.has(LOCAL_USER);
   const isCreator = !!detail && localPrincipals.some(
     (p) => p.name === detail.creator,
   );
@@ -229,18 +232,14 @@ export default function ChannelView() {
         )}
       </div>
 
-      {senderName ? (
-        <ChannelComposer
-          channelId={channelId}
-          senderName={senderName}
-          runtimeId={runtimeId}
-        />
+      {isMember ? (
+        <ChannelComposer channelId={channelId} channelName={detail?.name} runtimeId={runtimeId} />
       ) : (
         <div
           className="border-t border-line bg-surface-raised px-4 py-3 text-xs text-fg-muted"
           data-testid="channel-composer-no-sender"
         >
-          Pick a group from the sidebar.
+          You can read this group but not post in it.
         </div>
       )}
 

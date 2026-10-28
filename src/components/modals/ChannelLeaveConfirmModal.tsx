@@ -28,11 +28,13 @@ export default function ChannelLeaveConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  if (!open) return null;
-
-  // P1.5: Escape cancels the modal + focus is trapped inside it.
+  // Escape cancels and focus stays inside. Hooks run on every render,
+  // open or not: called after the early return, they crashed the app
+  // the first time the dialog opened (React #310).
   const containerRef = useRef<HTMLDivElement | null>(null);
   useModalA11y(open, containerRef, onCancel);
+
+  if (!open) return null;
 
   return (
     <div

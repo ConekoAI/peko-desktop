@@ -26,7 +26,7 @@ function renderComposer() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <ChannelComposer channelId="chan_alpha" senderName="alice" />
+      <ChannelComposer channelId="chan_alpha" channelName="Launch crew" />
     </QueryClientProvider>,
   );
 }
@@ -66,7 +66,7 @@ describe("ChannelComposer", () => {
     await waitFor(() => {
       expect(channelPostMock).toHaveBeenCalledWith(
         "chan_alpha",
-        "alice",
+        null,
         "hello world",
         null,
         undefined,

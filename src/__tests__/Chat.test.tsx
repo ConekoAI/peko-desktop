@@ -300,6 +300,14 @@ describe("Chat thread and peko lifecycle", () => {
     expect(navigateMock).toHaveBeenCalledWith({ to: "/chat", replace: true });
   });
 
+  it("leaves it even while the list refetches (a busy engine can hold that up)", () => {
+    principalsState.data = [{ name: "bob", owner: "user:local", runtimeId: "local" }];
+    (principalsState as Record<string, unknown>).isFetching = true;
+    render(<Chat />);
+    expect(navigateMock).toHaveBeenCalledWith({ to: "/chat", replace: true });
+    delete (principalsState as Record<string, unknown>).isFetching;
+  });
+
   it("stays on a peko that exists", () => {
     render(<Chat />);
     expect(navigateMock).not.toHaveBeenCalledWith({ to: "/chat", replace: true });

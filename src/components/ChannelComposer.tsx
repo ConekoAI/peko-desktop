@@ -21,13 +21,18 @@ import type { RuntimeId } from "../lib/api";
  * PR-3 will let users pick from a dropdown; for PR-2a we accept the
  * currently-active principal via the `senderName` prop.
  */
+/**
+ * You post as yourself (ADR-082): a human post is what wakes the
+ * group's pekos. Posting as a peko would wake no one.
+ */
 export default function ChannelComposer({
   channelId,
-  senderName,
+  channelName,
   runtimeId,
 }: {
   channelId: string;
-  senderName: string;
+  /** The group's name, for the placeholder. */
+  channelName?: string;
   runtimeId?: RuntimeId;
 }) {
   const [draft, setDraft] = useState("");
@@ -45,7 +50,7 @@ export default function ChannelComposer({
     try {
       await mutation.mutateAsync({
         channelId,
-        senderName,
+        senderName: null,
         text: trimmed,
         parent: null,
       });
@@ -90,7 +95,7 @@ export default function ChannelComposer({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={`Message #${channelId}`}
+          placeholder={channelName ? `Message ${channelName}` : "Message the group"}
           rows={2}
           disabled={mutation.isPending}
           data-testid="channel-composer-input"
@@ -110,9 +115,6 @@ export default function ChannelComposer({
             <Send className="h-4 w-4" />
           )}
         </button>
-      </div>
-      <div className="mt-1 px-1 text-[10px] text-fg-subtle">
-        Sending as <span className="font-mono">{senderName}</span>
       </div>
     </div>
   );

@@ -3,7 +3,11 @@ use tauri::State;
 
 use crate::state::{AppState, RuntimeConnection, RuntimeConnectionType, RuntimeStatus};
 
+/// One runtime in `runtime_list`, in the frontend's camelCase
+/// (`connectionType`). Sent snake_case, the local engine read as remote
+/// with a blank type.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeSummary {
     pub id: String,
     pub name: String,
@@ -244,6 +248,11 @@ mod tests {
         let summary: RuntimeSummary = conn.into();
         assert_eq!(summary.id, "local");
         assert_eq!(summary.connection_type, "local");
+        let wire = serde_json::to_value(&summary).unwrap();
+        assert_eq!(
+            wire["connectionType"], "local",
+            "the frontend reads camelCase"
+        );
         assert_eq!(summary.status, "connected");
     }
 

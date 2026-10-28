@@ -10,21 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ChannelsRouteImport } from './routes/channels'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ChannelsIndexRouteImport } from './routes/channels.index'
 import { Route as ChannelsChannelIdRouteImport } from './routes/channels.$channelId'
 import { Route as ChatPekoNameRouteImport } from './routes/chat.$pekoName'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChannelsRoute = ChannelsRouteImport.update({
-  id: '/channels',
-  path: '/channels',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -42,10 +37,15 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChannelsIndexRoute = ChannelsIndexRouteImport.update({
+  id: '/channels/',
+  path: '/channels/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChannelsChannelIdRoute = ChannelsChannelIdRouteImport.update({
-  id: '/$channelId',
-  path: '/$channelId',
-  getParentRoute: () => ChannelsRoute,
+  id: '/channels/$channelId',
+  path: '/channels/$channelId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ChatPekoNameRoute = ChatPekoNameRouteImport.update({
   id: '/$pekoName',
@@ -55,68 +55,69 @@ const ChatPekoNameRoute = ChatPekoNameRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/discover': typeof DiscoverRoute
   '/settings': typeof SettingsRoute
   '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$pekoName': typeof ChatPekoNameRoute
+  '/channels/': typeof ChannelsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/discover': typeof DiscoverRoute
   '/settings': typeof SettingsRoute
   '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$pekoName': typeof ChatPekoNameRoute
+  '/channels': typeof ChannelsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/channels': typeof ChannelsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/discover': typeof DiscoverRoute
   '/settings': typeof SettingsRoute
   '/channels/$channelId': typeof ChannelsChannelIdRoute
   '/chat/$pekoName': typeof ChatPekoNameRoute
+  '/channels/': typeof ChannelsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/channels'
     | '/chat'
     | '/discover'
     | '/settings'
     | '/channels/$channelId'
     | '/chat/$pekoName'
+    | '/channels/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/channels'
     | '/chat'
     | '/discover'
     | '/settings'
     | '/channels/$channelId'
     | '/chat/$pekoName'
+    | '/channels'
   id:
     | '__root__'
     | '/'
-    | '/channels'
     | '/chat'
     | '/discover'
     | '/settings'
     | '/channels/$channelId'
     | '/chat/$pekoName'
+    | '/channels/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ChannelsRoute: typeof ChannelsRouteWithChildren
   ChatRoute: typeof ChatRouteWithChildren
   DiscoverRoute: typeof DiscoverRoute
   SettingsRoute: typeof SettingsRoute
+  ChannelsChannelIdRoute: typeof ChannelsChannelIdRoute
+  ChannelsIndexRoute: typeof ChannelsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -126,13 +127,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/channels': {
-      id: '/channels'
-      path: '/channels'
-      fullPath: '/channels'
-      preLoaderRoute: typeof ChannelsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -156,12 +150,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/channels/': {
+      id: '/channels/'
+      path: '/channels'
+      fullPath: '/channels/'
+      preLoaderRoute: typeof ChannelsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/channels/$channelId': {
       id: '/channels/$channelId'
-      path: '/$channelId'
+      path: '/channels/$channelId'
       fullPath: '/channels/$channelId'
       preLoaderRoute: typeof ChannelsChannelIdRouteImport
-      parentRoute: typeof ChannelsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/chat/$pekoName': {
       id: '/chat/$pekoName'
@@ -172,18 +173,6 @@ declare module '@tanstack/react-router' {
     }
   }
 }
-
-interface ChannelsRouteChildren {
-  ChannelsChannelIdRoute: typeof ChannelsChannelIdRoute
-}
-
-const ChannelsRouteChildren: ChannelsRouteChildren = {
-  ChannelsChannelIdRoute: ChannelsChannelIdRoute,
-}
-
-const ChannelsRouteWithChildren = ChannelsRoute._addFileChildren(
-  ChannelsRouteChildren,
-)
 
 interface ChatRouteChildren {
   ChatPekoNameRoute: typeof ChatPekoNameRoute
@@ -197,10 +186,11 @@ const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ChannelsRoute: ChannelsRouteWithChildren,
   ChatRoute: ChatRouteWithChildren,
   DiscoverRoute: DiscoverRoute,
   SettingsRoute: SettingsRoute,
+  ChannelsChannelIdRoute: ChannelsChannelIdRoute,
+  ChannelsIndexRoute: ChannelsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

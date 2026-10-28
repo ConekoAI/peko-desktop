@@ -42,6 +42,7 @@ vi.mock("../hooks/usePrincipals", () => ({
   usePrincipalUpdate: () => updateState,
   usePrincipalRemove: () => removeState,
   usePrincipalExport: () => exportState,
+  useCallerSubject: () => "alice",
 }));
 
 vi.mock("../hooks/usePrincipalStatus", () => ({
@@ -243,6 +244,14 @@ describe("PrincipalProfileModal", () => {
     expect(removeState.mutate).toHaveBeenCalledWith({ name: "helper" }, expect.any(Object));
     expect(onRemoved).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("names the owner \"You\" and hides the runtime of a local peko", () => {
+    renderModal();
+    const owner = screen.getByText("Owner").parentElement!;
+    expect(owner).toHaveTextContent("You");
+    expect(screen.queryByText("Runtime")).toBeNull();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });
 });
 

@@ -125,11 +125,18 @@ export default function ChannelInviteModal({
         ? String(inviteMut.error)
         : null;
 
-  if (!open) return null;
+  // Escape closes the modal and focus stays inside it. Hooks run on
 
-  // P1.5: Escape closes the modal + focus is trapped inside it.
+  // every render, open or not: called after the early return, they
+
+  // crashed the app the first time the dialog opened (React #310).
+
   const containerRef = useRef<HTMLDivElement | null>(null);
+
   useModalA11y(open, containerRef, onClose);
+
+
+  if (!open) return null;
 
   const canSubmit = !!selected && !!inviterName && !inviteMut.isPending;
 
