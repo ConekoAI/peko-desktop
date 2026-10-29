@@ -23,10 +23,16 @@ const useChannelsMock = vi.fn();
 const usePrincipalsMock = vi.fn();
 const navigateMock = vi.fn();
 const groupNames: Record<string, string> = {};
+const leftGroups = new Set<string>();
 
 vi.mock("../hooks/useChannels", () => ({
+  LOCAL_USER: "user:local",
   useChannels: (...args: unknown[]) => useChannelsMock(...args),
-  useChannelInfo: (id: string) => ({ data: groupNames[id] ? { name: groupNames[id] } : undefined }),
+  useChannelInfo: (id: string) => ({
+    data: groupNames[id]
+      ? { name: groupNames[id], members: leftGroups.has(id) ? ["principal:prin_a"] : ["user:local"] }
+      : undefined,
+  }),
   useChannel: () => ({ data: undefined }),
   useChannelMembers: () => ({ data: undefined }),
 }));
@@ -155,6 +161,17 @@ describe("ChannelSidebar", () => {
     renderSidebar();
     expect(screen.getByText("Groups")).toBeInTheDocument();
     expect(screen.queryByText(/peko channel/)).toBeNull();
+  });
+
+  it("hides a group you left", () => {
+    useChannelsMock.mockReturnValue({ data: sampleRows, isLoading: false });
+    groupNames.chan_alpha = "Launch crew";
+    leftGroups.add("chan_alpha");
+    renderSidebar();
+    expect(screen.queryByTestId("channel-row-chan_alpha")).toBeNull();
+    expect(screen.getByTestId("channel-row-chan_bravo")).toBeInTheDocument();
+    leftGroups.clear();
+    delete groupNames.chan_alpha;
   });
 });
 

@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { isChannelForbidden } from "../lib/channelErrors";
+
 import {
   channelCreate,
   channelGet,
@@ -247,7 +249,7 @@ export function useChannelInvite(channelId: string | undefined, runtimeId?: Runt
 export function useChannelLeave(channelId: string | undefined, runtimeId?: RuntimeId) {
   const qc = useQueryClient();
   const rid = effectiveRuntimeId(runtimeId);
-  return useMutation<ChannelLeaveResult, ChannelError, { principalName: string }>({
+  return useMutation<ChannelLeaveResult, ChannelError, { principalName: string | null }>({
     mutationFn: (vars) => {
       if (!channelId) {
         return Promise.reject(new Error("channelId is required for leave"));
@@ -259,6 +261,8 @@ export function useChannelLeave(channelId: string | undefined, runtimeId?: Runti
       qc.invalidateQueries({ queryKey: ["channel", rid, channelId] });
       qc.invalidateQueries({ queryKey: ["channel-members", rid, channelId] });
       qc.invalidateQueries({ queryKey: ["channel-events", rid, channelId] });
+      // The group list hides groups whose info no longer lists you.
+      qc.invalidateQueries({ queryKey: ["channel-info", channelId] });
     },
   });
 }
@@ -274,6 +278,8 @@ export function useChannelInfo(channelId: string | undefined) {
     enabled: !!channelId,
     queryFn: () => channelInfo(channelId!).catch(rethrowAsChannelError),
     staleTime: 10_000,
+    // Not a member is an answer, not a hiccup: don't retry it.
+    retry: (count, error) => !isChannelForbidden(error) && count < 3,
   });
 }
 

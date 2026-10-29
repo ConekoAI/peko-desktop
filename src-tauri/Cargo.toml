@@ -18,8 +18,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
-tauri-plugin-opener = "2"
+tauri = { version = "2.12", features = ["tray-icon"] }
+tauri-plugin-opener = "2.7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.52.3", features = ["full"] }
@@ -32,15 +32,15 @@ which = "7.0.0"
 dirs = "6"
 toml = "0.8"
 urlencoding = "2"
-tauri-plugin-window-state = "2.4.1"
-tauri-plugin-os = "2.3.2"
+tauri-plugin-window-state = "2.5"
+tauri-plugin-os = "2.4"
 tauri-plugin-shell = "2"
 # PR #6: deep-link handler. Lets the OS route `peko://add-principal?url=…`
 # and `https://pekohub.org/p/{owner}/{name}` share links into the
 # desktop instead of opening the browser. Same Tauri plugin the
 # project already uses for opener/window-state — no new transitive
 # dependencies beyond what the plugin pulls in.
-tauri-plugin-deep-link = "2"
+tauri-plugin-deep-link = "2.6"
 libc = "0.2"
 tracing = "0.1"
 

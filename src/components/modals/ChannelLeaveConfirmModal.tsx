@@ -73,7 +73,7 @@ export default function ChannelLeaveConfirmModal({
 
         {isCreator && (
           <p className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400">
-            You created this channel. Leaving doesn&apos;t delete it — the
+            You created this group. Leaving doesn&apos;t delete it — the
             remaining members keep their access.
           </p>
         )}

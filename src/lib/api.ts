@@ -1293,7 +1293,8 @@ export async function channelInvite(
  */
 export async function channelLeave(
   channelId: string,
-  principalName: string,
+  /** A peko to remove; `null` leaves the group yourself. */
+  principalName: string | null,
   runtimeId?: RuntimeId,
 ): Promise<ChannelLeaveResult> {
   return invoke<ChannelLeaveResult>("channel_leave", {

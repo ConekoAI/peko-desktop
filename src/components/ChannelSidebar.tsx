@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Search, Hash, Loader2, Plus } from "lucide-react";
-import { useChannelInfo, useChannels } from "../hooks/useChannels";
+import { LOCAL_USER, useChannelInfo, useChannels } from "../hooks/useChannels";
+import { isChannelForbidden } from "../lib/channelErrors";
 import { usePrincipals } from "../hooks/usePrincipals";
 import RuntimeBadge from "./RuntimeBadge";
 
@@ -100,34 +101,17 @@ export default function ChannelSidebar({
           </div>
         ) : filtered.length > 0 ? (
           <div className="space-y-1">
-            {filtered.map((c) => {
-              const active = c.channelId === channelId;
-              return (
-                <button
-                  key={c.channelId}
-                  onClick={() =>
-                    handleSelect(
-                      c.channelId,
-                      c.runtimeId || "local",
-                      c.memberPrincipals,
-                    )
-                  }
-                  data-testid={`channel-row-${c.channelId}`}
-                  className={[
-                    "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-                    active
-                      ? "bg-brand-soft text-brand"
-                      : "text-fg-soft hover:bg-surface-sunken",
-                  ].join(" ")}
-                >
-                  <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
-                  <GroupName channelId={c.channelId} />
-                  {c.runtimeId && c.runtimeId !== "local" && (
-                    <RuntimeBadge runtimeId={c.runtimeId} />
-                  )}
-                </button>
-              );
-            })}
+            {filtered.map((c) => (
+              <GroupRow
+                key={c.channelId}
+                channelId={c.channelId}
+                runtimeId={c.runtimeId}
+                active={c.channelId === channelId}
+                onSelect={() =>
+                  handleSelect(c.channelId, c.runtimeId || "local", c.memberPrincipals)
+                }
+              />
+            ))}
           </div>
         ) : (
           <div
@@ -158,12 +142,41 @@ export default function ChannelSidebar({
   );
 }
 
-/** A group's name; its id until the name loads (or if it has none). */
-function GroupName({ channelId }: { channelId: string }) {
-  const { data: info } = useChannelInfo(channelId);
-  return info?.name ? (
-    <span className="min-w-0 flex-1 truncate">{info.name}</span>
-  ) : (
-    <span className="min-w-0 flex-1 truncate font-mono text-xs">{channelId}</span>
+/**
+ * One group you are in: its name, its id until the name loads. The list
+ * comes from your pekos' groups, so a group you left (the engine refuses
+ * its info to non-members, or its roster lacks you) is hidden.
+ */
+function GroupRow({
+  channelId,
+  runtimeId,
+  active,
+  onSelect,
+}: {
+  channelId: string;
+  runtimeId?: string;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const { data: info, error } = useChannelInfo(channelId);
+  const left = (error && isChannelForbidden(error)) || (info?.members && !info.members.includes(LOCAL_USER));
+  if (left) return null;
+  return (
+    <button
+      onClick={onSelect}
+      data-testid={`channel-row-${channelId}`}
+      className={[
+        "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+        active ? "bg-brand-soft text-brand" : "text-fg-soft hover:bg-surface-sunken",
+      ].join(" ")}
+    >
+      <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
+      {info?.name ? (
+        <span className="min-w-0 flex-1 truncate">{info.name}</span>
+      ) : (
+        <span className="min-w-0 flex-1 truncate font-mono text-xs">{channelId}</span>
+      )}
+      {runtimeId && runtimeId !== "local" && <RuntimeBadge runtimeId={runtimeId} />}
+    </button>
   );
 }

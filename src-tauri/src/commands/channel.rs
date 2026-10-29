@@ -522,7 +522,8 @@ pub async fn channel_invite(
 pub async fn channel_leave(
     state: tauri::State<'_, AppState>,
     channel_id: String,
-    principal_name: String,
+    // `None`: you leave the group yourself.
+    principal_name: Option<String>,
     runtime_id: Option<String>,
 ) -> Result<ChannelLeaveResult, String> {
     let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
@@ -533,7 +534,7 @@ pub async fn channel_leave(
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     let value = client
-        .channel_leave(&channel_id, &principal_name)
+        .channel_leave(&channel_id, principal_name.as_deref())
         .await
         .map_err(|e| format!("channel_leave failed: {e}"))?;
 
@@ -769,6 +770,8 @@ fn project_channel_left_envelope(
         .and_then(|c| c.as_str())
         .unwrap_or(channel_id)
         .to_string();
+    // `channel_left` names the peko; `channel_member_left` (you left)
+    // names no peko.
     let principal = value
         .get("principal")
         .and_then(|c| c.as_str())

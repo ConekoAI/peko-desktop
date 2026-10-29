@@ -1,6 +1,8 @@
-import { useState, useRef, type KeyboardEvent } from "react";
+import { useMemo, useState, useRef, type KeyboardEvent } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { useChannelPost } from "../hooks/useChannelPost";
+import { useChannelInfo } from "../hooks/useChannels";
+import { insertMention, mentionCandidates, mentionQuery } from "../lib/mentions";
 import { isChannelForbidden } from "../lib/channelErrors";
 import type { RuntimeId } from "../lib/api";
 
@@ -16,14 +18,9 @@ import type { RuntimeId } from "../lib/api";
  * keep typing into a follow-up message while the previous one
  * commits.
  *
- * The `senderName` is required: the runtime enforces sender
- * membership, so posting from an empty/non-member name errors out.
- * PR-3 will let users pick from a dropdown; for PR-2a we accept the
- * currently-active principal via the `senderName` prop.
- */
-/**
  * You post as yourself (ADR-082): a human post is what wakes the
- * group's pekos. Posting as a peko would wake no one.
+ * group's pekos. Posting as a peko would wake no one. Typing `@` lists
+ * the group's pekos; a peko that replies on mentions answers `@name`.
  */
 export default function ChannelComposer({
   channelId,
@@ -38,6 +35,35 @@ export default function ChannelComposer({
   const [draft, setDraft] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const mutation = useChannelPost(runtimeId);
+  const { data: info } = useChannelInfo(channelId);
+  const pekoNames = useMemo(() => (info?.pekos ?? []).map((p) => p.name), [info]);
+  // The `@word` under the caret, and which suggestion is highlighted.
+  const [caret, setCaret] = useState(0);
+  const [highlight, setHighlight] = useState(0);
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  const query = mentionQuery(draft, caret);
+  const suggestions =
+    query && query.start !== dismissedAt ? mentionCandidates(pekoNames, query.query) : [];
+  const menuOpen = suggestions.length > 0;
+
+  function track(el: HTMLTextAreaElement) {
+    setCaret(el.selectionStart ?? el.value.length);
+  }
+
+  function choose(name: string) {
+    if (!query) return;
+    const next = insertMention(draft, query.start, caret, name);
+    setDraft(next.text);
+    setCaret(next.caret);
+    setHighlight(0);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(next.caret, next.caret);
+      }
+    });
+  }
 
   const trimmed = draft.trim();
   const canSubmit = trimmed.length > 0 && !mutation.isPending;
@@ -63,6 +89,25 @@ export default function ChannelComposer({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    // While mentioning: arrows pick, Enter/Tab insert, Escape closes.
+    if (menuOpen && !e.nativeEvent.isComposing) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const step = e.key === "ArrowDown" ? 1 : -1;
+        setHighlight((h) => (h + step + suggestions.length) % suggestions.length);
+        return;
+      }
+      if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+        e.preventDefault();
+        choose(suggestions[Math.min(highlight, suggestions.length - 1)]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setDismissedAt(query?.start ?? null);
+        return;
+      }
+    }
     // Enter sends; Shift+Enter adds a line; never mid-IME-composition.
     if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
     e.preventDefault();
@@ -89,13 +134,43 @@ export default function ChannelComposer({
           </div>
         )
       )}
-      <div className="flex items-end gap-2">
+      <div className="relative flex items-end gap-2">
+        {menuOpen && (
+          <ul
+            role="listbox"
+            aria-label="Mention a peko"
+            className="absolute bottom-full left-0 mb-1 min-w-48 rounded-lg border border-line bg-surface-card py-1 shadow-lg"
+          >
+            {suggestions.map((name, i) => (
+              <li
+                key={name}
+                role="option"
+                aria-selected={i === highlight}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  choose(name);
+                }}
+                className={[
+                  "cursor-pointer px-3 py-1.5 text-sm",
+                  i === highlight ? "bg-brand-soft text-brand" : "text-fg-soft hover:bg-surface-sunken",
+                ].join(" ")}
+              >
+                @{name}
+              </li>
+            ))}
+          </ul>
+        )}
         <textarea
           ref={textareaRef}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            track(e.target);
+            setHighlight(0);
+          }}
+          onSelect={(e) => track(e.currentTarget)}
           onKeyDown={onKeyDown}
-          placeholder={channelName ? `Message ${channelName}` : "Message the group"}
+          placeholder={`${channelName ? `Message ${channelName}` : "Message the group"} — @ to mention a peko`}
           rows={2}
           disabled={mutation.isPending}
           data-testid="channel-composer-input"

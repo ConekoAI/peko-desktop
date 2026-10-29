@@ -1739,7 +1739,7 @@ impl IpcClient {
     pub async fn channel_leave(
         &self,
         channel: &str,
-        principal_name: &str,
+        principal_name: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
