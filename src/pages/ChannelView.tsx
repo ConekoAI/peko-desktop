@@ -50,9 +50,6 @@ export default function ChannelView() {
   const channelId =
     (params as Record<string, string | undefined>).channelId ?? "";
   const runtimeId = search.runtimeId;
-  // The peko Leave removes (the one the sidebar opened the group with).
-  // You post as yourself; leaving as yourself needs engine support.
-  const senderName = search.sender ?? "";
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -116,13 +113,9 @@ export default function ChannelView() {
         : String(eventsError);
 
   function handleLeaveConfirm() {
-    if (!senderName) {
-      // No local sender to leave as — close the modal and bail.
-      setLeaveOpen(false);
-      return;
-    }
+    // You leave the group yourself; your pekos stay.
     leaveMut.mutate(
-      { principalName: senderName },
+      { principalName: null },
       {
         onSuccess: () => {
           setLeaveOpen(false);
@@ -255,7 +248,8 @@ export default function ChannelView() {
         open={leaveOpen}
         channelId={channelId}
         channelName={detail?.name}
-        isCreator={isCreator}
+        // You leave as yourself; the creator is one of your pekos.
+        isCreator={false}
         onConfirm={handleLeaveConfirm}
         onCancel={() => setLeaveOpen(false)}
       />

@@ -54,13 +54,13 @@ describe("ChannelLeaveConfirmModal", () => {
   it("hides the creator caveat when isCreator is false", () => {
     renderModal({ isCreator: false });
     expect(
-      screen.queryByText(/You created this channel/),
+      screen.queryByText(/You created this group/),
     ).toBeNull();
   });
 
   it("shows the creator caveat when isCreator is true", () => {
     renderModal({ isCreator: true });
-    expect(screen.getByText(/You created this channel/)).toBeInTheDocument();
+    expect(screen.getByText(/You created this group/)).toBeInTheDocument();
   });
 
   it("fires onConfirm when the confirm button is clicked", () => {

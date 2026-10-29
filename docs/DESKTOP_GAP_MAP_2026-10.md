@@ -169,15 +169,31 @@ Done on `feature/phase0-realign` (desktop) and `docs/agents-md-drift` (runtime).
 - **Live smoke:** 34/34 checks passed against an isolated `peko-daemon` built from source,
   with a local mock LLM, replaying the desktop's exact packets.
 
-Still open:
-- **Group wake policy UI:** the runtime now has `channel_info` and `channel_set_wake`, and
-  the desktop has `channelInfo` / `channelSetWake` wrappers. The channel view still needs a
-  DM/group badge and a per-peko wake picker. Phase 2, or sooner since groups are in the MVP.
-- **Member display:** members show as raw `principal:prin_…` ids; mapping them to peko
-  names is Phase 1.
-- **Not run as an app:** the Tauri UI itself has not been clicked through.
+Closed since (see §6b): the group wake picker and DM/group badge (#95), member names
+(#93), and the click-through of the running app (#102).
 
-## 7. Product decisions (2026-10-27)
+## 6b. Status after Phase 1 (2026-10-29)
+
+Phase 1 is done, plus a UX audit and a click-through of the running app:
+
+- **Audit (#98, #99, #101):** Settings is a gear in the rail with four sections (General,
+  Models, Advanced, About); the Activity page (a duplicate of the chat) and the orphan
+  Dashboard are gone; one "New peko" menu and one create form (onboarding's); Groups
+  replace "Channels" in the UI; native macOS window buttons; removing and creating a peko
+  land in the right chat.
+- **Click-through (#102), found only by running the app:** opening a group showed the
+  landing page (route had no outlet); the three group dialogs crashed the app on first
+  open; you were never a group member and posted as a peko (which wakes no one); older
+  messages were unreachable (`next_cursor` read as camelCase); running pekos showed
+  offline; Settings could not scroll.
+- **Small items (this PR):** Tauri npm and Rust packages aligned (`tauri build` works
+  again); `@` lists a group's pekos in the composer; you leave a group as yourself
+  (peko-runtime: `channel_leave` without a peko, `ChannelPort::leave_actor`), and groups you
+  left drop out of the list.
+
+**Next: Phase 2 is paused** until the approvals decision (§5 items 3–4, §6 Phase 2).
+
+
 
 1. **One continuous thread per peko.** The chat with a peko is its DM channel, the same
    model the runtime uses. No "new chat" topics.

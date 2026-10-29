@@ -18,6 +18,16 @@ const channelPostMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   channelPost: (...args: unknown[]) => channelPostMock(...args),
+  channelInfo: async () => ({
+    channelId: "chan_alpha",
+    kind: "group",
+    name: "Launch crew",
+    members: ["user:local", "principal:prin_j", "principal:prin_n"],
+    pekos: [
+      { name: "juno", localId: "prin_j", wake: "mention" },
+      { name: "nova", localId: "prin_n", wake: "mention" },
+    ],
+  }),
 }));
 
 import ChannelComposer from "../components/ChannelComposer";
@@ -134,4 +144,39 @@ describe("ChannelComposer", () => {
     // The generic error chip must NOT render for the forbidden case.
     expect(screen.queryByTestId("channel-composer-error")).toBeNull();
   });
+
+  describe("@mentions", () => {
+    async function typeInto(text: string) {
+      const input = screen.getByTestId("channel-composer-input") as HTMLTextAreaElement;
+      fireEvent.change(input, { target: { value: text, selectionStart: text.length } });
+      input.setSelectionRange(text.length, text.length);
+      fireEvent.select(input);
+      return input;
+    }
+
+    it("lists the group's pekos after @ and inserts the one picked", async () => {
+      renderComposer();
+      const input = await typeInto("hey @");
+      expect(await screen.findByRole("option", { name: "@juno" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "@nova" })).toBeInTheDocument();
+      await typeInto("hey @n");
+      expect(screen.queryByRole("option", { name: "@juno" })).toBeNull();
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(input.value).toBe("hey @nova ");
+      // Enter chose the mention; it did not send.
+      expect(channelPostMock).not.toHaveBeenCalled();
+    });
+
+    it("closes on Escape so Enter sends again", async () => {
+      channelPostMock.mockResolvedValue("task_1");
+      renderComposer();
+      const input = await typeInto("@j");
+      await screen.findByRole("option", { name: "@juno" });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(screen.queryByRole("listbox")).toBeNull();
+      fireEvent.keyDown(input, { key: "Enter" });
+      await waitFor(() => expect(channelPostMock).toHaveBeenCalled());
+    });
+  });
 });
+
