@@ -33,6 +33,7 @@ import {
 import type { PrincipalSummary, RemotePrincipalSummary } from "../lib/api";
 import PekoAvatar from "./peko/PekoAvatar";
 import { pekoIdentity } from "../lib/pekoIdentity";
+import { useUnreadCounts } from "../lib/unread";
 
 /**
  * PR #3: group principals by `runtime_id` so the sidebar can render
@@ -409,6 +410,7 @@ export default function PrincipalSidebar({
   onConnectClick?: () => void;
   onImportClick?: () => void;
 } = {}) {
+  const unread = useUnreadCounts();
   const navigate = useNavigate();
   const params = useParams({ strict: false });
   const principalName = (params as Record<string, string | undefined>).pekoName ?? "";
@@ -522,7 +524,23 @@ export default function PrincipalSidebar({
                 ].join(" ")}
               >
                 <PekoAvatar peko={pekoIdentity(p)} size="sm" />
-                <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+                <span
+                  className={[
+                    "min-w-0 flex-1 truncate",
+                    unread[p.name] ? "font-semibold text-fg" : "font-medium",
+                  ].join(" ")}
+                >
+                  {p.name}
+                </span>
+                {!!unread[p.name] && (
+                  <span
+                    className="shrink-0 rounded-full bg-brand px-1.5 text-[11px] font-semibold leading-5 text-brand-fg"
+                    data-testid={`unread-${p.name}`}
+                    aria-label={`${unread[p.name]} unread`}
+                  >
+                    {unread[p.name] > 99 ? "99+" : unread[p.name]}
+                  </span>
+                )}
                 {/* Genesis (ADR-054): a freshly created peko can sit in
                     `genesis_pending` (or an earlier boot state) for up to
                     a few minutes. `isGenesisPending` treats an absent

@@ -191,7 +191,23 @@ Phase 1 is done, plus a UX audit and a click-through of the running app:
   (peko-runtime: `channel_leave` without a peko, `ChannelPort::leave_actor`), and groups you
   left drop out of the list.
 
-**Next: Phase 2 is paused** until the approvals decision (§5 items 3–4, §6 Phase 2).
+## 6c. Decision: a peko's internals stay internal (2026-10-30)
+
+Plans, memory, contacts, the ledger, and roles are the peko's own; the desktop shows no
+screens for them. You talk to a peko and it manages itself:
+
+- **Dropped:** §5 items 3–4 (read APIs for plans / memory / ledger / contacts, structured
+  approval records) and Phase 2's Home dashboard, goals panel, activity timeline, and
+  memory view.
+- **Correcting what it knows** happens in chat ("what do you remember about me?",
+  "forget that…"); the peko edits its own memory.
+- **Approvals** stay in the DM: the peko asks, you answer `approve <id>` / `deny <id>`
+  (ADR-078). Buttons on that message would be cosmetic, later.
+- **Kept, and now the main signal:** proactive messages. With the internals hidden, a
+  peko's DM is the only place its own initiative shows up, so the desktop shows an unread
+  count per peko and an OS notification when a peko writes while you aren't looking.
+
+Next after that: Phase 3, image and file attachments first (§5 item 2), then voice.
 
 
 
