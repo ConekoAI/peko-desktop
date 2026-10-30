@@ -7,6 +7,9 @@ const api = vi.hoisted(() => ({
   attachmentOpen: vi.fn(),
 }));
 vi.mock("../lib/api", () => api);
+vi.mock("@tauri-apps/api/core", () => ({
+  convertFileSrc: (path: string) => `asset://localhost${path}`,
+}));
 
 import {
   MessageAttachments,
@@ -109,19 +112,16 @@ describe("attachments", () => {
     expect(onPasteFiles).toHaveBeenCalledWith([shot]);
   });
 
-  it("plays audio inline once asked", async () => {
-    api.attachmentPreview.mockResolvedValue("data:audio/wav;base64,UklGRg==");
+  it("plays audio inline once asked, from the engine's copy", async () => {
     wrap(
       <MessageAttachments
         attachments={[{ name: "memo.wav", path: "/p/memo.wav", mime: "audio/wav", size: 2048 }]}
       />,
     );
-    expect(api.attachmentPreview).not.toHaveBeenCalledWith("/p/memo.wav");
     fireEvent.click(screen.getByRole("button", { name: "Play memo.wav" }));
     const player = await screen.findByLabelText("memo.wav");
     expect(player.tagName).toBe("AUDIO");
-    // WebKit plays a blob: URL, not the data: URL.
-    expect(player.getAttribute("src")).toMatch(/^blob:/);
+    expect(player.getAttribute("src")).toContain("memo.wav");
   });
 
   it("keeps a thread row that is only files", () => {

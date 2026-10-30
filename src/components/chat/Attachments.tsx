@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { File, FileText, Film, Image as ImageIcon, Loader2, Music, Play, X } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { File, FileText, Film, Image as ImageIcon, Music, Play, X } from "lucide-react";
 
 import { attachmentOpen, attachmentPreview } from "../../lib/api";
 import type { ChatLogAttachment } from "../../types";
@@ -145,44 +146,20 @@ function FileChip({ attachment }: { attachment: ChatLogAttachment }) {
 }
 
 /**
- * A `blob:` URL for a `data:` URL's bytes, released when unused. WebKit
- * will not play audio or video from a `data:` URL.
- */
-function useBlobUrl(dataUrl: string | undefined): string | undefined {
-  const [url, setUrl] = useState<string>();
-  useEffect(() => {
-    if (!dataUrl) return;
-    const comma = dataUrl.indexOf(",");
-    const mime = dataUrl.slice(5, dataUrl.indexOf(";"));
-    const binary = atob(dataUrl.slice(comma + 1));
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const next = URL.createObjectURL(new Blob([bytes], { type: mime }));
-    setUrl(next);
-    return () => URL.revokeObjectURL(next);
-  }, [dataUrl]);
-  return url;
-}
-
-/**
  * Audio or video: its chip, and a play button that loads the file into
  * an inline player (loaded only on demand; files can be large).
  */
 function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "audio" | "video" }) {
   const [playing, setPlaying] = useState(false);
-  const source = useQuery({
-    queryKey: ["attachment-preview", attachment.path],
-    queryFn: () => attachmentPreview(attachment.path),
-    enabled: playing,
-    staleTime: Infinity,
-    retry: false,
-  });
-  const blobUrl = useBlobUrl(source.data);
-  if (playing && blobUrl) {
+  const [failed, setFailed] = useState(false);
+  if (playing && !failed) {
+    // The asset protocol streams the engine's copy (WebKit plays neither
+    // data: nor blob: media here).
+    const src = convertFileSrc(attachment.path);
     return kind === "audio" ? (
-      <audio controls autoPlay src={blobUrl} aria-label={attachment.name} className="h-9 max-w-[18rem]" />
+      <audio controls autoPlay src={src} aria-label={attachment.name} onError={() => setFailed(true)} className="h-9 max-w-[18rem]" />
     ) : (
-      <video controls autoPlay src={blobUrl} aria-label={attachment.name} className="max-h-64 max-w-[22rem] rounded-lg border border-line" />
+      <video controls autoPlay src={src} aria-label={attachment.name} onError={() => setFailed(true)} className="max-h-64 max-w-[22rem] rounded-lg border border-line" />
     );
   }
   return (
@@ -190,12 +167,12 @@ function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "
       <button
         type="button"
         onClick={() => setPlaying(true)}
-        disabled={playing && !source.error}
+        disabled={failed}
         aria-label={`Play ${attachment.name}`}
-        title={source.error ? "Can't play this here; open it instead" : `Play ${attachment.name}`}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-brand-fg hover:bg-brand-hover disabled:opacity-60"
+        title={failed ? "Can't play this here; open it instead" : `Play ${attachment.name}`}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-brand-fg hover:bg-brand-hover disabled:opacity-40"
       >
-        {playing && !source.error ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+        <Play className="h-3.5 w-3.5" />
       </button>
       <FileChip attachment={attachment} />
     </span>

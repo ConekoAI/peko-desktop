@@ -487,7 +487,7 @@ export async function attachmentStage(file: File): Promise<string> {
   return invoke<string>("attachment_stage", { name, data: btoa(binary) });
 }
 
-/** An attached image, audio, or video file as a `data:` URL. */
+/** An attached image as a `data:` URL, for its thumbnail. */
 export async function attachmentPreview(path: string): Promise<string> {
   return invoke<string>("attachment_preview", { path });
 }

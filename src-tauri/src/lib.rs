@@ -36,6 +36,18 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .manage(tauri::async_runtime::block_on(state::init_state()))
         .setup(|app| {
+            // Attached audio and video play from the engine's copies
+            // through the asset protocol (WebKit streams them with range
+            // requests). Only the pekos' folders are reachable.
+            if let Some(home) = crate::commands::system::peko_home() {
+                use tauri::Manager;
+                if let Err(e) = app
+                    .asset_protocol_scope()
+                    .allow_directory(home.join("principals"), true)
+                {
+                    eprintln!("[peko-desktop] attachment playback unavailable: {e}");
+                }
+            }
             // PR #6: register the desktop scheme(s) so the OS routes
             // share links into the running app. `register_all`
             // re-registers every scheme listed in `tauri.conf.json`'s

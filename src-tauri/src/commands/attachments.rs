@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use base64::Engine as _;
 use tauri_plugin_opener::OpenerExt;
 
-/// The largest file returned for a thumbnail or an inline player.
-const MAX_PREVIEW_BYTES: u64 = 20 * 1024 * 1024;
+/// The largest image returned for a thumbnail.
+const MAX_PREVIEW_BYTES: u64 = 10 * 1024 * 1024;
 
 /// The largest pasted file, the engine's per-attachment limit.
 const MAX_STAGED_BYTES: usize = 20 * 1024 * 1024;
@@ -30,29 +30,20 @@ fn confined(path: &str, root: &Path) -> Result<PathBuf, String> {
     }
 }
 
-/// The MIME type of a file the webview can show or play.
-fn media_mime(path: &Path) -> Option<&'static str> {
+fn image_mime(path: &Path) -> Option<&'static str> {
     let ext = path.extension()?.to_string_lossy().to_ascii_lowercase();
     match ext.as_str() {
         "png" => Some("image/png"),
         "jpg" | "jpeg" => Some("image/jpeg"),
         "gif" => Some("image/gif"),
         "webp" => Some("image/webp"),
-        "wav" => Some("audio/wav"),
-        "mp3" => Some("audio/mpeg"),
-        "m4a" => Some("audio/mp4"),
-        "ogg" => Some("audio/ogg"),
-        "flac" => Some("audio/flac"),
-        "mp4" | "m4v" => Some("video/mp4"),
-        "mov" => Some("video/quicktime"),
-        "webm" => Some("video/webm"),
         _ => None,
     }
 }
 
 fn read_preview(path: &str, root: &Path) -> Result<String, String> {
     let path = confined(path, root)?;
-    let mime = media_mime(&path).ok_or("not an image, audio, or video file")?;
+    let mime = image_mime(&path).ok_or("not an image")?;
     let size = std::fs::metadata(&path).map_err(|e| e.to_string())?.len();
     if size > MAX_PREVIEW_BYTES {
         return Err("image is too large to preview".to_string());
@@ -113,8 +104,8 @@ pub async fn attachment_stage(name: String, data: String) -> Result<String, Stri
     stage(&dir, &name, &data).map(|p| p.display().to_string())
 }
 
-/// An attached image, audio, or video file as a `data:` URL, for its
-/// thumbnail or inline player.
+/// An attached image as a `data:` URL, for its thumbnail. (Audio and
+/// video play through the asset protocol, scoped to the pekos' folders.)
 #[tauri::command]
 pub async fn attachment_preview(path: String) -> Result<String, String> {
     read_preview(&path, &peko_root()?)
@@ -155,11 +146,6 @@ mod tests {
                 .unwrap(),
         );
         assert!(read_preview(&climb.display().to_string(), root.path()).is_err());
-
-        let clip = root.path().join("memo.wav");
-        std::fs::write(&clip, b"RIFF").unwrap();
-        let url = read_preview(&clip.display().to_string(), root.path()).unwrap();
-        assert!(url.starts_with("data:audio/wav;base64,"));
     }
 
     #[test]
