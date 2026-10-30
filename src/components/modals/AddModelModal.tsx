@@ -10,6 +10,8 @@ import EndpointForm, {
   isEndpointValid,
   type EndpointDraft,
 } from "../models/EndpointForm";
+import InputsPicker from "../models/InputsPicker";
+import { NO_MEDIA, withInputs, type ModelInputs } from "../../lib/model-spec";
 
 /**
  * Add a configured model: an endpoint (base URL, API format, model id)
@@ -31,11 +33,13 @@ export default function AddModelModal({
   const { data: existingModels } = useModels();
   const addMut = useAddModel();
   const [draft, setDraft] = useState<EndpointDraft>(EMPTY_ENDPOINT);
+  const [inputs, setInputs] = useState<ModelInputs>(NO_MEDIA);
 
   // A reopened dialog starts clean.
   useEffect(() => {
     if (open) {
       setDraft(EMPTY_ENDPOINT);
+      setInputs(NO_MEDIA);
       addMut.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,7 +59,10 @@ export default function AddModelModal({
 
   function submit() {
     if (!canSubmit) return;
-    addMut.mutate(endpointArgs(draft), {
+    // Text only: leave the model without a descriptor, as before.
+    const media = inputs.image || inputs.audio || inputs.video;
+    const args = media ? { ...endpointArgs(draft), spec: withInputs(null, inputs) } : endpointArgs(draft);
+    addMut.mutate(args, {
       onSuccess: (info) => {
         onSuccess?.(info.id);
         onClose();
@@ -96,6 +103,7 @@ export default function AddModelModal({
             credentialOptions={credentialOptions}
             disabled={addMut.isPending}
           />
+          <InputsPicker value={inputs} onChange={setInputs} disabled={addMut.isPending} />
           {conflict && (
             <p className="text-xs text-warn" data-testid="add-model-conflict">
               A model named <span className="font-mono">{name}</span> already exists — set another

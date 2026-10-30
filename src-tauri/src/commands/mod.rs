@@ -1,3 +1,4 @@
+pub mod attachments;
 pub mod channel;
 pub mod daemon;
 pub mod engine;
@@ -72,6 +73,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         settings::pekohub_logout,
         system::system_status,
         system::peko_home_dir,
+        attachments::attachment_preview,
+        attachments::attachment_open,
         system::system_doctor,
         system::system_clean,
         runtime::runtime_list,

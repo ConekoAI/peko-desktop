@@ -149,6 +149,19 @@ export interface ChatLogMessage {
   text: string;
   /** Optional A2A correlation id pairing request and response lines. */
   correlationId?: string;
+  /** Files attached to the message (runtime ADR-088). */
+  attachments?: ChatLogAttachment[];
+}
+
+/**
+ * A file attached to a message. `path` is the engine's copy in the
+ * peko's workspace, absolute on this computer.
+ */
+export interface ChatLogAttachment {
+  name: string;
+  path: string;
+  mime: string;
+  size: number;
 }
 
 /**
@@ -294,6 +307,8 @@ export interface ModelPricingHint {
 export interface ModelSpec {
   image_input: boolean;
   audio_input: boolean;
+  /** Absent on specs written before video input existed. */
+  video_input?: boolean;
   tool_support: ModelToolSupport;
   streaming: boolean;
   thinking: ModelThinkingMode;
@@ -309,6 +324,7 @@ export interface ModelSpec {
 export const MODEL_SPEC_DEFAULT: ModelSpec = {
   image_input: false,
   audio_input: false,
+  video_input: false,
   tool_support: "none",
   streaming: true,
   thinking: "disabled",
@@ -335,6 +351,8 @@ export interface ModelAddArgs {
   model: string[];
   key?: string;
   credentialId?: string;
+  /** Capabilities; omitted leaves the model without a descriptor. */
+  spec?: ModelSpec;
 }
 
 export interface ModelUpdateArgs {
@@ -349,6 +367,8 @@ export interface ModelUpdateArgs {
   credentialId?: string;
   requiresKey?: boolean;
   enabled?: boolean;
+  /** Replace the capability descriptor. */
+  spec?: ModelSpec;
 }
 
 export interface ModelTestResult {

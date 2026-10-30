@@ -159,6 +159,9 @@ pub struct StreamSend {
     pub name: String,
     pub message: String,
     pub override_model: Option<String>,
+    /// Absolute paths of files to attach (runtime ADR-088); the engine
+    /// copies them into the peko's workspace.
+    pub attachments: Vec<String>,
 }
 
 /// The `[queued]` prefix the runtime puts on a streaming send's
@@ -852,6 +855,7 @@ impl IpcClient {
             name,
             message,
             override_model,
+            attachments,
         } = send;
 
         let request = serde_json::json!({
@@ -863,6 +867,9 @@ impl IpcClient {
             // Per-message model choice (the configured model id), as
             // `peko send --model`; `null` uses the peko's own model.
             "override_model": override_model,
+            // Files the engine copies into the peko's workspace
+            // (ADR-088); empty for a text-only message.
+            "attachments": attachments,
             // ADR-057: caller-declared identity was removed from the
             // wire — the runtime derives the caller's subject from the
             // connection (`CallerContext`), so there is no `user`

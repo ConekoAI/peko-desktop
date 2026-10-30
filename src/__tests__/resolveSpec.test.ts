@@ -42,6 +42,7 @@ describe("resolveSpec", () => {
     expect(MODEL_SPEC_DEFAULT).toEqual({
       image_input: false,
       audio_input: false,
+      video_input: false,
       tool_support: "none",
       streaming: true,
       thinking: "disabled",

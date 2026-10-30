@@ -64,6 +64,8 @@ pub struct ModelSpec {
     #[serde(default)]
     pub audio_input: bool,
     #[serde(default)]
+    pub video_input: bool,
+    #[serde(default)]
     pub tool_support: ModelToolSupport,
     #[serde(default = "default_streaming_true")]
     pub streaming: bool,
@@ -144,6 +146,10 @@ pub struct ModelAddArgs {
     pub key: Option<String>,
     #[serde(default)]
     pub credential_id: Option<String>,
+    /// Capabilities (which inputs the model takes, ...); `None` leaves
+    /// the entry without a descriptor.
+    #[serde(default)]
+    pub spec: Option<ModelSpec>,
 }
 
 impl ModelAddArgs {
@@ -178,6 +184,9 @@ impl ModelAddArgs {
         if let Some(v) = self.credential_id {
             value["credential_id"] = v.into();
         }
+        if let Some(spec) = self.spec {
+            value["spec"] = serde_json::to_value(spec).unwrap_or_default();
+        }
         value
     }
 }
@@ -208,6 +217,9 @@ pub struct ModelUpdateArgs {
     pub requires_key: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    /// Replace the capability descriptor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec: Option<ModelSpec>,
 }
 
 impl ModelUpdateArgs {
@@ -246,6 +258,9 @@ impl ModelUpdateArgs {
         }
         if let Some(v) = self.enabled {
             value["enabled"] = v.into();
+        }
+        if let Some(spec) = self.spec {
+            value["spec"] = serde_json::to_value(spec).unwrap_or_default();
         }
         value
     }
@@ -482,6 +497,33 @@ pub async fn model_reload() -> Result<(usize, usize), String> {
 mod tests {
     use super::*;
 
+    /// ADR-088: the add and edit forms set which inputs a model takes;
+    /// the spec reaches the runtime in its snake_case shape.
+    #[test]
+    fn model_args_carry_the_spec() {
+        let spec = ModelSpec {
+            image_input: true,
+            audio_input: true,
+            video_input: true,
+            tool_support: ModelToolSupport::FunctionCalling,
+            ..Default::default()
+        };
+        let add = ModelAddArgs {
+            spec: Some(spec.clone()),
+            ..Default::default()
+        }
+        .into_runtime_value();
+        assert_eq!(add["spec"]["video_input"], true);
+        assert_eq!(add["spec"]["tool_support"], "function_calling");
+        let update = ModelUpdateArgs {
+            id: "omni".into(),
+            spec: Some(spec),
+            ..Default::default()
+        }
+        .into_runtime_value();
+        assert_eq!(update["spec"]["audio_input"], true);
+    }
+
     #[test]
     fn model_add_args_converts_to_runtime_snake_case() {
         let args = ModelAddArgs {
@@ -494,9 +536,11 @@ mod tests {
             model: vec!["claude-3-5-haiku-latest".to_string()],
             key: Some("secret".to_string()),
             credential_id: None,
+            spec: None,
         };
         let value = args.into_runtime_value();
         assert!(value.get("template").is_none());
+        assert!(value.get("spec").is_none());
         assert_eq!(value["api_format"].as_str(), Some("responses"));
         assert_eq!(
             value["base_url"].as_str(),
@@ -530,6 +574,7 @@ mod tests {
             credential_id: Some("cred-1".to_string()),
             requires_key: Some(true),
             enabled: Some(false),
+            spec: None,
         };
         let value = args.into_runtime_value();
         assert_eq!(value["id"].as_str(), Some("claude-haiku"));

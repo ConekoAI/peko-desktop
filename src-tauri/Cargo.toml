@@ -30,6 +30,7 @@ reqwest = { version = "0.13.4", features = ["json", "stream"] }
 futures = "0.3"
 which = "7.0.0"
 dirs = "6"
+base64 = "0.22"
 toml = "0.8"
 urlencoding = "2"
 tauri-plugin-window-state = "2.5"
@@ -44,4 +45,8 @@ tauri-plugin-deep-link = "2.6"
 libc = "0.2"
 tracing = "0.1"
 tauri-plugin-notification = "2.8"
+tauri-plugin-dialog = "2.8"
 
+
+[dev-dependencies]
+tempfile = "3"

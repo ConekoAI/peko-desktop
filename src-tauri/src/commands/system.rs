@@ -40,6 +40,16 @@ pub fn peko_home_dir() -> Result<String, String> {
     .ok_or_else(|| "could not determine the peko folder".to_string())
 }
 
+/// [`peko_home_dir`] as a path, for commands that confine file access
+/// to the engine's folder.
+pub(crate) fn peko_home() -> Option<std::path::PathBuf> {
+    peko_home_from(
+        std::env::var("PEKO_HOME").ok(),
+        std::env::var("PEKO_CONFIG_DIR").ok(),
+        dirs::home_dir(),
+    )
+}
+
 fn peko_home_from(
     peko_home: Option<String>,
     config_dir: Option<String>,

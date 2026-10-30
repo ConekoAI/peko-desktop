@@ -328,6 +328,8 @@ export function usePrincipalSend() {
       runtimeId?: RuntimeId;
       /** A configured model id for this message only. */
       overrideModel?: string;
+      /** Absolute paths of files to attach (local pekos only). */
+      attachments?: string[];
     }): Promise<string> => {
       const rid = effectiveRuntimeId(vars.runtimeId);
       if (!vars.onEvent) {
@@ -340,6 +342,7 @@ export function usePrincipalSend() {
         vars.onEvent,
         rid,
         vars.overrideModel,
+        vars.attachments,
       );
       return result.content;
     },

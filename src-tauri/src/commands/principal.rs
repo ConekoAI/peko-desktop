@@ -471,6 +471,7 @@ pub struct PrincipalSendStreamResult {
 /// busy the run settles at once with a `queued` event and empty
 /// content; the reply then arrives through `principal_log_watch_start`.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Tauri command args stay flat to keep the JS call shape additive
 pub async fn principal_send_stream(
     app: AppHandle,
     name: String,
@@ -479,7 +480,9 @@ pub async fn principal_send_stream(
     on_event: Channel<crate::ipc::ChatStreamMsg>,
     runtime_id: Option<String>,
     override_model: Option<String>,
+    attachments: Option<Vec<String>>,
 ) -> Result<PrincipalSendStreamResult, String> {
+    let attachments = attachments.unwrap_or_default();
     // PR #5: route by runtime_id. Local → IpcClient; HubRemote →
     // HubRemoteClient::send_stream. The local arm keeps the legacy
     // (tx, rx) channel dance that the daemon supervisor drives; the
@@ -504,6 +507,7 @@ pub async fn principal_send_stream(
                         name,
                         message,
                         override_model,
+                        attachments,
                     },
                     {
                         let channel = on_event.clone();
@@ -518,6 +522,9 @@ pub async fn principal_send_stream(
                 .await
                 .map_err(|e| format!("principal_send_stream failed: {e}"))?;
             rx.await.map_err(|e| format!("supervisor task died: {e}"))?
+        }
+        crate::state::ResolvedRuntime::HubRemote(_) if !attachments.is_empty() => {
+            return Err("Files can only be sent to a peko on this computer.".to_string());
         }
         crate::state::ResolvedRuntime::HubRemote(client) => {
             // Persist the user message optimistically so the local
