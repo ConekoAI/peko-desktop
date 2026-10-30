@@ -127,7 +127,10 @@ describe("useDmActivity", () => {
     await waitFor(() => expect(watchCallbacks.juno).toBeDefined());
     location.pathname = "/chat/nova";
     rerender();
-    act(() => watchCallbacks.juno(row("principal:prin_j", "2026-10-30T10:00:00Z", "ping")));
+    // A reply from after the watch started (a fixed date here went
+    // stale once the clock passed it).
+    const later = new Date(Date.now() + 60_000).toISOString();
+    act(() => watchCallbacks.juno(row("principal:prin_j", later, "ping")));
     expect(result.current.juno).toBe(1);
     location.pathname = "/chat/juno";
     rerender();
