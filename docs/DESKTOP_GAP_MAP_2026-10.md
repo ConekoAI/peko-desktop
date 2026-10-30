@@ -216,3 +216,23 @@ Next after that: Phase 3, image and file attachments first (§5 item 2), then vo
 2. **All pekos are equal in the sidebar,** as in Grok bot. There is no primary peko.
 3. **Groups are in the MVP.** Group channels, DM/group distinction, and per-peko wake
    policy are in scope, not deferred to after Phase 2.
+
+## 6d. Attachments (2026-10-30)
+
+Runtime item 2 is done (runtime ADR-088, peko-runtime#522); this branch is the desktop half.
+
+- **Sending.** The paperclip opens a native picker (`tauri-plugin-dialog`), or you can drop
+  files on the chat. Up to 8 files show as removable chips, and a message can be files alone.
+  The engine reads them by path, so only pekos on this computer take attachments; the paperclip
+  is hidden for hub-remote pekos.
+- **Thread.** Images show as thumbnails. Audio, video, and other files show as chips with
+  their size. Clicking either opens the engine's copy in its default app.
+  `attachment_preview` / `attachment_open` only serve files under the peko folder.
+- **Models.** Add and Edit model have "Understands: Text · Images · Audio · Video". A model
+  given inputs this way keeps tools and thinking on (a spec saying "no tools" would make the
+  engine refuse its tools). The gallery shows a Video badge.
+- **Verified** with MiMo-V2.6-Flash, which reads images, audio, and video on the
+  OpenAI-compatible endpoint.
+
+Not done: pasting an image from the clipboard (it needs a temp file), and inline audio/video
+players (chips open the system player).

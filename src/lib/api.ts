@@ -444,6 +444,7 @@ export async function principalSendStream(
   onEvent: (msg: ChatStreamMsg) => void,
   runtimeId?: RuntimeId,
   overrideModel?: string,
+  attachments?: string[],
 ): Promise<PrincipalSendStreamResult> {
   const channel = new Channel<ChatStreamMsg>();
   channel.onmessage = onEvent;
@@ -456,7 +457,28 @@ export async function principalSendStream(
     // A configured model id for this message only; omitted = the
     // peko's own model. Local runtime only.
     overrideModel: overrideModel ?? null,
+    // Absolute paths; the engine copies each file into the peko's
+    // workspace (ADR-088). Local runtime only.
+    attachments: attachments ?? [],
   });
+}
+
+/** Ask for files to attach; resolves to their paths (none if cancelled). */
+export async function pickAttachments(): Promise<string[]> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const picked = await open({ multiple: true, directory: false, title: "Attach files" });
+  if (!picked) return [];
+  return Array.isArray(picked) ? picked : [picked];
+}
+
+/** An attached image as a `data:` URL, for its thumbnail. */
+export async function attachmentPreview(path: string): Promise<string> {
+  return invoke<string>("attachment_preview", { path });
+}
+
+/** Open an attached file with the system's default app. */
+export async function attachmentOpen(path: string): Promise<void> {
+  await invoke("attachment_open", { path });
 }
 
 /**

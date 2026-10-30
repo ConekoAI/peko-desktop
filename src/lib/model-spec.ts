@@ -22,6 +22,7 @@ export { MODEL_SPEC_DEFAULT, resolveSpec } from "../types";
 export type SpecBadgeKind =
   | "vision"
   | "audio"
+  | "video"
   | "tools"
   | "thinking"
   | "json"
@@ -52,6 +53,13 @@ export function specBadgeList(spec: ModelSpec): SpecBadge[] {
       kind: "audio",
       label: "Audio",
       testId: "model-card-spec-audio",
+    });
+  }
+  if (spec.video_input) {
+    badges.push({
+      kind: "video",
+      label: "Video",
+      testId: "model-card-spec-video",
     });
   }
   const tools = toolsBadge(spec.tool_support);
@@ -117,3 +125,40 @@ function formatUsd(value: number | undefined): string {
 // text-only fallback. Exposed here so the test file doesn't have to
 // import from `src/types/index.ts` directly.
 export const DEFAULT_SPEC = MODEL_SPEC_DEFAULT;
+
+/** Which media a model takes besides text (runtime ADR-088). */
+export interface ModelInputs {
+  image: boolean;
+  audio: boolean;
+  video: boolean;
+}
+
+export const NO_MEDIA: ModelInputs = { image: false, audio: false, video: false };
+
+export function inputsOf(spec: ModelSpec | null | undefined): ModelInputs {
+  return {
+    image: !!spec?.image_input,
+    audio: !!spec?.audio_input,
+    video: !!spec?.video_input,
+  };
+}
+
+/**
+ * `spec` with its media inputs replaced. A model with no descriptor
+ * gets one that keeps tools and thinking available: the engine refuses
+ * tools to a model whose descriptor says it has none, and a peko needs
+ * its tools.
+ */
+export function withInputs(spec: ModelSpec | null | undefined, inputs: ModelInputs): ModelSpec {
+  const base: ModelSpec = spec ?? {
+    ...MODEL_SPEC_DEFAULT,
+    tool_support: "function_calling",
+    thinking: "optional",
+  };
+  return {
+    ...base,
+    image_input: inputs.image,
+    audio_input: inputs.audio,
+    video_input: inputs.video,
+  };
+}

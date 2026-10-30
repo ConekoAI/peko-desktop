@@ -5,6 +5,8 @@ import { useUpdateModel } from "../../hooks/useModels";
 import { useGenericCredentialList, useSetGenericCredential } from "../../hooks/useSettings";
 import type { ModelSummary, ModelUpdateArgs } from "../../types";
 import { API_FORMATS } from "../../lib/apiFormats";
+import InputsPicker from "../models/InputsPicker";
+import { inputsOf, withInputs, type ModelInputs } from "../../lib/model-spec";
 
 
 interface HeaderRow {
@@ -47,6 +49,7 @@ export default function EditModelModal({
   );
   const [requiresKey, setRequiresKey] = useState(model.requiresKey);
   const [enabled, setEnabled] = useState(model.enabled);
+  const [inputs, setInputs] = useState<ModelInputs>(() => inputsOf(model.spec));
   const [credentialId, setCredentialId] = useState(model.credentialId ?? "");
   const [headers, setHeaders] = useState<HeaderRow[]>(() =>
     Object.entries(model.headers).map(([k, v]) => ({ key: k, value: v })),
@@ -63,6 +66,7 @@ export default function EditModelModal({
       setMaxOutputTokens(model.maxOutputTokens ?? "");
       setRequiresKey(model.requiresKey);
       setEnabled(model.enabled);
+      setInputs(inputsOf(model.spec));
       setCredentialId(model.credentialId ?? "");
       setNewKey("");
       setKeyMut.reset();
@@ -135,6 +139,15 @@ export default function EditModelModal({
       requiresKey,
       enabled,
     };
+    // Only a change of media inputs rewrites the descriptor.
+    const before = inputsOf(model.spec);
+    if (
+      before.image !== inputs.image ||
+      before.audio !== inputs.audio ||
+      before.video !== inputs.video
+    ) {
+      args.spec = withInputs(model.spec, inputs);
+    }
 
     updateMut.mutate(args, {
       onSuccess: () => onClose(),
@@ -218,6 +231,8 @@ export default function EditModelModal({
               />
             </div>
           </div>
+
+          <InputsPicker value={inputs} onChange={setInputs} disabled={updateMut.isPending} />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>

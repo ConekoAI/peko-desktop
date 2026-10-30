@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
-import { Send, Square } from "lucide-react";
+import { Paperclip, Send, Square } from "lucide-react";
+
+import { PendingAttachments } from "./Attachments";
 
 /** A configured model the picker offers for one message. */
 export interface ComposerModel {
@@ -15,7 +17,9 @@ const MAX_HEIGHT = 200;
  * The chat input: a textarea that grows with its text, where Enter
  * sends and Shift+Enter adds a line, plus a per-message model
  * picker and Stop while the peko is working. Sending while it works
- * queues the message for its running turn.
+ * queues the message for its running turn. Files picked with the
+ * paperclip (or dropped on the window) show as chips above the text
+ * and go with the next message; a message may be files alone.
  */
 export default function Composer({
   value,
@@ -27,6 +31,9 @@ export default function Composer({
   models,
   model,
   onModelChange,
+  attachments = [],
+  onAttach,
+  onRemoveAttachment,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -38,6 +45,11 @@ export default function Composer({
   /** The model for the next message; `null` is the peko's own. */
   model: string | null;
   onModelChange: (model: string | null) => void;
+  /** Paths of the files going with the next message. */
+  attachments?: string[];
+  /** Pick files to attach; absent where attaching is unavailable. */
+  onAttach?: () => void;
+  onRemoveAttachment?: (path: string) => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -49,7 +61,7 @@ export default function Composer({
     el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT)}px`;
   }, [value]);
 
-  const canSend = value.trim().length > 0;
+  const canSend = value.trim().length > 0 || attachments.length > 0;
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     // Enter sends; Shift+Enter adds a line; an IME composition's Enter
@@ -67,6 +79,7 @@ export default function Composer({
       }}
       className="rounded-xl border border-line bg-surface-raised focus-within:border-brand focus-within:ring-1 focus-within:ring-brand"
     >
+      <PendingAttachments paths={attachments} onRemove={(path) => onRemoveAttachment?.(path)} />
       <textarea
         ref={ref}
         rows={1}
@@ -78,6 +91,17 @@ export default function Composer({
         className="block max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm text-fg outline-none placeholder:text-slate-400"
       />
       <div className="flex items-center gap-2 px-2 pb-2">
+        {onAttach && (
+          <button
+            type="button"
+            onClick={onAttach}
+            aria-label="Attach files"
+            title="Attach files — or drop them on the window"
+            className="inline-flex items-center rounded-md p-1.5 text-fg-muted hover:bg-surface-sunken hover:text-fg-soft"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
+        )}
         {models.length > 0 && (
           <select
             aria-label="Model for this message"

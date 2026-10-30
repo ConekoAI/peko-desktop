@@ -13,6 +13,13 @@ import {
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 import ActivitySteps from "../components/chat/ActivitySteps";
 import Composer, { type ComposerModel } from "../components/chat/Composer";
+import {
+  MAX_ATTACHMENTS,
+  MessageAttachments,
+  baseName,
+} from "../components/chat/Attachments";
+import { useFileDrop } from "../hooks/useFileDrop";
+import { pickAttachments } from "../lib/api";
 import { useModels } from "../hooks/useModels";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
@@ -27,10 +34,11 @@ import {
   Check,
   Copy,
   RotateCcw,
+  Paperclip,
 } from "lucide-react";
 import Markdown from "../components/chat/Markdown";
 import { copyText } from "../components/chat/copy";
-import type { ChatLogMessage, StreamEvent } from "../types";
+import type { ChatLogAttachment, ChatLogMessage, StreamEvent } from "../types";
 import type { ChatStreamMsg } from "../lib/api";
 
 /**
@@ -57,6 +65,8 @@ interface ChatItem {
   iteration?: number;
   /** A message sent while the peko was busy, waiting for its turn. */
   queued?: boolean;
+  /** Files sent with the message. */
+  attachments?: ChatLogAttachment[];
 }
 
 /** The error a stream ends with when the user pressed Stop. */
@@ -127,12 +137,13 @@ function ChatMessage({
         </div>
         <div className="mt-0.5 text-sm text-fg">
           {isUser ? (
-            <p className="whitespace-pre-wrap break-words">{text}</p>
+            text && <p className="whitespace-pre-wrap break-words">{text}</p>
           ) : isError ? (
             <p className="whitespace-pre-wrap break-words text-danger">{text}</p>
           ) : (
             <Markdown>{text}</Markdown>
           )}
+          {item.attachments && <MessageAttachments attachments={item.attachments} />}
         </div>
         {/* Floats over the message on hover, like Slack: it takes no
             room, so messages sit close together. */}
@@ -225,7 +236,8 @@ export function chatLogMessagesToChatItems(
 ): ChatItem[] {
   const out: ChatItem[] = [];
   for (const m of messages) {
-    if (!m.text) continue;
+    const attachments = m.attachments ?? [];
+    if (!m.text && attachments.length === 0) continue;
     out.push({
       event: {
         type: "chunk",
@@ -233,6 +245,7 @@ export function chatLogMessagesToChatItems(
         timestamp: m.timestamp,
       } as StreamEvent,
       isUser: m.sender.startsWith("user:"),
+      ...(attachments.length > 0 && { attachments }),
     });
   }
   return out;
@@ -357,6 +370,24 @@ export default function Chat() {
   }, [pathname, selectedPrincipal, navigate, runtimeId]);
 
   const [input, setInput] = useState("");
+  // Files going with the next message (paths on this computer).
+  const [pendingFiles, setPendingFiles] = useState<string[]>([]);
+  // The engine reads attachments from this computer, so only a peko
+  // here can take them.
+  const canAttach = runtimeId === "local" && !!selectedPrincipal;
+  function addFiles(paths: string[]) {
+    setPendingFiles((prev) =>
+      [...prev, ...paths.filter((p) => !prev.includes(p))].slice(0, MAX_ATTACHMENTS),
+    );
+  }
+  const dragging = useFileDrop(canAttach, addFiles);
+  async function chooseFiles() {
+    try {
+      addFiles(await pickAttachments());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
   // `chatItems` holds live items (sends + streamed chunks) added during
   // the current session. Historical messages from `principal_log` are
   // merged in `displayItems` below so they survive principal switches
@@ -411,6 +442,7 @@ export default function Chat() {
   useEffect(() => {
     setChatItems([]);
     setQueuedItems([]);
+    setPendingFiles([]);
     setToolErrors([]);
     setActivity(EMPTY_ACTIVITY);
     setModelChoice(null);
@@ -475,22 +507,34 @@ export default function Chat() {
   /** Send what's in the composer. */
   function handleSend() {
     const message = input.trim();
-    if (!message) return;
+    const files = pendingFiles;
+    if (!message && files.length === 0) return;
     setInput("");
-    void sendText(message);
+    setPendingFiles([]);
+    void sendText(message, files);
   }
 
   /**
    * Send `message` to the peko, streaming its reply — from the
    * composer, or again from a message's Retry.
    */
-  async function sendText(message: string) {
-    if (!message || !selectedPrincipal) return;
+  async function sendText(message: string, files: string[] = []) {
+    if ((!message && files.length === 0) || !selectedPrincipal) return;
     setError(null);
 
     const userItem: ChatItem = {
       event: { type: "chunk", content: message, timestamp: Date.now().toString() },
       isUser: true,
+      // Shown from the original paths until the thread has the
+      // engine's copies.
+      ...(files.length > 0 && {
+        attachments: files.map((path) => ({
+          name: baseName(path),
+          path,
+          mime: "",
+          size: 0,
+        })),
+      }),
     };
     // Sending while the peko is working is how the user steers it: the
     // runtime queues the message for the running turn. Show it after
@@ -528,6 +572,7 @@ export default function Chat() {
         message,
         runtimeId,
         overrideModel: modelChoice ?? undefined,
+        attachments: files,
         onEvent: (msg: ChatStreamMsg) => {
           if (msg.kind === "queued") return;
           if (msg.kind === "runSummary") {
@@ -698,7 +743,16 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="relative flex h-full flex-col overflow-hidden">
+      {dragging && (
+        <div
+          data-testid="chat-drop-overlay"
+          className="pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand bg-brand-soft/80 text-brand"
+        >
+          <Paperclip className="h-6 w-6" />
+          <p className="text-sm font-medium">Drop files to attach</p>
+        </div>
+      )}
       <PrincipalToolbar
         peko={pekoFace}
         description={principals?.find((p) => p.name === selectedPrincipal)?.description}
@@ -798,6 +852,9 @@ export default function Chat() {
           models={composerModels}
           model={modelChoice}
           onModelChange={setModelChoice}
+          attachments={pendingFiles}
+          onAttach={canAttach ? () => void chooseFiles() : undefined}
+          onRemoveAttachment={(path) => setPendingFiles((prev) => prev.filter((p) => p !== path))}
         />
       </div>
     </div>
