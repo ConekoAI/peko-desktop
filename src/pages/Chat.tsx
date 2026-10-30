@@ -21,6 +21,7 @@ import {
 import { useFileDrop } from "../hooks/useFileDrop";
 import { attachmentStage, pickAttachments } from "../lib/api";
 import { useModels } from "../hooks/useModels";
+import { useRemotePrincipals } from "../hooks/useRemotePrincipals";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
@@ -251,6 +252,15 @@ export function chatLogMessagesToChatItems(
   return out;
 }
 
+/** `localhost:3000` for `http://localhost:3000`. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
 function PrincipalToolbar({
   peko,
   description,
@@ -302,6 +312,9 @@ export default function Chat() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const runtimeId = search.runtimeId ?? "local";
+  // A peko on another runtime, reached through a hub: not yours, so
+  // the header names its owner and hub.
+  const { data: remotePrincipals } = useRemotePrincipals();
 
   const { data: principals, isLoading } = usePrincipals();
 
@@ -316,6 +329,12 @@ export default function Chat() {
   if (paramName) principalName = paramName;
 
   const selectedPrincipal = principalName ?? principals?.[0]?.name ?? "";
+  const remotePeko =
+    runtimeId === "local"
+      ? undefined
+      : remotePrincipals?.find(
+          (r) => r.runtimeId === runtimeId && r.principalName === selectedPrincipal,
+        );
   const pekoFace = useMemo(
     () =>
       pekoIdentity(
@@ -786,7 +805,12 @@ export default function Chat() {
       )}
       <PrincipalToolbar
         peko={pekoFace}
-        description={principals?.find((p) => p.name === selectedPrincipal)?.description}
+        description={
+          remotePeko
+            ? remotePeko.description ||
+              `${remotePeko.owner}'s peko · ${hostOf(remotePeko.hubUrl)}`
+            : principals?.find((p) => p.name === selectedPrincipal)?.description
+        }
       />
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto bg-surface p-4">
@@ -880,7 +904,7 @@ export default function Chat() {
           onStop={handleStop}
           busy={isStreaming}
           stopping={stopMut.isPending}
-          models={composerModels}
+          models={runtimeId === "local" ? composerModels : []}
           model={modelChoice}
           onModelChange={setModelChoice}
           attachments={pendingFiles}

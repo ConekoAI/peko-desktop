@@ -40,6 +40,10 @@ vi.mock("../hooks/usePrincipals", () => ({
 const fetchOlderMock = vi.fn();
 
 const modelsState: { data: unknown } = { data: [] };
+vi.mock("../hooks/useRemotePrincipals", () => ({
+  useRemotePrincipals: () => ({ data: [] }),
+}));
+
 vi.mock("../hooks/useModels", () => ({
   useModels: () => modelsState,
 }));

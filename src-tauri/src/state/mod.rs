@@ -67,7 +67,9 @@ pub struct AppState {
     /// PR #5: HubRemoteClient instances keyed by `hub:<hub_url>` so
     /// `resolve_runtime` can hand a clone to any IPC command without
     /// rebuilding the client per request.
-    pub hub_remotes: RwLock<HashMap<String, Arc<HubRemoteClient>>>,
+    /// One client per remote peko, keyed by `(hub runtime id, peko name)`:
+    /// a client is bound to one peko, so a hub with two of yours needs two.
+    pub hub_remotes: RwLock<HashMap<(String, String), Arc<HubRemoteClient>>>,
 }
 
 /// Resolved transport for a principal command. Returned by
@@ -121,15 +123,60 @@ impl AppState {
     /// `ResolvedRuntime::HubRemote(client.clone())`.
     pub async fn register_hub_remote(&self, client: HubRemoteClient) -> Arc<HubRemoteClient> {
         let arc = Arc::new(client);
-        let id = arc.runtime_id.clone();
-        self.hub_remotes.write().await.insert(id, arc.clone());
+        let key = (arc.runtime_id.clone(), arc.principal_name.clone());
+        self.hub_remotes.write().await.insert(key, arc.clone());
         arc
     }
 
     /// PR #5: drop a registered `HubRemoteClient`. Called when the
     /// user removes the principal from the sidebar (PR #4).
-    pub async fn unregister_hub_remote(&self, runtime_id: &str) -> Option<Arc<HubRemoteClient>> {
-        self.hub_remotes.write().await.remove(runtime_id)
+    pub async fn unregister_hub_remote(
+        &self,
+        runtime_id: &str,
+        principal_name: &str,
+    ) -> Option<Arc<HubRemoteClient>> {
+        self.hub_remotes
+            .write()
+            .await
+            .remove(&(runtime_id.to_string(), principal_name.to_string()))
+    }
+
+    /// Resolve the transport for one peko. A `hub:<url>` id resolves to
+    /// that peko's `HubRemoteClient`; when none is registered yet (the
+    /// app restarted since the peko was added), it is rebuilt from the
+    /// saved remote-peko records. Before, a restart left none registered
+    /// and messages to a remote peko went to the local engine.
+    pub(crate) async fn resolve_peko_runtime(
+        &self,
+        runtime_id: Option<&str>,
+        principal_name: &str,
+    ) -> ResolvedRuntime {
+        let id = runtime_id.unwrap_or("local");
+        if id == "local" || !id.starts_with("hub:") {
+            return self.resolve_runtime(runtime_id).await;
+        }
+        let key = (id.to_string(), principal_name.to_string());
+        if let Some(client) = self.hub_remotes.read().await.get(&key).cloned() {
+            return ResolvedRuntime::HubRemote(client);
+        }
+        let saved = crate::storage::remote_principals::read_all().unwrap_or_default();
+        let record = saved.into_iter().find(|r| {
+            r.principal_name == principal_name
+                && format!("hub:{}", r.hub_url.trim_end_matches('/')) == id
+        });
+        match record {
+            Some(r) => ResolvedRuntime::HubRemote(
+                self.register_hub_remote(HubRemoteClient::new(
+                    r.hub_url,
+                    r.owner,
+                    r.principal_name,
+                    r.invite_token,
+                    self.http.clone(),
+                ))
+                .await,
+            ),
+            None => self.resolve_runtime(runtime_id).await,
+        }
     }
 
     /// Resolve a `runtime_id` to a transport. `None` / `Some("local")`
@@ -147,7 +194,14 @@ impl AppState {
         // its existing "daemon unreachable" error path rather than
         // a Tauri-level 500 — this matches the PR #3 contract that
         // every `runtime_id` is addressable.
-        if let Some(client) = self.hub_remotes.read().await.get(id).cloned() {
+        if let Some(client) = self
+            .hub_remotes
+            .read()
+            .await
+            .iter()
+            .find(|((runtime, _), _)| runtime == id)
+            .map(|(_, client)| client.clone())
+        {
             return ResolvedRuntime::HubRemote(client);
         }
         // Touch the runtime-id registry so we still surface a fresh
@@ -183,4 +237,40 @@ pub async fn init_state() -> AppState {
     let local = RuntimeConnection::local_default();
     state.set_runtime(local).await;
     state
+}
+
+#[cfg(test)]
+mod hub_remote_tests {
+    use super::*;
+
+    /// Two pekos from one hub each keep their own client; before, the
+    /// second replaced the first and its messages went to the wrong peko.
+    #[tokio::test]
+    async fn two_pekos_on_one_hub_resolve_to_their_own_clients() {
+        let state = AppState::new(crate::clients::pekohub::PekohubClient::new());
+        for name in ["remy", "nova"] {
+            state
+                .register_hub_remote(HubRemoteClient::new(
+                    "http://localhost:3000".into(),
+                    "tester".into(),
+                    name.into(),
+                    None,
+                    reqwest::Client::new(),
+                ))
+                .await;
+        }
+        for name in ["remy", "nova"] {
+            match state
+                .resolve_peko_runtime(Some("hub:http://localhost:3000"), name)
+                .await
+            {
+                ResolvedRuntime::HubRemote(client) => assert_eq!(client.principal_name, name),
+                _ => panic!("{name} should resolve to its hub client"),
+            }
+        }
+        assert!(matches!(
+            state.resolve_peko_runtime(Some("local"), "remy").await,
+            ResolvedRuntime::Local
+        ));
+    }
 }

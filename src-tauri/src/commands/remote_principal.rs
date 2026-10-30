@@ -306,7 +306,9 @@ pub async fn remote_principal_remove(
         // IPC commands don't try to stream to a no-longer-added
         // principal. The runtime_id format is `hub:<hub_url>`.
         let runtime_id = format!("hub:{}", hub_url.trim_end_matches('/'));
-        let _ = state.unregister_hub_remote(&runtime_id).await;
+        let _ = state
+            .unregister_hub_remote(&runtime_id, &principal_name)
+            .await;
     }
     Ok(removed)
 }

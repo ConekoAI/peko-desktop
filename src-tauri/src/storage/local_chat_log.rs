@@ -55,8 +55,34 @@ fn log_path(runtime_id: &str, principal_name: &str) -> Result<PathBuf, String> {
         .ok_or_else(|| "could not determine config directory".to_string())?
         .join("peko-desktop")
         .join("chat-logs")
-        .join(sanitize_segment(runtime_id)?);
+        .join(runtime_dir(runtime_id)?);
     Ok(base.join(format!("{}.jsonl", sanitize_segment(principal_name)?)))
+}
+
+/// The folder for one runtime's logs. A hub runtime id is
+/// `hub:<hub URL>` (`hub:https://pekohub.org`), so it always holds
+/// slashes; it maps to letters, digits, and `-` / `_`, plus a short hash
+/// of the whole id so two hubs never share a folder. (Rejecting the
+/// slashes, as before, made every remote peko's history fail to save.)
+fn runtime_dir(runtime_id: &str) -> Result<String, String> {
+    if runtime_id.is_empty() {
+        return Err("invalid chat-log runtime id: empty".to_string());
+    }
+    let readable: String = runtime_id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    // FNV-1a: stable across runs and platforms.
+    let hash = runtime_id.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    });
+    Ok(format!("{readable}-{hash:016x}"))
 }
 
 /// Reject path separators in segment names so a malicious or
@@ -192,7 +218,8 @@ mod tests {
     #[test]
     fn roundtrip_via_tempdir() {
         // Use a runtime_id / name we won't collide with on real disks.
-        let runtime_id = "hub:tmp-roundtrip";
+        // A real hub runtime id: it holds slashes.
+        let runtime_id = "hub:http://localhost:3000";
         let principal_name = "test-agent";
         // Replace HOME / XDG_CONFIG_HOME so `dirs::config_dir()` lands
         // in a sandboxed tmp dir for this test.
@@ -245,13 +272,26 @@ mod tests {
         assert!(sanitize_segment("").is_err());
     }
 
+    /// Hub runtime ids map to one safe folder each.
+    #[test]
+    fn hub_runtime_ids_map_to_safe_distinct_folders() {
+        let a = runtime_dir("hub:https://pekohub.org").unwrap();
+        let b = runtime_dir("hub:http://localhost:3000").unwrap();
+        assert!(a.starts_with("hub_https___pekohub_org-"), "{a}");
+        assert_ne!(a, b);
+        assert_eq!(a, runtime_dir("hub:https://pekohub.org").unwrap());
+        for dir in [&a, &b, &runtime_dir("../../etc").unwrap()] {
+            assert!(
+                !dir.contains('/') && !dir.contains('\\') && !dir.contains(".."),
+                "{dir}"
+            );
+        }
+        assert!(runtime_dir("").is_err());
+    }
+
     /// Stable segment names pass the guard — pins the happy path.
     #[test]
     fn accepts_safe_segments() {
-        assert_eq!(
-            sanitize_segment("hub:pekohub.org").unwrap(),
-            "hub:pekohub.org"
-        );
         assert_eq!(sanitize_segment("alice").unwrap(), "alice");
         assert_eq!(sanitize_segment("helper-1").unwrap(), "helper-1");
     }
