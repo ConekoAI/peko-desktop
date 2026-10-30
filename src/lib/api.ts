@@ -483,6 +483,22 @@ export async function pickAttachments(): Promise<string[]> {
   return Array.isArray(picked) ? picked : [picked];
 }
 
+/**
+ * Save a pasted file (it has no path on disk) so it can be attached;
+ * resolves to the saved file's path.
+ */
+export async function attachmentStage(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  const extension = file.type.split("/")[1]?.replace("jpeg", "jpg") ?? "bin";
+  const name = file.name && file.name !== "image.png" ? file.name : `pasted.${extension}`;
+  return invoke<string>("attachment_stage", { name, data: btoa(binary) });
+}
+
 /** An attached image as a `data:` URL, for its thumbnail. */
 export async function attachmentPreview(path: string): Promise<string> {
   return invoke<string>("attachment_preview", { path });

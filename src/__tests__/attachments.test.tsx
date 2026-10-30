@@ -7,6 +7,9 @@ const api = vi.hoisted(() => ({
   attachmentOpen: vi.fn(),
 }));
 vi.mock("../lib/api", () => api);
+vi.mock("@tauri-apps/api/core", () => ({
+  convertFileSrc: (path: string) => `asset://localhost${path}`,
+}));
 
 import {
   MessageAttachments,
@@ -86,6 +89,39 @@ describe("attachments", () => {
     expect(onAttach).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(onSend).toHaveBeenCalled();
+  });
+
+  it("hands pasted files to the chat", () => {
+    const onPasteFiles = vi.fn();
+    render(
+      <Composer
+        value=""
+        onChange={() => {}}
+        onSend={() => {}}
+        onStop={() => {}}
+        busy={false}
+        stopping={false}
+        models={[]}
+        model={null}
+        onModelChange={() => {}}
+        onPasteFiles={onPasteFiles}
+      />,
+    );
+    const shot = new File(["png"], "image.png", { type: "image/png" });
+    fireEvent.paste(screen.getByLabelText("Message"), { clipboardData: { files: [shot] } });
+    expect(onPasteFiles).toHaveBeenCalledWith([shot]);
+  });
+
+  it("plays audio inline once asked, from the engine's copy", async () => {
+    wrap(
+      <MessageAttachments
+        attachments={[{ name: "memo.wav", path: "/p/memo.wav", mime: "audio/wav", size: 2048 }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Play memo.wav" }));
+    const player = await screen.findByLabelText("memo.wav");
+    expect(player.tagName).toBe("AUDIO");
+    expect(player.getAttribute("src")).toContain("memo.wav");
   });
 
   it("keeps a thread row that is only files", () => {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { File, FileText, Film, Image as ImageIcon, Music, X } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { File, FileText, Film, Image as ImageIcon, Music, Play, X } from "lucide-react";
 
 import { attachmentOpen, attachmentPreview } from "../../lib/api";
 import type { ChatLogAttachment } from "../../types";
@@ -144,18 +145,53 @@ function FileChip({ attachment }: { attachment: ChatLogAttachment }) {
   );
 }
 
+/**
+ * Audio or video: its chip, and a play button that loads the file into
+ * an inline player (loaded only on demand; files can be large).
+ */
+function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "audio" | "video" }) {
+  const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState(false);
+  if (playing && !failed) {
+    // The asset protocol streams the engine's copy (WebKit plays neither
+    // data: nor blob: media here).
+    const src = convertFileSrc(attachment.path);
+    return kind === "audio" ? (
+      <audio controls autoPlay src={src} aria-label={attachment.name} onError={() => setFailed(true)} className="h-9 max-w-[18rem]" />
+    ) : (
+      <video controls autoPlay src={src} aria-label={attachment.name} onError={() => setFailed(true)} className="max-h-64 max-w-[22rem] rounded-lg border border-line" />
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => setPlaying(true)}
+        disabled={failed}
+        aria-label={`Play ${attachment.name}`}
+        title={failed ? "Can't play this here; open it instead" : `Play ${attachment.name}`}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-brand-fg hover:bg-brand-hover disabled:opacity-40"
+      >
+        <Play className="h-3.5 w-3.5" />
+      </button>
+      <FileChip attachment={attachment} />
+    </span>
+  );
+}
+
 /** A sent message's files: images as thumbnails, the rest as chips. */
 export function MessageAttachments({ attachments }: { attachments: ChatLogAttachment[] }) {
   if (attachments.length === 0) return null;
   return (
     <div className="mt-1.5 flex flex-wrap items-end gap-1.5">
-      {attachments.map((a) =>
-        attachmentKind(a.name, a.mime) === "image" ? (
-          <Thumbnail key={a.path} attachment={a} />
-        ) : (
-          <FileChip key={a.path} attachment={a} />
-        ),
-      )}
+      {attachments.map((a) => {
+        const kind = attachmentKind(a.name, a.mime);
+        if (kind === "image") return <Thumbnail key={a.path} attachment={a} />;
+        if (kind === "audio" || kind === "video") {
+          return <Playable key={a.path} attachment={a} kind={kind} />;
+        }
+        return <FileChip key={a.path} attachment={a} />;
+      })}
     </div>
   );
 }

@@ -234,5 +234,5 @@ Runtime item 2 is done (runtime ADR-088, peko-runtime#522); this branch is the d
 - **Verified** with MiMo-V2.6-Flash, which reads images, audio, and video on the
   OpenAI-compatible endpoint.
 
-Not done: pasting an image from the clipboard (it needs a temp file), and inline audio/video
-players (chips open the system player).
+Follow-up (2026-10-30): pasting a file attaches it (the desktop saves it to a temp folder
+first); audio and video play inline through the asset protocol, scoped to the pekos' folders.

@@ -1,9 +1,13 @@
 import { useState, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Search, Hash, Loader2, Plus } from "lucide-react";
-import { LOCAL_USER, useChannelInfo, useChannels } from "../hooks/useChannels";
-import { isChannelForbidden } from "../lib/channelErrors";
+import {
+  channelInfoQuery,
+  hasLeftGroup,
+  useChannelInfo,
+  useChannels,
+} from "../hooks/useChannels";
 import { usePrincipals } from "../hooks/usePrincipals";
 import RuntimeBadge from "./RuntimeBadge";
 
@@ -53,6 +57,12 @@ export default function ChannelSidebar({
     });
   }, [channels, search, qc]);
 
+  // Groups you left are hidden; the list is empty when they all are.
+  const infos = useQueries({
+    queries: filtered.map((c) => channelInfoQuery(c.channelId)),
+  });
+  const visible = filtered.filter((_, i) => !hasLeftGroup(infos[i]?.data, infos[i]?.error));
+
   function handleSelect(
     selectedId: string,
     runtimeId: string,
@@ -99,9 +109,9 @@ export default function ChannelSidebar({
             <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
             <span className="text-xs text-fg-subtle">Loading…</span>
           </div>
-        ) : filtered.length > 0 ? (
+        ) : visible.length > 0 ? (
           <div className="space-y-1">
-            {filtered.map((c) => (
+            {visible.map((c) => (
               <GroupRow
                 key={c.channelId}
                 channelId={c.channelId}
@@ -142,11 +152,7 @@ export default function ChannelSidebar({
   );
 }
 
-/**
- * One group you are in: its name, its id until the name loads. The list
- * comes from your pekos' groups, so a group you left (the engine refuses
- * its info to non-members, or its roster lacks you) is hidden.
- */
+/** One group you are in: its name, its id until the name loads. */
 function GroupRow({
   channelId,
   runtimeId,
@@ -158,9 +164,7 @@ function GroupRow({
   active: boolean;
   onSelect: () => void;
 }) {
-  const { data: info, error } = useChannelInfo(channelId);
-  const left = (error && isChannelForbidden(error)) || (info?.members && !info.members.includes(LOCAL_USER));
-  if (left) return null;
+  const { data: info } = useChannelInfo(channelId);
   return (
     <button
       onClick={onSelect}

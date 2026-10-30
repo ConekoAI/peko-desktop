@@ -12,6 +12,9 @@ use tauri_plugin_opener::OpenerExt;
 /// The largest image returned for a thumbnail.
 const MAX_PREVIEW_BYTES: u64 = 10 * 1024 * 1024;
 
+/// The largest pasted file, the engine's per-attachment limit.
+const MAX_STAGED_BYTES: usize = 20 * 1024 * 1024;
+
 /// `path`, resolved, when it lies inside `root`.
 fn confined(path: &str, root: &Path) -> Result<PathBuf, String> {
     let root = root
@@ -56,7 +59,55 @@ fn peko_root() -> Result<PathBuf, String> {
     crate::commands::system::peko_home().ok_or_else(|| "could not determine the peko folder".into())
 }
 
-/// An attached image as a `data:` URL, for its thumbnail.
+/// Save a pasted file (it has no path) to a temporary folder so it can
+/// be attached like any other; returns its path. The engine copies it
+/// into the peko's workspace when the message is sent.
+fn stage(dir: &Path, name: &str, data: &str) -> Result<PathBuf, String> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data)
+        .map_err(|e| format!("pasted data is not base64: {e}"))?;
+    if bytes.len() > MAX_STAGED_BYTES {
+        return Err("pasted file is over the 20 MB attachment limit".to_string());
+    }
+    let safe: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '.' | '-' | '_') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let safe = safe.trim_start_matches('.');
+    let file = if safe.is_empty() { "pasted" } else { safe };
+    // Each paste gets its own folder, so the file keeps a clean name
+    // (it becomes the attachment's name) and pastes never collide.
+    let folder = dir.join(uuid_like());
+    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let path = folder.join(file);
+    std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    Ok(path)
+}
+
+/// A short unique prefix for staged files.
+fn uuid_like() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    format!("{nanos:x}")
+}
+
+/// Stage a pasted file for attaching; see [`stage`].
+#[tauri::command]
+pub async fn attachment_stage(name: String, data: String) -> Result<String, String> {
+    let dir = std::env::temp_dir().join("peko-pasted");
+    stage(&dir, &name, &data).map(|p| p.display().to_string())
+}
+
+/// An attached image as a `data:` URL, for its thumbnail. (Audio and
+/// video play through the asset protocol, scoped to the pekos' folders.)
 #[tauri::command]
 pub async fn attachment_preview(path: String) -> Result<String, String> {
     read_preview(&path, &peko_root()?)
@@ -97,5 +148,17 @@ mod tests {
                 .unwrap(),
         );
         assert!(read_preview(&climb.display().to_string(), root.path()).is_err());
+    }
+
+    #[test]
+    fn a_pasted_file_is_staged_under_a_safe_name() {
+        use base64::Engine as _;
+        let dir = tempfile::tempdir().unwrap();
+        let data = base64::engine::general_purpose::STANDARD.encode(b"png-bytes");
+        let path = stage(dir.path(), "../screen shot.png", &data).unwrap();
+        assert!(path.starts_with(dir.path()));
+        assert_eq!(path.file_name().unwrap(), "_screen_shot.png");
+        assert_eq!(std::fs::read(&path).unwrap(), b"png-bytes");
+        assert!(stage(dir.path(), "x.png", "not base64!").is_err());
     }
 }

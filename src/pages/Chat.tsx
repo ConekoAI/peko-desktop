@@ -19,7 +19,7 @@ import {
   baseName,
 } from "../components/chat/Attachments";
 import { useFileDrop } from "../hooks/useFileDrop";
-import { pickAttachments } from "../lib/api";
+import { attachmentStage, pickAttachments } from "../lib/api";
 import { useModels } from "../hooks/useModels";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
@@ -381,6 +381,13 @@ export default function Chat() {
     );
   }
   const dragging = useFileDrop(canAttach, addFiles);
+  async function pasteFiles(files: File[]) {
+    try {
+      addFiles(await Promise.all(files.map(attachmentStage)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
   async function chooseFiles() {
     try {
       addFiles(await pickAttachments());
@@ -484,6 +491,30 @@ export default function Chat() {
       scrollAnchorRef.current = null;
     }
   }, [older]);
+
+  // Keep the newest message in view when the thread grows after
+  // rendering (a thumbnail loading, a reply's activity expanding) —
+  // unless you have scrolled up to read.
+  const pinnedToBottomRef = useRef(true);
+  const hasMessages = (logData?.messages?.length ?? 0) + chatItems.length > 0;
+  useEffect(() => {
+    const el = scrollRef.current;
+    const content = el?.firstElementChild;
+    if (!el || !content || typeof ResizeObserver === "undefined") return;
+    const onScroll = () => {
+      pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    };
+    const observer = new ResizeObserver(() => {
+      if (pinnedToBottomRef.current) el.scrollTop = el.scrollHeight;
+    });
+    el.addEventListener("scroll", onScroll);
+    observer.observe(content);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
+    // Re-bind when the message list replaces the empty state.
+  }, [selectedPrincipal, hasMessages]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -855,6 +886,7 @@ export default function Chat() {
           attachments={pendingFiles}
           onAttach={canAttach ? () => void chooseFiles() : undefined}
           onRemoveAttachment={(path) => setPendingFiles((prev) => prev.filter((p) => p !== path))}
+          onPasteFiles={canAttach ? (files) => void pasteFiles(files) : undefined}
         />
       </div>
     </div>

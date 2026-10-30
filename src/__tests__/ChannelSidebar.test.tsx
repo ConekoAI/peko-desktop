@@ -16,7 +16,7 @@
 // match needs to work for the test).
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const useChannelsMock = vi.fn();
@@ -35,6 +35,15 @@ vi.mock("../hooks/useChannels", () => ({
   }),
   useChannel: () => ({ data: undefined }),
   useChannelMembers: () => ({ data: undefined }),
+  channelInfoQuery: (id: string) => ({
+    queryKey: ["channel-info", id],
+    queryFn: async () => ({
+      name: groupNames[id],
+      members: leftGroups.has(id) ? ["principal:prin_a"] : ["user:local"],
+    }),
+  }),
+  hasLeftGroup: (info: { members?: string[] } | undefined) =>
+    !!info?.members && !info.members.includes("user:local"),
 }));
 
 vi.mock("../hooks/usePrincipals", () => ({
@@ -163,15 +172,24 @@ describe("ChannelSidebar", () => {
     expect(screen.queryByText(/peko channel/)).toBeNull();
   });
 
-  it("hides a group you left", () => {
+  it("hides a group you left", async () => {
     useChannelsMock.mockReturnValue({ data: sampleRows, isLoading: false });
     groupNames.chan_alpha = "Launch crew";
     leftGroups.add("chan_alpha");
     renderSidebar();
-    expect(screen.queryByTestId("channel-row-chan_alpha")).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId("channel-row-chan_alpha")).toBeNull());
     expect(screen.getByTestId("channel-row-chan_bravo")).toBeInTheDocument();
     leftGroups.clear();
     delete groupNames.chan_alpha;
+  });
+
+  /** Before, every row rendered nothing and the list showed blank. */
+  it("says there are no groups when you have left them all", async () => {
+    useChannelsMock.mockReturnValue({ data: sampleRows, isLoading: false });
+    for (const row of sampleRows) leftGroups.add(row.channelId);
+    renderSidebar();
+    expect(await screen.findByTestId("channel-empty")).toHaveTextContent("No groups yet.");
+    leftGroups.clear();
   });
 });
 
