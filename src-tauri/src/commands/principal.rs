@@ -134,7 +134,9 @@ pub async fn principal_get(
     name: String,
     runtime_id: Option<String>,
 ) -> Result<Option<PrincipalSummary>, String> {
-    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let resolved = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await;
     let _ = resolved; // PR #5 will branch on `resolved`.
     let runtime_id = runtime_id.unwrap_or_else(|| "local".to_string());
 
@@ -419,7 +421,9 @@ pub async fn principal_send(
     // `HubRemoteClient::send_stream` and discard the per-chunk
     // events — the chat UI consumes the streaming path; this is
     // the legacy non-streaming entrypoint kept for headless callers.
-    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let resolved = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await;
     match resolved {
         crate::state::ResolvedRuntime::Local => {
             let client = crate::ipc::IpcClient::new()
@@ -490,7 +494,9 @@ pub async fn principal_send_stream(
     // Channel.
     let resolved = {
         let state = app.state::<AppState>();
-        state.resolve_runtime(runtime_id.as_deref()).await
+        state
+            .resolve_peko_runtime(runtime_id.as_deref(), &name)
+            .await
     };
 
     let content = match resolved {
@@ -561,7 +567,9 @@ pub async fn principal_stop(
     peer: Option<String>,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let resolved = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await;
     if matches!(resolved, crate::state::ResolvedRuntime::HubRemote(_)) {
         return Err("Stopping a run is not supported for remote pekos yet".to_string());
     }
@@ -681,7 +689,9 @@ pub async fn principal_log(
     // desktop's local JSONL appender (HubRemoteClient writes to it
     // during send_stream); pekohub has no read API yet so we don't
     // attempt to forward.
-    let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
+    let resolved = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await;
     match resolved {
         crate::state::ResolvedRuntime::Local => {
             let client = crate::ipc::IpcClient::new()
