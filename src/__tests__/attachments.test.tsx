@@ -130,3 +130,19 @@ describe("model inputs", () => {
     expect(spec.video_input).toBe(false);
   });
 });
+
+describe("model price", () => {
+  it("reads a price draft and keeps tools on a new descriptor", async () => {
+    const { pricingFromDraft, withPricing, priceDraftOf } = await import("../lib/model-spec");
+    expect(pricingFromDraft({ input: "", output: "" })).toBeUndefined();
+    expect(pricingFromDraft({ input: "$1", output: "2.5" })).toEqual({
+      input_per_million: 1,
+      output_per_million: 2.5,
+    });
+    expect(pricingFromDraft({ input: "-1", output: "" })).toBeNull();
+    const spec = withPricing(null, { input_per_million: 1 });
+    expect(spec.tool_support).toBe("function_calling");
+    expect(priceDraftOf(spec)).toEqual({ input: "1", output: "" });
+    expect(withPricing(spec, undefined).pricing).toBeUndefined();
+  });
+});

@@ -1637,6 +1637,37 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Mirror of `RequestPacket::QuotaGet`: a peko's usage this cycle
+    /// (tokens, requests, spend) and its limits.
+    pub async fn quota_get(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "quota_get",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::QuotaSet`: replace a peko's limits
+    /// (`QuotaConfig`: token / request limits, cycle, budget).
+    pub async fn quota_set(
+        &self,
+        name: &str,
+        config: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "quota_set",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "config": config,
+        });
+        self.request_response(req).await
+    }
+
     /// Mirror of `RequestPacket::ChannelSetWake`: set what starts a turn
     /// for `principal_name` in a group (`human` / `mention` / `off`).
     pub async fn channel_set_wake(

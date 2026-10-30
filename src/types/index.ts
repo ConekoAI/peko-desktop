@@ -540,3 +540,37 @@ export interface ChannelLeaveResult {
   runtimeId: string;
 }
 
+
+// ─── Usage (runtime quota) ────────────────────────────────────────
+
+/** How often a peko's usage counters and budget reset. */
+export type UsageCycle = "hourly" | "daily" | "weekly" | "monthly";
+
+/** Runtime `QuotaConfig` (snake_case, passed through). */
+export interface UsageLimits {
+  cycle: UsageCycle;
+  input_tokens?: number;
+  output_tokens?: number;
+  request_count?: number;
+  cost_per_call_max?: number;
+  /** Spend limit per cycle, US dollars. */
+  budget_per_cycle?: number;
+}
+
+/** Runtime `QuotaState`: this cycle's counters. */
+export interface UsageState {
+  window_start: string;
+  window_end: string;
+  cycle: UsageCycle;
+  input_tokens: number;
+  output_tokens: number;
+  request_count: number;
+  /** Spend this cycle, US dollars; counted for models with a price. */
+  cost_usd?: number | null;
+  cache_read_tokens?: number;
+}
+
+export interface PekoUsage {
+  state: UsageState;
+  config: UsageLimits;
+}
