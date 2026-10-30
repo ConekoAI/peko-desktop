@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { File, FileText, Film, Image as ImageIcon, Loader2, Music, Play, X } from "lucide-react";
 
@@ -145,6 +145,26 @@ function FileChip({ attachment }: { attachment: ChatLogAttachment }) {
 }
 
 /**
+ * A `blob:` URL for a `data:` URL's bytes, released when unused. WebKit
+ * will not play audio or video from a `data:` URL.
+ */
+function useBlobUrl(dataUrl: string | undefined): string | undefined {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    if (!dataUrl) return;
+    const comma = dataUrl.indexOf(",");
+    const mime = dataUrl.slice(5, dataUrl.indexOf(";"));
+    const binary = atob(dataUrl.slice(comma + 1));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const next = URL.createObjectURL(new Blob([bytes], { type: mime }));
+    setUrl(next);
+    return () => URL.revokeObjectURL(next);
+  }, [dataUrl]);
+  return url;
+}
+
+/**
  * Audio or video: its chip, and a play button that loads the file into
  * an inline player (loaded only on demand; files can be large).
  */
@@ -157,11 +177,12 @@ function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "
     staleTime: Infinity,
     retry: false,
   });
-  if (playing && source.data) {
+  const blobUrl = useBlobUrl(source.data);
+  if (playing && blobUrl) {
     return kind === "audio" ? (
-      <audio controls autoPlay src={source.data} aria-label={attachment.name} className="h-9 max-w-[18rem]" />
+      <audio controls autoPlay src={blobUrl} aria-label={attachment.name} className="h-9 max-w-[18rem]" />
     ) : (
-      <video controls autoPlay src={source.data} aria-label={attachment.name} className="max-h-64 max-w-[22rem] rounded-lg border border-line" />
+      <video controls autoPlay src={blobUrl} aria-label={attachment.name} className="max-h-64 max-w-[22rem] rounded-lg border border-line" />
     );
   }
   return (

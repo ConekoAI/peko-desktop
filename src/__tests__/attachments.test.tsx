@@ -120,7 +120,8 @@ describe("attachments", () => {
     fireEvent.click(screen.getByRole("button", { name: "Play memo.wav" }));
     const player = await screen.findByLabelText("memo.wav");
     expect(player.tagName).toBe("AUDIO");
-    expect(player).toHaveAttribute("src", "data:audio/wav;base64,UklGRg==");
+    // WebKit plays a blob: URL, not the data: URL.
+    expect(player.getAttribute("src")).toMatch(/^blob:/);
   });
 
   it("keeps a thread row that is only files", () => {
