@@ -1,5 +1,5 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { principalGet, type RuntimeId } from "../lib/api";
+import { principalGet, remotePrincipalProfile, type RuntimeId } from "../lib/api";
 
 /**
  * PR #9: live status polling. The decorative `STATUS_OPTIONS`
@@ -27,6 +27,13 @@ export interface PrincipalStatus {
   lastSeenAt: string | null;
   /** Local | remote | unknown — useful for the UI to choose a label. */
   source: "local" | "remote" | "unknown";
+  /**
+   * A remote peko's public face, read from the same hub record as its
+   * status: the avatar its runtime announced, its description, and its
+   * id on that runtime (so its accent matches what its owner sees).
+   * Absent for local pekos and for hubs that don't send them.
+   */
+  profile?: { avatar: string | null; description: string | null; localId: string | null };
 }
 
 const LOCAL_POLL_MS = 10_000;
@@ -89,36 +96,24 @@ async function fetchRemoteStatus(
   owner: string,
   principalName: string,
 ): Promise<PrincipalStatus> {
-  // Mirror of pekohub's public-peko envelope (pekohub ADR-005):
-  // `{ liveInstance: { id, publicName, status, ... } }`. The path
-  // moved from `/v1/public/principals/:owner/:name` (now 404) to
-  // `/v1/public/pekos/:owner/:pekoName`. The only field we actually
-  // need is `status`; a flat `{ status }` body is tolerated for
-  // older self-hosted hubs.
-  const base = hubUrl.replace(/\/$/, "");
-  const url = `${base}/v1/public/pekos/${encodeURIComponent(owner)}/${encodeURIComponent(principalName)}`;
+  // The hub's public peko record (pekohub ADR-005), read by the backend:
+  // the webview's content security policy allows no outside hosts.
   try {
-    const res = await fetch(url, {
-      credentials: "omit",
-      headers: { Accept: "application/json" },
-    });
-    if (res.status === 404) {
-      // Remote principal was deregistered or is no longer public.
-      // Surface as `offline` so the UI doesn't render a stale
-      // "online" pill.
+    const live = await remotePrincipalProfile(hubUrl, owner, principalName);
+    if (!live) {
+      // Deregistered or no longer public: `offline`, so the UI doesn't
+      // keep a stale "online" dot.
       return { status: "offline", lastSeenAt: null, source: "remote" };
     }
-    if (!res.ok) {
-      return { status: "unknown", lastSeenAt: null, source: "remote" };
-    }
-    const body = (await res.json()) as {
-      status?: string;
-      liveInstance?: { status?: string };
-    };
     return {
-      status: normalizeStatus(body.liveInstance?.status ?? body.status),
+      status: normalizeStatus(live.status),
       lastSeenAt: null,
       source: "remote",
+      profile: {
+        avatar: live.avatar ?? null,
+        description: live.description ?? null,
+        localId: live.localId ?? null,
+      },
     };
   } catch {
     // Network errors land here; "unknown" so the UI can render a

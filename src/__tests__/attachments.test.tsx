@@ -8,6 +8,12 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("../hooks/useRemotePrincipals", () => ({
   useRemotePrincipals: () => ({ data: [] }),
+  useRemotePeko: (_runtimeId: string, name: string) => ({
+    record: undefined,
+    status: { data: undefined },
+    identity: { name, avatar: null, initials: name.slice(0, 1).toUpperCase(), accent: "emerald" },
+    description: null,
+  }),
 }));
 
 vi.mock("../lib/api", () => api);

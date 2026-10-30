@@ -37,12 +37,15 @@ import {
   Package,
 } from "lucide-react";
 import PekoAvatar from "../peko/PekoAvatar";
+import RemotePekoProfile from "./RemotePekoProfile";
 import UsagePanel from "../peko/UsagePanel";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
 
 interface PrincipalProfileModalProps {
   open: boolean;
   principalName: string;
+  /** Where the peko runs: `local` (default), or `hub:<url>` for a remote one. */
+  runtimeId?: string;
   onClose: () => void;
   onRemoved?: () => void;
 }
@@ -81,16 +84,30 @@ function registrationLabel(exposure: string | undefined): string {
 const EXPOSURE_CONFLICT_PREFIX = "[exposure_conflict]";
 
 /**
+ * A peko's profile. A peko on this runtime gets the full settings
+ * view; one on another runtime, reached through a hub, gets its remote
+ * profile (where it lives, its status, removing it from the list).
+ */
+export default function PrincipalProfileModal(props: PrincipalProfileModalProps) {
+  const { runtimeId, ...rest } = props;
+  return runtimeId && runtimeId !== "local" ? (
+    <RemotePekoProfile {...rest} runtimeId={runtimeId} />
+  ) : (
+    <LocalPekoProfile {...rest} />
+  );
+}
+
+/**
  * Principal detail / settings modal. Supports viewing the current
  * config, editing mutable fields (description, status, exposure, pinned
  * model), and removing the principal with a confirmation step.
  */
-export default function PrincipalProfileModal({
+function LocalPekoProfile({
   open,
   principalName,
   onClose,
   onRemoved,
-}: PrincipalProfileModalProps) {
+}: Omit<PrincipalProfileModalProps, "runtimeId">) {
   const navigate = useNavigate();
   const { data: principal, isLoading } = usePrincipal(principalName);
   const { data: models, isLoading: modelsLoading } = useModels();

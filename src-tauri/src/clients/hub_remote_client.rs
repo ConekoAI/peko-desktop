@@ -141,7 +141,7 @@ impl HubRemoteClient {
             .json(&body)
             .send()
             .await
-            .map_err(|e| format!("hub remote send failed: {e}"))?;
+            .map_err(|e| format!("Couldn't reach {}: {e}", host_of(&self.hub_url)))?;
 
         let status = resp.status();
         if !status.is_success() {
@@ -159,7 +159,9 @@ impl HubRemoteClient {
         let mut sse_buf = SseBuffer::new();
 
         while let Some(chunk_result) = stream.next().await {
-            let bytes = chunk_result.map_err(|e| format!("hub stream read failed: {e}"))?;
+            let bytes = chunk_result.map_err(|e| {
+                format!("The connection to {} dropped: {e}", host_of(&self.hub_url))
+            })?;
             for frame in sse_buf.push(&bytes) {
                 match frame {
                     SseFrame::Chunk { delta } => {
@@ -169,9 +171,8 @@ impl HubRemoteClient {
                     SseFrame::Iteration { iteration } => {
                         on_event(ChatStreamMsg::Iteration { iteration });
                     }
-                    SseFrame::Error { message } => {
-                        return Err(format!("hub stream error: {message}"));
-                    }
+                    // The hub's or the peko's own words, shown as they are.
+                    SseFrame::Error { message } => return Err(message),
                 }
             }
         }
@@ -275,8 +276,9 @@ pub const TOS_REQUIRED_PREFIX: &str = "[tos_required]";
 /// Map a non-2xx hub response to the surfaced error string. A 428 is
 /// a distinct state (the user must acknowledge the peko's ToS before
 /// chatting), so it gets the stable `[tos_required]` prefix the
-/// frontend can switch on; every other status keeps the generic
-/// `hub returned {status}: {body}` shape.
+/// frontend can switch on. Any other status shows the hub's own
+/// `error` message ("Too many requests", "Peko not found"), or the
+/// status when the body has none.
 fn map_error_response(status: reqwest::StatusCode, body: &str) -> String {
     if status == reqwest::StatusCode::PRECONDITION_REQUIRED {
         let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
@@ -294,7 +296,17 @@ fn map_error_response(status: reqwest::StatusCode, body: &str) -> String {
             _ => format!("{TOS_REQUIRED_PREFIX} {message}"),
         };
     }
-    format!("hub returned {status}: {body}")
+    serde_json::from_str::<serde_json::Value>(body)
+        .ok()
+        .and_then(|v| v.get("error")?.as_str().map(str::to_string))
+        .filter(|m| !m.trim().is_empty())
+        .unwrap_or_else(|| format!("The hub answered {status}"))
+}
+
+/// `http://localhost:3000/` → `localhost:3000`, for error messages.
+fn host_of(hub_url: &str) -> &str {
+    let rest = hub_url.split_once("://").map_or(hub_url, |(_, rest)| rest);
+    rest.split('/').next().unwrap_or(rest)
 }
 
 /// A buffer that ingests raw SSE bytes and emits logical frames.
@@ -599,17 +611,24 @@ mod tests {
         assert!(err.starts_with(TOS_REQUIRED_PREFIX), "got: {err}");
     }
 
-    /// Other statuses keep the generic `hub returned {status}: {body}`
-    /// shape — rate limits (429) and offline pekos (503) are plain
-    /// errors in the chat UI.
+    /// Other statuses show the hub's own message — rate limits (429)
+    /// and offline pekos (503) are plain errors in the chat UI — or
+    /// the status when the body carries none.
     #[test]
-    fn map_error_response_other_status_is_generic() {
+    fn map_error_response_other_status_shows_the_hubs_message() {
         let err = map_error_response(
             reqwest::StatusCode::TOO_MANY_REQUESTS,
             r#"{"error":"Too many requests"}"#,
         );
-        assert!(err.starts_with("hub returned 429"), "got: {err}");
-        assert!(!err.starts_with(TOS_REQUIRED_PREFIX), "got: {err}");
+        assert_eq!(err, "Too many requests");
+        let err = map_error_response(reqwest::StatusCode::BAD_GATEWAY, "<html>");
+        assert_eq!(err, "The hub answered 502 Bad Gateway");
+    }
+
+    #[test]
+    fn host_of_strips_scheme_and_path() {
+        assert_eq!(host_of("http://localhost:3000/"), "localhost:3000");
+        assert_eq!(host_of("https://pekohub.org"), "pekohub.org");
     }
 
     /// runtime_id follows the canonical `hub:<hub_url>` shape so the

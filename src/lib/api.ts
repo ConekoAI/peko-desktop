@@ -789,6 +789,31 @@ export interface RemotePrincipalResolveResult {
   inviteToken?: string | null;
 }
 
+/** A remote peko's live public face, from its hub record. */
+export interface RemotePekoProfile {
+  status: string;
+  avatar: string | null;
+  description: string | null;
+  localId: string | null;
+}
+
+/**
+ * Read a saved remote peko's hub record. Goes through the backend: the
+ * webview's content security policy allows no outside hosts. `null`
+ * when the hub no longer has the peko.
+ */
+export async function remotePrincipalProfile(
+  hubUrl: string,
+  owner: string,
+  principalName: string,
+): Promise<RemotePekoProfile | null> {
+  return invoke<RemotePekoProfile | null>("remote_principal_profile", {
+    hubUrl,
+    owner,
+    principalName,
+  });
+}
+
 export async function remotePrincipalList(): Promise<RemotePrincipalSummary[]> {
   return invoke<RemotePrincipalSummary[]>("remote_principal_list");
 }

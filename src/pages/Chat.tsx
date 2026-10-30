@@ -21,7 +21,7 @@ import {
 import { useFileDrop } from "../hooks/useFileDrop";
 import { attachmentStage, pickAttachments } from "../lib/api";
 import { useModels } from "../hooks/useModels";
-import { useRemotePrincipals } from "../hooks/useRemotePrincipals";
+import { useRemotePeko } from "../hooks/useRemotePrincipals";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
@@ -252,21 +252,14 @@ export function chatLogMessagesToChatItems(
   return out;
 }
 
-/** `localhost:3000` for `http://localhost:3000`. */
-function hostOf(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
-}
-
 function PrincipalToolbar({
   peko,
+  runtimeId,
   description,
 }: {
   peko: PekoIdentity;
-  description?: string;
+  runtimeId: string;
+  description?: string | null;
 }) {
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -287,6 +280,7 @@ function PrincipalToolbar({
       <PrincipalProfileModal
         open={profileOpen}
         principalName={peko.name}
+        runtimeId={runtimeId}
         onClose={() => setProfileOpen(false)}
         onRemoved={() => navigate({ to: "/chat", replace: true })}
       />
@@ -312,9 +306,6 @@ export default function Chat() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const runtimeId = search.runtimeId ?? "local";
-  // A peko on another runtime, reached through a hub: not yours, so
-  // the header names its owner and hub.
-  const { data: remotePrincipals } = useRemotePrincipals();
 
   const { data: principals, isLoading } = usePrincipals();
 
@@ -329,19 +320,18 @@ export default function Chat() {
   if (paramName) principalName = paramName;
 
   const selectedPrincipal = principalName ?? principals?.[0]?.name ?? "";
-  const remotePeko =
-    runtimeId === "local"
-      ? undefined
-      : remotePrincipals?.find(
-          (r) => r.runtimeId === runtimeId && r.principalName === selectedPrincipal,
-        );
-  const pekoFace = useMemo(
+  // A peko on another runtime, reached through a hub: its face comes
+  // from the hub's record, and the header names its owner.
+  const remote = useRemotePeko(runtimeId, selectedPrincipal);
+  const remotePeko = remote.record;
+  const localFace = useMemo(
     () =>
       pekoIdentity(
         principals?.find((p) => p.name === selectedPrincipal) ?? { name: selectedPrincipal },
       ),
     [principals, selectedPrincipal],
   );
+  const pekoFace = remotePeko ? remote.identity : localFace;
 
   const sendMut = usePrincipalSend();
   const stopMut = usePrincipalStop();
@@ -805,10 +795,10 @@ export default function Chat() {
       )}
       <PrincipalToolbar
         peko={pekoFace}
+        runtimeId={remotePeko ? runtimeId : "local"}
         description={
           remotePeko
-            ? remotePeko.description ||
-              `${remotePeko.owner}'s peko · ${hostOf(remotePeko.hubUrl)}`
+            ? remote.description || `${remotePeko.owner}'s peko`
             : principals?.find((p) => p.name === selectedPrincipal)?.description
         }
       />
