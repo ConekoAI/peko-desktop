@@ -273,14 +273,27 @@ export function useChannelLeave(channelId: string | undefined, runtimeId?: Runti
  * on this runtime wakes. Members only; local runtime only.
  */
 export function useChannelInfo(channelId: string | undefined) {
-  return useQuery<ChannelInfo, ChannelError>({
+  return useQuery<ChannelInfo, ChannelError>(channelInfoQuery(channelId));
+}
+
+/** The query `useChannelInfo` runs, for `useQueries` over many groups. */
+export function channelInfoQuery(channelId: string | undefined) {
+  return {
     queryKey: ["channel-info", channelId] as const,
     enabled: !!channelId,
     queryFn: () => channelInfo(channelId!).catch(rethrowAsChannelError),
     staleTime: 10_000,
     // Not a member is an answer, not a hiccup: don't retry it.
-    retry: (count, error) => !isChannelForbidden(error) && count < 3,
-  });
+    retry: (count: number, error: ChannelError) => !isChannelForbidden(error) && count < 3,
+  };
+}
+
+/**
+ * Whether you have left a group: the engine refuses its info to
+ * non-members, or its roster lacks you.
+ */
+export function hasLeftGroup(info: ChannelInfo | undefined, error: unknown): boolean {
+  return (!!error && isChannelForbidden(error)) || (!!info?.members && !info.members.includes(LOCAL_USER));
 }
 
 /**

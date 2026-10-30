@@ -19,7 +19,7 @@ import {
   baseName,
 } from "../components/chat/Attachments";
 import { useFileDrop } from "../hooks/useFileDrop";
-import { pickAttachments } from "../lib/api";
+import { attachmentStage, pickAttachments } from "../lib/api";
 import { useModels } from "../hooks/useModels";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
@@ -381,6 +381,13 @@ export default function Chat() {
     );
   }
   const dragging = useFileDrop(canAttach, addFiles);
+  async function pasteFiles(files: File[]) {
+    try {
+      addFiles(await Promise.all(files.map(attachmentStage)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
   async function chooseFiles() {
     try {
       addFiles(await pickAttachments());
@@ -855,6 +862,7 @@ export default function Chat() {
           attachments={pendingFiles}
           onAttach={canAttach ? () => void chooseFiles() : undefined}
           onRemoveAttachment={(path) => setPendingFiles((prev) => prev.filter((p) => p !== path))}
+          onPasteFiles={canAttach ? (files) => void pasteFiles(files) : undefined}
         />
       </div>
     </div>

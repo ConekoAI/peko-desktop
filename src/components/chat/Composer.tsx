@@ -34,6 +34,7 @@ export default function Composer({
   attachments = [],
   onAttach,
   onRemoveAttachment,
+  onPasteFiles,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -50,6 +51,8 @@ export default function Composer({
   /** Pick files to attach; absent where attaching is unavailable. */
   onAttach?: () => void;
   onRemoveAttachment?: (path: string) => void;
+  /** Files pasted into the message (e.g. a screenshot). */
+  onPasteFiles?: (files: File[]) => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -87,6 +90,12 @@ export default function Composer({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
+        onPaste={(e) => {
+          const files = Array.from(e.clipboardData.files);
+          if (files.length === 0 || !onPasteFiles) return;
+          e.preventDefault();
+          onPasteFiles(files);
+        }}
         placeholder={busy ? "Add to what it's doing…" : "Message your peko…"}
         className="block max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm text-fg outline-none placeholder:text-slate-400"
       />

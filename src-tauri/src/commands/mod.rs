@@ -75,6 +75,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         system::peko_home_dir,
         attachments::attachment_preview,
         attachments::attachment_open,
+        attachments::attachment_stage,
         system::system_doctor,
         system::system_clean,
         runtime::runtime_list,
