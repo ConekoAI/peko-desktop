@@ -441,10 +441,7 @@ pub async fn principal_send(
                 &name,
                 &user_entry,
             );
-            client
-                .send_stream(&message, |_msg| {})
-                .await
-                .map_err(|e| format!("hub remote send failed: {e}"))
+            client.send_stream(&message, |_msg| {}).await
         }
     }
 }
@@ -545,8 +542,7 @@ pub async fn principal_send_stream(
                 .send_stream(&message, move |msg| {
                     let _ = on_event.send(msg);
                 })
-                .await
-                .map_err(|e| format!("hub remote stream failed: {e}"))?
+                .await?
         }
     };
 

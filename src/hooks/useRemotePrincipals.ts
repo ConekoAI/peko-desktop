@@ -10,6 +10,8 @@ import {
   type RemotePrincipalResolveResult,
   type RemotePrincipalSummary,
 } from "../lib/api";
+import { usePrincipalStatus } from "./usePrincipalStatus";
+import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
 
 /**
  * PR #4: list the desktop's remote-principal table. The query key
@@ -26,6 +28,38 @@ export function useRemotePrincipals() {
 }
 
 export type { RemotePrincipalSummary, RemotePrincipalResolveResult, AccessiblePrincipal };
+
+/**
+ * A remote peko as the app shows it: its saved record, its live status
+ * from the hub, and its face — the avatar its runtime announced and
+ * the accent its owner sees (keyed by its id on that runtime). `record`
+ * is undefined for a peko on this runtime or one no longer saved.
+ */
+export function useRemotePeko(runtimeId: string | undefined, name: string) {
+  const { data: remotes } = useRemotePrincipals();
+  const record =
+    runtimeId && runtimeId !== "local"
+      ? remotes?.find((r) => r.runtimeId === runtimeId && r.principalName === name)
+      : undefined;
+  const status = usePrincipalStatus(
+    record ? record.runtimeId : "local",
+    name,
+    record?.owner,
+    record?.hubUrl,
+  );
+  const profile = record ? status.data?.profile : undefined;
+  const identity: PekoIdentity = pekoIdentity({
+    name,
+    localId: profile?.localId ?? undefined,
+    avatar: profile?.avatar,
+  });
+  return {
+    record,
+    status,
+    identity,
+    description: profile?.description ?? record?.description ?? null,
+  };
+}
 
 /**
  * Translate a share URL into a `RemotePrincipalResolveResult` so the

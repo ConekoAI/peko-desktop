@@ -4,22 +4,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const principalGetMock = vi.fn();
 
+const profileMock = vi.fn();
+
 vi.mock("../lib/api", () => ({
   principalGet: (...args: unknown[]) => principalGetMock(...args),
+  remotePrincipalProfile: (...args: unknown[]) => profileMock(...args),
 }));
-
-// Capture the fake `fetch` so individual tests can assert the URL
-// shape and stub the response. Tests that don't touch the network
-// path don't need to assign anything here.
-let fetchImpl: ((input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) | undefined;
-
-vi.stubGlobal(
-  "fetch",
-  vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-    if (!fetchImpl) throw new Error("fetch stub not configured for this test");
-    return fetchImpl(input, init);
-  }),
-);
 
 import {
   usePrincipalStatus,
@@ -64,7 +54,6 @@ describe("statusBadge", () => {
 describe("usePrincipalStatus — local IPC path", () => {
   beforeEach(() => {
     principalGetMock.mockReset();
-    fetchImpl = undefined;
   });
 
   it("returns the live principal status from principalGet", async () => {
@@ -124,125 +113,72 @@ describe("usePrincipalStatus — local IPC path", () => {
 describe("usePrincipalStatus — remote hub path", () => {
   beforeEach(() => {
     principalGetMock.mockReset();
-    fetchImpl = undefined;
+    profileMock.mockReset();
   });
 
-  it("hits /v1/public/pekos/:owner/:pekoName on the configured hub", async () => {
-    let lastUrl = "";
-    fetchImpl = async (input) => {
-      lastUrl = String(input);
-      // Pekohub ADR-005 envelope: status lives under `liveInstance`.
-      return new Response(JSON.stringify({ liveInstance: { status: "online" } }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    };
-    const qc = freshClient();
-    const { result } = renderHookWith(
-      () => usePrincipalStatus("hub:https://hub.example.com", "coding-assistant", "alice", "https://hub.example.com"),
-      qc,
-    );
+  const remote = (name = "remy") =>
+    usePrincipalStatus("hub:https://hub.example.com", name, "alice", "https://hub.example.com");
+
+  it("reads the hub record through the backend, not the webview", async () => {
+    profileMock.mockResolvedValue({
+      status: "online",
+      avatar: null,
+      description: null,
+      localId: null,
+    });
+    const { result } = renderHookWith(() => remote("coding-assistant"), freshClient());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(lastUrl).toBe(
-      "https://hub.example.com/v1/public/pekos/alice/coding-assistant",
-    );
+    expect(profileMock).toHaveBeenCalledWith("https://hub.example.com", "alice", "coding-assistant");
     expect(result.current.data?.status).toBe("online");
     expect(result.current.data?.source).toBe("remote");
   });
 
-  it("tolerates a flat { status } body from older self-hosted hubs", async () => {
-    fetchImpl = async () =>
-      new Response(JSON.stringify({ status: "busy" }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    const qc = freshClient();
-    const { result } = renderHookWith(
-      () => usePrincipalStatus("hub:https://hub.example.com", "coding-assistant", "alice", "https://hub.example.com"),
-      qc,
-    );
+  it("carries the peko's public face: avatar, description, and id", async () => {
+    profileMock.mockResolvedValue({
+      status: "online",
+      avatar: "🦊",
+      description: "Finds things",
+      localId: "prin_123",
+    });
+    const { result } = renderHookWith(() => remote(), freshClient());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.status).toBe("busy");
+    expect(result.current.data?.profile).toEqual({
+      avatar: "🦊",
+      description: "Finds things",
+      localId: "prin_123",
+    });
   });
 
-  it("strips a trailing slash from the hub URL", async () => {
-    let lastUrl = "";
-    fetchImpl = async (input) => {
-      lastUrl = String(input);
-      return new Response(JSON.stringify({ status: "offline" }), { status: 200 });
-    };
-    const qc = freshClient();
-    const { result } = renderHookWith(
-      () =>
-        usePrincipalStatus(
-          "hub:https://hub.example.com/",
-          "coding-assistant",
-          "alice",
-          "https://hub.example.com/",
-        ),
-      qc,
-    );
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(lastUrl.startsWith("https://hub.example.com/v1/")).toBe(true);
-  });
-
-  it("treats 404 from the hub as 'offline' (principal was deregistered)", async () => {
-    fetchImpl = async () => new Response("not found", { status: 404 });
-    const qc = freshClient();
-    const { result } = renderHookWith(
-      () => usePrincipalStatus("hub:https://hub.example.com", "gone", "alice", "https://hub.example.com"),
-      qc,
-    );
+  it("treats a peko the hub no longer has as 'offline'", async () => {
+    profileMock.mockResolvedValue(null);
+    const { result } = renderHookWith(() => remote("gone"), freshClient());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.status).toBe("offline");
     expect(result.current.data?.source).toBe("remote");
   });
 
-  it("treats a 5xx as 'unknown' (transient — try again next poll)", async () => {
-    fetchImpl = async () => new Response("oops", { status: 503 });
-    const qc = freshClient();
-    const { result } = renderHookWith(
-      () => usePrincipalStatus("hub:https://hub.example.com", "alice-bot", "alice", "https://hub.example.com"),
-      qc,
-    );
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.status).toBe("unknown");
-  });
-
-  it("treats a network error (fetch throws) as 'unknown'", async () => {
-    fetchImpl = async () => {
-      throw new TypeError("network down");
-    };
-    const qc = freshClient();
-    const { result } = renderHookWith(
-      () => usePrincipalStatus("hub:https://hub.example.com", "alice-bot", "alice", "https://hub.example.com"),
-      qc,
-    );
+  it("treats a failed lookup as 'unknown' (try again next poll)", async () => {
+    profileMock.mockRejectedValue("pekohub error: 503 Service Unavailable");
+    const { result } = renderHookWith(() => remote(), freshClient());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.status).toBe("unknown");
   });
 
   it("falls back to the local IPC path when owner/hubUrl args are absent", async () => {
-    // No fetchImpl set — if the hook tries to fetch, the stubbed
-    // fetch will throw "fetch stub not configured for this test".
-    // That bubbles up as a thrown queryFn, which is what we're
-    // verifying doesn't happen: instead it should fall back to
-    // principalGet because the runtimeId is the literal string
-    // "hub:..." but no owner/hubUrl were provided.
     principalGetMock.mockResolvedValue({
       name: "alice",
       status: "busy",
       runtimeId: "hub:https://hub.example.com",
       owner: "alice",
     });
-    const qc = freshClient();
     const { result } = renderHookWith(
       () => usePrincipalStatus("hub:https://hub.example.com", "alice"),
-      qc,
+      freshClient(),
     );
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.source).toBe("local");
     expect(result.current.data?.status).toBe("busy");
     expect(principalGetMock).toHaveBeenCalledWith("alice", "hub:https://hub.example.com");
+    expect(profileMock).not.toHaveBeenCalled();
   });
 });

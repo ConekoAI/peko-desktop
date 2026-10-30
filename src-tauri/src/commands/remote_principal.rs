@@ -313,6 +313,60 @@ pub async fn remote_principal_remove(
     Ok(removed)
 }
 
+/// A remote peko's live public face, read from its hub record.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemotePekoProfile {
+    pub status: String,
+    /// The emoji or monogram its runtime announced, if any.
+    pub avatar: Option<String>,
+    pub description: Option<String>,
+    /// Its id on its own runtime: the app keys a peko's accent on it.
+    pub local_id: Option<String>,
+}
+
+fn project_profile(payload: &serde_json::Value) -> Option<RemotePekoProfile> {
+    let live = payload.get("liveInstance")?;
+    let text = |key: &str| {
+        live.get(key)
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.trim().is_empty())
+            .map(str::to_string)
+    };
+    Some(RemotePekoProfile {
+        status: text("status").unwrap_or_else(|| "unknown".to_string()),
+        avatar: text("avatar"),
+        description: text("description"),
+        local_id: text("localId"),
+    })
+}
+
+/// Read a saved remote peko's hub record: its status, avatar,
+/// description, and id. Fetched here rather than in the webview, whose
+/// content security policy allows no outside hosts. `None` when the hub
+/// no longer has it (deregistered, or no longer public).
+#[tauri::command]
+pub async fn remote_principal_profile(
+    hub_url: String,
+    owner: String,
+    principal_name: String,
+) -> Result<Option<RemotePekoProfile>, String> {
+    let invite_token = remote_principals::read_all()
+        .unwrap_or_default()
+        .into_iter()
+        .find(|r| r.hub_url == hub_url && r.owner == owner && r.principal_name == principal_name)
+        .and_then(|r| r.invite_token);
+    let client = crate::clients::pekohub::PekohubClient::new().with_base_url(hub_url);
+    match client
+        .get_public_principal(&owner, &principal_name, invite_token.as_deref())
+        .await
+    {
+        Ok(payload) => Ok(project_profile(&payload)),
+        Err(e) if e == "principal not found" => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 // ── Tauri domain port (lets the runtime-internal caller reach us) ──────
 //
 // `commands::register_commands` registers the public Tauri commands
@@ -323,6 +377,31 @@ pub async fn remote_principal_remove(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn profile_reads_the_live_instance() {
+        let payload = serde_json::json!({
+            "liveInstance": {
+                "status": "online",
+                "avatar": "🦊",
+                "description": "",
+                "localId": "prin_1",
+            }
+        });
+        assert_eq!(
+            project_profile(&payload),
+            Some(RemotePekoProfile {
+                status: "online".into(),
+                avatar: Some("🦊".into()),
+                description: None,
+                local_id: Some("prin_1".into()),
+            })
+        );
+        // A hub that predates avatars sends none.
+        let old = serde_json::json!({ "liveInstance": { "status": "offline" } });
+        assert_eq!(project_profile(&old).unwrap().avatar, None);
+        assert_eq!(project_profile(&serde_json::json!({})), None);
+    }
 
     #[test]
     fn test_parse_share_url_canonical_form() {
