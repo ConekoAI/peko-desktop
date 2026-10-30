@@ -13,6 +13,7 @@ import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
 import ImportPekoModal from "./modals/ImportPekoModal";
 import ChannelCreateModal from "./modals/ChannelCreateModal";
 import { useEngineStatus } from "../hooks/useEngine";
+import { useDmActivity } from "../hooks/useDmActivity";
 import { useEngineVersionMismatch } from "../hooks/useEngine";
 import { applyTheme } from "../lib/theme";
 import { installDeepLinkHandler } from "../lib/deepLink";
@@ -25,6 +26,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // CLI-daemon-died scenario for borrowed engines). The badge in
   // the header is gone — version/about links live in Settings → About.
   const { data: engine } = useEngineStatus();
+  // Unread counts, the dock badge, and notifications for peko messages.
+  useDmActivity();
   const { mismatch, dismiss } = useEngineVersionMismatch();
   // T-105: hoisted CreatePrincipalModal state so the sidebar's
   // empty-state CTA can open it. Chat.tsx and Dashboard.tsx keep
