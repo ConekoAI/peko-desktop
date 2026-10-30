@@ -492,6 +492,30 @@ export default function Chat() {
     }
   }, [older]);
 
+  // Keep the newest message in view when the thread grows after
+  // rendering (a thumbnail loading, a reply's activity expanding) —
+  // unless you have scrolled up to read.
+  const pinnedToBottomRef = useRef(true);
+  const hasMessages = (logData?.messages?.length ?? 0) + chatItems.length > 0;
+  useEffect(() => {
+    const el = scrollRef.current;
+    const content = el?.firstElementChild;
+    if (!el || !content || typeof ResizeObserver === "undefined") return;
+    const onScroll = () => {
+      pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    };
+    const observer = new ResizeObserver(() => {
+      if (pinnedToBottomRef.current) el.scrollTop = el.scrollHeight;
+    });
+    el.addEventListener("scroll", onScroll);
+    observer.observe(content);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
+    // Re-bind when the message list replaces the empty state.
+  }, [selectedPrincipal, hasMessages]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
