@@ -196,18 +196,68 @@ impl HubRemoteClient {
     /// back what's been written.
     pub async fn list_chat_log(
         &self,
-        _limit: Option<usize>,
+        limit: Option<usize>,
         _since_secs: Option<u64>,
         _cursor: Option<String>,
     ) -> Result<serde_json::Value, String> {
         let entries = local_chat_log::read_entries(&self.runtime_id, &self.principal_name)?;
-        Ok(serde_json::json!({
-            "kind": "remote_chat_log",
-            "runtime_id": self.runtime_id,
-            "principal_name": self.principal_name,
-            "entries": entries,
-        }))
+        Ok(remote_log_page(
+            &self.owner,
+            &self.principal_name,
+            &entries,
+            limit,
+        ))
     }
+}
+
+/// The local log of a remote peko as the page `principal_log` returns
+/// for a local one (`{ principal, peer, messages, next_cursor, has_more }`
+/// with `{ schemaVersion, id, sender, timestamp, text }` rows), the most
+/// recent `limit` rows. Before, it returned `{ kind: "remote_chat_log",
+/// entries }`, which the chat view could not read: a remote peko's
+/// thread always showed empty.
+fn remote_log_page(
+    owner: &str,
+    principal_name: &str,
+    entries: &[local_chat_log::ChatLogEntry],
+    limit: Option<usize>,
+) -> serde_json::Value {
+    let peko = format!("principal:hub:{owner}/{principal_name}");
+    let skip = limit.map_or(0, |n| entries.len().saturating_sub(n));
+    let messages: Vec<serde_json::Value> = entries
+        .iter()
+        .enumerate()
+        .skip(skip)
+        .map(|(i, entry)| {
+            let (sender, text, at_ms) = match entry {
+                local_chat_log::ChatLogEntry::User {
+                    content,
+                    timestamp_unix_ms,
+                } => ("user:local", content, *timestamp_unix_ms),
+                local_chat_log::ChatLogEntry::Assistant {
+                    content,
+                    timestamp_unix_ms,
+                } => (peko.as_str(), content, *timestamp_unix_ms),
+            };
+            let timestamp = chrono::DateTime::from_timestamp_millis(at_ms as i64)
+                .unwrap_or_default()
+                .to_rfc3339();
+            serde_json::json!({
+                "schemaVersion": 1,
+                "id": format!("remote_{i}"),
+                "sender": sender,
+                "timestamp": timestamp,
+                "text": text,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "principal": principal_name,
+        "peer": "user:local",
+        "messages": messages,
+        "next_cursor": null,
+        "has_more": false,
+    })
 }
 
 /// URL-encode a single query-string value. Avoids dragging in a new
@@ -353,6 +403,35 @@ fn parse_sse_record(s: &str) -> Option<SseFrame> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A remote peko's local log reads like a local peko's thread.
+    #[test]
+    fn remote_log_reads_as_a_thread_page() {
+        let entries = vec![
+            local_chat_log::ChatLogEntry::User {
+                content: "hello".into(),
+                timestamp_unix_ms: 1_793_356_834_216,
+            },
+            local_chat_log::ChatLogEntry::Assistant {
+                content: "SUCCESS".into(),
+                timestamp_unix_ms: 1_793_356_835_499,
+            },
+        ];
+        let page = remote_log_page("tester", "remy", &entries, None);
+        let rows = page["messages"].as_array().unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["sender"], "user:local");
+        assert_eq!(rows[0]["text"], "hello");
+        assert_eq!(rows[1]["sender"], "principal:hub:tester/remy");
+        assert!(rows[1]["timestamp"]
+            .as_str()
+            .unwrap()
+            .starts_with("2026-10-30T"));
+        assert_eq!(page["has_more"], false);
+        let last = remote_log_page("tester", "remy", &entries, Some(1));
+        assert_eq!(last["messages"].as_array().unwrap().len(), 1);
+        assert_eq!(last["messages"][0]["text"], "SUCCESS");
+    }
 
     /// The chunk envelope the hub emits on every text delta must
     /// round-trip into `SseFrame::Chunk` with the delta preserved
