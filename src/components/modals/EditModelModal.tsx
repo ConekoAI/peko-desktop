@@ -6,7 +6,16 @@ import { useGenericCredentialList, useSetGenericCredential } from "../../hooks/u
 import type { ModelSummary, ModelUpdateArgs } from "../../types";
 import { API_FORMATS } from "../../lib/apiFormats";
 import InputsPicker from "../models/InputsPicker";
-import { inputsOf, withInputs, type ModelInputs } from "../../lib/model-spec";
+import PriceFields from "../models/PriceFields";
+import {
+  inputsOf,
+  priceDraftOf,
+  pricingFromDraft,
+  withInputs,
+  withPricing,
+  type ModelInputs,
+  type PriceDraft,
+} from "../../lib/model-spec";
 
 
 interface HeaderRow {
@@ -50,6 +59,8 @@ export default function EditModelModal({
   const [requiresKey, setRequiresKey] = useState(model.requiresKey);
   const [enabled, setEnabled] = useState(model.enabled);
   const [inputs, setInputs] = useState<ModelInputs>(() => inputsOf(model.spec));
+  const [price, setPrice] = useState<PriceDraft>(() => priceDraftOf(model.spec));
+  const pricing = pricingFromDraft(price);
   const [credentialId, setCredentialId] = useState(model.credentialId ?? "");
   const [headers, setHeaders] = useState<HeaderRow[]>(() =>
     Object.entries(model.headers).map(([k, v]) => ({ key: k, value: v })),
@@ -67,6 +78,7 @@ export default function EditModelModal({
       setRequiresKey(model.requiresKey);
       setEnabled(model.enabled);
       setInputs(inputsOf(model.spec));
+      setPrice(priceDraftOf(model.spec));
       setCredentialId(model.credentialId ?? "");
       setNewKey("");
       setKeyMut.reset();
@@ -101,6 +113,7 @@ export default function EditModelModal({
   }
 
   async function handleSubmit() {
+    if (pricing === null) return;
     let keyId = credentialId.trim() || undefined;
     if (newKey.trim()) {
       // Store the new key under the current key's name (else the
@@ -139,14 +152,17 @@ export default function EditModelModal({
       requiresKey,
       enabled,
     };
-    // Only a change of media inputs rewrites the descriptor.
+    // Only a change of media inputs or price rewrites the descriptor.
     const before = inputsOf(model.spec);
-    if (
+    const inputsChanged =
       before.image !== inputs.image ||
       before.audio !== inputs.audio ||
-      before.video !== inputs.video
-    ) {
-      args.spec = withInputs(model.spec, inputs);
+      before.video !== inputs.video;
+    const priceBefore = priceDraftOf(model.spec);
+    const priceChanged =
+      priceBefore.input !== price.input.trim() || priceBefore.output !== price.output.trim();
+    if (inputsChanged || priceChanged) {
+      args.spec = withPricing(withInputs(model.spec, inputs), pricing ?? undefined);
     }
 
     updateMut.mutate(args, {
@@ -233,6 +249,12 @@ export default function EditModelModal({
           </div>
 
           <InputsPicker value={inputs} onChange={setInputs} disabled={updateMut.isPending} />
+          <PriceFields
+            value={price}
+            onChange={setPrice}
+            invalid={pricing === null}
+            disabled={updateMut.isPending}
+          />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
@@ -385,7 +407,7 @@ export default function EditModelModal({
           </button>
           <button
             onClick={() => void handleSubmit()}
-            disabled={updateMut.isPending || setKeyMut.isPending}
+            disabled={updateMut.isPending || setKeyMut.isPending || pricing === null}
             data-testid="edit-model-submit"
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
           >

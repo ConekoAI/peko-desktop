@@ -11,7 +11,15 @@ import EndpointForm, {
   type EndpointDraft,
 } from "../models/EndpointForm";
 import InputsPicker from "../models/InputsPicker";
-import { NO_MEDIA, withInputs, type ModelInputs } from "../../lib/model-spec";
+import PriceFields from "../models/PriceFields";
+import {
+  NO_MEDIA,
+  pricingFromDraft,
+  withInputs,
+  withPricing,
+  type ModelInputs,
+  type PriceDraft,
+} from "../../lib/model-spec";
 
 /**
  * Add a configured model: an endpoint (base URL, API format, model id)
@@ -34,12 +42,15 @@ export default function AddModelModal({
   const addMut = useAddModel();
   const [draft, setDraft] = useState<EndpointDraft>(EMPTY_ENDPOINT);
   const [inputs, setInputs] = useState<ModelInputs>(NO_MEDIA);
+  const [price, setPrice] = useState<PriceDraft>({ input: "", output: "" });
+  const pricing = pricingFromDraft(price);
 
   // A reopened dialog starts clean.
   useEffect(() => {
     if (open) {
       setDraft(EMPTY_ENDPOINT);
       setInputs(NO_MEDIA);
+      setPrice({ input: "", output: "" });
       addMut.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,13 +66,21 @@ export default function AddModelModal({
 
   const name = endpointName(draft);
   const conflict = !!name && (existingModels ?? []).some((m) => m.id === name);
-  const canSubmit = isEndpointValid(draft) && !conflict && !addMut.isPending;
+  const canSubmit =
+    isEndpointValid(draft) && !conflict && pricing !== null && !addMut.isPending;
 
   function submit() {
     if (!canSubmit) return;
-    // Text only: leave the model without a descriptor, as before.
+    // Text only and unpriced: leave the model without a descriptor.
     const media = inputs.image || inputs.audio || inputs.video;
-    const args = media ? { ...endpointArgs(draft), spec: withInputs(null, inputs) } : endpointArgs(draft);
+    const priced = pricing ?? undefined;
+    const args =
+      media || priced
+        ? {
+            ...endpointArgs(draft),
+            spec: withPricing(withInputs(null, inputs), priced),
+          }
+        : endpointArgs(draft);
     addMut.mutate(args, {
       onSuccess: (info) => {
         onSuccess?.(info.id);
@@ -104,6 +123,12 @@ export default function AddModelModal({
             disabled={addMut.isPending}
           />
           <InputsPicker value={inputs} onChange={setInputs} disabled={addMut.isPending} />
+          <PriceFields
+            value={price}
+            onChange={setPrice}
+            invalid={pricing === null}
+            disabled={addMut.isPending}
+          />
           {conflict && (
             <p className="text-xs text-warn" data-testid="add-model-conflict">
               A model named <span className="font-mono">{name}</span> already exists — set another

@@ -33,9 +33,11 @@ import type {
   ModelUpdateArgs,
   PrincipalExposure,
   PekoRegistration,
+  PekoUsage,
   RuntimeConnection,
   Setting,
   SystemStatus,
+  UsageLimits,
 } from "../types";
 
 // ─── Runtimes ───────────────────────────────────────────────────
@@ -461,6 +463,16 @@ export async function principalSendStream(
     // workspace (ADR-088). Local runtime only.
     attachments: attachments ?? [],
   });
+}
+
+/** A local peko's usage this cycle (tokens, requests, spend) and limits. */
+export async function principalUsage(name: string): Promise<PekoUsage> {
+  return invoke<PekoUsage>("principal_usage", { name });
+}
+
+/** Replace a local peko's limits; resolves to the usage now in force. */
+export async function principalSetLimits(name: string, config: UsageLimits): Promise<PekoUsage> {
+  return invoke<PekoUsage>("principal_set_limits", { name, config });
 }
 
 /** Ask for files to attach; resolves to their paths (none if cancelled). */

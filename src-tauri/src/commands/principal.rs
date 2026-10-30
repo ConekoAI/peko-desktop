@@ -1366,3 +1366,72 @@ mod tests {
         assert!(err.contains("invalid principal name"), "got: {err}");
     }
 }
+
+/// A peko's usage this cycle and its limits: the runtime's
+/// `quota_status` (`{ state, config }`, snake_case, passed through).
+fn quota_envelope(value: serde_json::Value) -> Result<serde_json::Value, String> {
+    match value.get("type").and_then(|t| t.as_str()) {
+        Some("quota_status") => Ok(serde_json::json!({
+            "state": value.get("state").cloned().unwrap_or_default(),
+            "config": value.get("config").cloned().unwrap_or_default(),
+        })),
+        Some("error") => Err(value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("runtime error")
+            .to_string()),
+        _ => Err(format!("unexpected quota response: {value}")),
+    }
+}
+
+/// Usage this cycle (tokens, requests, spend) and limits of a local peko.
+#[tauri::command]
+pub async fn principal_usage(name: String) -> Result<serde_json::Value, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .quota_get(&name)
+        .await
+        .map_err(|e| format!("quota_get failed: {e}"))?;
+    quota_envelope(value)
+}
+
+/// Replace a local peko's limits (budget per cycle, the cycle, token
+/// and request limits). Returns the usage and limits now in force.
+#[tauri::command]
+pub async fn principal_set_limits(
+    name: String,
+    config: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .quota_set(&name, config)
+        .await
+        .map_err(|e| format!("quota_set failed: {e}"))?;
+    quota_envelope(value)
+}
+
+#[cfg(test)]
+mod quota_tests {
+    use super::quota_envelope;
+
+    #[test]
+    fn quota_status_passes_state_and_config_through() {
+        let value = serde_json::json!({
+            "type": "quota_status",
+            "request_id": 1,
+            "state": {"cost_usd": 0.04, "request_count": 2},
+            "config": {"cycle": "daily", "budget_per_cycle": 0.06},
+        });
+        let out = quota_envelope(value).unwrap();
+        assert_eq!(out["state"]["request_count"], 2);
+        assert_eq!(out["config"]["budget_per_cycle"], 0.06);
+        let err = quota_envelope(
+            serde_json::json!({"type": "error", "message": "principal not found: x"}),
+        );
+        assert_eq!(err.unwrap_err(), "principal not found: x");
+    }
+}

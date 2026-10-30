@@ -42,6 +42,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_revoke_permission,
         principal::principal_permissions,
         principal::principal_mint_invite,
+        principal::principal_usage,
+        principal::principal_set_limits,
         principal::principal_revoke_invite,
         channel::channel_list,
         channel::channel_get,

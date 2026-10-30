@@ -22,7 +22,7 @@ import {
   principalRevokeInvite,
   type MintedInvite,
 } from "../../lib/api";
-import type { PekoRegistration } from "../../types";
+import type { ModelSummary, PekoRegistration } from "../../types";
 import {
   X,
   MessageSquare,
@@ -37,6 +37,7 @@ import {
   Package,
 } from "lucide-react";
 import PekoAvatar from "../peko/PekoAvatar";
+import UsagePanel from "../peko/UsagePanel";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
 
 interface PrincipalProfileModalProps {
@@ -213,6 +214,14 @@ export default function PrincipalProfileModal({
   }, [principal, pekohubBaseUrl]);
 
   const modelItems = useMemo(() => resolveModelItems(models), [models]);
+  // Spend is counted only when the peko's model has a price.
+  const modelIsPriced = useMemo(() => {
+    const preferred = (Array.isArray(models) ? (models as ModelSummary[]) : []).find(
+      (m) => m.id === principal?.preferredModelId,
+    );
+    const pricing = preferred?.spec?.pricing;
+    return !!(pricing?.input_per_million || pricing?.output_per_million);
+  }, [models, principal?.preferredModelId]);
   const selectedModel = useMemo(
     () => modelItems.find((m) => m.id === modelId),
     [modelItems, modelId],
@@ -478,6 +487,7 @@ export default function PrincipalProfileModal({
               />
               <Row label="Owner" value={principal.owner === caller ? "You" : principal.owner} />
               {isRemote && <Row label="Runtime" value={principal.runtimeId} />}
+              {!isRemote && <UsagePanel name={principal.name} priced={modelIsPriced} />}
               {/* Public share link (PR-D). Only meaningful when exposure
                   is `public` — otherwise the link would 404 on the
                   hub. Mirrors the BundleCard copy-install-command

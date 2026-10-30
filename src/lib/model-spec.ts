@@ -150,15 +150,70 @@ export function inputsOf(spec: ModelSpec | null | undefined): ModelInputs {
  * its tools.
  */
 export function withInputs(spec: ModelSpec | null | undefined, inputs: ModelInputs): ModelSpec {
-  const base: ModelSpec = spec ?? {
-    ...MODEL_SPEC_DEFAULT,
-    tool_support: "function_calling",
-    thinking: "optional",
-  };
   return {
-    ...base,
+    ...baseSpec(spec),
     image_input: inputs.image,
     audio_input: inputs.audio,
     video_input: inputs.video,
+  };
+}
+
+/**
+ * `spec` with its price replaced (`undefined` removes it). A model with
+ * no descriptor gets one that keeps tools and thinking on.
+ */
+export function withPricing(
+  spec: ModelSpec | null | undefined,
+  pricing: ModelPricingHint | undefined,
+): ModelSpec {
+  const next: ModelSpec = { ...baseSpec(spec) };
+  if (pricing) next.pricing = pricing;
+  else delete next.pricing;
+  return next;
+}
+
+/** A descriptor to edit: the model's own, or one that keeps tools on. */
+function baseSpec(spec: ModelSpec | null | undefined): ModelSpec {
+  return (
+    spec ?? {
+      ...MODEL_SPEC_DEFAULT,
+      tool_support: "function_calling",
+      thinking: "optional",
+    }
+  );
+}
+
+/** Text fields for a price, as typed. */
+export interface PriceDraft {
+  input: string;
+  output: string;
+}
+
+export function priceDraftOf(spec: ModelSpec | null | undefined): PriceDraft {
+  const p = spec?.pricing;
+  return {
+    input: p?.input_per_million != null ? String(p.input_per_million) : "",
+    output: p?.output_per_million != null ? String(p.output_per_million) : "",
+  };
+}
+
+/**
+ * The price a draft describes: `undefined` when both fields are empty,
+ * `null` when a field is not a non-negative number.
+ */
+export function pricingFromDraft(draft: PriceDraft): ModelPricingHint | undefined | null {
+  const read = (raw: string): number | undefined | null => {
+    const t = raw.trim().replace(/^\$/, "");
+    if (t === "") return undefined;
+    const n = Number(t);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  const input = read(draft.input);
+  const output = read(draft.output);
+  if (input === null || output === null) return null;
+  if (input === undefined && output === undefined) return undefined;
+  return {
+    ...(input !== undefined && { input_per_million: input }),
+    ...(output !== undefined && { output_per_million: output }),
   };
 }

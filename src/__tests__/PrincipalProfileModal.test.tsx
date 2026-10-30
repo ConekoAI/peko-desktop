@@ -68,6 +68,9 @@ vi.mock("../lib/api", () => ({
   principalRegister: (...args: unknown[]) => principalRegisterMock(...args),
 }));
 
+// The usage panel has its own tests (UsagePanel.test.tsx).
+vi.mock("../components/peko/UsagePanel", () => ({ default: () => null }));
+
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 
 /** Edit, pick a registration, Save; the config update succeeds. */
