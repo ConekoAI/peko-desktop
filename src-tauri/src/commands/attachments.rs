@@ -81,9 +81,11 @@ fn stage(dir: &Path, name: &str, data: &str) -> Result<PathBuf, String> {
         .collect();
     let safe = safe.trim_start_matches('.');
     let file = if safe.is_empty() { "pasted" } else { safe };
-    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let id = uuid_like();
-    let path = dir.join(format!("{id}-{file}"));
+    // Each paste gets its own folder, so the file keeps a clean name
+    // (it becomes the attachment's name) and pastes never collide.
+    let folder = dir.join(uuid_like());
+    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let path = folder.join(file);
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     Ok(path)
 }
@@ -155,11 +157,7 @@ mod tests {
         let data = base64::engine::general_purpose::STANDARD.encode(b"png-bytes");
         let path = stage(dir.path(), "../screen shot.png", &data).unwrap();
         assert!(path.starts_with(dir.path()));
-        assert!(path
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .ends_with("-_screen_shot.png"));
+        assert_eq!(path.file_name().unwrap(), "_screen_shot.png");
         assert_eq!(std::fs::read(&path).unwrap(), b"png-bytes");
         assert!(stage(dir.path(), "x.png", "not base64!").is_err());
     }
