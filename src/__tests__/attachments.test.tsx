@@ -6,6 +6,10 @@ const api = vi.hoisted(() => ({
   attachmentPreview: vi.fn(),
   attachmentOpen: vi.fn(),
 }));
+vi.mock("../hooks/useRemotePrincipals", () => ({
+  useRemotePrincipals: () => ({ data: [] }),
+}));
+
 vi.mock("../lib/api", () => api);
 
 import {
