@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useCallerSubject,
   usePrincipal,
@@ -16,6 +16,8 @@ import {
 import { useModels } from "../../hooks/useModels";
 import { useSettings } from "../../hooks/useSettings";
 import {
+  DEFAULT_HUB_URL,
+  pekoShareLink,
   principalSetStatus,
   principalMintInvite,
   principalRegister,
@@ -115,7 +117,7 @@ function LocalPekoProfile({
   const pekohubBaseUrl = useMemo(
     () =>
       settings?.find((s) => s.key === "pekohub.base_url")?.value ??
-      "https://pekohub.org",
+      DEFAULT_HUB_URL,
     [settings],
   );
 
@@ -222,13 +224,15 @@ function LocalPekoProfile({
     }
   };
 
-  const shareUrl = useMemo(() => {
-    if (!principal) return null;
-    if (principal.exposure !== "public") return null;
-    return `${pekohubBaseUrl.replace(/\/+$/, "")}/peko/${encodeURIComponent(
-      principal.owner,
-    )}/${encodeURIComponent(principal.name)}`;
-  }, [principal, pekohubBaseUrl]);
+  // The hub the runtime is registered with knows the owner's handle,
+  // which the link is built from (not the runtime's owner id).
+  const shareLinkQuery = useQuery({
+    queryKey: ["peko-share-link", principal?.name, principal?.exposure],
+    queryFn: () => pekoShareLink(principal!.name),
+    enabled: principal?.exposure === "public",
+    staleTime: 5 * 60_000,
+  });
+  const shareUrl = principal?.exposure === "public" ? (shareLinkQuery.data ?? null) : null;
 
   const modelItems = useMemo(() => resolveModelItems(models), [models]);
   // Spend is counted only when the peko's model has a price.

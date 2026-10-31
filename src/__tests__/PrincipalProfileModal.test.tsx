@@ -14,8 +14,12 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
 }));
 
+// The share link comes from the backend (`peko_share_link`): the hub the
+// runtime is registered with, and the owner's handle there.
+const shareLinkState: { data: string | null } = { data: "https://pekohub.ai/peko/alice/helper" };
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQuery: (opts: { enabled?: boolean }) => ({ data: opts.enabled ? shareLinkState.data : undefined }),
 }));
 
 interface MutState {
@@ -66,6 +70,8 @@ vi.mock("../lib/api", () => ({
   principalMintInvite: vi.fn(),
   principalRevokeInvite: vi.fn(),
   principalRegister: (...args: unknown[]) => principalRegisterMock(...args),
+  pekoShareLink: vi.fn(),
+  DEFAULT_HUB_URL: "https://pekohub.ai",
 }));
 
 // The usage panel has its own tests (UsagePanel.test.tsx).
@@ -118,12 +124,16 @@ describe("PrincipalProfileModal", () => {
     }
   });
 
-  it("builds the share link with the canonical /peko/{owner}/{name} path", () => {
+  it("shows the share link the hub gives, and none when there is none", () => {
+    shareLinkState.data = "https://pekohub.ai/peko/alice/helper";
+    const { unmount } = renderModal();
+    expect(screen.getByText("https://pekohub.ai/peko/alice/helper")).toBeInTheDocument();
+    unmount();
+    // Not registered, or the hub doesn't know it: no link rather than a wrong one.
+    shareLinkState.data = null;
     renderModal();
-    expect(
-      screen.getByText("https://pekohub.org/peko/alice/helper"),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/\/p\/alice\/helper/)).toBeNull();
+    expect(screen.queryByText(/\/peko\//)).toBeNull();
+    shareLinkState.data = "https://pekohub.ai/peko/alice/helper";
   });
 
   it("saves a registration change through principalRegister, not the config update", async () => {

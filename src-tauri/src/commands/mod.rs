@@ -2,6 +2,7 @@ pub mod attachments;
 pub mod channel;
 pub mod daemon;
 pub mod engine;
+pub mod hub_http;
 pub mod model_admin;
 pub mod oauth_callback;
 pub mod principal;
@@ -90,6 +91,9 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         remote_principal::remote_principal_add,
         remote_principal::remote_principal_remove,
         remote_principal::remote_principal_profile,
+        hub_http::hub_get,
+        hub_http::hub_oauth_token,
+        hub_http::peko_share_link,
         oauth_callback::start_oauth_callback_listener,
     ]
 }

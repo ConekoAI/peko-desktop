@@ -6,7 +6,7 @@
 use reqwest::header::AUTHORIZATION;
 use serde::Deserialize;
 
-const DEFAULT_BASE_URL: &str = "https://pekohub.org/api";
+const DEFAULT_BASE_URL: &str = "https://pekohub.ai/api";
 
 /// Response shape of `GET /v1/me/accessible-pekos` (pekohub ADR-005).
 /// The wire fields are peko-named (`pekoName`); the internal type

@@ -6,6 +6,7 @@ import {
   runOAuthFlow,
 } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
+import { DEFAULT_HUB_URL } from "../lib/api";
 
 /**
  * Chrome-level profile menu — top of the AppRail, accessible from any
@@ -40,7 +41,7 @@ export default function ProfileMenu() {
 
   const pekohubBaseUrl =
     settings?.find((s) => s.key === "pekohub.base_url")?.value ??
-    "https://pekohub.org";
+    DEFAULT_HUB_URL;
   const oauthScope =
     settings?.find((s) => s.key === "pekohub.oauth_scope")?.value ??
     "runtimes:read";

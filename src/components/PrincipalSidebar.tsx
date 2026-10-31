@@ -29,7 +29,7 @@ import {
   Circle,
   Package,
 } from "lucide-react";
-import type { RemotePrincipalSummary } from "../lib/api";
+import { DEFAULT_HUB_URL, type RemotePrincipalSummary } from "../lib/api";
 import PekoAvatar from "./peko/PekoAvatar";
 import { pekoIdentity } from "../lib/pekoIdentity";
 import { useUnreadCounts } from "../lib/unread";
@@ -345,7 +345,7 @@ export default function PrincipalSidebar({
   const pekohubBaseUrl = useMemo(
     () =>
       settings?.find((s) => s.key === "pekohub.base_url")?.value ??
-      "https://pekohub.org",
+      DEFAULT_HUB_URL,
     [settings],
   );
   const { data: accessiblePekos } = useAccessiblePrincipals(
