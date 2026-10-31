@@ -1223,6 +1223,18 @@ impl IpcClient {
     /// `RequestPacket::PrincipalGet`. The response envelope is
     /// `{"type": "principal_get", "principal": {...} | null}` — the
     /// daemon returns `null` for a miss, never an error.
+    /// The runtime's tunnel state, including the hub it is registered
+    /// with (`hub_url`; absent when unregistered or from older daemons).
+    pub async fn tunnel_status(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "tunnel_status",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
     pub async fn principal_get(&self, name: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({

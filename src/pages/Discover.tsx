@@ -8,6 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import { discoverySearch, deepLinkFor, shareUrlFor, resolveHubUrl } from "../lib/discovery";
+import { useSettings } from "../hooks/useSettings";
 
 /**
  * PR #8: in-app discover page for peko-desktop. Searches the
@@ -27,7 +28,8 @@ import { discoverySearch, deepLinkFor, shareUrlFor, resolveHubUrl } from "../lib
  * the user always has a path forward.
  */
 export default function Discover() {
-  const hubUrl = resolveHubUrl();
+  const { data: settings } = useSettings();
+  const hubUrl = resolveHubUrl(settings?.find((s) => s.key === "pekohub.base_url")?.value);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string | undefined>(undefined);
 
@@ -173,10 +175,15 @@ function DiscoverCard({
       <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="truncate font-semibold text-slate-900 dark:text-white">
+            {hit.avatar && (
+              <span aria-hidden="true" className="mr-1.5 select-none">
+                {hit.avatar}
+              </span>
+            )}
             {hit.publicName}
           </h3>
           <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
-            @{hit.ownerName}
+            @{hit.ownerNamespace ?? hit.ownerName}
           </p>
         </div>
         {hit.featured && (

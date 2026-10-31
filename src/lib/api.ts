@@ -1041,8 +1041,95 @@ export interface PekohubRuntime {
 }
 
 /**
- * Exchange an OAuth authorization code for tokens.
- * This calls the PekoHub token endpoint directly from the frontend.
+ * The hub the app uses until the user picks another (`pekohub.base_url`).
+ * `pekohub.org` now redirects here, and a redirected token POST loses
+ * its body, so the default names this host directly.
+ */
+export const DEFAULT_HUB_URL = "https://pekohub.ai";
+
+/** The hub resources the backend reads for the frontend (`hub_http.rs`). */
+export type HubResource = "runtimes" | "accessible_pekos" | "discovery_search";
+
+interface HubAnswer {
+  status: number;
+  body: string;
+}
+
+/** Statuses a `Response` may not carry a body with. */
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
+
+/**
+ * The backend's answer as a `Response`, so callers keep their status
+ * handling. A failure to reach the hub rejects with an `Error`.
+ */
+async function hubAnswer(call: Promise<HubAnswer>): Promise<Response> {
+  let answer: HubAnswer;
+  try {
+    answer = await call;
+  } catch (e) {
+    throw e instanceof Error ? e : new Error(String(e));
+  }
+  const body = NULL_BODY_STATUSES.has(answer.status) ? null : answer.body;
+  return new Response(body, { status: answer.status });
+}
+
+/**
+ * A hub answer's JSON body. A body that isn't JSON — a web page, when
+ * the address serves a site but no hub API — gets an error that says
+ * so, not the engine's "string did not match the expected pattern".
+ */
+export async function hubJson(resp: Response, baseUrl: string): Promise<any> {
+  const text = await resp.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    let host = baseUrl;
+    try {
+      host = new URL(baseUrl).host;
+    } catch {
+      // keep the address as given
+    }
+    throw new Error(`${host} didn't answer as a PekoHub: no hub API at this address`);
+  }
+}
+
+/**
+ * `GET` a hub resource. Hub calls go through the backend: the
+ * webview's content security policy allows no outside hosts, so a
+ * `fetch()` from here fails in a built app.
+ */
+export function hubGet(
+  baseUrl: string,
+  resource: HubResource,
+  opts: { accessToken?: string; query?: Record<string, string> } = {},
+): Promise<Response> {
+  return hubAnswer(
+    invoke<HubAnswer>("hub_get", {
+      baseUrl,
+      resource,
+      accessToken: opts.accessToken ?? null,
+      query: opts.query ? Object.entries(opts.query) : null,
+    }),
+  );
+}
+
+/**
+ * A public peko's share link (`<hub>/peko/<owner's handle>/<name>`), from
+ * the hub this runtime is registered with. `null` when the peko isn't
+ * public or the runtime isn't registered.
+ */
+export function pekoShareLink(name: string): Promise<string | null> {
+  return invoke<string | null>("peko_share_link", { name });
+}
+
+/** `POST /oauth/token` on a hub, through the backend (see `hubGet`). */
+function hubOAuthToken(baseUrl: string, params: Record<string, string>): Promise<Response> {
+  return hubAnswer(invoke<HubAnswer>("hub_oauth_token", { baseUrl, params }));
+}
+
+/**
+ * Exchange an OAuth authorization code for tokens at the hub's token
+ * endpoint.
  */
 export async function oauthTokenExchange(params: {
   baseUrl: string;
@@ -1051,23 +1138,18 @@ export async function oauthTokenExchange(params: {
   redirectUri: string;
   codeVerifier: string;
 }): Promise<OAuthTokenResponse> {
-  const url = new URL("/oauth/token", params.baseUrl);
-  const resp = await fetch(url.toString(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      grant_type: "authorization_code",
-      client_id: params.clientId,
-      code: params.code,
-      redirect_uri: params.redirectUri,
-      code_verifier: params.codeVerifier,
-    }),
+  const resp = await hubOAuthToken(params.baseUrl, {
+    grant_type: "authorization_code",
+    client_id: params.clientId,
+    code: params.code,
+    redirect_uri: params.redirectUri,
+    code_verifier: params.codeVerifier,
   });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "Unknown error");
     throw new Error(`Token exchange failed (${resp.status}): ${text}`);
   }
-  return resp.json();
+  return hubJson(resp, params.baseUrl);
 }
 
 /**
@@ -1078,21 +1160,16 @@ export async function oauthTokenRefresh(params: {
   clientId: string;
   refreshToken: string;
 }): Promise<OAuthTokenResponse> {
-  const url = new URL("/oauth/token", params.baseUrl);
-  const resp = await fetch(url.toString(), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      grant_type: "refresh_token",
-      client_id: params.clientId,
-      refresh_token: params.refreshToken,
-    }),
+  const resp = await hubOAuthToken(params.baseUrl, {
+    grant_type: "refresh_token",
+    client_id: params.clientId,
+    refresh_token: params.refreshToken,
   });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "Unknown error");
     throw new Error(`Token refresh failed (${resp.status}): ${text}`);
   }
-  return resp.json();
+  return hubJson(resp, params.baseUrl);
 }
 
 /**
@@ -1102,15 +1179,12 @@ export async function pekohubListRuntimes(
   baseUrl: string,
   accessToken: string,
 ): Promise<PekohubRuntime[]> {
-  const url = new URL("/v1/runtimes", baseUrl);
-  const resp = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const resp = await hubGet(baseUrl, "runtimes", { accessToken });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "Unknown error");
     throw new Error(`Failed to list runtimes (${resp.status}): ${text}`);
   }
-  const data = await resp.json();
+  const data = await hubJson(resp, baseUrl);
   // The endpoint may return { runtimes: [...] } or just [...]
   const arr = Array.isArray(data) ? data : data.runtimes;
   if (!Array.isArray(arr)) {
@@ -1154,18 +1228,12 @@ export async function pekohubListAccessiblePekos(
   baseUrl: string,
   accessToken: string,
 ): Promise<AccessiblePrincipal[]> {
-  const url = new URL("/v1/me/accessible-pekos", baseUrl);
-  const resp = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
-  });
+  const resp = await hubGet(baseUrl, "accessible_pekos", { accessToken });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "Unknown error");
     throw new Error(`Failed to list accessible pekos (${resp.status}): ${text}`);
   }
-  const data = await resp.json();
+  const data = await hubJson(resp, baseUrl);
   // The endpoint returns { pekos: [...] }; tolerate a bare array.
   const arr = Array.isArray(data) ? data : data?.pekos;
   if (!Array.isArray(arr)) {

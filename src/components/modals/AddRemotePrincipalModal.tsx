@@ -119,7 +119,7 @@ export default function AddRemotePrincipalModal({
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Paste a pekohub share link to add a peko published by
             someone else. The link looks like{" "}
-            <code className="font-mono">https://pekohub.org/peko/alice/coding-assistant</code>.
+            <code className="font-mono">https://pekohub.ai/peko/alice/coding-assistant</code>.
           </p>
 
           <div>
@@ -136,14 +136,14 @@ export default function AddRemotePrincipalModal({
                 autoFocus
                 value={shareUrl}
                 onChange={(e) => handleUrlChange(e.target.value)}
-                placeholder="https://pekohub.org/peko/owner/name"
+                placeholder="https://pekohub.ai/peko/owner/name"
                 className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
             </div>
             {shareUrl.trim() && !parsed && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
                 That doesn&apos;t look like a pekohub share link. Expected{" "}
-                <code className="font-mono">https://pekohub.org/peko/owner/name</code>.
+                <code className="font-mono">https://pekohub.ai/peko/owner/name</code>.
               </p>
             )}
             {parsed && parsed.inviteToken && (
