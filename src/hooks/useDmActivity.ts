@@ -3,12 +3,15 @@
  * initiative (reminders, check-ins, approval requests) is never missed:
  * an unread count per peko, the total on the dock icon, and an OS
  * notification when a peko writes while you aren't looking at its chat.
+ * A remote peko writes only in reply; a reply that lands after you've
+ * left its chat (the backend's `remote-reply` event) counts the same way.
  *
  * Mounted once, in the layout. Desktop-only: it reads the same
  * `principal_log` / `principal_log_watch` the chat does.
  */
 import { useEffect, useRef } from "react";
 import { useLocation } from "@tanstack/react-router";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   isPermissionGranted,
@@ -25,9 +28,11 @@ import {
   markRead,
   readUpTo,
   setUnread,
+  unreadKey,
   useUnreadCounts,
 } from "../lib/unread";
 import { newestLogCursor, useCallerSubject, usePrincipals } from "./usePrincipals";
+import { useRemotePrincipals } from "./useRemotePrincipals";
 
 /** A DM row as the watch delivers it. */
 interface Row {
@@ -37,10 +42,19 @@ interface Row {
   text?: string;
 }
 
-/** The peko whose chat is on screen, if any. */
-function activePeko(pathname: string): string | null {
+/** The unread key of the peko whose chat is on screen, if any. */
+function activePeko(pathname: string, runtimeId: unknown): string | null {
   const m = /^\/chat\/([^/?#]+)/.exec(pathname);
-  return m ? decodeURIComponent(m[1]) : null;
+  if (!m) return null;
+  return unreadKey(decodeURIComponent(m[1]), typeof runtimeId === "string" ? runtimeId : null);
+}
+
+/** A recorded remote reply, as the backend announces it. */
+interface RemoteReply {
+  runtimeId: string;
+  name: string;
+  text: string;
+  timestamp: string;
 }
 
 let permission: Promise<boolean> | null = null;
@@ -67,15 +81,18 @@ async function notify(peko: string, text: string) {
 export function useDmActivity() {
   const { data: principals } = usePrincipals();
   const caller = useCallerSubject();
-  const { pathname } = useLocation();
+  const { data: remotes } = useRemotePrincipals();
+  const { pathname, search } = useLocation();
   const counts = useUnreadCounts();
 
   // Read inside watch callbacks without restarting the watches.
   const activeRef = useRef<string | null>(null);
-  activeRef.current = activePeko(pathname);
+  activeRef.current = activePeko(pathname, (search as Record<string, unknown>)?.runtimeId);
 
   const names = (principals ?? []).map((p) => p.name);
   const namesKey = names.join("|");
+  const remoteKeys = (remotes ?? []).map((r) => unreadKey(r.principalName, r.runtimeId));
+  const remotesKey = remoteKeys.join("|");
 
   // You are looking at a peko's chat: it is read. Also when the window
   // comes back into focus.
@@ -87,7 +104,7 @@ export function useDmActivity() {
     read();
     window.addEventListener("focus", read);
     return () => window.removeEventListener("focus", read);
-  }, [pathname]);
+  }, [pathname, search]);
 
   // One watch per local peko.
   useEffect(() => {
@@ -151,13 +168,61 @@ export function useDmActivity() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [namesKey, caller]);
 
+  // Remote pekos: counts rebuilt from their saved history, then each
+  // recorded reply as it lands.
+  useEffect(() => {
+    if (!remotes || remotes.length === 0) return;
+    let cancelled = false;
+    for (const remote of remotes) {
+      const key = unreadKey(remote.principalName, remote.runtimeId);
+      void (async () => {
+        try {
+          const page = await principalLog({
+            name: remote.principalName,
+            runtimeId: remote.runtimeId,
+            limit: 50,
+          });
+          if (cancelled) return;
+          const read = readUpTo(key);
+          const newest = page.messages[page.messages.length - 1]?.timestamp;
+          if (!read) {
+            if (newest) markRead(key, newest);
+          } else {
+            setUnread(
+              key,
+              page.messages.filter((m) => !isFromPerson(m.sender) && isLater(m.timestamp, read))
+                .length,
+            );
+          }
+        } catch {
+          // No history yet: nothing to count.
+        }
+      })();
+    }
+    const unlisten = listen<RemoteReply>("remote-reply", ({ payload }) => {
+      const key = unreadKey(payload.name, payload.runtimeId);
+      if (activeRef.current === key && document.hasFocus()) {
+        markRead(key, payload.timestamp);
+        return;
+      }
+      addUnread(key);
+      void notify(payload.name, payload.text);
+    });
+    return () => {
+      cancelled = true;
+      void unlisten.then((stop) => stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remotesKey]);
+
   // Pekos that are gone take their counts with them.
   useEffect(() => {
-    for (const name of Object.keys(counts)) {
-      if (principals && !names.includes(name)) forgetPeko(name);
+    if (!principals || !remotes) return;
+    for (const key of Object.keys(counts)) {
+      if (!names.includes(key) && !remoteKeys.includes(key)) forgetPeko(key);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [namesKey]);
+  }, [namesKey, remotesKey]);
 
   // The total on the dock icon.
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
