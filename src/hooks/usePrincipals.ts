@@ -7,7 +7,9 @@ import {
 } from "@tanstack/react-query";
 
 import {
+  principalApprovals,
   principalCreate,
+  principalDecideApproval,
   principalExport,
   principalGet,
   principalImport,
@@ -17,7 +19,6 @@ import {
   principalRemove,
   principalSend,
   principalSendStream,
-  principalStop,
   principalLogWatch,
   principalUpdate,
   type ChatStreamMsg,
@@ -349,11 +350,26 @@ export function usePrincipalSend() {
   });
 }
 
-/** Stop the running turn in the caller's thread with a peko. */
-export function usePrincipalStop() {
+/**
+ * The approval requests waiting for a local peko's owner (runtime
+ * ADR-078). Refetched when the peko's thread changes (its notice lands
+ * there) and every 30 s, so a request filed elsewhere shows up too.
+ */
+export function usePrincipalApprovals(name: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["approvals", name],
+    queryFn: () => principalApprovals(name!),
+    enabled: !!name && enabled,
+    refetchInterval: 30_000,
+  });
+}
+
+/** Approve or deny a waiting request; the list refreshes after. */
+export function useDecideApproval() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { name: string; peer?: string; runtimeId?: RuntimeId }) =>
-      principalStop(vars.name, vars.peer, effectiveRuntimeId(vars.runtimeId)),
+    mutationFn: principalDecideApproval,
+    onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: ["approvals", vars.name] }),
   });
 }
 
@@ -452,6 +468,9 @@ export function usePrincipalLog(
       return principalLog({ name, peer, limit: 100, runtimeId: rid });
     },
     enabled: !!name,
+    // A run waiting out a disruption continues on its own; look again
+    // now and then so its status (and its reply) show up.
+    refetchInterval: (query) => (query.state.data?.runFailure?.nextAttemptAt ? 20_000 : false),
   });
 }
 

@@ -178,6 +178,39 @@ export interface ChatLogPage {
   nextCursor: string | null;
   /** True when older pages remain (i.e. `nextCursor` is usable). */
   hasMore: boolean;
+  /**
+   * The last run in this conversation that did not go through (runtime
+   * ADR-089), shown beside the thread, never in it. Absent once a run
+   * succeeds.
+   */
+  runFailure?: RunFailure | null;
+}
+
+/** Why the peko's last run in a conversation did not go through. */
+export interface RunFailure {
+  /** RFC 3339. */
+  at: string;
+  /** `peko_limit`, `provider_quota`, `provider_unreachable`, or `failed`. */
+  kind: string;
+  message: string;
+  /** Set while the run waits: it continues on its own at this time. */
+  nextAttemptAt?: string | null;
+}
+
+/** A request from someone else that waits for the owner (runtime ADR-078). */
+export interface ApprovalRequest {
+  id: string;
+  /** Address of whoever asked (`user:hub:…`, `principal:local:…`). */
+  actor: string;
+  actorName?: string | null;
+  /** `trusted` or `untrusted`. */
+  trust: string;
+  /** What it would do: the tool and its target. */
+  summary: string;
+  /** Why the reviewer asked the owner. */
+  reason: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
 /**

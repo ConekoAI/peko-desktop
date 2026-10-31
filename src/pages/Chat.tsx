@@ -5,13 +5,13 @@ import {
   usePrincipalSend,
   usePrincipalLog,
   usePrincipalLogWatch,
-  usePrincipalStop,
+  usePrincipalApprovals,
+  useDecideApproval,
   useCallerSubject,
   newestLogCursor,
   fetchOlderPrincipalLog,
 } from "../hooks/usePrincipals";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
-import ActivitySteps from "../components/chat/ActivitySteps";
 import Composer, { type ComposerModel } from "../components/chat/Composer";
 import {
   MAX_ATTACHMENTS,
@@ -25,7 +25,6 @@ import { useRemotePeko } from "../hooks/useRemotePrincipals";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
-import { applyActivity, EMPTY_ACTIVITY, type Activity as ReplyActivity } from "../components/chat/activity";
 import {
   Loader2,
   MessageCircle,
@@ -39,7 +38,13 @@ import {
 } from "lucide-react";
 import Markdown from "../components/chat/Markdown";
 import { copyText } from "../components/chat/copy";
-import type { ChatLogAttachment, ChatLogMessage, StreamEvent } from "../types";
+import type {
+  ApprovalRequest,
+  ChatLogAttachment,
+  ChatLogMessage,
+  RunFailure,
+  StreamEvent,
+} from "../types";
 import type { ChatStreamMsg } from "../lib/api";
 
 /**
@@ -53,24 +58,13 @@ const TOS_REQUIRED_PREFIX = "[tos_required]";
 interface ChatItem {
   event: StreamEvent;
   isUser: boolean;
-  /**
-   * Agentic-iteration number that produced this chunk (1-based, set
-   * by the runtime's `principal_sent_iteration` boundary marker).
-   * Only present on streamed assistant chunks — historical chunks
-   * loaded from the chat log have `undefined` because the runtime
-   * persists assistant turns as one flat record per turn and the
-   * chat-log projection cannot recover iteration boundaries. The
-   * merge predicate treats `undefined` as a single value so all
-   * historical chunks in a turn collapse into one bubble.
-   */
-  iteration?: number;
-  /** A message sent while the peko was busy, waiting for its turn. */
+  /** A message sent while the peko was working, shown after its reply. */
   queued?: boolean;
   /** Files sent with the message. */
   attachments?: ChatLogAttachment[];
 }
 
-/** The error a stream ends with when the user pressed Stop. */
+/** The error a stream ends with when the run was stopped (`peko stop`). */
 const STOPPED_BY_USER = "stopped by user";
 
 function formatTime(ts?: string) {
@@ -130,11 +124,6 @@ function ChatMessage({
           <span className="text-[11px] text-fg-subtle">
             {formatTime(event.timestamp)}
           </span>
-          {item.queued && (
-            <span className="text-[11px] text-warn">
-              Queued — your peko will read this next
-            </span>
-          )}
         </div>
         <div className="mt-0.5 text-sm text-fg">
           {isUser ? (
@@ -188,32 +177,118 @@ function MessageAction({
   );
 }
 
-function mergeAssistantChunks(items: ChatItem[]): ChatItem[] {
-  const merged: ChatItem[] = [];
-  for (const item of items) {
-    const last = merged[merged.length - 1];
-    if (
-      !item.isUser &&
-      item.event.type === "chunk" &&
-      last &&
-      !last.isUser &&
-      last.event.type === "chunk" &&
-      // Only merge consecutive assistant chunks that share the same
-      // agentic iteration. A different `iteration` (or one missing
-      // and the other present) means a new LLM turn started — emit
-      // a separate bubble. Two `undefined` iterations merge (this
-      // is how historical chat-log items collapse into one bubble).
-      last.iteration === item.iteration
-    ) {
-      last.event = {
-        ...last.event,
-        content: (last.event.content ?? "") + (item.event.content ?? ""),
-      };
-    } else {
-      merged.push({ ...item });
+/**
+ * Fold the streamed text of one agentic iteration into the reply. A
+ * reply is one bubble: a new iteration's text replaces the previous
+ * one's (the engine records only the last iteration's text as the
+ * reply), so what streams is what the thread keeps.
+ */
+export function foldReplyText(current: string, delta: string, newIteration: boolean): string {
+  return newIteration ? delta : current + delta;
+}
+
+/** A short, plain phrase for why a run is waiting or failed. */
+export function runFailureLine(failure: RunFailure, now: Date = new Date()): string {
+  const reason =
+    {
+      peko_limit: "its spending limit is reached",
+      provider_quota: "the model provider's quota is used up",
+      provider_unreachable: "the model provider can't be reached",
+    }[failure.kind] ?? failure.message;
+  if (failure.nextAttemptAt) {
+    const next = new Date(failure.nextAttemptAt);
+    const sameDay = next.toDateString() === now.toDateString();
+    const when = next.toLocaleString([], {
+      ...(sameDay ? {} : { month: "short", day: "numeric" }),
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `Waiting — ${reason}. It continues on its own, next try ${when}.`;
+  }
+  return `The last reply didn't go through — ${reason}.`;
+}
+
+/** Seconds since `since`, ticking once a second while `live`. */
+function useElapsed(since: number | null, live: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!live) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [live]);
+  return since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000));
+}
+
+/** Who is asking, as the card names them. */
+function askerName(request: ApprovalRequest): string {
+  return request.actorName ? `${request.actorName} (${request.actor})` : request.actor;
+}
+
+/**
+ * The requests waiting for you, the peko's owner: what someone else
+ * asked it to do that its policy left to you. Approve runs exactly
+ * that call for them; Always also adds a standing rule to POLICY.md.
+ */
+function ApprovalCards({ peko, requests }: { peko: string; requests: ApprovalRequest[] }) {
+  const decide = useDecideApproval();
+  const [outcome, setOutcome] = useState<string | null>(null);
+  useEffect(() => {
+    if (!outcome) return;
+    const id = window.setTimeout(() => setOutcome(null), 6000);
+    return () => window.clearTimeout(id);
+  }, [outcome]);
+
+  async function act(id: string, approve: boolean, always = false) {
+    try {
+      setOutcome(await decide.mutateAsync({ name: peko, id, approve, always }));
+    } catch (err) {
+      setOutcome(err instanceof Error ? err.message : String(err));
     }
   }
-  return merged;
+
+  if (requests.length === 0 && !outcome) return null;
+  return (
+    <div className="space-y-2 border-t border-line bg-surface px-4 pt-3" data-testid="approval-cards">
+      {requests.map((r) => (
+        <div key={r.id} className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-sm">
+          <p className="text-fg">
+            <span className="font-medium">{askerName(r)}</span> asks {peko} to run{" "}
+            <span className="font-mono text-xs">{r.summary.replace(/`/g, "")}</span>
+          </p>
+          {r.reason && <p className="mt-1 text-xs text-fg-muted">{r.reason}</p>}
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              disabled={decide.isPending}
+              onClick={() => void act(r.id, true)}
+              className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              disabled={decide.isPending}
+              onClick={() => void act(r.id, true, true)}
+              title={`Approve, and always allow this for ${r.actorName ?? r.actor}`}
+              className="rounded-md border border-line px-3 py-1 text-xs text-fg-soft hover:bg-surface-sunken disabled:opacity-50"
+            >
+              Always allow
+            </button>
+            <button
+              type="button"
+              disabled={decide.isPending}
+              onClick={() => void act(r.id, false)}
+              className="rounded-md border border-line px-3 py-1 text-xs text-fg-soft hover:bg-surface-sunken disabled:opacity-50"
+            >
+              Deny
+            </button>
+          </div>
+        </div>
+      ))}
+      {outcome && <p className="text-xs text-fg-muted">{outcome}</p>}
+    </div>
+  );
 }
 
 /**
@@ -334,7 +409,6 @@ export default function Chat() {
   const pekoFace = remotePeko ? remote.identity : localFace;
 
   const sendMut = usePrincipalSend();
-  const stopMut = usePrincipalStop();
   const callerSubject = useCallerSubject();
   // ADR-042: scope the chat-history read to the caller's peer thread so
   // the desktop shows only the conversation between `selectedPrincipal`
@@ -416,8 +490,9 @@ export default function Chat() {
   const [activeSends, setActiveSends] = useState(0);
   const activeSendsRef = useRef(0);
   const isStreaming = activeSends > 0;
-  // Failed tool calls reported by the last run's `runSummary`.
-  const [toolErrors, setToolErrors] = useState<string[]>([]);
+  // When the peko started on the message it is working on.
+  const [workStartedAt, setWorkStartedAt] = useState<number | null>(null);
+  const workingSecs = useElapsed(workStartedAt, isStreaming);
   // The model for the next message; `null` is the peko's own. Resets
   // when switching pekos.
   const [modelChoice, setModelChoice] = useState<string | null>(null);
@@ -429,20 +504,13 @@ export default function Chat() {
         .map((m) => ({ id: m.id, displayName: m.displayName || m.id })),
     [models],
   );
-  // The latest reply's thinking and tool calls. Kept after the reply
-  // lands (the thread itself records only messages) until the next send.
-  const [activity, setActivity] = useState<ReplyActivity>(EMPTY_ACTIVITY);
-  // `awaitingToken` drives the "Thinking…" pill: it stays `true` from
-  // send until the first chunk of the current iteration lands, and
-  // flips back to `true` whenever a new `principal_sent_iteration`
-  // boundary marker arrives (e.g. between a tool call and the next
-  // assistant reply). This makes the pill reflect the real state of
-  // "we don't have a token yet" rather than the whole stream window.
+  // How the peko works — thinking, tools, steps — stays inside it; the
+  // chat shows only that it is working. `awaitingToken` is true while
+  // no text of the current step has arrived yet (the indicator shows),
+  // and `newIterationRef` makes the next step's text replace the
+  // reply's instead of adding to it.
   const [awaitingToken, setAwaitingToken] = useState(true);
-  // Tracks the iteration number most recently stamped by the runtime
-  // via `principal_sent_iteration`. Used to tag outgoing chunks so
-  // `mergeAssistantChunks` can break bubbles at iteration boundaries.
-  const currentIterationRef = useRef<number>(0);
+  const newIterationRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Messages older than the latest page, loaded on demand (oldest
@@ -459,8 +527,6 @@ export default function Chat() {
     setChatItems([]);
     setQueuedItems([]);
     setPendingFiles([]);
-    setToolErrors([]);
-    setActivity(EMPTY_ACTIVITY);
     setModelChoice(null);
     setError(null);
     setOlder([]);
@@ -576,18 +642,17 @@ export default function Chat() {
         })),
       }),
     };
-    // Sending while the peko is working is how the user steers it: the
-    // runtime queues the message for the running turn. Show it after
-    // the live reply until the thread refetches.
+    // A message sent while the peko works reaches it at once (the
+    // runtime hands it to the running turn, which reads it next). Show
+    // it after the live reply until the thread refetches.
     const sentWhileBusy = activeSendsRef.current > 0;
     if (sentWhileBusy) {
       setQueuedItems((prev) => [...prev, { ...userItem, queued: true }]);
     } else {
       setChatItems((prev) => [...prev, userItem]);
-      currentIterationRef.current = 0;
+      newIterationRef.current = false;
       setAwaitingToken(true);
-      setToolErrors([]);
-      setActivity(EMPTY_ACTIVITY);
+      setWorkStartedAt(Date.now());
     }
     activeSendsRef.current += 1;
     setActiveSends(activeSendsRef.current);
@@ -602,8 +667,8 @@ export default function Chat() {
       promoted = true;
       setQueuedItems((prev) => prev.filter((q) => q.event !== userItem.event));
       setChatItems((prev) => [...prev, userItem]);
-      currentIterationRef.current = 0;
-      setActivity(EMPTY_ACTIVITY);
+      newIterationRef.current = false;
+      setWorkStartedAt(Date.now());
     };
 
     try {
@@ -614,45 +679,31 @@ export default function Chat() {
         overrideModel: modelChoice ?? undefined,
         attachments: files,
         onEvent: (msg: ChatStreamMsg) => {
-          if (msg.kind === "queued") return;
-          if (msg.kind === "runSummary") {
-            setToolErrors(
-              msg.toolErrors.map((t) =>
-                t.toolName ? `${t.toolName}: ${t.errorMessage}` : t.errorMessage,
-              ),
-            );
-            return;
-          }
+          if (msg.kind === "queued" || msg.kind === "runSummary") return;
           promote();
-          if (msg.kind === "thinking" || msg.kind === "toolStart" || msg.kind === "toolEnd") {
-            setActivity((prev) => applyActivity(prev, msg));
-            return;
-          }
+          // Thinking and tool calls are the peko's own business.
+          if (msg.kind === "thinking" || msg.kind === "toolStart" || msg.kind === "toolEnd") return;
           if (msg.kind === "iteration") {
-            // A new agentic iteration started: tag the next chunk and
-            // show the pill until its first token lands.
-            currentIterationRef.current = msg.iteration;
+            // A new step: the indicator shows until its text arrives,
+            // and that text becomes the reply.
+            newIterationRef.current = true;
             setAwaitingToken(true);
             return;
           }
           setAwaitingToken(false);
           const delta = msg.delta;
-          const iteration = currentIterationRef.current;
+          const newIteration = newIterationRef.current;
+          newIterationRef.current = false;
           setChatItems((prev) => {
             const last = prev[prev.length - 1];
-            if (
-              last &&
-              !last.isUser &&
-              last.event.type === "chunk" &&
-              // Append only within the same agentic iteration; a new
-              // iteration starts a new bubble.
-              last.iteration === iteration
-            ) {
+            if (last && !last.isUser && last.event.type === "chunk") {
               const updated = [...prev];
               updated[updated.length - 1] = {
-                event: { ...last.event, content: (last.event.content ?? "") + delta },
+                event: {
+                  ...last.event,
+                  content: foldReplyText(last.event.content ?? "", delta, newIteration),
+                },
                 isUser: false,
-                iteration: last.iteration ?? iteration,
               };
               return updated;
             }
@@ -661,7 +712,6 @@ export default function Chat() {
               {
                 event: { type: "chunk", content: delta, timestamp: Date.now().toString() },
                 isUser: false,
-                iteration,
               },
             ];
           });
@@ -669,14 +719,15 @@ export default function Chat() {
       });
     } catch (err) {
       const text = err instanceof Error ? err.message : String(err);
-      // Stop is not an error: the thread shows the runtime's stop marker.
+      // A stop (`peko stop`) is not an error.
       if (!text.includes(STOPPED_BY_USER)) setError(text);
     } finally {
       activeSendsRef.current -= 1;
       setActiveSends(activeSendsRef.current);
       if (activeSendsRef.current === 0) {
         setAwaitingToken(true);
-        currentIterationRef.current = 0;
+        setWorkStartedAt(null);
+        newIterationRef.current = false;
         logWatch.pausedRef.current = false;
         // The DM channel is the record: once it has the exchange, the
         // live copies go.
@@ -705,19 +756,18 @@ export default function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [say, selectedPrincipal, principalName]);
 
-  async function handleStop() {
-    if (!selectedPrincipal) return;
-    try {
-      await stopMut.mutateAsync({ name: selectedPrincipal, runtimeId });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }
+  // Requests someone else made that wait for you, the owner. The
+  // peko's notice lands in this thread, so a new row refetches them.
+  const approvals = usePrincipalApprovals(selectedPrincipal || undefined, runtimeId === "local");
+  const refetchApprovals = approvals.refetch;
+  useEffect(() => {
+    if (runtimeId === "local" && selectedPrincipal) void refetchApprovals();
+  }, [logData, runtimeId, selectedPrincipal, refetchApprovals]);
 
-  const displayItems = useMemo(
-    () => mergeAssistantChunks([...historyItems, ...chatItems]),
-    [historyItems, chatItems],
-  );
+  // Why the last run here didn't go through, shown beside the thread.
+  const runFailure = !isStreaming ? (logData?.runFailure ?? null) : null;
+
+  const displayItems = useMemo(() => [...historyItems, ...chatItems], [historyItems, chatItems]);
   const lastUserIdx = useMemo(() => {
     for (let i = displayItems.length - 1; i >= 0; i--) if (displayItems[i].isUser) return i;
     return -1;
@@ -835,17 +885,17 @@ export default function Chat() {
                       : undefined
                   }
                 />
-                {/* The latest reply's activity sits between the last
-                    user message and the reply. */}
-                {idx === lastUserIdx && <ActivitySteps activity={activity} live={isStreaming} />}
               </Fragment>
             ))}
             {isStreaming && awaitingToken && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-xl bg-brand-soft px-4 py-2 text-sm text-brand">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>...</span>
-                </div>
+              <div
+                data-testid="working-indicator"
+                className="flex items-center gap-2 px-4 py-1.5 text-xs text-fg-subtle"
+              >
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>
+                  {pekoFace.name} is working{workingSecs >= 3 ? ` · ${workingSecs}s` : ""}
+                </span>
               </div>
             )}
             {queuedItems.map((item, idx) => (
@@ -854,19 +904,10 @@ export default function Chat() {
           </div>
         )}
 
-        {toolErrors.length > 0 && (
-          <details className="mt-3 rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs text-warn">
-            <summary className="cursor-pointer">
-              {toolErrors.length === 1
-                ? "1 tool call failed during this reply"
-                : `${toolErrors.length} tool calls failed during this reply`}
-            </summary>
-            <ul className="mt-2 list-disc space-y-1 pl-4">
-              {toolErrors.map((t, i) => (
-                <li key={i} className="break-words">{t}</li>
-              ))}
-            </ul>
-          </details>
+        {runFailure && (
+          <p data-testid="run-status" className="mt-2 px-4 text-xs text-fg-subtle">
+            {runFailureLine(runFailure)}
+          </p>
         )}
 
         {tosText !== null ? (
@@ -886,14 +927,13 @@ export default function Chat() {
         ) : null}
       </div>
 
+      <ApprovalCards peko={selectedPrincipal} requests={approvals.data ?? []} />
+
       <div className="border-t border-line bg-surface p-4">
         <Composer
           value={input}
           onChange={setInput}
           onSend={handleSend}
-          onStop={handleStop}
-          busy={isStreaming}
-          stopping={stopMut.isPending}
           models={runtimeId === "local" ? composerModels : []}
           model={modelChoice}
           onModelChange={setModelChoice}

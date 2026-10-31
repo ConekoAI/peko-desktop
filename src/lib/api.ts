@@ -17,6 +17,7 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 
 import type {
+  ApprovalRequest,
   BootState,
   ChannelDetail,
   ChannelEvent,
@@ -475,6 +476,48 @@ export async function principalSetLimits(name: string, config: UsageLimits): Pro
   return invoke<PekoUsage>("principal_set_limits", { name, config });
 }
 
+/** The request as the engine sends it (snake_case). */
+interface WireApproval {
+  id: string;
+  actor: string;
+  actor_name?: string | null;
+  trust: string;
+  summary: string;
+  reason: string;
+  created_at: string;
+  expires_at: string;
+}
+
+/** The approval requests waiting for a local peko's owner, oldest first. */
+export async function principalApprovals(name: string): Promise<ApprovalRequest[]> {
+  const wire = await invoke<WireApproval[]>("principal_approvals", { name });
+  return wire.map((a) => ({
+    id: a.id,
+    actor: a.actor,
+    actorName: a.actor_name ?? null,
+    trust: a.trust,
+    summary: a.summary,
+    reason: a.reason,
+    createdAt: a.created_at,
+    expiresAt: a.expires_at,
+  }));
+}
+
+/** Approve (`always`: and remember it) or deny; resolves to what happened. */
+export async function principalDecideApproval(params: {
+  name: string;
+  id: string;
+  approve: boolean;
+  always?: boolean;
+}): Promise<string> {
+  return invoke<string>("principal_decide_approval", {
+    name: params.name,
+    id: params.id,
+    approve: params.approve,
+    always: params.always ?? false,
+  });
+}
+
 /** Ask for files to attach; resolves to their paths (none if cancelled). */
 export async function pickAttachments(): Promise<string[]> {
   const { open } = await import("@tauri-apps/plugin-dialog");
@@ -563,7 +606,11 @@ function subjectToString(subject: WireSubject): string {
 }
 
 /** The page envelope as the engine sends it (snake_case). */
-type WireLogPage = LogResponse & { next_cursor?: string | null; has_more?: boolean };
+type WireLogPage = LogResponse & {
+  next_cursor?: string | null;
+  has_more?: boolean;
+  run_failure?: { at: string; kind: string; message: string; next_attempt_at?: string | null };
+};
 
 function normalizePrincipalLog(response: LogResponse): LogResponse {
   // The engine names the paging fields `next_cursor` / `has_more`; read
@@ -574,6 +621,14 @@ function normalizePrincipalLog(response: LogResponse): LogResponse {
     ...response,
     nextCursor: wire.nextCursor ?? wire.next_cursor ?? null,
     hasMore: wire.hasMore ?? wire.has_more ?? false,
+    runFailure: wire.run_failure
+      ? {
+          at: wire.run_failure.at,
+          kind: wire.run_failure.kind,
+          message: wire.run_failure.message,
+          nextAttemptAt: wire.run_failure.next_attempt_at ?? null,
+        }
+      : null,
     peer: subjectToString(response.peer as WireSubject),
     messages: response.messages.map((message) => ({
       ...message,

@@ -1394,6 +1394,64 @@ mod tests {
     }
 }
 
+/// A runtime reply's `[code] message` error, or `None`.
+fn runtime_error(value: &serde_json::Value) -> Option<String> {
+    (value.get("type").and_then(|t| t.as_str()) == Some("error")).then(|| {
+        value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("runtime error")
+            .to_string()
+    })
+}
+
+/// The approval requests waiting for a local peko's owner (ADR-078),
+/// oldest first: `[{ id, actor, actor_name?, trust, summary, reason,
+/// created_at, expires_at }]`, snake_case, passed through.
+#[tauri::command]
+pub async fn principal_approvals(name: String) -> Result<serde_json::Value, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .approval_list(&name)
+        .await
+        .map_err(|e| format!("approval_list failed: {e}"))?;
+    if let Some(err) = runtime_error(&value) {
+        return Err(err);
+    }
+    Ok(value
+        .get("approvals")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([])))
+}
+
+/// Approve (`always`: and remember it) or deny a waiting request.
+/// Resolves to what the runtime did ("Approved apr_… Running it …").
+#[tauri::command]
+pub async fn principal_decide_approval(
+    name: String,
+    id: String,
+    approve: bool,
+    always: bool,
+) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .approval_decide(&name, &id, approve, always)
+        .await
+        .map_err(|e| format!("approval_decide failed: {e}"))?;
+    if let Some(err) = runtime_error(&value) {
+        return Err(err);
+    }
+    Ok(value
+        .get("message")
+        .and_then(|m| m.as_str())
+        .unwrap_or_default()
+        .to_string())
+}
+
 /// A peko's usage this cycle and its limits: the runtime's
 /// `quota_status` (`{ state, config }`, snake_case, passed through).
 fn quota_envelope(value: serde_json::Value) -> Result<serde_json::Value, String> {

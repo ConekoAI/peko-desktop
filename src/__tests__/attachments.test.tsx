@@ -83,9 +83,6 @@ describe("attachments", () => {
       value: "",
       onChange: () => {},
       onSend,
-      onStop: () => {},
-      busy: false,
-      stopping: false,
       models: [],
       model: null,
       onModelChange: () => {},
@@ -108,9 +105,6 @@ describe("attachments", () => {
         value=""
         onChange={() => {}}
         onSend={() => {}}
-        onStop={() => {}}
-        busy={false}
-        stopping={false}
         models={[]}
         model={null}
         onModelChange={() => {}}
