@@ -13,6 +13,15 @@ const READ_KEY = "peko.readUpTo";
 
 type Counts = Record<string, number>;
 
+/**
+ * The key a peko's count and read mark live under: its name for a peko
+ * on this computer, its runtime and name for a remote one, so a remote
+ * peko never shares a count with a local peko of the same name.
+ */
+export function unreadKey(name: string, runtimeId?: string | null): string {
+  return runtimeId && runtimeId !== "local" ? `${runtimeId}#${name}` : name;
+}
+
 let counts: Counts = {};
 const listeners = new Set<() => void>();
 

@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::AppHandle;
+use tauri::Emitter;
 use tauri::Manager;
 
 use crate::state::AppState;
@@ -471,6 +472,10 @@ pub struct PrincipalSendStreamResult {
 /// streams never share a correlation id. If the thread is already
 /// busy the run settles at once with a `queued` event and empty
 /// content; the reply then arrives through `principal_log_watch_start`.
+/// Emitted when a remote peko's reply has been recorded:
+/// `{ runtimeId, name, text, timestamp }`.
+pub const REMOTE_REPLY_EVENT: &str = "remote-reply";
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)] // Tauri command args stay flat to keep the JS call shape additive
 pub async fn principal_send_stream(
@@ -538,11 +543,27 @@ pub async fn principal_send_stream(
                 &name,
                 &user_entry,
             );
-            client
+            let content = client
                 .send_stream(&message, move |msg| {
                     let _ = on_event.send(msg);
                 })
-                .await?
+                .await?;
+            // A remote peko writes only in reply, and a reply can land
+            // after you've left its chat: tell the app, which counts it
+            // as unread the way it counts a local peko's DM.
+            if !content.trim().is_empty() {
+                let _ = app.emit(
+                    REMOTE_REPLY_EVENT,
+                    serde_json::json!({
+                        "runtimeId": client.runtime_id,
+                        "name": name,
+                        "text": content,
+                        "timestamp": chrono::DateTime::from(std::time::SystemTime::now())
+                            .to_rfc3339(),
+                    }),
+                );
+            }
+            content
         }
     };
 

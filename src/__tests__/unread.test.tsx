@@ -26,8 +26,27 @@ vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ setBadgeCount: badgeMock }),
 }));
 
-const location = { pathname: "/chat/nova" };
+const location: { pathname: string; search: Record<string, string> } = {
+  pathname: "/chat/nova",
+  search: {},
+};
 vi.mock("@tanstack/react-router", () => ({ useLocation: () => location }));
+
+// Remote pekos write only in reply; the backend announces each one.
+const REMY_HUB = "hub:http://localhost:3000";
+const remotesState: { data: unknown[] } = { data: [] };
+vi.mock("../hooks/useRemotePrincipals", () => ({
+  useRemotePrincipals: () => remotesState,
+}));
+const eventListeners: Record<string, (e: { payload: unknown }) => void> = {};
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: async (name: string, cb: (e: { payload: unknown }) => void) => {
+    eventListeners[name] = cb;
+    return () => {
+      delete eventListeners[name];
+    };
+  },
+}));
 
 vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: () => ({ data: [{ name: "nova" }, { name: "juno" }] }),
@@ -54,6 +73,8 @@ beforeEach(() => {
   badgeMock.mockClear();
   principalLogMock.mockReset();
   location.pathname = "/chat/nova";
+  location.search = {};
+  remotesState.data = [];
   vi.spyOn(document, "hasFocus").mockReturnValue(true);
 });
 
@@ -135,5 +156,26 @@ describe("useDmActivity", () => {
     location.pathname = "/chat/juno";
     rerender();
     await waitFor(() => expect(result.current.juno).toBe(0));
+  });
+
+  it("counts a remote peko's reply that lands after you leave its chat", async () => {
+    remotesState.data = [{ principalName: "remy", runtimeId: REMY_HUB }];
+    principalLogMock.mockResolvedValue(page([]));
+    // You were in remy's chat, then switched to nova before it replied.
+    markRead(`${REMY_HUB}#remy`, new Date(Date.now() - 60_000).toISOString());
+    const { result, rerender } = renderActivity();
+    await waitFor(() => expect(eventListeners["remote-reply"]).toBeDefined());
+    const reply = { runtimeId: REMY_HUB, name: "remy", text: "done!", timestamp: new Date().toISOString() };
+    act(() => eventListeners["remote-reply"]({ payload: reply }));
+    expect(result.current[`${REMY_HUB}#remy`]).toBe(1);
+    // A local peko of the same name keeps its own count.
+    expect(result.current.remy).toBeUndefined();
+    await waitFor(() => expect(notifyMock).toHaveBeenCalled());
+
+    // Looking at remy's chat (on its hub) reads it.
+    location.pathname = "/chat/remy";
+    location.search = { runtimeId: REMY_HUB };
+    rerender();
+    await waitFor(() => expect(result.current[`${REMY_HUB}#remy`]).toBe(0));
   });
 });

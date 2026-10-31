@@ -63,7 +63,10 @@ vi.mock("../hooks/useRemotePrincipals", () => ({
 }));
 
 vi.mock("../lib/unread", () => ({
-  useUnreadCounts: () => ({}),
+  // A reply from the remote peko landed while you were elsewhere.
+  useUnreadCounts: () => ({ "hub:http://localhost:3000#remy": 2 }),
+  unreadKey: (name: string, runtimeId?: string | null) =>
+    runtimeId && runtimeId !== "local" ? `${runtimeId}#${name}` : name,
 }));
 
 vi.mock("../components/modals/PrincipalProfileModal", () => ({
@@ -90,6 +93,9 @@ describe("PrincipalSidebar", () => {
     expect(within(remy).getByTestId("peko-avatar").textContent).toBe("🦊");
     // Neither row says where the peko runs.
     expect(remy.textContent).not.toMatch(/tester|localhost/);
+    // A remote peko's unread replies show like a local peko's.
+    expect(within(remy).getByTestId("unread-remy").textContent).toBe("2");
+    expect(within(omni).queryByTestId("unread-omni")).toBeNull();
   });
 
   it("opens a remote peko's chat and profile on its hub runtime", () => {

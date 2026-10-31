@@ -32,7 +32,7 @@ import {
 import { DEFAULT_HUB_URL, type RemotePrincipalSummary } from "../lib/api";
 import PekoAvatar from "./peko/PekoAvatar";
 import { pekoIdentity } from "../lib/pekoIdentity";
-import { useUnreadCounts } from "../lib/unread";
+import { unreadKey, useUnreadCounts } from "../lib/unread";
 
 /**
  * One entry point for adding a peko: create one, wake one from a
@@ -194,6 +194,18 @@ function LocalStatusDot({ name }: { name: string }) {
   return <StatusDot status={data?.status ?? "unknown"} name={name} />;
 }
 
+function UnreadBadge({ count, testId }: { count: number; testId: string }) {
+  return (
+    <span
+      className="shrink-0 rounded-full bg-brand px-1.5 text-[11px] font-semibold leading-5 text-brand-fg"
+      data-testid={testId}
+      aria-label={`${count} unread`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 const ROW_CLASS = "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors";
 const rowTone = (active: boolean) =>
   active ? "bg-brand-soft text-brand" : "text-fg-soft hover:bg-surface-sunken";
@@ -206,11 +218,13 @@ const rowTone = (active: boolean) =>
 function RemotePekoRow({
   remote,
   active,
+  unread,
   onOpen,
   onContextMenu,
 }: {
   remote: RemotePrincipalSummary;
   active: boolean;
+  unread: number;
   onOpen: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }) {
@@ -223,7 +237,15 @@ function RemotePekoRow({
       className={`${ROW_CLASS} ${rowTone(active)}`}
     >
       <PekoAvatar peko={identity} size="sm" />
-      <span className="min-w-0 flex-1 truncate font-medium">{remote.principalName}</span>
+      <span
+        className={[
+          "min-w-0 flex-1 truncate",
+          unread ? "font-semibold text-fg" : "font-medium",
+        ].join(" ")}
+      >
+        {remote.principalName}
+      </span>
+      {unread > 0 && <UnreadBadge count={unread} testId={`unread-${remote.principalName}`} />}
       <StatusDot status={status.data?.status ?? "unknown"} name={remote.principalName} />
     </button>
   );
@@ -435,13 +457,7 @@ export default function PrincipalSidebar({
                     {p.name}
                   </span>
                   {!!unread[p.name] && (
-                    <span
-                      className="shrink-0 rounded-full bg-brand px-1.5 text-[11px] font-semibold leading-5 text-brand-fg"
-                      data-testid={`unread-${p.name}`}
-                      aria-label={`${unread[p.name]} unread`}
-                    >
-                      {unread[p.name] > 99 ? "99+" : unread[p.name]}
-                    </span>
+                    <UnreadBadge count={unread[p.name]} testId={`unread-${p.name}`} />
                   )}
                   {/* Genesis (ADR-054): a freshly created peko can sit in
                       `genesis_pending` (or an earlier boot state) for up to
@@ -467,6 +483,7 @@ export default function PrincipalSidebar({
                 key={`${rp.runtimeId}-${rp.owner}-${rp.principalName}`}
                 remote={rp}
                 active={rp.principalName === principalName && rp.runtimeId === currentRuntimeId}
+                unread={unread[unreadKey(rp.principalName, rp.runtimeId)] ?? 0}
                 onOpen={() => handleSelect(rp.principalName, rp.runtimeId)}
                 onContextMenu={(e) => openContextMenu(e, rp.principalName, rp.runtimeId)}
               />
