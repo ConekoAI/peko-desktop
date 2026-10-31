@@ -1680,6 +1680,41 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Mirror of `RequestPacket::ApprovalList`: the approval requests
+    /// waiting for the peko's owner (ADR-078), oldest first.
+    pub async fn approval_list(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "approval_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::ApprovalDecide`: the owner approves
+    /// (`always` adds a standing rule) or denies a waiting request.
+    pub async fn approval_decide(
+        &self,
+        name: &str,
+        id: &str,
+        approve: bool,
+        always: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "approval_decide",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "id": id,
+            "approve": approve,
+            "always": always,
+        });
+        self.request_response(req).await
+    }
+
     /// Mirror of `RequestPacket::ChannelSetWake`: set what starts a turn
     /// for `principal_name` in a group (`human` / `mention` / `off`).
     pub async fn channel_set_wake(

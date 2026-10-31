@@ -16,7 +16,9 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 const sendMut = { mutateAsync: vi.fn() };
-const stopMut = { mutateAsync: vi.fn(), isPending: false };
+const decideMut = { mutateAsync: vi.fn(), isPending: false };
+// The approval requests waiting for the owner.
+const approvalsState: { data: unknown } = { data: [] };
 const logWatch = { pausedRef: { current: false }, flush: vi.fn() };
 // What the thread holds; a test sets it to simulate the refetch.
 const logState: { data: unknown } = { data: undefined };
@@ -30,7 +32,8 @@ vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: () => principalsState,
   usePrincipalSend: () => sendMut,
   usePrincipalLog: () => ({ data: logState.data, isSuccess: true, isError: false }),
-  usePrincipalStop: () => stopMut,
+  usePrincipalApprovals: () => ({ data: approvalsState.data, refetch: vi.fn() }),
+  useDecideApproval: () => decideMut,
   usePrincipalLogWatch: () => logWatch,
   useCallerSubject: () => "user:local",
   newestLogCursor: () => null,
@@ -81,7 +84,8 @@ describe("Chat ToS gate", () => {
   beforeEach(() => {
     navigateMock.mockReset();
     sendMut.mutateAsync.mockReset();
-    stopMut.mutateAsync.mockReset();
+    decideMut.mutateAsync.mockReset();
+    approvalsState.data = [];
     logWatch.flush.mockReset();
     logWatch.pausedRef.current = false;
     logState.data = undefined;
@@ -130,23 +134,25 @@ describe("Chat ToS gate", () => {
     expect(screen.queryByText(/stopped by user/)).toBeNull();
   });
 
-  it("shows Stop while a reply streams and stops the peko's turn", async () => {
+  it("shows that the peko is working, with no Stop, while a reply streams", async () => {
     let settle: (v: string) => void = () => {};
     sendMut.mutateAsync.mockReturnValue(new Promise<string>((r) => (settle = r)));
     render(<Chat />);
     sendMessage("hello");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
-    expect(stopMut.mutateAsync).toHaveBeenCalledWith({ name: "alice", runtimeId: "local" });
+    expect(await screen.findByTestId("working-indicator")).toHaveTextContent("alice is working");
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    // The composer stays open: the next message reaches the peko at once.
+    expect(screen.getByRole("textbox", { name: "Message" })).not.toBeDisabled();
     // The stream pauses the log watch until it settles, then refetches.
     expect(logWatch.pausedRef.current).toBe(true);
     settle("");
     await waitFor(() => expect(logWatch.flush).toHaveBeenCalled());
     expect(logWatch.pausedRef.current).toBe(false);
-    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.queryByTestId("working-indicator")).toBeNull();
   });
 
-  it("queues a message sent while the peko is busy", async () => {
+  it("sends a message while the peko is working, shown as a plain message", async () => {
     let settleFirst: (v: string) => void = () => {};
     sendMut.mutateAsync
       .mockReturnValueOnce(new Promise<string>((r) => (settleFirst = r)))
@@ -158,7 +164,8 @@ describe("Chat ToS gate", () => {
     sendMessage("first");
     sendMessage("also check the weather");
 
-    expect(await screen.findByText(/your peko will read this next/i)).toBeInTheDocument();
+    expect(await screen.findByText("also check the weather")).toBeInTheDocument();
+    expect(screen.queryByText(/queued/i)).toBeNull();
     expect(sendMut.mutateAsync).toHaveBeenCalledTimes(2);
     // The second send settling does not end the turn or refetch yet.
     expect(logWatch.flush).not.toHaveBeenCalled();
@@ -166,7 +173,7 @@ describe("Chat ToS gate", () => {
     await waitFor(() => expect(logWatch.flush).toHaveBeenCalledTimes(1));
   });
 
-  it("shows the reply's tool steps live and keeps them after it lands", async () => {
+  it("keeps the peko's steps to itself and shows one bubble per reply", async () => {
     let settle: (v: string) => void = () => {};
     let emit: (m: unknown) => void = () => {};
     sendMut.mutateAsync.mockImplementation(
@@ -180,26 +187,80 @@ describe("Chat ToS gate", () => {
 
     await act(async () => {
       emit({ kind: "iteration", iteration: 1 });
+      emit({ kind: "chunk", delta: "Let me check." });
+      emit({ kind: "iteration", iteration: 2 });
       emit({ kind: "toolStart", toolId: "c1", name: "Bash", input: '{"command":"date"}' });
     });
-    expect(screen.getByRole("button", { name: /running bash/i })).toBeInTheDocument();
+    // No tool steps; the step's text stays until the next step's comes.
+    expect(screen.queryByText(/bash/i)).toBeNull();
+    expect(screen.getByText("Let me check.")).toBeInTheDocument();
+    expect(screen.getByTestId("working-indicator")).toBeInTheDocument();
 
-    // The refetch after the reply returns the exchange from the thread.
-    logWatch.flush.mockImplementation(async () => {
-      logState.data = {
-        messages: [
-          { id: "chan_1", sender: "user:local", text: "what day is it?", timestamp: "1" },
-          { id: "chan_2", sender: "principal:prin_a", text: "It is Tuesday.", timestamp: "2" },
-        ],
-      };
-    });
     await act(async () => {
       emit({ kind: "toolEnd", toolId: "c1", name: "Bash", success: true, durationMs: 12, output: "Tue" });
-      emit({ kind: "chunk", delta: "It is Tuesday." });
-      settle("It is Tuesday.");
+      emit({ kind: "chunk", delta: "It is " });
+      emit({ kind: "chunk", delta: "Tuesday." });
     });
-    await waitFor(() => expect(logWatch.flush).toHaveBeenCalled());
-    expect(screen.getByRole("button", { name: /used 1 tool/i })).toBeInTheDocument();
+    // The reply is the last step's text, in one bubble.
+    expect(screen.getByText("It is Tuesday.")).toBeInTheDocument();
+    expect(screen.queryByText("Let me check.")).toBeNull();
+    expect(screen.queryByTestId("working-indicator")).toBeNull();
+    await act(async () => settle("It is Tuesday."));
+  });
+
+  it("shows why a reply is waiting beside the thread, not in it", () => {
+    logState.data = {
+      messages: [{ id: "chan_1", sender: "user:local", text: "hi", timestamp: "1" }],
+      runFailure: {
+        at: "2026-10-31T10:00:00Z",
+        kind: "provider_unreachable",
+        message: "error sending request",
+        nextAttemptAt: "2026-10-31T10:05:00Z",
+      },
+    };
+    render(<Chat />);
+    expect(screen.getByTestId("run-status")).toHaveTextContent(
+      /Waiting — the model provider can't be reached\. It continues on its own/,
+    );
+    expect(screen.queryByText(/error sending request/)).toBeNull();
+  });
+
+  it("lets the owner approve or deny a waiting request", async () => {
+    approvalsState.data = [
+      {
+        id: "apr_0123456789ab",
+        actor: "user:hub:x",
+        actorName: "Alice",
+        trust: "untrusted",
+        summary: "`Read` (file_path=finances/q3.md)",
+        reason: "finances are private",
+        createdAt: "2026-10-31T10:00:00Z",
+        expiresAt: "2026-11-01T10:00:00Z",
+      },
+    ];
+    decideMut.mutateAsync.mockResolvedValue("Approved apr_0123456789ab. Running it for user:hub:x now.");
+    render(<Chat />);
+    const cards = screen.getByTestId("approval-cards");
+    expect(cards).toHaveTextContent("Alice (user:hub:x) asks alice to run Read (file_path=finances/q3.md)");
+    expect(cards).toHaveTextContent("finances are private");
+
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() =>
+      expect(decideMut.mutateAsync).toHaveBeenCalledWith({
+        name: "alice",
+        id: "apr_0123456789ab",
+        approve: true,
+        always: false,
+      }),
+    );
+    expect(await screen.findByText(/Running it for user:hub:x/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Deny" }));
+    await waitFor(() =>
+      expect(decideMut.mutateAsync).toHaveBeenLastCalledWith(
+        expect.objectContaining({ approve: false }),
+      ),
+    );
   });
 
   it("sends on Enter, adds a line on Shift+Enter, and never mid-composition", async () => {
