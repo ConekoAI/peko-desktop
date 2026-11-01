@@ -1235,6 +1235,21 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Register this runtime and its local user with the hub at `hub`
+    /// under the account `token` signs in as; the daemon connects the
+    /// tunnel at once. Answered with `runtime_registered`.
+    pub async fn runtime_register(&self, hub: &str, token: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "runtime_register",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "hub": hub,
+            "token": token,
+        });
+        self.request_response(req).await
+    }
+
     pub async fn principal_get(&self, name: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1262,8 +1277,11 @@ impl IpcClient {
         name: &str,
         description: Option<&str>,
         model_id: &str,
+        seed: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
+        // `seed` is a seed's TOML (ADR-060); daemons that predate it
+        // ignore the field.
         let req = serde_json::json!({
             "type": "principal_create",
             "protocol_version": PROTOCOL_VERSION,
@@ -1271,6 +1289,7 @@ impl IpcClient {
             "name": name,
             "description": description,
             "model_id": model_id,
+            "seed": seed,
         });
         self.request_response_with_timeout(req, GENESIS_REQUEST_TIMEOUT)
             .await

@@ -41,6 +41,56 @@ pub async fn runtime_list(state: State<'_, AppState>) -> Result<Vec<RuntimeSumma
     Ok(runtimes.into_iter().map(Into::into).collect())
 }
 
+/// This computer's runtime, registered with PekoHub.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HubRegistration {
+    pub hub: String,
+    pub runtime_did: String,
+    /// The PekoHub account the runtime and its local user belong to.
+    pub account: String,
+}
+
+/// Register the local runtime with the hub at `hub` under the account
+/// the signed-in `token` belongs to (pekohub ADR-007). The daemon
+/// connects the tunnel at once, so this computer's pekos can go online.
+#[tauri::command]
+pub async fn runtime_hub_register(hub: String, token: String) -> Result<HubRegistration, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .runtime_register(&hub, &token)
+        .await
+        .map_err(|e| format!("runtime_register failed: {e}"))?;
+    hub_registration_from(&value)
+}
+
+fn hub_registration_from(value: &serde_json::Value) -> Result<HubRegistration, String> {
+    match value.get("type").and_then(|t| t.as_str()) {
+        Some("runtime_registered") => {
+            let field = |name: &str| {
+                value
+                    .get(name)
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+                    .ok_or_else(|| format!("runtime_registered carried no {name}"))
+            };
+            Ok(HubRegistration {
+                hub: field("hub")?,
+                runtime_did: field("runtime_did")?,
+                account: field("account")?,
+            })
+        }
+        Some("error") => Err(value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("the runtime refused to register")
+            .to_string()),
+        _ => Err("This runtime is too old to register from the app. Update Peko, or run `peko runtime register`.".to_string()),
+    }
+}
+
 /// Add a new remote runtime connection.
 #[tauri::command]
 pub async fn runtime_add(
@@ -286,4 +336,32 @@ pub async fn runtime_rename(
     conn.name = name;
     state.set_runtime(conn.clone()).await;
     Ok(conn.into())
+}
+
+#[cfg(test)]
+mod hub_registration_tests {
+    use super::*;
+
+    #[test]
+    fn registration_answers_map_to_results() {
+        let ok = serde_json::json!({
+            "type": "runtime_registered",
+            "hub": "https://api.pekohub.ai",
+            "runtime_did": "did:key:z6Mk",
+            "account": "acct",
+        });
+        let reg = hub_registration_from(&ok).unwrap();
+        assert_eq!(reg.hub, "https://api.pekohub.ai");
+        assert_eq!(reg.account, "acct");
+
+        let refused = serde_json::json!({"type": "error", "message": "PekoHub rejected the API key: HTTP 401"});
+        assert_eq!(
+            hub_registration_from(&refused).unwrap_err(),
+            "PekoHub rejected the API key: HTTP 401"
+        );
+
+        // A daemon that predates `runtime_register` answers something else.
+        let old = serde_json::json!({"type": "done", "success": false});
+        assert!(hub_registration_from(&old).unwrap_err().contains("too old"));
+    }
 }

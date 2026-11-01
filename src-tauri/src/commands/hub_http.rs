@@ -47,8 +47,8 @@ impl HubResource {
 
 /// `base` joined with an absolute `path`, for an http(s) hub only.
 fn hub_url(base: &str, path: &str) -> Result<reqwest::Url, String> {
-    let base =
-        reqwest::Url::parse(base.trim()).map_err(|e| format!("not a hub URL ({base}): {e}"))?;
+    let api = crate::clients::hub_origin::hub_api_base(base);
+    let base = reqwest::Url::parse(&api).map_err(|e| format!("not a hub URL ({base}): {e}"))?;
     if !matches!(base.scheme(), "http" | "https") {
         return Err(format!("not a hub URL ({base}): use http or https"));
     }
@@ -112,6 +112,26 @@ pub async fn hub_oauth_token(
     let url = hub_url(&base_url, "/oauth/token")?;
     let host = host_of(&url);
     send(state.http.post(url).json(&params), &host).await
+}
+
+/// `POST /oauth/revoke` on the hub at `base_url`: signing out revokes the
+/// refresh token there (RFC 7009), not just here.
+#[tauri::command]
+pub async fn hub_oauth_revoke(
+    state: tauri::State<'_, AppState>,
+    base_url: String,
+    token: String,
+) -> Result<HubResponse, String> {
+    let url = hub_url(&base_url, "/oauth/revoke")?;
+    let host = host_of(&url);
+    send(
+        state
+            .http
+            .post(url)
+            .json(&serde_json::json!({ "client_id": "peko-desktop", "token": token })),
+        &host,
+    )
+    .await
 }
 
 fn check_grant(params: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
@@ -178,8 +198,14 @@ fn public_hub_id(answer: &serde_json::Value) -> Option<String> {
         .map(str::to_string)
 }
 
-/// `<hub>/peko/<ownerHandle>/<name>` from the hub's directory answer.
+/// The peko's share link from the hub's directory answer: the hub's own
+/// `shareUrl` (on its website), else `<website>/peko/<ownerHandle>/<name>`.
 fn share_link(hub: &str, resolution: &serde_json::Value) -> Option<String> {
+    if let Some(url) = resolution.get("shareUrl").and_then(|v| v.as_str()) {
+        return Some(url.to_string());
+    }
+    let hub = crate::clients::hub_origin::hub_web_origin(hub);
+    let hub = hub.as_str();
     let handle = resolution.get("ownerHandle")?.as_str()?;
     let name = resolution.get("name")?.as_str()?;
     Some(format!(
@@ -206,8 +232,18 @@ mod tests {
 
     #[test]
     fn resources_map_to_fixed_paths() {
-        let url = hub_url("https://pekohub.ai/", HubResource::AccessiblePekos.path()).unwrap();
-        assert_eq!(url.as_str(), "https://pekohub.ai/v1/me/accessible-pekos");
+        let url = hub_url(
+            "https://api.pekohub.ai/",
+            HubResource::AccessiblePekos.path(),
+        )
+        .unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://api.pekohub.ai/v1/me/accessible-pekos"
+        );
+        // The website's address reaches its API.
+        let url = hub_url("https://pekohub.ai", HubResource::Runtimes.path()).unwrap();
+        assert_eq!(url.as_str(), "https://api.pekohub.ai/v1/runtimes");
         // An absolute path replaces any path on the base, as `new URL(path, base)` does.
         let url = hub_url(
             "http://localhost:3000/somewhere",
@@ -261,7 +297,16 @@ mod tests {
 
         let resolution = serde_json::json!({ "name": "remy", "ownerHandle": "tester" });
         assert_eq!(
-            share_link("https://pekohub.ai/", &resolution).as_deref(),
+            share_link("https://api.pekohub.ai/", &resolution).as_deref(),
+            Some("https://pekohub.ai/peko/tester/remy"),
+            "links name the website, not the API"
+        );
+        let with_share_url = serde_json::json!({
+            "name": "remy", "ownerHandle": "tester",
+            "shareUrl": "https://pekohub.ai/peko/tester/remy"
+        });
+        assert_eq!(
+            share_link("https://api.pekohub.ai", &with_share_url).as_deref(),
             Some("https://pekohub.ai/peko/tester/remy")
         );
         // A hub that predates `ownerHandle` gives no link, not a wrong one.

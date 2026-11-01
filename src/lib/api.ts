@@ -201,14 +201,9 @@ export interface PrincipalCreateRequest {
   description?: string;
   modelId: string;
   /**
-   * Create-from-seed (ADR-060) is NOT available over IPC: the
-   * runtime's `principal_create` packet has no seed field
-   * (`peko-rs/core/src/ipc/packet.rs`), and grounding a seed is a
-   * CLI-local flow (`peko create <name> -s <seed.toml>` materializes
-   * the workspace, then `principal_reload`s the daemon). The desktop
-   * command fails loudly when `seed` is set — with the CLI grounding
-   * command in the message — rather than silently growing a
-   * from-scratch peko. Always omit for a working create.
+   * A seed's TOML text (ADR-060), e.g. a `.seed.toml` from PekoHub: the
+   * peko grows from it with a fresh identity that you own. `modelId` and
+   * `description` override the seed's.
    */
   seed?: string;
   runtimeId?: RuntimeId;
@@ -1016,11 +1011,10 @@ export async function credentialSetRaw(
   material: string,
   name = "default",
 ): Promise<string> {
-  return invoke<string>("credential_set_raw", {
-    namespace,
-    name,
-    material,
-  });
+  void name;
+  // The backend keys raw secrets by provider (`provider:<namespace>/default`).
+  await invoke<void>("credential_set_raw", { provider: namespace, rawValue: material });
+  return namespace;
 }
 
 /**
@@ -1031,10 +1025,8 @@ export async function credentialGetRaw(
   namespace: string,
   name = "default",
 ): Promise<string | null> {
-  return invoke<string | null>("credential_get_raw", {
-    namespace,
-    name,
-  });
+  void name;
+  return invoke<string | null>("credential_get_raw", { provider: namespace });
 }
 
 /**
@@ -1047,6 +1039,27 @@ export async function credentialGetRaw(
  */
 export async function pekohubLogout(): Promise<void> {
   return invoke<void>("pekohub_logout");
+}
+
+/** Revoke a refresh token at the hub (sign-out), through the backend. */
+export async function hubOAuthRevoke(baseUrl: string, token: string): Promise<void> {
+  await invoke("hub_oauth_revoke", { baseUrl, token });
+}
+
+/** This computer's runtime, registered with PekoHub. */
+export interface HubRegistration {
+  hub: string;
+  runtimeDid: string;
+  account: string;
+}
+
+/**
+ * Register this computer's runtime with the hub under the signed-in
+ * account (`token`, pekohub ADR-007). The daemon connects at once, so
+ * this computer's pekos can go online.
+ */
+export async function runtimeHubRegister(hub: string, token: string): Promise<HubRegistration> {
+  return invoke<HubRegistration>("runtime_hub_register", { hub, token });
 }
 
 /**
@@ -1096,11 +1109,34 @@ export interface PekohubRuntime {
 }
 
 /**
- * The hub the app uses until the user picks another (`pekohub.base_url`).
- * `pekohub.org` now redirects here, and a redirected token POST loses
- * its body, so the default names this host directly.
+ * The hub API the app uses until the user picks another (`pekohub.base_url`).
+ * PekoHub's API lives on `api.pekohub.ai`; `pekohub.ai` is its website.
  */
-export const DEFAULT_HUB_URL = "https://pekohub.ai";
+export const DEFAULT_HUB_URL = "https://api.pekohub.ai";
+
+/** Official website hosts whose API lives on `api.pekohub.ai`. */
+const OFFICIAL_WEB_HOSTS = new Set(["pekohub.ai", "www.pekohub.ai", "pekohub.org"]);
+
+/**
+ * The hub API base for an address the user configured or a link carried:
+ * the official website hosts map to `api.pekohub.ai`, any other hub is
+ * taken at its origin (self-hosted hubs serve both from one origin).
+ */
+export function hubApiBase(url?: string | null): string {
+  const raw = url?.trim() || DEFAULT_HUB_URL;
+  try {
+    const parsed = new URL(raw);
+    if (OFFICIAL_WEB_HOSTS.has(parsed.hostname)) return `${parsed.protocol}//api.pekohub.ai`;
+    return parsed.origin;
+  } catch {
+    return raw.replace(/\/+$/, "");
+  }
+}
+
+/** The hub the app's settings name (`pekohub.base_url`), as an API base. */
+export function configuredHubUrl(settings?: { key: string; value: string }[] | null): string {
+  return hubApiBase(settings?.find((s) => s.key === "pekohub.base_url")?.value);
+}
 
 /** The hub resources the backend reads for the frontend (`hub_http.rs`). */
 export type HubResource = "runtimes" | "accessible_pekos" | "discovery_search";

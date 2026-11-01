@@ -95,7 +95,7 @@ describe("ProfileMenu", () => {
   });
 
   it("clicking Sign in calls runOAuthFlow with the configured baseUrl/scope", async () => {
-    runOAuthFlowMock.mockResolvedValue({ added: 1, runtimes: [] });
+    runOAuthFlowMock.mockResolvedValue({ registered: true, account: "acct" });
     const wrapper = makeWrapper();
     render(<ProfileMenu />, { wrapper });
 
@@ -108,10 +108,26 @@ describe("ProfileMenu", () => {
     });
 
     expect(runOAuthFlowMock).toHaveBeenCalledTimes(1);
+    // The configured website address (`pekohub.org`) reaches the API host.
     expect(runOAuthFlowMock).toHaveBeenCalledWith({
-      baseUrl: "https://pekohub.org",
+      baseUrl: "https://api.pekohub.ai",
       scope: "runtimes:read",
     });
+  });
+
+  it("says so when signing in worked but this computer couldn't register", async () => {
+    runOAuthFlowMock.mockResolvedValue({ registered: false, error: "PekoHub refused a registration challenge: HTTP 503" });
+    const wrapper = makeWrapper();
+    render(<ProfileMenu />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: /PekoHub account menu/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("pekohub-signin"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      await screen.findByText(/couldn't connect to PekoHub: PekoHub refused a registration challenge/),
+    ).toBeInTheDocument();
   });
 
   it("shows signing-in indicator while runOAuthFlow is pending", () => {

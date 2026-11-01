@@ -171,16 +171,10 @@ fn project_principal_get_envelope(
 /// and registers the new principal in the in-memory manager. The
 /// caller is recorded as the owner.
 ///
-/// `seed` (create-from-seed, ADR-060): accepted so the JS wrapper's
-/// `seed` arg is no longer silently dropped, but the runtime's
-/// `principal_create` IPC packet has **no seed field** (verified
-/// against `peko-rs/core/src/ipc/packet.rs` — the packet is exactly
-/// `{name, description, model_id}`) and grounding a seed is a
-/// CLI-local flow (`peko create <name> -s <seed.toml>` materializes
-/// the workspace, then `principal_reload`s the daemon). Sending the
-/// seed anyway would be silently ignored by serde and grow a
-/// from-scratch peko while the UI claims otherwise, so a `Some` seed
-/// fails loudly with the grounding guidance instead.
+/// `seed` (create-from-seed, ADR-060) is a seed's TOML text, e.g. a
+/// `.seed.toml` downloaded from PekoHub. The daemon grows the peko from
+/// it with a fresh identity, owned by the caller; `model_id` and
+/// `description` override the seed's.
 ///
 /// Errors from the daemon (e.g. name validation, `AlreadyExists`)
 /// propagate as `Err(String)` — the React form surfaces them inline.
@@ -192,13 +186,8 @@ pub async fn principal_create(
     seed: Option<String>,
     runtime_id: Option<String>,
 ) -> Result<PrincipalSummary, String> {
-    if let Some(seed_path) = seed.as_deref() {
-        return Err(format!(
-            "create-from-seed is not available through the desktop yet: the runtime's \
-             `principal_create` IPC packet has no seed field. Ground the seed with \
-             `peko create {name} -s {seed_path}` (the peko then appears after a \
-             principal_reload / daemon restart)."
-        ));
+    if seed.as_deref().is_some_and(|seed| seed.len() > 64 * 1024) {
+        return Err("A seed is at most 64 KB.".to_string());
     }
     validate_principal_name(&name)?;
     if model_id.is_empty() {
@@ -217,7 +206,7 @@ pub async fn principal_create(
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     let value = client
-        .principal_create(&name, description.as_deref(), &model_id)
+        .principal_create(&name, description.as_deref(), &model_id, seed.as_deref())
         .await
         .map_err(|e| format!("principal_create failed: {e}"))?;
     project_principal_create_envelope(&value, &name)
@@ -1352,28 +1341,19 @@ mod tests {
         assert!(error_envelope_to_err(&ok_env, "principal_export").is_ok());
     }
 
-    /// The runtime's `principal_create` IPC packet has no seed field
-    /// (verified against `peko-rs/core/src/ipc/packet.rs`), and the
-    /// daemon ignores unknown wire fields — forwarding a seed would
-    /// silently grow a from-scratch peko. Pin the loud-failure
-    /// contract: `Some(seed)` must error with the CLI grounding
-    /// guidance, never silently ignore the seed.
+    /// A seed over 64 KB is refused before anything reaches the daemon.
     #[tokio::test]
-    async fn test_principal_create_with_seed_fails_loudly() {
+    async fn test_principal_create_refuses_an_oversized_seed() {
         let err = principal_create(
             "helper".to_string(),
             None,
             "gpt-4o".to_string(),
-            Some("/tmp/helper.seed.toml".to_string()),
+            Some("x".repeat(65 * 1024)),
             None,
         )
         .await
-        .expect_err("seeded create must fail loudly, not silently ignore the seed");
-        assert!(err.contains("no seed field"), "got: {err}");
-        assert!(
-            err.contains("peko create helper -s /tmp/helper.seed.toml"),
-            "error must carry the CLI grounding command, got: {err}"
-        );
+        .expect_err("an oversized seed is refused");
+        assert!(err.contains("64 KB"), "got: {err}");
     }
 
     /// `None` seed keeps the pre-existing path: validation still runs

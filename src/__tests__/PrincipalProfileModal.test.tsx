@@ -71,7 +71,8 @@ vi.mock("../lib/api", () => ({
   principalRevokeInvite: vi.fn(),
   principalRegister: (...args: unknown[]) => principalRegisterMock(...args),
   pekoShareLink: vi.fn(),
-  DEFAULT_HUB_URL: "https://pekohub.ai",
+  DEFAULT_HUB_URL: "https://api.pekohub.ai",
+  configuredHubUrl: () => "https://api.pekohub.ai",
 }));
 
 // The usage panel has its own tests (UsagePanel.test.tsx).
