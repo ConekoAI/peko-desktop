@@ -1,6 +1,4 @@
-// Chat page: the "[tos_required]" send/stream rejection renders as a
-// distinct in-thread acknowledgement notice carrying the hub's terms
-// text — never as a generic red error bubble with the tag showing.
+// Chat page: sending, streaming, steering, approvals, and the thread.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
@@ -96,22 +94,6 @@ describe("Chat ToS gate", () => {
       { name: "alice", owner: "user:local", runtimeId: "local" },
     ];
     principalsState.isLoading = false;
-  });
-
-  it("renders a [tos_required] rejection as a distinct acknowledgement notice", async () => {
-    sendMut.mutateAsync.mockRejectedValue(
-      new Error("[tos_required] Be excellent to each other."),
-    );
-    render(<Chat />);
-    sendMessage("hello");
-
-    const notice = await screen.findByTestId("tos-required-notice");
-    expect(notice).toHaveTextContent(
-      /requires you to acknowledge its terms before chatting/i,
-    );
-    expect(notice).toHaveTextContent("Be excellent to each other.");
-    // The raw tag never leaks into the thread.
-    expect(screen.queryByText(/\[tos_required\]/)).toBeNull();
   });
 
   it("keeps generic send failures in the plain error box", async () => {

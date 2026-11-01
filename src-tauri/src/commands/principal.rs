@@ -12,7 +12,6 @@
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::AppHandle;
-use tauri::Emitter;
 use tauri::Manager;
 
 use crate::state::AppState;
@@ -407,10 +406,8 @@ pub async fn principal_send(
     message: String,
     runtime_id: Option<String>,
 ) -> Result<String, String> {
-    // PR #5: route by runtime_id. Remote principals use
-    // `HubRemoteClient::send_stream` and discard the per-chunk
-    // events — the chat UI consumes the streaming path; this is
-    // the legacy non-streaming entrypoint kept for headless callers.
+    // Route by runtime_id: a remote peko is reached through the DM this
+    // runtime holds with it (runtime ADR-090).
     let resolved = state
         .resolve_peko_runtime(runtime_id.as_deref(), &name)
         .await;
@@ -424,14 +421,10 @@ pub async fn principal_send(
                 .await
                 .map_err(|e| format!("principal_send failed: {e}"))
         }
+        // A remote peko: post to the DM; its reply arrives on the thread.
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            let user_entry = crate::storage::local_chat_log::user_entry(message.clone());
-            let _ = crate::storage::local_chat_log::append_entry(
-                &client.runtime_id,
-                &name,
-                &user_entry,
-            );
-            client.send_stream(&message, |_msg| {}).await
+            client.send(&message).await?;
+            Ok(String::new())
         }
     }
 }
@@ -461,10 +454,6 @@ pub struct PrincipalSendStreamResult {
 /// streams never share a correlation id. If the thread is already
 /// busy the run settles at once with a `queued` event and empty
 /// content; the reply then arrives through `principal_log_watch_start`.
-/// Emitted when a remote peko's reply has been recorded:
-/// `{ runtimeId, name, text, timestamp }`.
-pub const REMOTE_REPLY_EVENT: &str = "remote-reply";
-
 #[tauri::command]
 #[allow(clippy::too_many_arguments)] // Tauri command args stay flat to keep the JS call shape additive
 pub async fn principal_send_stream(
@@ -478,11 +467,8 @@ pub async fn principal_send_stream(
     attachments: Option<Vec<String>>,
 ) -> Result<PrincipalSendStreamResult, String> {
     let attachments = attachments.unwrap_or_default();
-    // PR #5: route by runtime_id. Local → IpcClient; HubRemote →
-    // HubRemoteClient::send_stream. The local arm keeps the legacy
-    // (tx, rx) channel dance that the daemon supervisor drives; the
-    // remote arm pushes events directly into the supplied Tauri
-    // Channel.
+    // Route by runtime_id. Local → the daemon's streamed run; a remote
+    // peko → a post to the DM this runtime holds with it.
     let resolved = {
         let state = app.state::<AppState>();
         state
@@ -523,36 +509,13 @@ pub async fn principal_send_stream(
         crate::state::ResolvedRuntime::HubRemote(_) if !attachments.is_empty() => {
             return Err("Files can only be sent to a peko on this computer.".to_string());
         }
+        // A remote peko: post to the DM. The reply arrives later, on the
+        // thread (the log watch shows it), like a message sent to a busy
+        // local peko.
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            // Persist the user message optimistically so the local
-            // chat log mirrors what the UI already shows.
-            let user_entry = crate::storage::local_chat_log::user_entry(message.clone());
-            let _ = crate::storage::local_chat_log::append_entry(
-                &client.runtime_id,
-                &name,
-                &user_entry,
-            );
-            let content = client
-                .send_stream(&message, move |msg| {
-                    let _ = on_event.send(msg);
-                })
-                .await?;
-            // A remote peko writes only in reply, and a reply can land
-            // after you've left its chat: tell the app, which counts it
-            // as unread the way it counts a local peko's DM.
-            if !content.trim().is_empty() {
-                let _ = app.emit(
-                    REMOTE_REPLY_EVENT,
-                    serde_json::json!({
-                        "runtimeId": client.runtime_id,
-                        "name": name,
-                        "text": content,
-                        "timestamp": chrono::DateTime::from(std::time::SystemTime::now())
-                            .to_rfc3339(),
-                    }),
-                );
-            }
-            content
+            client.send(&message).await?;
+            let _ = on_event.send(crate::ipc::ChatStreamMsg::Queued { message });
+            String::new()
         }
     };
 
@@ -607,7 +570,8 @@ const LOG_WATCH_RETRY: std::time::Duration = std::time::Duration::from_secs(3);
 /// Start following the caller's thread with `name` live
 /// (`principal_log_watch`). Each new DM row is pushed to `on_message`
 /// in the `principal_log` message shape. Returns a watch id for
-/// `principal_log_watch_stop`. Local runtime only.
+/// `principal_log_watch_stop`. A remote peko (`runtime_id = hub:…`) is
+/// followed through the DM this runtime holds with it.
 ///
 /// `since_cursor` is the newest row number the caller already has (a
 /// log row id is `chan_<line>`), so opening a long thread does not
@@ -617,12 +581,36 @@ const LOG_WATCH_RETRY: std::time::Duration = std::time::Duration::from_secs(3);
 /// [`LOG_WATCH_RETRY`] from the newest row it has seen, until stopped.
 #[tauri::command]
 pub async fn principal_log_watch_start(
+    state: tauri::State<'_, AppState>,
     name: String,
     peer: Option<String>,
     since_cursor: Option<String>,
     on_message: Channel<serde_json::Value>,
+    runtime_id: Option<String>,
 ) -> Result<u64, String> {
     let id = NEXT_LOG_WATCH_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    // A remote peko: follow the DM this runtime holds with it.
+    if let crate::state::ResolvedRuntime::HubRemote(client) = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await
+    {
+        let task = tokio::spawn(async move {
+            loop {
+                let on_message = on_message.clone();
+                if let Err(e) = client
+                    .watch(since_cursor.as_deref(), move |row| {
+                        let _ = on_message.send(row);
+                    })
+                    .await
+                {
+                    eprintln!("[peko-desktop] remote DM watch for {name}: {e}; retrying");
+                }
+                tokio::time::sleep(LOG_WATCH_RETRY).await;
+            }
+        });
+        LOG_WATCHES.lock().unwrap().insert(id, task.abort_handle());
+        return Ok(id);
+    }
     let task = tokio::spawn(async move {
         let newest = std::sync::Arc::new(std::sync::Mutex::new(
             since_cursor.and_then(|c| c.parse::<u64>().ok()),
@@ -691,10 +679,8 @@ pub async fn principal_log(
     cursor: Option<String>,
     runtime_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    // PR #5: route by runtime_id. The remote branch reads the
-    // desktop's local JSONL appender (HubRemoteClient writes to it
-    // during send_stream); pekohub has no read API yet so we don't
-    // attempt to forward.
+    // Route by runtime_id. A remote peko's thread is the DM this runtime
+    // holds with it (runtime ADR-090).
     let resolved = state
         .resolve_peko_runtime(runtime_id.as_deref(), &name)
         .await;
@@ -709,7 +695,8 @@ pub async fn principal_log(
                 .map_err(|e| format!("principal_log failed: {e}"))
         }
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            client.list_chat_log(limit, since_secs, cursor).await
+            let _ = since_secs;
+            client.log_page(limit, cursor).await
         }
     }
 }

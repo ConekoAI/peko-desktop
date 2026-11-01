@@ -83,7 +83,7 @@ pub(crate) enum ResolvedRuntime {
     /// command finishes — `IpcClient::new()` is the existing pattern.
     Local,
     /// Remote principal reachable via pekohub HTTPS + SSE. Carries an
-    /// `Arc<HubRemoteClient>` so commands can call `send_stream`
+    /// `Arc<HubRemoteClient>` so commands can reach its DM
     /// without re-resolving through the runtime-id registry.
     HubRemote(Arc<HubRemoteClient>),
 }

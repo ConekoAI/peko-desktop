@@ -1,91 +1,38 @@
-//! Client for chatting with a remote principal over pekohub's HTTPS +
-//! SSE bridge. PR #5 fills in the PR #3 plumbing stub at
-//! `state::ResolvedRuntime::HubRemote` so a user can add a remote
-//! principal in the sidebar and have the desktop route `principal_send`,
-//! `principal_send_stream`, and `principal_log` straight to the hub
-//! without dropping them to the browser.
+//! A peko on another computer, reached through this computer's runtime.
 //!
-//! Wire shape (matches `pekohub/backend/src/routes/api/public-pekos.ts`,
-//! renamed from the retired `/v1/public/principals/*` surface — the old
-//! paths 404 with no aliases):
-//!   POST `${base}/v1/public/pekos/${owner}/${pekoName}/chat`
-//!   body: `{ "message": "...", "tos_acknowledged": true }`
-//!   optional `?token=...` query when the share link carries an invite token
-//!   response: SSE stream
-//!     `data: {"chunk":"...", "done":false}\n\n` — text delta
-//!     `event: iteration\ndata: {"iteration":N}\n\n` — agentic boundary
-//!     `event: error\ndata: {"message":"..."}\n\n` — fatal
+//! The conversation is a DM on the local runtime between you
+//! (`user:local`, `user:hub:<account>` on the wire) and the peko
+//! (`principal:hub:<UUID>`), carried over the PekoHub tunnel (runtime
+//! ADR-090). The desktop opens it once with `channel_open_remote_dm`, then
+//! posts, reads, and watches it with the ordinary channel verbs, so a
+//! remote peko's thread works like a local one's: the record lives on
+//! this machine, and a reply that arrives later shows up on its own.
 //!
-//! The response body on a non-200 (rate limit, ToS, 404) is JSON, NOT
-//! SSE — the streaming consumer checks status before entering the
-//! event loop so error envelopes surface cleanly to the UI. A 428
-//! (ToS acknowledgement required) is mapped to a distinct
-//! `[tos_required]`-prefixed error so the chat UI can show the peko's
-//! ToS text instead of a generic failure.
+//! The peko is named by the share link it was added from
+//! (`<hub>/peko/<owner>/<name>`); its Hub ID comes from the hub's public
+//! profile the first time the DM is opened.
 
-use futures::stream::StreamExt;
-use reqwest::header::CONTENT_TYPE;
-use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
-use crate::ipc::ChatStreamMsg;
-use crate::storage::local_chat_log;
+use tokio::sync::Mutex;
 
-/// Wire struct for the JSON body POSTed to
-/// `/v1/public/pekos/{owner}/{pekoName}/chat`.
-#[derive(Debug, Clone, Serialize)]
-struct ChatRequestBody<'a> {
-    message: &'a str,
-    /// ToS acknowledgement is not enforced by pekohub for public
-    /// principals that don't set `tosRequired`; sending `true`
-    /// unconditionally keeps the contract uniform. (The hub returns
-    /// 428 with the ToS text if it does require acknowledgement and
-    /// we don't send this.)
-    #[serde(rename = "tos_acknowledged")]
-    tos_acknowledged: bool,
-}
-
-/// Chunk envelope on the SSE `data:` lines.
-#[derive(Debug, Clone, Deserialize)]
-struct ChunkEnvelope {
-    chunk: String,
-    #[allow(dead_code)]
-    done: bool,
-}
-
-/// Iteration envelope on `event: iteration` lines.
-#[derive(Debug, Clone, Deserialize)]
-struct IterationEnvelope {
-    iteration: u32,
-}
-
-/// Error envelope on `event: error` lines.
-#[derive(Debug, Clone, Deserialize)]
-struct ErrorEnvelope {
-    message: String,
-}
-
-/// One remote principal pinned to its hub URL. Cheap to clone (two
-/// `String`s + one `Option<String>`); instances live behind an `Arc`
-/// in `AppState` so each Tauri command can grab a clone without
-/// serializing through the runtime-id registry.
+/// One remote peko, pinned to the hub its share link named. Cheap to
+/// clone; the opened DM is shared between clones.
 #[derive(Debug, Clone)]
 pub struct HubRemoteClient {
     pub hub_url: String,
     pub owner: String,
     pub principal_name: String,
     pub runtime_id: String,
-    /// Optional invite token from the share URL. Forwarded as
-    /// `?token=...` on every chat request so the runtime's tunnel
-    /// layer can match it against the principal's `invite:v1` ACL
-    /// table (PR #11).
+    /// The share link's invite token, if any. Kept so the profile lookup
+    /// can read an unlisted peko.
     pub invite_token: Option<String>,
     pub http: reqwest::Client,
+    /// The DM on the local runtime, once opened.
+    channel: Arc<Mutex<Option<String>>>,
 }
 
 impl HubRemoteClient {
-    /// Build a client from a remote-principal record (PR #4) and a
-    /// pre-constructed HTTP client (shared with the rest of the
-    /// desktop's networking layer).
     pub fn new(
         hub_url: String,
         owner: String,
@@ -101,6 +48,7 @@ impl HubRemoteClient {
             runtime_id,
             invite_token,
             http,
+            channel: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -110,565 +58,305 @@ impl HubRemoteClient {
         crate::clients::hub_origin::hub_api_base(&self.hub_url)
     }
 
-    fn chat_url(&self) -> String {
-        let api = self.api_base();
-        let base = api.trim_end_matches('/');
-        let mut url = format!(
-            "{}/v1/public/pekos/{}/{}/chat",
-            base, self.owner, self.principal_name
-        );
-        if let Some(token) = &self.invite_token {
-            url.push_str(&format!("?token={}", urlencoded(token)));
-        }
-        url
+    /// The peko's Hub ID, from the hub's public profile.
+    async fn hub_id(&self) -> Result<String, String> {
+        let profile = crate::clients::pekohub::PekohubClient::new()
+            .with_base_url(self.api_base())
+            .get_public_principal(
+                &self.owner,
+                &self.principal_name,
+                self.invite_token.as_deref(),
+            )
+            .await?;
+        profile
+            .get("liveInstance")
+            .and_then(|live| live.get("hubId"))
+            .and_then(|v| v.as_str())
+            .filter(|id| !id.is_empty())
+            .map(str::to_string)
+            .ok_or_else(|| {
+                format!(
+                    "{} isn't registered with PekoHub, so it can't be reached from here.",
+                    self.principal_name
+                )
+            })
     }
 
-    /// Send a single message and stream the response. Each chunk is
-    /// pushed to the supplied `on_event` channel; the resolved
-    /// `String` is the concatenated final content (suitable for
-    /// rendering as one assistant bubble).
-    ///
-    /// On success, the assembled assistant content is also persisted
-    /// to the local chat log so `principal_log` returns it on
-    /// subsequent visits. The user message is persisted by the caller
-    /// (the chat UI knows the optimistic timestamp).
-    pub async fn send_stream<F>(&self, message: &str, on_event: F) -> Result<String, String>
-    where
-        F: Fn(ChatStreamMsg) + Send + Sync + 'static,
-    {
-        let url = self.chat_url();
-        let body = ChatRequestBody {
-            message,
-            tos_acknowledged: true,
-        };
-        // The hub serves this chat to signed-in accounts (visitor chat is
-        // off by default): send as the account the app signed in with.
+    /// The DM with this peko on the local runtime, opened on first use.
+    pub async fn open_dm(&self) -> Result<String, String> {
+        let mut cached = self.channel.lock().await;
+        if let Some(channel) = cached.as_ref() {
+            return Ok(channel.clone());
+        }
+        let hub_id = self.hub_id().await?;
         let token = crate::clients::hub_auth::access_token(&self.http, &self.api_base()).await;
-        let mut request = self
-            .http
-            .post(&url)
-            .header(CONTENT_TYPE, "application/json")
-            .json(&body);
-        if let Some(token) = &token {
-            request = request.bearer_auth(token);
-        }
-        let resp = request
-            .send()
+        let client = crate::ipc::IpcClient::new()
             .await
-            .map_err(|e| format!("Couldn't reach {}: {e}", host_of(&self.hub_url)))?;
-
-        let status = resp.status();
-        if !status.is_success() {
-            // Non-2xx → JSON error body (rate limit, ToS gate, 404).
-            // Read the whole body so the caller gets a useful message.
-            let text = resp
-                .text()
-                .await
-                .map_err(|e| format!("failed to read error body: {e}"))?;
-            return Err(map_error_response(status, &text));
-        }
-
-        let mut content = String::new();
-        let mut stream = resp.bytes_stream();
-        let mut sse_buf = SseBuffer::new();
-
-        while let Some(chunk_result) = stream.next().await {
-            let bytes = chunk_result.map_err(|e| {
-                format!("The connection to {} dropped: {e}", host_of(&self.hub_url))
-            })?;
-            for frame in sse_buf.push(&bytes) {
-                match frame {
-                    SseFrame::Chunk { delta } => {
-                        content.push_str(&delta);
-                        on_event(ChatStreamMsg::Chunk { delta });
-                    }
-                    SseFrame::Iteration { iteration } => {
-                        on_event(ChatStreamMsg::Iteration { iteration });
-                    }
-                    // The hub's or the peko's own words, shown as they are.
-                    SseFrame::Error { message } => return Err(message),
-                }
-            }
-        }
-
-        // Persist the assembled assistant content so a subsequent
-        // `principal_log` returns the same history.
-        if !content.is_empty() {
-            let entry = local_chat_log::assistant_entry(content.clone());
-            if let Err(e) =
-                local_chat_log::append_entry(&self.runtime_id, &self.principal_name, &entry)
-            {
-                tracing::warn!(error = %e, "failed to persist remote chat-log entry");
-            }
-        }
-
-        Ok(content)
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        let answer = client
+            .channel_open_remote_dm(&hub_id, token.as_deref())
+            .await
+            .map_err(|e| format!("channel_open_remote_dm failed: {e}"))?;
+        let channel = opened_channel(&answer)?;
+        *cached = Some(channel.clone());
+        Ok(channel)
     }
 
-    /// Fetch the persisted chat history for this principal. The hub
-    /// has no read endpoint for chat history yet; the desktop keeps
-    /// its own JSONL appender (`local_chat_log`) so this just reads
-    /// back what's been written.
-    pub async fn list_chat_log(
+    /// Post `text` to the DM. The reply arrives later, on the thread.
+    pub async fn send(&self, text: &str) -> Result<(), String> {
+        let channel = self.open_dm().await?;
+        let client = crate::ipc::IpcClient::new()
+            .await
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        let answer = client
+            .channel_post(&channel, None, text, None)
+            .await
+            .map_err(|e| format!("channel_post failed: {e}"))?;
+        if crate::ipc::is_error_response(&answer) {
+            return Err(error_message(&answer, "The message wasn't sent."));
+        }
+        Ok(())
+    }
+
+    /// The thread as `principal_log` returns it for a local peko: the
+    /// newest `limit` rows, or the rows before `cursor` when paging back.
+    pub async fn log_page(
         &self,
         limit: Option<usize>,
-        _since_secs: Option<u64>,
-        _cursor: Option<String>,
+        cursor: Option<String>,
     ) -> Result<serde_json::Value, String> {
-        let entries = local_chat_log::read_entries(&self.runtime_id, &self.principal_name)?;
-        Ok(remote_log_page(
-            &self.owner,
-            &self.principal_name,
-            &entries,
-            limit,
-        ))
+        let channel = self.open_dm().await?;
+        let client = crate::ipc::IpcClient::new()
+            .await
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        let answer = client
+            .channel_peek(
+                &channel,
+                None,
+                Some(limit.unwrap_or(100)),
+                cursor.as_deref(),
+                None,
+                None,
+            )
+            .await
+            .map_err(|e| format!("channel_peek failed: {e}"))?;
+        if crate::ipc::is_error_response(&answer) {
+            return Err(error_message(&answer, "The conversation couldn't be read."));
+        }
+        Ok(log_page(&self.peer(), &answer))
     }
-}
 
-/// The local log of a remote peko as the page `principal_log` returns
-/// for a local one (`{ principal, peer, messages, next_cursor, has_more }`
-/// with `{ schemaVersion, id, sender, timestamp, text }` rows), the most
-/// recent `limit` rows. Before, it returned `{ kind: "remote_chat_log",
-/// entries }`, which the chat view could not read: a remote peko's
-/// thread always showed empty.
-fn remote_log_page(
-    owner: &str,
-    principal_name: &str,
-    entries: &[local_chat_log::ChatLogEntry],
-    limit: Option<usize>,
-) -> serde_json::Value {
-    let peko = format!("principal:hub:{owner}/{principal_name}");
-    let skip = limit.map_or(0, |n| entries.len().saturating_sub(n));
-    let messages: Vec<serde_json::Value> = entries
-        .iter()
-        .enumerate()
-        .skip(skip)
-        .map(|(i, entry)| {
-            let (sender, text, at_ms) = match entry {
-                local_chat_log::ChatLogEntry::User {
-                    content,
-                    timestamp_unix_ms,
-                } => ("user:local", content, *timestamp_unix_ms),
-                local_chat_log::ChatLogEntry::Assistant {
-                    content,
-                    timestamp_unix_ms,
-                } => (peko.as_str(), content, *timestamp_unix_ms),
-            };
-            let timestamp = chrono::DateTime::from_timestamp_millis(at_ms as i64)
-                .unwrap_or_default()
-                .to_rfc3339();
-            serde_json::json!({
-                "schemaVersion": 1,
-                "id": format!("remote_{i}"),
-                "sender": sender,
-                "timestamp": timestamp,
-                "text": text,
+    /// Follow the DM from row `since`, handing each new message to
+    /// `on_row` in the `principal_log` row shape. Returns when the
+    /// daemon ends the watch.
+    pub async fn watch<F>(&self, since: Option<&str>, on_row: F) -> Result<(), String>
+    where
+        F: Fn(serde_json::Value) + Send + Sync + 'static,
+    {
+        let channel = self.open_dm().await?;
+        let client = crate::ipc::IpcClient::new()
+            .await
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        client
+            .channel_events_watch_each(&channel, since, move |_, event| {
+                // Live events carry no store line; the message id stands in.
+                let id = event
+                    .get("msg_id")
+                    .and_then(|v| v.as_str())
+                    .map(|id| format!("msg_{id}"))
+                    .unwrap_or_else(|| "live".to_string());
+                if let Some(row) = posted_row(id, &event) {
+                    on_row(row);
+                }
             })
-        })
-        .collect();
-    serde_json::json!({
-        "principal": principal_name,
-        "peer": "user:local",
-        "messages": messages,
-        "next_cursor": null,
-        "has_more": false,
-    })
-}
-
-/// URL-encode a single query-string value. Avoids dragging in a new
-/// crate just for this — `urlencoding` is already a workspace dep.
-fn urlencoded(s: &str) -> String {
-    urlencoding::encode(s).into_owned()
-}
-
-/// Error prefix the chat UI matches on to show the peko's Terms of
-/// Service text instead of a generic failure. The hub returns HTTP 428
-/// with body `{ error, tosText }` when the peko sets `tosRequired` and
-/// the request didn't acknowledge it.
-pub const TOS_REQUIRED_PREFIX: &str = "[tos_required]";
-
-/// Map a non-2xx hub response to the surfaced error string. A 428 is
-/// a distinct state (the user must acknowledge the peko's ToS before
-/// chatting), so it gets the stable `[tos_required]` prefix the
-/// frontend can switch on. Any other status shows the hub's own
-/// `error` message ("Too many requests", "Peko not found"), or the
-/// status when the body has none.
-fn map_error_response(status: reqwest::StatusCode, body: &str) -> String {
-    if status == reqwest::StatusCode::UNAUTHORIZED {
-        return "Sign in to PekoHub to message pekos on other computers (the account menu, top right)."
-            .to_string();
+            .await
+            .map_err(|e| e.to_string())
     }
-    if status == reqwest::StatusCode::PRECONDITION_REQUIRED {
-        let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
-        let tos_text = parsed
-            .as_ref()
-            .and_then(|v| v.get("tosText"))
-            .and_then(|v| v.as_str());
-        let message = parsed
-            .as_ref()
-            .and_then(|v| v.get("error"))
+
+    /// How the thread names this peko until the DM is open.
+    fn peer(&self) -> String {
+        format!("principal:hub:{}/{}", self.owner, self.principal_name)
+    }
+}
+
+/// The channel from a `channel_remote_dm_opened` answer, or the reason
+/// the runtime gave.
+fn opened_channel(answer: &serde_json::Value) -> Result<String, String> {
+    match answer.get("type").and_then(|t| t.as_str()) {
+        Some("channel_remote_dm_opened") => answer
+            .get("channel")
             .and_then(|v| v.as_str())
-            .unwrap_or("Terms of Service acknowledgment required");
-        return match tos_text {
-            Some(tos) if !tos.is_empty() => format!("{TOS_REQUIRED_PREFIX} {message}\n\n{tos}"),
-            _ => format!("{TOS_REQUIRED_PREFIX} {message}"),
-        };
-    }
-    serde_json::from_str::<serde_json::Value>(body)
-        .ok()
-        .and_then(|v| v.get("error")?.as_str().map(str::to_string))
-        .filter(|m| !m.trim().is_empty())
-        .unwrap_or_else(|| format!("The hub answered {status}"))
-}
-
-/// `http://localhost:3000/` → `localhost:3000`, for error messages.
-fn host_of(hub_url: &str) -> &str {
-    let rest = hub_url.split_once("://").map_or(hub_url, |(_, rest)| rest);
-    rest.split('/').next().unwrap_or(rest)
-}
-
-/// A buffer that ingests raw SSE bytes and emits logical frames.
-///
-/// SSE over HTTP/1.1 is a stream of `event: foo\ndata: bar\n\n`
-/// records separated by blank lines; a single chunk can land
-/// anywhere on those boundaries, so we accumulate until we see a
-/// blank line. Comments (`:`) and unknown event names are skipped
-/// silently — the desktop only cares about `data:`, `event:
-/// iteration`, and `event: error`.
-struct SseBuffer {
-    buf: Vec<u8>,
-}
-
-#[derive(Debug, PartialEq)]
-enum SseFrame {
-    Chunk { delta: String },
-    Iteration { iteration: u32 },
-    Error { message: String },
-}
-
-impl SseBuffer {
-    fn new() -> Self {
-        Self { buf: Vec::new() }
-    }
-
-    fn push(&mut self, bytes: &[u8]) -> Vec<SseFrame> {
-        self.buf.extend_from_slice(bytes);
-        let mut out = Vec::new();
-        // Split on the SSE record separator (`\n\n`). Each record is
-        // processed; partial trailing bytes stay in the buffer.
-        while let Some(idx) = find_double_newline(&self.buf) {
-            let raw = self.buf.drain(..idx + 2).collect::<Vec<u8>>();
-            let s = match std::str::from_utf8(&raw) {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
-            if let Some(frame) = parse_sse_record(s) {
-                out.push(frame);
+            .map(str::to_string)
+            .ok_or_else(|| "the runtime opened the conversation but named no channel".to_string()),
+        Some("error") => {
+            let message = error_message(answer, "The conversation couldn't be opened.");
+            // A runtime not linked to a PekoHub account can't reach other
+            // computers: say what to do about it.
+            if message.contains("Register this runtime with PekoHub")
+                || message.contains("no PekoHub connection")
+            {
+                Err("Sign in to PekoHub (the account menu, top right) so this computer can reach pekos on other computers.".to_string())
+            } else {
+                Err(message)
             }
         }
-        out
+        _ => Err(
+            "This runtime is too old to reach pekos on other computers. Update Peko.".to_string(),
+        ),
     }
 }
 
-fn find_double_newline(buf: &[u8]) -> Option<usize> {
-    // SSE spec uses `\n\n` as the record separator; CRLF is also
-    // permitted. We accept both.
-    for i in 0..buf.len().saturating_sub(1) {
-        if buf[i] == b'\n' && buf[i + 1] == b'\n' {
-            return Some(i);
-        }
-        if buf[i] == b'\r'
-            && buf[i + 1] == b'\n'
-            && i + 3 < buf.len()
-            && buf[i + 2] == b'\r'
-            && buf[i + 3] == b'\n'
-        {
-            return Some(i);
-        }
-    }
-    None
+fn error_message(answer: &serde_json::Value, fallback: &str) -> String {
+    answer
+        .get("message")
+        .and_then(|m| m.as_str())
+        .filter(|m| !m.trim().is_empty())
+        .unwrap_or(fallback)
+        .to_string()
 }
 
-fn parse_sse_record(s: &str) -> Option<SseFrame> {
-    let mut event: Option<&str> = None;
-    let mut data_lines: Vec<&str> = Vec::new();
-    for line in s.lines() {
-        if line.starts_with(':') {
-            continue; // comment / heartbeat
-        }
-        if let Some(rest) = line.strip_prefix("event:") {
-            event = Some(rest.trim());
-        } else if let Some(rest) = line.strip_prefix("data:") {
-            // SSE permits leading space after the colon.
-            data_lines.push(rest.strip_prefix(' ').unwrap_or(rest));
-        }
-    }
-    let data = data_lines.join("\n");
-    if data.is_empty() {
+/// A `posted` channel event as a `principal_log` row
+/// (`{ schemaVersion, id, sender, timestamp, text, attachments }`); other
+/// events (created, member changes) are not messages.
+fn posted_row(id: String, event: &serde_json::Value) -> Option<serde_json::Value> {
+    if event.get("kind").and_then(|k| k.as_str()) != Some("posted") {
         return None;
     }
-    match event.unwrap_or("message") {
-        "iteration" => match serde_json::from_str::<IterationEnvelope>(&data) {
-            Ok(env) => Some(SseFrame::Iteration {
-                iteration: env.iteration,
-            }),
-            Err(_) => None,
-        },
-        "error" => match serde_json::from_str::<ErrorEnvelope>(&data) {
-            Ok(env) => Some(SseFrame::Error {
-                message: env.message,
-            }),
-            Err(_) => Some(SseFrame::Error {
-                message: data.to_string(),
-            }),
-        },
-        // Default `message` event carries the chunk envelope.
-        _ => match serde_json::from_str::<ChunkEnvelope>(&data) {
-            Ok(env) => Some(SseFrame::Chunk { delta: env.chunk }),
-            Err(_) => None,
-        },
-    }
+    Some(serde_json::json!({
+        "schemaVersion": 1,
+        "id": id,
+        "sender": event.get("author").and_then(|v| v.as_str()).unwrap_or("unknown"),
+        "timestamp": event.get("at").and_then(|v| v.as_str()).unwrap_or_default(),
+        "text": event.get("text").and_then(|v| v.as_str()).unwrap_or_default(),
+        "attachments": event.get("attachments").cloned().unwrap_or_else(|| serde_json::json!([])),
+    }))
+}
+
+/// A `channel_peek_result` (tail read) as the page `principal_log`
+/// returns: `{ principal, peer, messages, next_cursor, has_more }`. Rows
+/// are `chan_<line>`, so the log watch's cursor works on them; the
+/// cursor for older rows is the first row's line.
+fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
+    let empty = Vec::new();
+    let events = answer
+        .get("events")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
+    let ids = answer
+        .get("event_ids")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
+    let first_line = ids.first().and_then(|v| v.as_str()).map(str::to_string);
+    let messages: Vec<serde_json::Value> = events
+        .iter()
+        .enumerate()
+        .filter_map(|(i, event)| {
+            let id = ids
+                .get(i)
+                .and_then(|v| v.as_str())
+                .map_or_else(|| format!("row_{i}"), |l| format!("chan_{l}"));
+            posted_row(id, event)
+        })
+        .collect();
+    let has_more = answer
+        .get("has_more")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    serde_json::json!({
+        "principal": peer,
+        "peer": "user:local",
+        "messages": messages,
+        "next_cursor": if has_more { first_line } else { None },
+        "has_more": has_more,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// A remote peko's local log reads like a local peko's thread.
+    fn posted(author: &str, text: &str) -> serde_json::Value {
+        serde_json::json!({
+            "kind": "posted",
+            "channel": "dm_abc",
+            "author": author,
+            "parent": null,
+            "text": text,
+            "at": "2026-11-01T10:00:00Z",
+            "msg_id": "m1",
+        })
+    }
+
     #[test]
-    fn remote_log_reads_as_a_thread_page() {
-        let entries = vec![
-            local_chat_log::ChatLogEntry::User {
-                content: "hello".into(),
-                timestamp_unix_ms: 1_793_356_834_216,
-            },
-            local_chat_log::ChatLogEntry::Assistant {
-                content: "SUCCESS".into(),
-                timestamp_unix_ms: 1_793_356_835_499,
-            },
-        ];
-        let page = remote_log_page("tester", "remy", &entries, None);
-        let rows = page["messages"].as_array().unwrap();
-        assert_eq!(rows.len(), 2);
-        assert_eq!(rows[0]["sender"], "user:local");
-        assert_eq!(rows[0]["text"], "hello");
-        assert_eq!(rows[1]["sender"], "principal:hub:tester/remy");
-        assert!(rows[1]["timestamp"]
-            .as_str()
-            .unwrap()
-            .starts_with("2026-10-30T"));
+    fn a_peek_becomes_a_log_page() {
+        let answer = serde_json::json!({
+            "type": "channel_peek_result",
+            "channel": "dm_abc",
+            "events": [
+                {"kind": "created", "channel": "dm_abc", "creator": "user:hub:acct", "name": "dm", "at": "2026-11-01T09:59:00Z"},
+                posted("user:local", "hi ada"),
+                posted("principal:hub:156f1a95-d977-4c4a-979e-8ed4848ae6eb", "hello!"),
+            ],
+            "event_ids": ["1", "2", "3"],
+            "has_more": true,
+        });
+        let page = log_page("principal:hub:alice/ada", &answer);
+        let messages = page["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 2, "only posts are messages");
+        assert_eq!(messages[0]["id"], "chan_2");
+        assert_eq!(messages[0]["sender"], "user:local");
+        assert_eq!(messages[1]["text"], "hello!");
+        assert_eq!(messages[1]["timestamp"], "2026-11-01T10:00:00Z");
+        assert_eq!(page["has_more"], true);
+        assert_eq!(
+            page["next_cursor"], "1",
+            "older rows page back from the first line"
+        );
+    }
+
+    #[test]
+    fn an_empty_thread_has_no_cursor() {
+        let page = log_page("p", &serde_json::json!({"events": [], "event_ids": []}));
+        assert!(page["messages"].as_array().unwrap().is_empty());
+        assert!(page["next_cursor"].is_null());
         assert_eq!(page["has_more"], false);
-        let last = remote_log_page("tester", "remy", &entries, Some(1));
-        assert_eq!(last["messages"].as_array().unwrap().len(), 1);
-        assert_eq!(last["messages"][0]["text"], "SUCCESS");
-    }
-
-    /// The chunk envelope the hub emits on every text delta must
-    /// round-trip into `SseFrame::Chunk` with the delta preserved
-    /// verbatim. Pin the wire shape — the desktop's chat UI
-    /// concatenates the deltas into the assistant bubble, so a
-    /// single dropped character surfaces as broken text.
-    #[test]
-    fn parse_chunk_envelope() {
-        let raw = "data: {\"chunk\":\"hello world\",\"done\":false}\n\n";
-        let frame = parse_sse_record(raw).expect("chunk parses");
-        assert_eq!(
-            frame,
-            SseFrame::Chunk {
-                delta: "hello world".to_string()
-            }
-        );
-    }
-
-    /// Iteration envelopes land on `event: iteration\ndata: ...`.
-    /// The frontend uses these to break bubbles + drive the
-    /// "Thinking…" pill.
-    #[test]
-    fn parse_iteration_envelope() {
-        let raw = "event: iteration\ndata: {\"iteration\":3}\n\n";
-        let frame = parse_sse_record(raw).expect("iteration parses");
-        assert_eq!(frame, SseFrame::Iteration { iteration: 3 });
-    }
-
-    /// Error envelopes carry a user-friendly message that the chat
-    /// UI surfaces inline. Decode must work whether the message is
-    /// a JSON string or just a raw payload — pekohub could in theory
-    /// forward either.
-    #[test]
-    fn parse_error_envelope() {
-        let raw = "event: error\ndata: {\"message\":\"rate limited\"}\n\n";
-        let frame = parse_sse_record(raw).expect("error parses");
-        assert_eq!(
-            frame,
-            SseFrame::Error {
-                message: "rate limited".to_string()
-            }
-        );
-    }
-
-    /// Records may be split across chunks — verify the buffer
-    /// accumulates until it sees `\n\n`. The desktop sees hundreds of
-    /// small chunks per second over SSE; a naive line-by-line reader
-    /// would drop every frame that crosses a chunk boundary.
-    #[test]
-    fn buffer_accumulates_partial_records() {
-        let mut buf = SseBuffer::new();
-        let first = b"data: {\"chunk\":\"hel";
-        let rest = b"lo\",\"done\":false}\n\n";
-        assert!(buf.push(first).is_empty(), "no complete records yet");
-        let frames = buf.push(rest);
-        assert_eq!(
-            frames,
-            vec![SseFrame::Chunk {
-                delta: "hello".to_string()
-            }]
-        );
-    }
-
-    /// Multiple records in a single chunk must all parse, in order.
-    #[test]
-    fn buffer_emits_multiple_records() {
-        let mut buf = SseBuffer::new();
-        let raw =
-            b"data: {\"chunk\":\"a\",\"done\":false}\n\ndata: {\"chunk\":\"b\",\"done\":false}\n\n";
-        let frames = buf.push(raw);
-        assert_eq!(frames.len(), 2);
-        assert_eq!(
-            frames[0],
-            SseFrame::Chunk {
-                delta: "a".to_string()
-            }
-        );
-        assert_eq!(
-            frames[1],
-            SseFrame::Chunk {
-                delta: "b".to_string()
-            }
-        );
-    }
-
-    /// Comment lines (`: heartbeat`) must not break parsing and must
-    /// not be emitted as frames.
-    #[test]
-    fn ignores_heartbeat_comments() {
-        let mut buf = SseBuffer::new();
-        let raw = b": heartbeat\ndata: {\"chunk\":\"ok\",\"done\":false}\n\n";
-        let frames = buf.push(raw);
-        assert_eq!(frames.len(), 1);
-        assert_eq!(
-            frames[0],
-            SseFrame::Chunk {
-                delta: "ok".to_string()
-            }
-        );
-    }
-
-    /// The chat URL must append the invite token as `?token=...`
-    /// when one is present (URL-encoded to handle tokens with `+/=`
-    /// characters from base64). The runtime's tunnel layer matches
-    /// this header against the principal's ACL.
-    #[test]
-    fn chat_url_appends_token_when_present() {
-        let client = HubRemoteClient::new(
-            "https://pekohub.org".to_string(),
-            "alice".to_string(),
-            "coding-assistant".to_string(),
-            Some("abc/def=ghi".to_string()),
-            reqwest::Client::new(),
-        );
-        let url = client.chat_url();
-        assert!(
-            url.contains("token=abc%2Fdef%3Dghi"),
-            "token must be url-encoded: {url}"
-        );
-        assert!(
-            url.starts_with("https://api.pekohub.ai/v1/public/pekos/alice/coding-assistant/chat"),
-            "chat URL must use the /v1/public/pekos/* surface (ADR-005); got {url}"
-        );
-        assert!(
-            !url.contains("/public/principals/"),
-            "retired /v1/public/principals/* path leaked: {url}"
-        );
-    }
-
-    /// No token → no query string. Pin the canonical anonymous path.
-    #[test]
-    fn chat_url_no_token() {
-        let client = HubRemoteClient::new(
-            "https://pekohub.org".to_string(),
-            "alice".to_string(),
-            "coding-assistant".to_string(),
-            None,
-            reqwest::Client::new(),
-        );
-        let url = client.chat_url();
-        assert!(!url.contains("?token"));
-        assert!(url.ends_with("/chat"));
-    }
-
-    /// A 428 from the hub (peko requires ToS acknowledgement) must
-    /// surface as a distinct `[tos_required]`-prefixed error carrying
-    /// the hub's `tosText`, so the chat UI can render the terms and an
-    /// acknowledge affordance instead of a generic failure banner.
-    #[test]
-    fn map_error_response_428_carries_tos_text() {
-        let body = r#"{"error":"Terms of Service acknowledgment required","tosText":"Be kind."}"#;
-        let err = map_error_response(reqwest::StatusCode::PRECONDITION_REQUIRED, body);
-        assert!(
-            err.starts_with(TOS_REQUIRED_PREFIX),
-            "428 must carry the {TOS_REQUIRED_PREFIX} prefix, got: {err}"
-        );
-        assert!(err.contains("Be kind."), "tosText must surface: {err}");
-    }
-
-    /// A 428 without a parseable body still gets the prefix (the UI
-    /// can at least show the acknowledgement flow).
-    #[test]
-    fn map_error_response_428_without_body_still_prefixed() {
-        let err = map_error_response(reqwest::StatusCode::PRECONDITION_REQUIRED, "not json");
-        assert!(err.starts_with(TOS_REQUIRED_PREFIX), "got: {err}");
-    }
-
-    /// Other statuses show the hub's own message — rate limits (429)
-    /// and offline pekos (503) are plain errors in the chat UI — or
-    /// the status when the body carries none.
-    #[test]
-    fn map_error_response_other_status_shows_the_hubs_message() {
-        let err = map_error_response(
-            reqwest::StatusCode::TOO_MANY_REQUESTS,
-            r#"{"error":"Too many requests"}"#,
-        );
-        assert_eq!(err, "Too many requests");
-        let err = map_error_response(reqwest::StatusCode::BAD_GATEWAY, "<html>");
-        assert_eq!(err, "The hub answered 502 Bad Gateway");
     }
 
     #[test]
-    fn host_of_strips_scheme_and_path() {
-        assert_eq!(host_of("http://localhost:3000/"), "localhost:3000");
-        assert_eq!(host_of("https://pekohub.org"), "pekohub.org");
+    fn opening_answers_map_to_a_channel_or_a_reason() {
+        let ok = serde_json::json!({
+            "type": "channel_remote_dm_opened",
+            "channel": "dm_abc",
+            "peer": "principal:hub:x",
+            "hub_id": "x",
+            "created": true,
+        });
+        assert_eq!(opened_channel(&ok).unwrap(), "dm_abc");
+
+        let unregistered = serde_json::json!({
+            "type": "error",
+            "message": "Register this runtime with PekoHub first (peko runtime register)",
+        });
+        assert!(opened_channel(&unregistered)
+            .unwrap_err()
+            .contains("Sign in to PekoHub"));
+        let disconnected = serde_json::json!({"type": "error", "message": "This runtime has no PekoHub connection"});
+        assert!(opened_channel(&disconnected)
+            .unwrap_err()
+            .contains("Sign in to PekoHub"));
+
+        let other = serde_json::json!({"type": "error", "message": "ada is local-only"});
+        assert_eq!(opened_channel(&other).unwrap_err(), "ada is local-only");
+
+        let old = serde_json::json!({"type": "error_unknown_packet"});
+        assert!(opened_channel(&old).unwrap_err().contains("too old"));
     }
 
-    /// runtime_id follows the canonical `hub:<hub_url>` shape so the
-    /// PR #3 routing layer can match registered clients by id.
     #[test]
-    fn runtime_id_has_canonical_shape() {
-        let trailing = HubRemoteClient::new(
-            "https://pekohub.org/".to_string(),
-            "alice".to_string(),
-            "coding-assistant".to_string(),
-            None,
-            reqwest::Client::new(),
-        );
-        assert_eq!(trailing.runtime_id, "hub:https://pekohub.org");
-
-        let bare = HubRemoteClient::new(
-            "https://pekohub.org".to_string(),
-            "alice".to_string(),
-            "coding-assistant".to_string(),
-            None,
-            reqwest::Client::new(),
-        );
-        assert_eq!(bare.runtime_id, "hub:https://pekohub.org");
+    fn non_posts_are_not_rows() {
+        let joined = serde_json::json!({"kind": "member_joined", "member": "x", "at": "t"});
+        assert!(posted_row("live".into(), &joined).is_none());
+        let row = posted_row("msg_m1".into(), &posted("user:local", "hey")).unwrap();
+        assert_eq!(row["attachments"], serde_json::json!([]));
     }
 }

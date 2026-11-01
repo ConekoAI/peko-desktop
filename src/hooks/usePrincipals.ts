@@ -402,13 +402,19 @@ export function usePrincipalLogWatch(
   sinceRef.current = sinceCursor;
 
   useEffect(() => {
-    if (!name || rid !== DEFAULT_RUNTIME_ID || !ready) return;
+    if (!name || !ready) return;
     let stop: (() => void) | null = null;
     let cancelled = false;
-    principalLogWatch(name, peer, sinceRef.current ?? null, () => {
-      if (pausedRef.current) return;
-      void qc.invalidateQueries({ queryKey: ["principal-log", rid, name, peer ?? "owner"] });
-    })
+    principalLogWatch(
+      name,
+      peer,
+      sinceRef.current ?? null,
+      () => {
+        if (pausedRef.current) return;
+        void qc.invalidateQueries({ queryKey: ["principal-log", rid, name, peer ?? "owner"] });
+      },
+      rid,
+    )
       .then((unwatch) => {
         if (cancelled) unwatch();
         else stop = unwatch;

@@ -3,15 +3,14 @@
  * initiative (reminders, check-ins, approval requests) is never missed:
  * an unread count per peko, the total on the dock icon, and an OS
  * notification when a peko writes while you aren't looking at its chat.
- * A remote peko writes only in reply; a reply that lands after you've
- * left its chat (the backend's `remote-reply` event) counts the same way.
+ * A remote peko's thread is the DM this computer's runtime holds with it,
+ * watched the same way.
  *
  * Mounted once, in the layout. Desktop-only: it reads the same
  * `principal_log` / `principal_log_watch` the chat does.
  */
 import { useEffect, useRef } from "react";
 import { useLocation } from "@tanstack/react-router";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   isPermissionGranted,
@@ -49,14 +48,6 @@ function activePeko(pathname: string, runtimeId: unknown): string | null {
   return unreadKey(decodeURIComponent(m[1]), typeof runtimeId === "string" ? runtimeId : null);
 }
 
-/** A recorded remote reply, as the backend announces it. */
-interface RemoteReply {
-  runtimeId: string;
-  name: string;
-  text: string;
-  timestamp: string;
-}
-
 let permission: Promise<boolean> | null = null;
 
 /** Ask once for permission; later calls reuse the answer. */
@@ -76,6 +67,69 @@ async function notify(peko: string, text: string) {
   if (!(await canNotify())) return;
   const body = text.replace(/\s+/g, " ").trim();
   sendNotification({ title: peko, body: body.length > 160 ? `${body.slice(0, 157)}…` : body });
+}
+
+/**
+ * Count one peko's thread: rebuild its unread count from the latest
+ * page, then follow new rows. A row from a person (you) marks the thread
+ * read up to it; a row from the peko counts as unread and notifies,
+ * unless its chat is on screen.
+ */
+function follow(opts: {
+  key: string;
+  title: string;
+  isActive: () => boolean;
+  load: () => Promise<{ messages: { id: string; sender?: unknown; timestamp: string; text?: string }[] }>;
+  watch: (cursor: string | null, onRow: (raw: unknown) => void) => Promise<() => void>;
+  isCancelled: () => boolean;
+  stops: (() => void)[];
+}) {
+  const { key, title } = opts;
+  const seen = new Set<string>();
+  const onRow = (raw: unknown) => {
+    const row = raw as Row;
+    if (!row.timestamp) return;
+    // Live rows and their later replays carry different ids.
+    const id = `${row.timestamp}|${row.text ?? ""}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+    if (!isLater(row.timestamp, readUpTo(key))) return;
+    if (isFromPerson(row.sender)) {
+      // You (or someone you share the DM with) wrote: seen up to here.
+      markRead(key, row.timestamp);
+      return;
+    }
+    if (opts.isActive() && document.hasFocus()) {
+      markRead(key, row.timestamp);
+      return;
+    }
+    addUnread(key);
+    void notify(title, row.text ?? "");
+  };
+
+  void (async () => {
+    try {
+      const page = await opts.load();
+      if (opts.isCancelled()) return;
+      const read = readUpTo(key);
+      const newest = page.messages[page.messages.length - 1]?.timestamp;
+      if (!read) {
+        // First sight of this peko: its history is not news.
+        if (newest) markRead(key, newest);
+      } else {
+        setUnread(
+          key,
+          page.messages.filter((m) => !isFromPerson(m.sender) && isLater(m.timestamp, read)).length,
+        );
+      }
+      for (const m of page.messages) seen.add(`${m.timestamp}|${m.text ?? ""}`);
+      const stop = await opts.watch(newestLogCursor(page.messages), onRow);
+      if (opts.isCancelled()) stop();
+      else opts.stops.push(stop);
+    } catch {
+      // A peko with no thread yet answers not_found; nothing to count.
+    }
+  })();
 }
 
 export function useDmActivity() {
@@ -111,56 +165,17 @@ export function useDmActivity() {
     if (names.length === 0) return;
     let cancelled = false;
     const stops: (() => void)[] = [];
-
     for (const name of names) {
-      const seen = new Set<string>();
-      const onRow = (raw: unknown) => {
-        const row = raw as Row;
-        if (!row.timestamp) return;
-        // Live rows and their later replays carry different ids.
-        const key = `${row.timestamp}|${row.text ?? ""}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        if (!isLater(row.timestamp, readUpTo(name))) return;
-        if (isFromPerson(row.sender)) {
-          // You (or someone you share the DM with) wrote: seen up to here.
-          markRead(name, row.timestamp);
-          return;
-        }
-        if (activeRef.current === name && document.hasFocus()) {
-          markRead(name, row.timestamp);
-          return;
-        }
-        addUnread(name);
-        void notify(name, row.text ?? "");
-      };
-
-      void (async () => {
-        try {
-          const page = await principalLog({ name, peer: caller, limit: 50 });
-          if (cancelled) return;
-          const read = readUpTo(name);
-          const newest = page.messages[page.messages.length - 1]?.timestamp;
-          if (!read) {
-            // First sight of this peko: its history is not news.
-            if (newest) markRead(name, newest);
-          } else {
-            setUnread(
-              name,
-              page.messages.filter((m) => !isFromPerson(m.sender) && isLater(m.timestamp, read))
-                .length,
-            );
-          }
-          for (const m of page.messages) seen.add(`${m.timestamp}|${m.text ?? ""}`);
-          const stop = await principalLogWatch(name, caller, newestLogCursor(page.messages), onRow);
-          if (cancelled) stop();
-          else stops.push(stop);
-        } catch {
-          // A peko with no thread yet answers not_found; nothing to count.
-        }
-      })();
+      follow({
+        key: name,
+        title: name,
+        isActive: () => activeRef.current === name,
+        load: () => principalLog({ name, peer: caller, limit: 50 }),
+        watch: (cursor, onRow) => principalLogWatch(name, caller, cursor, onRow),
+        isCancelled: () => cancelled,
+        stops,
+      });
     }
-
     return () => {
       cancelled = true;
       for (const stop of stops) stop();
@@ -168,49 +183,28 @@ export function useDmActivity() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [namesKey, caller]);
 
-  // Remote pekos: counts rebuilt from their saved history, then each
-  // recorded reply as it lands.
+  // One watch per remote peko: its thread is the DM this computer's
+  // runtime holds with it (runtime ADR-090), watched the same way.
   useEffect(() => {
     if (!remotes || remotes.length === 0) return;
     let cancelled = false;
+    const stops: (() => void)[] = [];
     for (const remote of remotes) {
       const key = unreadKey(remote.principalName, remote.runtimeId);
-      void (async () => {
-        try {
-          const page = await principalLog({
-            name: remote.principalName,
-            runtimeId: remote.runtimeId,
-            limit: 50,
-          });
-          if (cancelled) return;
-          const read = readUpTo(key);
-          const newest = page.messages[page.messages.length - 1]?.timestamp;
-          if (!read) {
-            if (newest) markRead(key, newest);
-          } else {
-            setUnread(
-              key,
-              page.messages.filter((m) => !isFromPerson(m.sender) && isLater(m.timestamp, read))
-                .length,
-            );
-          }
-        } catch {
-          // No history yet: nothing to count.
-        }
-      })();
+      follow({
+        key,
+        title: remote.displayName || remote.principalName,
+        isActive: () => activeRef.current === key,
+        load: () => principalLog({ name: remote.principalName, runtimeId: remote.runtimeId, limit: 50 }),
+        watch: (cursor, onRow) =>
+          principalLogWatch(remote.principalName, undefined, cursor, onRow, remote.runtimeId),
+        isCancelled: () => cancelled,
+        stops,
+      });
     }
-    const unlisten = listen<RemoteReply>("remote-reply", ({ payload }) => {
-      const key = unreadKey(payload.name, payload.runtimeId);
-      if (activeRef.current === key && document.hasFocus()) {
-        markRead(key, payload.timestamp);
-        return;
-      }
-      addUnread(key);
-      void notify(payload.name, payload.text);
-    });
     return () => {
       cancelled = true;
-      void unlisten.then((stop) => stop());
+      for (const stop of stops) stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remotesKey]);

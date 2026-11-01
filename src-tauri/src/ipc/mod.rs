@@ -1875,6 +1875,47 @@ impl IpcClient {
         channel: &str,
         since: Option<&str>,
     ) -> Result<()> {
+        let app_events = app.clone();
+        let result = self
+            .channel_events_watch_each(channel, since, move |channel_id, payload| {
+                // PR-2b: forward each event as a `peko-stream`
+                // channel_event. The React side's
+                // `useChannelStreamInvalidator` filters on
+                // `payload.channel === channelId`.
+                let _ = app_events.emit(
+                    "peko-stream",
+                    &StreamEvent::ChannelEvent {
+                        channel_id,
+                        payload,
+                        timestamp: now_millis_string(),
+                    },
+                );
+            })
+            .await;
+        if let Err(IpcError::ReceiveFailed(message)) = &result {
+            let _ = app.emit(
+                "peko-stream",
+                &StreamEvent::Error {
+                    message: message.clone(),
+                    timestamp: now_millis_string(),
+                },
+            );
+        }
+        result
+    }
+
+    /// Follow `channel` from `since` (a row number), handing each new
+    /// event to `on_event` as `(channel id, event JSON)`. Returns when the
+    /// daemon ends the watch.
+    pub async fn channel_events_watch_each<F>(
+        &self,
+        channel: &str,
+        since: Option<&str>,
+        on_event: F,
+    ) -> Result<()>
+    where
+        F: Fn(String, serde_json::Value) + Send + Sync + 'static,
+    {
         ensure_daemon().await?;
         let req = serde_json::json!({
             "type": "channel_events_watch",
@@ -1917,33 +1958,15 @@ impl IpcClient {
             let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
                 .map_err(|e| IpcError::Serialization(e.to_string()))?;
 
-            let packet_type = raw.get("type").and_then(|v| v.as_str()).unwrap_or("");
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis()
-                .to_string();
-
-            match packet_type {
+            match raw.get("type").and_then(|v| v.as_str()).unwrap_or("") {
                 "channel_event_received" => {
-                    // PR-2b: forward each event as a `peko-stream`
-                    // channel_event. The React side's
-                    // `useChannelStreamInvalidator` filters on
-                    // `payload.channel === channelId`.
                     let channel_id = raw
                         .get("channel")
                         .and_then(|v| v.as_str())
                         .unwrap_or(channel)
                         .to_string();
                     let payload = raw.get("event").cloned().unwrap_or(serde_json::Value::Null);
-                    let _ = app.emit(
-                        "peko-stream",
-                        &StreamEvent::ChannelEvent {
-                            channel_id,
-                            payload,
-                            timestamp,
-                        },
-                    );
+                    on_event(channel_id, payload);
                 }
                 "done" => return Ok(()),
                 "error" => {
@@ -1952,13 +1975,6 @@ impl IpcClient {
                         .and_then(|v| v.as_str())
                         .unwrap_or("Unknown error")
                         .to_string();
-                    let _ = app.emit(
-                        "peko-stream",
-                        &StreamEvent::Error {
-                            message: message.clone(),
-                            timestamp,
-                        },
-                    );
                     return Err(IpcError::ReceiveFailed(message));
                 }
                 "heartbeat" => continue,
@@ -1969,6 +1985,34 @@ impl IpcClient {
             }
         }
     }
+
+    /// Open (or find) the local user's DM with the peko whose Hub ID is
+    /// `hub_id`, on another runtime (runtime ADR-090). `token` is the
+    /// PekoHub access token, used for the directory lookup only.
+    /// Answered with `channel_remote_dm_opened`.
+    pub async fn channel_open_remote_dm(
+        &self,
+        hub_id: &str,
+        token: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_open_remote_dm",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "hub_id": hub_id,
+            "token": token,
+        });
+        self.request_response(req).await
+    }
+}
+
+fn now_millis_string() -> String {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .to_string()
 }
 
 #[cfg(unix)]

@@ -47,14 +47,6 @@ import type {
 } from "../types";
 import type { ChatStreamMsg } from "../lib/api";
 
-/**
- * ToS gate: a send/stream rejection whose message starts with
- * "[tos_required]" carries the hub's terms text after the prefix.
- * The thread renders it as a distinct acknowledgement notice, not a
- * generic red error bubble.
- */
-const TOS_REQUIRED_PREFIX = "[tos_required]";
-
 interface ChatItem {
   event: StreamEvent;
   isUser: boolean;
@@ -777,14 +769,6 @@ export default function Chat() {
     lastUserIdx >= 0 && lastUserIdx < displayItems.length - 1 ? displayItems.length - 1 : -1;
   const retryText = lastUserIdx >= 0 ? (displayItems[lastUserIdx].event.content ?? "").trim() : "";
 
-  // A "[tos_required]"-tagged send/stream rejection carries the hub's
-  // terms text after the prefix; it renders as the acknowledgement
-  // notice below, not the generic red error box.
-  const tosText =
-    error && error.startsWith(TOS_REQUIRED_PREFIX)
-      ? error.slice(TOS_REQUIRED_PREFIX.length).trim()
-      : null;
-
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -910,17 +894,7 @@ export default function Chat() {
           </p>
         )}
 
-        {tosText !== null ? (
-          <div
-            data-testid="tos-required-notice"
-            className="mt-3 rounded-lg border border-warn/30 bg-warn-soft p-3 text-sm text-warn"
-          >
-            <p className="font-medium">
-              This peko requires you to acknowledge its terms before chatting.
-            </p>
-            <p className="mt-1 whitespace-pre-wrap break-all">{tosText}</p>
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="mt-3 rounded-lg bg-danger-soft p-3 text-sm text-danger">
             {error}
           </div>

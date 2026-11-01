@@ -574,14 +574,18 @@ export async function principalLogWatch(
   peer: string | undefined,
   sinceCursor: string | null,
   onMessage: (message: unknown) => void,
+  runtimeId?: RuntimeId,
 ): Promise<() => void> {
   const channel = new Channel<unknown>();
   channel.onmessage = onMessage;
+  // A remote peko (`hub:…`) is followed through the DM this computer's
+  // runtime holds with it (runtime ADR-090).
   const watchId = await invoke<number>("principal_log_watch_start", {
     name,
     peer: peer ?? null,
     sinceCursor,
     onMessage: channel,
+    runtimeId: runtimeId ?? null,
   });
   return () => {
     void invoke("principal_log_watch_stop", { watchId });
