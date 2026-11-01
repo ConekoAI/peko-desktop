@@ -1280,18 +1280,17 @@ impl IpcClient {
         seed: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
-        let mut req = serde_json::json!({
+        // `seed` is a seed's TOML (ADR-060); daemons that predate it
+        // ignore the field.
+        let req = serde_json::json!({
             "type": "principal_create",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
             "description": description,
             "model_id": model_id,
+            "seed": seed,
         });
-        // A seed's TOML (ADR-060); older daemons never see the key.
-        if let Some(seed) = seed {
-            req["seed"] = serde_json::Value::String(seed.to_string());
-        }
         self.request_response_with_timeout(req, GENESIS_REQUEST_TIMEOUT)
             .await
     }
