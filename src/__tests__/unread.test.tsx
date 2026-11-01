@@ -8,8 +8,15 @@ const principalLogMock = vi.fn();
 const watchCallbacks: Record<string, (row: unknown) => void> = {};
 vi.mock("../lib/api", () => ({
   principalLog: (args: { name: string }) => principalLogMock(args),
-  principalLogWatch: async (name: string, _peer: unknown, _since: unknown, cb: (r: unknown) => void) => {
-    watchCallbacks[name] = cb;
+  principalLogWatch: async (
+    name: string,
+    _peer: unknown,
+    _since: unknown,
+    cb: (r: unknown) => void,
+    runtimeId?: string,
+  ) => {
+    // Remote pekos are watched through their DM, keyed by hub.
+    watchCallbacks[runtimeId ? `${runtimeId}#${name}` : name] = cb;
     return () => {};
   },
 }));
@@ -32,22 +39,12 @@ const location: { pathname: string; search: Record<string, string> } = {
 };
 vi.mock("@tanstack/react-router", () => ({ useLocation: () => location }));
 
-// Remote pekos write only in reply; the backend announces each one.
+// A remote peko's thread is the runtime's DM with it, watched like a local one.
 const REMY_HUB = "hub:http://localhost:3000";
 const remotesState: { data: unknown[] } = { data: [] };
 vi.mock("../hooks/useRemotePrincipals", () => ({
   useRemotePrincipals: () => remotesState,
 }));
-const eventListeners: Record<string, (e: { payload: unknown }) => void> = {};
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: async (name: string, cb: (e: { payload: unknown }) => void) => {
-    eventListeners[name] = cb;
-    return () => {
-      delete eventListeners[name];
-    };
-  },
-}));
-
 vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: () => ({ data: [{ name: "nova" }, { name: "juno" }] }),
   useCallerSubject: () => "user:local",
@@ -158,15 +155,18 @@ describe("useDmActivity", () => {
     await waitFor(() => expect(result.current.juno).toBe(0));
   });
 
-  it("counts a remote peko's reply that lands after you leave its chat", async () => {
+  it("counts a remote peko's reply that lands on its DM after you leave its chat", async () => {
     remotesState.data = [{ principalName: "remy", runtimeId: REMY_HUB }];
     principalLogMock.mockResolvedValue(page([]));
     // You were in remy's chat, then switched to nova before it replied.
     markRead(`${REMY_HUB}#remy`, new Date(Date.now() - 60_000).toISOString());
     const { result, rerender } = renderActivity();
-    await waitFor(() => expect(eventListeners["remote-reply"]).toBeDefined());
-    const reply = { runtimeId: REMY_HUB, name: "remy", text: "done!", timestamp: new Date().toISOString() };
-    act(() => eventListeners["remote-reply"]({ payload: reply }));
+    await waitFor(() => expect(watchCallbacks[`${REMY_HUB}#remy`]).toBeDefined());
+    act(() =>
+      watchCallbacks[`${REMY_HUB}#remy`](
+        row("principal:hub:156f1a95-d977-4c4a-979e-8ed4848ae6eb", new Date().toISOString(), "done!"),
+      ),
+    );
     expect(result.current[`${REMY_HUB}#remy`]).toBe(1);
     // A local peko of the same name keeps its own count.
     expect(result.current.remy).toBeUndefined();
