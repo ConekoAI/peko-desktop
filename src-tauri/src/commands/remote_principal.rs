@@ -420,7 +420,10 @@ mod tests {
         let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/peko/alice/coding-assistant")
                 .expect("canonical /peko/ form should parse");
-        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
+        assert_eq!(
+            hub, "https://api.pekohub.ai",
+            "calls go to the official API host"
+        );
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert!(token.is_none());
@@ -433,7 +436,10 @@ mod tests {
         let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/p/alice/coding-assistant")
                 .expect("legacy /p/ form should parse");
-        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
+        assert_eq!(
+            hub, "https://api.pekohub.ai",
+            "calls go to the official API host"
+        );
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert!(token.is_none());
@@ -444,7 +450,10 @@ mod tests {
         let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/peko/alice/coding-assistant?token=abc123")
                 .expect("token-bearing form should parse");
-        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
+        assert_eq!(
+            hub, "https://api.pekohub.ai",
+            "calls go to the official API host"
+        );
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert_eq!(token.as_deref(), Some("abc123"));
@@ -455,7 +464,10 @@ mod tests {
         let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/v1/public/pekos/alice/coding-assistant")
                 .expect("api form should parse");
-        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
+        assert_eq!(
+            hub, "https://api.pekohub.ai",
+            "calls go to the official API host"
+        );
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert!(token.is_none());
@@ -469,7 +481,10 @@ mod tests {
         let (hub, owner, name, _token) =
             parse_share_url("https://pekohub.org/v1/public/principals/alice/coding-assistant")
                 .expect("retired api form should parse");
-        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
+        assert_eq!(
+            hub, "https://api.pekohub.ai",
+            "calls go to the official API host"
+        );
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
     }
