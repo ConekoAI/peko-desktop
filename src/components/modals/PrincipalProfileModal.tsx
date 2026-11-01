@@ -16,7 +16,7 @@ import {
 import { useModels } from "../../hooks/useModels";
 import { useSettings } from "../../hooks/useSettings";
 import {
-  DEFAULT_HUB_URL,
+  configuredHubUrl,
   pekoShareLink,
   principalSetStatus,
   principalMintInvite,
@@ -116,8 +116,7 @@ function LocalPekoProfile({
   const { data: settings } = useSettings();
   const pekohubBaseUrl = useMemo(
     () =>
-      settings?.find((s) => s.key === "pekohub.base_url")?.value ??
-      DEFAULT_HUB_URL,
+      configuredHubUrl(settings),
     [settings],
   );
 

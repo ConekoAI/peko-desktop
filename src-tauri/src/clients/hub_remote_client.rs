@@ -104,8 +104,15 @@ impl HubRemoteClient {
         }
     }
 
+    /// The hub's API base: a record may carry the website the share link
+    /// named (`pekohub.ai`), and calls go to its API (`api.pekohub.ai`).
+    fn api_base(&self) -> String {
+        crate::clients::hub_origin::hub_api_base(&self.hub_url)
+    }
+
     fn chat_url(&self) -> String {
-        let base = self.hub_url.trim_end_matches('/');
+        let api = self.api_base();
+        let base = api.trim_end_matches('/');
         let mut url = format!(
             "{}/v1/public/pekos/{}/{}/chat",
             base, self.owner, self.principal_name
@@ -134,11 +141,18 @@ impl HubRemoteClient {
             message,
             tos_acknowledged: true,
         };
-        let resp = self
+        // The hub serves this chat to signed-in accounts (visitor chat is
+        // off by default): send as the account the app signed in with.
+        let token = crate::clients::hub_auth::access_token(&self.http, &self.api_base()).await;
+        let mut request = self
             .http
             .post(&url)
             .header(CONTENT_TYPE, "application/json")
-            .json(&body)
+            .json(&body);
+        if let Some(token) = &token {
+            request = request.bearer_auth(token);
+        }
+        let resp = request
             .send()
             .await
             .map_err(|e| format!("Couldn't reach {}: {e}", host_of(&self.hub_url)))?;
@@ -280,6 +294,10 @@ pub const TOS_REQUIRED_PREFIX: &str = "[tos_required]";
 /// `error` message ("Too many requests", "Peko not found"), or the
 /// status when the body has none.
 fn map_error_response(status: reqwest::StatusCode, body: &str) -> String {
+    if status == reqwest::StatusCode::UNAUTHORIZED {
+        return "Sign in to PekoHub to message pekos on other computers (the account menu, top right)."
+            .to_string();
+    }
     if status == reqwest::StatusCode::PRECONDITION_REQUIRED {
         let parsed = serde_json::from_str::<serde_json::Value>(body).ok();
         let tos_text = parsed
@@ -564,7 +582,7 @@ mod tests {
             "token must be url-encoded: {url}"
         );
         assert!(
-            url.starts_with("https://pekohub.org/v1/public/pekos/alice/coding-assistant/chat"),
+            url.starts_with("https://api.pekohub.ai/v1/public/pekos/alice/coding-assistant/chat"),
             "chat URL must use the /v1/public/pekos/* surface (ADR-005); got {url}"
         );
         assert!(

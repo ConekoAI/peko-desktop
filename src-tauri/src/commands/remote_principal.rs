@@ -105,7 +105,12 @@ fn parse_share_url(raw: &str) -> Option<(String, String, String, Option<String>)
             if parts.next().is_some() {
                 return None;
             }
-            return Some((url.origin, owner, name, url.query_token));
+            return Some((
+                crate::clients::hub_origin::hub_api_base(&url.origin),
+                owner,
+                name,
+                url.query_token,
+            ));
         }
     }
     // `/v1/public/pekos/{owner}/{name}` — the API URL form; the
@@ -122,7 +127,12 @@ fn parse_share_url(raw: &str) -> Option<(String, String, String, Option<String>)
             if parts.next().is_some() {
                 return None;
             }
-            return Some((url.origin, owner, name, url.query_token));
+            return Some((
+                crate::clients::hub_origin::hub_api_base(&url.origin),
+                owner,
+                name,
+                url.query_token,
+            ));
         }
     }
     None
@@ -184,7 +194,8 @@ pub async fn remote_principal_resolve(share_url: String) -> Result<RemotePrincip
         .ok_or_else(|| format!("not a valid pekohub share URL: {share_url:?}"))?;
     // Use a PekohubClient pinned to the user-supplied hub URL so
     // self-hosted hubs resolve against the right base.
-    let client = crate::clients::pekohub::PekohubClient::new().with_base_url(hub_url.clone());
+    let client = crate::clients::pekohub::PekohubClient::new()
+        .with_base_url(crate::clients::hub_origin::hub_api_base(&hub_url));
     let payload = client
         .get_public_principal(&owner, &name, invite_token.as_deref())
         .await?;
@@ -356,7 +367,8 @@ pub async fn remote_principal_profile(
         .into_iter()
         .find(|r| r.hub_url == hub_url && r.owner == owner && r.principal_name == principal_name)
         .and_then(|r| r.invite_token);
-    let client = crate::clients::pekohub::PekohubClient::new().with_base_url(hub_url);
+    let client = crate::clients::pekohub::PekohubClient::new()
+        .with_base_url(crate::clients::hub_origin::hub_api_base(&hub_url));
     match client
         .get_public_principal(&owner, &principal_name, invite_token.as_deref())
         .await
@@ -408,7 +420,7 @@ mod tests {
         let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/peko/alice/coding-assistant")
                 .expect("canonical /peko/ form should parse");
-        assert_eq!(hub, "https://pekohub.org");
+        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert!(token.is_none());
@@ -421,7 +433,7 @@ mod tests {
         let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/p/alice/coding-assistant")
                 .expect("legacy /p/ form should parse");
-        assert_eq!(hub, "https://pekohub.org");
+        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert!(token.is_none());
@@ -432,7 +444,7 @@ mod tests {
         let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/peko/alice/coding-assistant?token=abc123")
                 .expect("token-bearing form should parse");
-        assert_eq!(hub, "https://pekohub.org");
+        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert_eq!(token.as_deref(), Some("abc123"));
@@ -443,7 +455,7 @@ mod tests {
         let (hub, owner, name, token) =
             parse_share_url("https://pekohub.org/v1/public/pekos/alice/coding-assistant")
                 .expect("api form should parse");
-        assert_eq!(hub, "https://pekohub.org");
+        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
         assert!(token.is_none());
@@ -457,9 +469,17 @@ mod tests {
         let (hub, owner, name, _token) =
             parse_share_url("https://pekohub.org/v1/public/principals/alice/coding-assistant")
                 .expect("retired api form should parse");
-        assert_eq!(hub, "https://pekohub.org");
+        assert_eq!(hub, "https://api.pekohub.ai", "calls go to the official API host");
         assert_eq!(owner, "alice");
         assert_eq!(name, "coding-assistant");
+    }
+
+    #[test]
+    fn test_parse_share_url_keeps_a_self_hosted_origin() {
+        let (hub, owner, _, _) = parse_share_url("http://localhost:3000/peko/alice/helper")
+            .expect("self-hosted share links parse");
+        assert_eq!(hub, "http://localhost:3000");
+        assert_eq!(owner, "alice");
     }
 
     #[test]

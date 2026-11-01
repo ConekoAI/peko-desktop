@@ -260,32 +260,17 @@ impl PekohubClient {
     // Runtime management
     // ------------------------------------------------------------------
 
-    /// Get system status from a remote runtime.
-    ///
-    /// RETIRED HUB-SIDE (verified 2026-09-17 against
-    /// `pekohub/backend/src/routes/api/runtimes.ts`): the hub's
-    /// runtime routes are now only `POST /v1/runtimes/register[-challenge]`,
-    /// `GET /v1/runtimes`, and `GET /v1/runtimes/:did` — there is no
-    /// `/v1/runtimes/{id}/status` route, so every call to this method
-    /// 404s. The surviving consumers (`commands::runtime::runtime_add`
-    /// / `runtime_reconnect`) degrade to `Error`/`Disconnected` on
-    /// that 404 rather than crashing, which is the current — broken —
-    /// behavior of remote-runtime health checks. Left in place (not
-    /// rewired to `/runtimes/:did`, which keys by runtime DID, not
-    /// the desktop's connection id, and requires owner auth) pending
-    /// a decision on what remote health checking should mean in the
-    /// hub-remote model.
+    /// Get system status from a remote runtime. The hub has no route
+    /// for it (gap map C5), so this answers at once with an error; its
+    /// callers (`runtime_add` / `runtime_reconnect`) show the runtime as
+    /// disconnected.
     pub async fn system_status(&self, runtime_id: &str) -> Result<serde_json::Value, String> {
-        let url = format!("{}/v1/runtimes/{}/status", self.base_url, runtime_id);
-        let mut req = self.http.get(&url);
-        if let Some((k, v)) = self.auth_header().await {
-            req = req.header(&k, v);
-        }
-        let resp = req.send().await.map_err(|e| e.to_string())?;
-        if !resp.status().is_success() {
-            return Err(format!("pekohub error: {}", resp.status()));
-        }
-        resp.json().await.map_err(|e| e.to_string())
+        // The hub has no such route: a runtime's health is its own
+        // tunnel's, and pekos on other computers are reached through the
+        // directory. Answer without a request rather than 404 every time.
+        Err(format!(
+            "{runtime_id}: PekoHub doesn't report other runtimes' health"
+        ))
     }
 
     /// List principals the authenticated user has access to. Post-ADR-005

@@ -94,6 +94,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         remote_principal::remote_principal_remove,
         remote_principal::remote_principal_profile,
         hub_http::hub_get,
+        hub_http::hub_oauth_revoke,
+        runtime::runtime_hub_register,
         hub_http::hub_oauth_token,
         hub_http::peko_share_link,
         oauth_callback::start_oauth_callback_listener,

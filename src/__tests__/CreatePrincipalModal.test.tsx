@@ -74,6 +74,27 @@ describe("CreatePrincipalModal", () => {
     );
   });
 
+  it("grows the peko from a chosen seed file", async () => {
+    render(<CreatePrincipalModal open onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    const text = 'name = "ada"\npreferred_model_id = "deep"\n';
+    const file = new File([text], "ada.seed.toml", { type: "application/toml" });
+    fireEvent.change(screen.getByLabelText("Seed file"), { target: { files: [file] } });
+    expect(await screen.findByTestId("new-peko-seed")).toHaveTextContent("ada.seed.toml");
+    fireEvent.click(screen.getByRole("button", { name: /create/i }));
+    await waitFor(() =>
+      expect(createMock).toHaveBeenCalledWith({ name: "pip", modelId: "fast", seed: text }),
+    );
+  });
+
+  it("refuses a file that isn't a seed", async () => {
+    render(<CreatePrincipalModal open onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    const file = new File(["just some text"], "notes.toml", { type: "text/plain" });
+    fireEvent.change(screen.getByLabelText("Seed file"), { target: { files: [file] } });
+    expect(await screen.findByText(/doesn't look like a seed/)).toBeInTheDocument();
+  });
+
   it("refuses a name already taken", () => {
     render(<CreatePrincipalModal open onClose={vi.fn()} />);
     fireEvent.change(screen.getByRole("textbox", { name: /name/i }), { target: { value: "nova" } });

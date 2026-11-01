@@ -39,11 +39,30 @@ export default function NewPekoForm({
   const [advanced, setAdvanced] = useState(false);
   const [description, setDescription] = useState("");
   const [chosenModel, setModel] = useState(modelId ?? "");
+  // A seed (ADR-060) to grow from: a `.seed.toml` downloaded from PekoHub.
+  const [seed, setSeed] = useState<{ fileName: string; text: string } | null>(null);
+  const [seedError, setSeedError] = useState<string | null>(null);
   const model = chosenModel || enabledModels[0]?.id || "";
 
   const trimmed = name.trim();
   const nameOk = isValidPrincipalName(trimmed) && !takenNames.includes(trimmed);
   const busy = createMut.isPending || updateMut.isPending;
+
+  async function chooseSeed(file: File | undefined) {
+    setSeedError(null);
+    if (!file) return;
+    if (file.size > 64 * 1024) {
+      setSeedError("A seed is at most 64 KB.");
+      return;
+    }
+    const text = await file.text();
+    if (!/^\s*name\s*=/m.test(text)) {
+      setSeedError("This doesn't look like a seed: it has no `name`.");
+      return;
+    }
+    setSeed({ fileName: file.name, text });
+    setAdvanced(true);
+  }
 
   async function create() {
     try {
@@ -51,6 +70,7 @@ export default function NewPekoForm({
         name: trimmed,
         modelId: model,
         ...(description.trim() && { description: description.trim() }),
+        ...(seed && { seed: seed.text }),
       });
       if (avatar) await updateMut.mutateAsync({ name: trimmed, avatar });
       onCreated(trimmed);
@@ -122,6 +142,38 @@ export default function NewPekoForm({
       </div>
 
       <Disclosure open={advanced} onToggle={() => setAdvanced((a) => !a)} label="Advanced">
+        <div>
+          <span className="mb-1 block text-xs font-medium text-fg-muted">Start from a seed</span>
+          {seed ? (
+            <div className="flex items-center justify-between rounded-lg border border-line bg-surface-sunken px-3 py-2 text-xs">
+              <span className="truncate font-mono text-fg-soft" data-testid="new-peko-seed">
+                {seed.fileName}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSeed(null)}
+                className="ml-2 text-fg-subtle hover:text-fg-soft"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs text-fg-muted hover:border-brand hover:text-fg-soft">
+              Choose a .seed.toml
+              <input
+                type="file"
+                accept=".toml,text/plain,application/toml"
+                className="sr-only"
+                aria-label="Seed file"
+                onChange={(e) => void chooseSeed(e.target.files?.[0])}
+              />
+            </label>
+          )}
+          <span className="mt-1 block text-[11px] text-fg-subtle">
+            Seeds from PekoHub give your peko its definition; it still gets a new identity, and you own it.
+          </span>
+          {seedError && <span className="mt-1 block text-[11px] text-danger">{seedError}</span>}
+        </div>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-fg-muted">Description</span>
           <textarea

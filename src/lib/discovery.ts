@@ -5,7 +5,7 @@
  * PekoHub is anonymous-readable for this endpoint, so no token is sent.
  */
 
-import { DEFAULT_HUB_URL, hubGet, hubJson } from "./api";
+import { hubApiBase, hubGet, hubJson } from "./api";
 
 export interface DiscoveryHit {
   id: string;
@@ -37,7 +37,7 @@ export interface DiscoveryResult {
  * Self-hosted hubs are supported; `parseShareUrl` accepts any host.
  */
 export function resolveHubUrl(configured?: string | null): string {
-  return configured?.trim() || DEFAULT_HUB_URL;
+  return hubApiBase(configured);
 }
 
 export async function discoverySearch(

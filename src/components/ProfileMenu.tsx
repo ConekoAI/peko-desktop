@@ -6,7 +6,7 @@ import {
   runOAuthFlow,
 } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
-import { DEFAULT_HUB_URL } from "../lib/api";
+import { configuredHubUrl } from "../lib/api";
 
 /**
  * Chrome-level profile menu — top of the AppRail, accessible from any
@@ -40,8 +40,7 @@ export default function ProfileMenu() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const pekohubBaseUrl =
-    settings?.find((s) => s.key === "pekohub.base_url")?.value ??
-    DEFAULT_HUB_URL;
+    configuredHubUrl(settings);
   const oauthScope =
     settings?.find((s) => s.key === "pekohub.oauth_scope")?.value ??
     "runtimes:read";
@@ -78,9 +77,9 @@ export default function ProfileMenu() {
         baseUrl: pekohubBaseUrl,
         scope: oauthScope,
       });
-      if (result.added === 0) {
+      if (!result.registered) {
         setOauthError(
-          "Signed in to PekoHub, but no runtimes were found for this account.",
+          `Signed in, but this computer couldn't connect to PekoHub: ${result.error ?? "unknown error"}`,
         );
       }
     } catch (err) {
@@ -95,7 +94,7 @@ export default function ProfileMenu() {
   }
 
   function handleSignOut() {
-    logout.mutate();
+    logout.mutate(pekohubBaseUrl);
     setOpen(false);
   }
 

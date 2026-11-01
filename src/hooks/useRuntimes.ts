@@ -7,7 +7,9 @@ import {
   runtimeRename,
   oauthTokenExchange,
   oauthTokenRefresh,
-  pekohubListRuntimes,
+  runtimeHubRegister,
+  hubOAuthRevoke,
+  DEFAULT_HUB_URL,
   credentialSetRaw,
   credentialGetRaw,
   pekohubLogout,
@@ -129,9 +131,15 @@ export interface OAuthConnectInput {
   scope?: string;
 }
 
+/**
+ * Signing in registers this computer's runtime with the account, so its
+ * pekos can go online. `registered: false` means sign-in worked but the
+ * registration didn't; `error` says why.
+ */
 export interface OAuthConnectResult {
-  added: number;
-  runtimes: { id: string; name: string }[];
+  registered: boolean;
+  account?: string;
+  error?: string;
 }
 
 /**
@@ -334,26 +342,21 @@ export async function exchangeOAuthCode(
   const bundle = buildTokenBundle(tokenResp);
   await storeOAuthBundle(bundle);
 
-  // Discover runtimes
-  const runtimes = await pekohubListRuntimes(baseUrl, accessToken);
-
-  // Add each discovered runtime
-  const added: { id: string; name: string }[] = [];
-  for (const rt of runtimes) {
-    if (!rt.id || !rt.name) continue;
-    try {
-      await runtimeAdd(rt.id, rt.name, rt.url ?? baseUrl);
-      added.push({ id: rt.id, name: rt.name });
-    } catch {
-      // Skip runtimes that fail to add (e.g. already exists)
-    }
+  // Register this computer's runtime under the account (pekohub ADR-007),
+  // so its pekos can go online. Sign-in stands even if this fails.
+  let result: OAuthConnectResult;
+  try {
+    const registration = await runtimeHubRegister(baseUrl, accessToken);
+    result = { registered: true, account: registration.account };
+  } catch (e) {
+    result = { registered: false, error: e instanceof Error ? e.message : String(e) };
   }
 
   // Clear the persisted flow now that we've successfully exchanged.
   // Leaving it would let a stale verifier be replayed against a
   // future OAuth flow (low impact, but unnecessary surface).
   writeActiveFlow(null);
-  return { added: added.length, runtimes: added };
+  return result;
 }
 
 /** TanStack Query mutation wrapper for the full OAuth exchange. */
@@ -393,7 +396,15 @@ export function useOAuthConnect() {
 export function usePekohubLogout() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => pekohubLogout(),
+    mutationFn: async (baseUrl?: string) => {
+      // Revoke the refresh token at the hub (RFC 7009), then forget it
+      // here. A hub that can't be reached doesn't block signing out.
+      const bundle = await loadOAuthBundle().catch(() => null);
+      if (bundle?.refresh_token) {
+        await hubOAuthRevoke(baseUrl ?? DEFAULT_HUB_URL, bundle.refresh_token).catch(() => undefined);
+      }
+      await pekohubLogout();
+    },
     onSuccess: () => {
       writeActiveFlow(null);
       qc.invalidateQueries({ queryKey: ["runtimes"] });
