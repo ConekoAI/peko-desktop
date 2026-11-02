@@ -17,6 +17,7 @@ const EXTENSION_KIND: Record<string, Kind> = {
   jpeg: "image",
   gif: "image",
   webp: "image",
+  svg: "image",
   wav: "audio",
   mp3: "audio",
   flac: "audio",
@@ -36,7 +37,9 @@ const EXTENSION_KIND: Record<string, Kind> = {
 
 /** What a file is, by MIME type when known, else by extension. */
 export function attachmentKind(nameOrPath: string, mime?: string): Kind {
-  if (mime?.startsWith("image/") && mime !== "image/svg+xml") return "image";
+  // SVG included: it is shown through <img>, where its scripts and
+  // external references never run.
+  if (mime?.startsWith("image/")) return "image";
   if (mime?.startsWith("audio/")) return "audio";
   if (mime?.startsWith("video/")) return "video";
   if (mime?.startsWith("text/") || mime === "application/pdf") return "text";
@@ -179,19 +182,24 @@ function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "
   );
 }
 
-/** A sent message's files: images as thumbnails, the rest as chips. */
+/** One file: an image as a thumbnail, audio or video playable, else a chip. */
+export function AttachmentView({ attachment }: { attachment: ChatLogAttachment }) {
+  const kind = attachmentKind(attachment.name, attachment.mime);
+  if (kind === "image") return <Thumbnail attachment={attachment} />;
+  if (kind === "audio" || kind === "video") {
+    return <Playable attachment={attachment} kind={kind} />;
+  }
+  return <FileChip attachment={attachment} />;
+}
+
+/** A message's files, the user's or the peko's (its `Attach` tool). */
 export function MessageAttachments({ attachments }: { attachments: ChatLogAttachment[] }) {
   if (attachments.length === 0) return null;
   return (
     <div className="mt-1.5 flex flex-wrap items-end gap-1.5">
-      {attachments.map((a) => {
-        const kind = attachmentKind(a.name, a.mime);
-        if (kind === "image") return <Thumbnail key={a.path} attachment={a} />;
-        if (kind === "audio" || kind === "video") {
-          return <Playable key={a.path} attachment={a} kind={kind} />;
-        }
-        return <FileChip key={a.path} attachment={a} />;
-      })}
+      {attachments.map((a) => (
+        <AttachmentView key={a.path} attachment={a} />
+      ))}
     </div>
   );
 }

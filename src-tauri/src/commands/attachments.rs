@@ -37,6 +37,9 @@ fn image_mime(path: &Path) -> Option<&'static str> {
         "jpg" | "jpeg" => Some("image/jpeg"),
         "gif" => Some("image/gif"),
         "webp" => Some("image/webp"),
+        // Shown through <img>, which runs no scripts and loads nothing
+        // external from it.
+        "svg" => Some("image/svg+xml"),
         _ => None,
     }
 }
@@ -139,6 +142,10 @@ mod tests {
 
         let url = read_preview(&image.display().to_string(), root.path()).unwrap();
         assert!(url.starts_with("data:image/png;base64,"));
+        let svg = root.path().join("chart.svg");
+        std::fs::write(&svg, b"<svg xmlns='http://www.w3.org/2000/svg'/>").unwrap();
+        let url = read_preview(&svg.display().to_string(), root.path()).unwrap();
+        assert!(url.starts_with("data:image/svg+xml;base64,"));
         assert!(read_preview(&text.display().to_string(), root.path()).is_err());
         assert!(read_preview(&elsewhere.display().to_string(), root.path()).is_err());
         // `..` cannot climb out.
