@@ -409,7 +409,10 @@ mod tests {
         assert_eq!(page["next_cursor"], "msg:m1");
         assert_eq!(page["has_more"], true);
 
-        let last = host_page("p", &serde_json::json!({"events": [posted_id("a", "x", "m0")], "has_more": false}));
+        let last = host_page(
+            "p",
+            &serde_json::json!({"events": [posted_id("a", "x", "m0")], "has_more": false}),
+        );
         assert!(last["next_cursor"].is_null());
         assert_eq!(last["has_more"], false);
     }
