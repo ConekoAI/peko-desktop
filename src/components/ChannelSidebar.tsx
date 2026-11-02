@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Search, Hash, Loader2, Plus } from "lucide-react";
+import { Search, Hash, Loader2, Mail, Plus } from "lucide-react";
 import {
   channelInfoQuery,
   hasLeftGroup,
@@ -9,6 +9,7 @@ import {
   useChannels,
 } from "../hooks/useChannels";
 import { usePrincipals } from "../hooks/usePrincipals";
+import { groupInvitationAnswer, groupInvitations, personGroups } from "../lib/api";
 import RuntimeBadge from "./RuntimeBadge";
 
 /**
@@ -43,8 +44,39 @@ export default function ChannelSidebar({
     [principals],
   );
 
-  const { data: channels, isLoading } = useChannels(principalNames);
+  const { data: pekoChannels, isLoading } = useChannels(principalNames);
   const qc = useQueryClient();
+
+  // Runtime ADR-092 D2: groups on other computers that invited you, and
+  // the ones you joined. Both are empty when this computer isn't signed in.
+  const { data: invitations } = useQuery({
+    queryKey: ["group-invitations"],
+    queryFn: groupInvitations,
+    refetchInterval: 30_000,
+  });
+  const { data: joined } = useQuery({
+    queryKey: ["person-groups"],
+    queryFn: personGroups,
+    refetchInterval: 30_000,
+  });
+  const answer = useMutation({
+    mutationFn: ({ channelId, accept }: { channelId: string; accept: boolean }) =>
+      groupInvitationAnswer(channelId, accept),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["group-invitations"] });
+      void qc.invalidateQueries({ queryKey: ["person-groups"] });
+    },
+  });
+  const channels = useMemo(() => {
+    if (!pekoChannels && !joined) return undefined;
+    const rows = [...(pekoChannels ?? [])];
+    for (const g of joined ?? []) {
+      if (!rows.some((r) => r.channelId === g.channelId)) {
+        rows.push({ channelId: g.channelId, runtimeId: "local", memberPrincipals: [] });
+      }
+    }
+    return rows;
+  }, [pekoChannels, joined]);
 
   // Search by the group's name (once its info has loaded) or its id.
   const filtered = useMemo(() => {
@@ -104,6 +136,49 @@ export default function ChannelSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
+        {(invitations ?? []).length > 0 && (
+          <div className="mb-2 space-y-1" data-testid="group-invitations">
+            <div className="px-2 pb-1 text-xs font-medium text-fg-subtle">Invitations</div>
+            {invitations!.map((i) => (
+              <div
+                key={i.channelId}
+                className="rounded-lg border border-line bg-surface-card p-2 text-sm"
+                data-testid={`invitation-${i.channelId}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 shrink-0 text-fg-subtle" />
+                  <span className="min-w-0 flex-1 truncate font-medium text-fg">{i.name}</span>
+                </div>
+                <div className="mt-0.5 truncate text-xs text-fg-subtle">
+                  {i.members} {i.members === 1 ? "member" : "members"} · from {i.inviter}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={answer.isPending}
+                    onClick={() => answer.mutate({ channelId: i.channelId, accept: true })}
+                    className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+                  >
+                    Join
+                  </button>
+                  <button
+                    type="button"
+                    disabled={answer.isPending}
+                    onClick={() => answer.mutate({ channelId: i.channelId, accept: false })}
+                    className="rounded-md px-2.5 py-1 text-xs text-fg-muted hover:bg-surface-sunken disabled:opacity-50"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+            {answer.error && (
+              <div className="px-2 text-xs text-red-600 dark:text-red-400">
+                {String(answer.error instanceof Error ? answer.error.message : answer.error)}
+              </div>
+            )}
+          </div>
+        )}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
             <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
