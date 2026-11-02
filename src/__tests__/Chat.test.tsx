@@ -393,7 +393,54 @@ describe("Chat thread and peko lifecycle", () => {
     expect(screen.queryByRole("button", { name: "Load earlier messages" })).toBeNull();
   });
 
+  // Runtime ADR-091: past the start of this computer's copy of a chat
+  // with a peko on another computer, earlier messages come from its host
+  // (`msg:` cursors), page by page, until there are none.
+  it("keeps loading earlier messages from the host of a remote peko", async () => {
+    logState.data = {
+      messages: [msg("m5", "user:local", "latest question")],
+      nextCursor: "msg:m5",
+      hasMore: true,
+    };
+    fetchOlderMock
+      .mockResolvedValueOnce({
+        messages: [msg("m3", "user:local", "asked on my laptop"), msg("m4", "principal:hub:x", "answered there")],
+        nextCursor: "msg:m3",
+        hasMore: true,
+      })
+      .mockResolvedValueOnce({
+        messages: [msg("m1", "user:local", "the very first")],
+        nextCursor: null,
+        hasMore: false,
+      });
+    render(<Chat />);
+    fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
+    expect(await screen.findByText("asked on my laptop")).toBeInTheDocument();
+    expect(fetchOlderMock).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "msg:m5" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
+    expect(await screen.findByText("the very first")).toBeInTheDocument();
+    expect(fetchOlderMock).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "msg:m3" }));
+    const before = (a: string, b: string) =>
+      Boolean(screen.getByText(a).compareDocumentPosition(screen.getByText(b)) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(before("the very first", "asked on my laptop")).toBe(true);
+    expect(before("answered there", "latest question")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Load earlier messages" })).toBeNull();
+  });
+
+  it("says so when the host can't be reached for earlier messages", async () => {
+    logState.data = { messages: [msg("m5", "user:local", "latest")], nextCursor: "msg:m5", hasMore: true };
+    fetchOlderMock.mockImplementation(async () => {
+      throw new Error("Older messages couldn't be read from the computer hosting this peko.");
+    });
+    render(<Chat />);
+    fireEvent.click(screen.getByRole("button", { name: "Load earlier messages" }));
+    expect(await screen.findByText(/couldn't be read from the computer hosting this peko/)).toBeInTheDocument();
+    expect(screen.getByText("latest")).toBeInTheDocument();
+  });
+
   it("offers no earlier messages on a short thread", () => {
+
     logState.data = { messages: [msg("m1", "user:local", "hi")], nextCursor: null, hasMore: false };
     render(<Chat />);
     expect(screen.queryByRole("button", { name: "Load earlier messages" })).toBeNull();
