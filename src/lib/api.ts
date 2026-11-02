@@ -1444,6 +1444,51 @@ export async function groupHistoryOlder(
   return invoke("group_history_older", { channelId, before });
 }
 
+/** What joining by link or ID asked for (runtime ADR-092 D5). */
+export interface GroupJoinRequested {
+  channelId: string;
+  name: string;
+}
+
+/** A group's PekoHub registration (runtime ADR-092 D5). */
+export interface GroupRegistration {
+  id: string;
+  page: string;
+  visibility: "invite_only" | "public";
+}
+
+/** A new invite link, or how many links `revoke` stopped. */
+export interface GroupLink {
+  link: string | null;
+  expires: string | null;
+  revoked: number | null;
+}
+
+/** Join a group by its invite link, or a public one by its ID. */
+export async function groupJoin(link: string): Promise<GroupJoinRequested> {
+  return invoke<GroupJoinRequested>("group_join", { link });
+}
+
+/** Give a group an ID on PekoHub, or change who may find it. */
+export async function groupRegister(
+  channelId: string,
+  visibility: "invite_only" | "public",
+): Promise<GroupRegistration> {
+  return invoke<GroupRegistration>("group_register", { channelId, visibility });
+}
+
+/** Make an invite link to a registered group, or stop them all. */
+export async function groupLink(
+  channelId: string,
+  options: { days?: number; revoke?: boolean } = {},
+): Promise<GroupLink> {
+  return invoke<GroupLink>("group_link", {
+    channelId,
+    days: options.days ?? null,
+    revoke: options.revoke ?? false,
+  });
+}
+
 /** Groups you joined from other computers; empty when not signed in. */
 export async function personGroups(): Promise<PersonGroup[]> {
   return invoke<PersonGroup[]>("person_groups");
@@ -1505,6 +1550,15 @@ export interface ChannelInfo {
   /** Actors in `kind:id` form, e.g. `user:local`, `principal:prin_…`. */
   members: string[];
   pekos: { name: string; localId: string; wake: WakePolicy }[];
+  /** A group's home and PekoHub registration (runtime ADR-092 D1/D5). */
+  group?: {
+    /** This computer is the group's home: register it and make links here. */
+    homeHere: boolean;
+    owner: string;
+    hubId: string | null;
+    page: string | null;
+    visibility: "invite_only" | "public" | null;
+  } | null;
 }
 
 /** Read a channel's kind, members, and pekos' wake policies (members only). */

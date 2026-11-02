@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Search, Hash, Loader2, Mail, Plus } from "lucide-react";
+import { Search, Hash, Link2, Loader2, Mail, Plus } from "lucide-react";
 import {
   channelInfoQuery,
   hasLeftGroup,
@@ -9,7 +9,7 @@ import {
   useChannels,
 } from "../hooks/useChannels";
 import { usePrincipals } from "../hooks/usePrincipals";
-import { groupInvitationAnswer, groupInvitations, personGroups } from "../lib/api";
+import { groupInvitationAnswer, groupInvitations, groupJoin, personGroups } from "../lib/api";
 import RuntimeBadge from "./RuntimeBadge";
 
 /**
@@ -210,6 +210,8 @@ export default function ChannelSidebar({
         )}
       </div>
 
+      <JoinGroup />
+
       {onCreateClick && (
         <div className="border-t border-line p-2">
           <button
@@ -257,5 +259,86 @@ function GroupRow({
       )}
       {runtimeId && runtimeId !== "local" && <RuntimeBadge runtimeId={runtimeId} />}
     </button>
+  );
+}
+
+/**
+ * Join a group by its invite link, or a public one by its ID (runtime
+ * ADR-092 D5). The group appears in the list once its home lets you in.
+ */
+function JoinGroup() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [link, setLink] = useState("");
+  const join = useMutation({
+    mutationFn: (value: string) => groupJoin(value.trim()),
+    onSuccess: () => {
+      setLink("");
+      void qc.invalidateQueries({ queryKey: ["person-groups"] });
+    },
+  });
+  if (!open) {
+    return (
+      <div className="border-t border-line p-2">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
+          data-testid="group-join-open"
+        >
+          <Link2 className="h-4 w-4" />
+          <span>Join a group</span>
+        </button>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="space-y-2 border-t border-line p-2"
+      data-testid="group-join"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (link.trim()) join.mutate(link);
+      }}
+    >
+      <input
+        type="text"
+        value={link}
+        autoFocus
+        onChange={(e) => setLink(e.target.value)}
+        placeholder="Invite link or group ID"
+        className="w-full rounded-lg border border-line bg-surface-card px-2.5 py-1.5 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+        data-testid="group-join-input"
+      />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={!link.trim() || join.isPending}
+          className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+        >
+          {join.isPending ? "Asking…" : "Join"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            join.reset();
+          }}
+          className="rounded-md px-2.5 py-1 text-xs text-fg-muted hover:bg-surface-sunken"
+        >
+          Cancel
+        </button>
+      </div>
+      {join.data && (
+        <div className="text-xs text-fg-muted" data-testid="group-join-asked">
+          Asked to join {join.data.name}. It appears here when its owner&apos;s computer lets you in.
+        </div>
+      )}
+      {join.error && (
+        <div className="text-xs text-red-600 dark:text-red-400">
+          {String(join.error instanceof Error ? join.error.message : join.error)}
+        </div>
+      )}
+    </form>
   );
 }

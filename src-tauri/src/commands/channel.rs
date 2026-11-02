@@ -302,6 +302,22 @@ pub struct ChannelInfo {
     pub name: String,
     pub members: Vec<String>,
     pub pekos: Vec<ChannelPekoWake>,
+    /// A group's home and PekoHub registration (runtime ADR-092 D1/D5).
+    pub group: Option<ChannelGroupSummary>,
+}
+
+/// Where a group is managed, and its PekoHub ID once registered.
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelGroupSummary {
+    /// This computer is the group's home: register it and make invite
+    /// links here.
+    pub home_here: bool,
+    pub owner: String,
+    pub hub_id: Option<String>,
+    pub page: Option<String>,
+    /// `invite_only` or `public`.
+    pub visibility: Option<String>,
 }
 
 /// Read a channel's kind, members, and pekos' wake policies
@@ -391,6 +407,19 @@ fn project_channel_info_envelope(value: &serde_json::Value) -> Result<ChannelInf
                 }
             })
             .collect(),
+        group: value.get("group").filter(|g| g.is_object()).map(|g| {
+            let opt = |k: &str| g.get(k).and_then(|v| v.as_str()).map(str::to_string);
+            ChannelGroupSummary {
+                home_here: g
+                    .get("home_here")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false),
+                owner: opt("owner").unwrap_or_default(),
+                hub_id: opt("hub_id"),
+                page: opt("page"),
+                visibility: opt("visibility"),
+            }
+        }),
     })
 }
 
@@ -945,9 +974,14 @@ mod tests {
             "name": "team",
             "members": [{"kind": "principal", "id": "prin_alice"}, {"kind": "user", "id": "local"}],
             "pekos": [{"name": "alice", "local_id": "prin_alice", "wake": "mention"}],
+            "group": {"home_here": true, "owner": "principal:local:prin_alice", "hub_id": "123",
+                "page": "https://pekohub.ai/g/123", "visibility": "invite_only"},
         });
         let info = project_channel_info_envelope(&v).unwrap();
         assert_eq!(info.kind, "group");
+        let group = info.group.clone().unwrap();
+        assert!(group.home_here);
+        assert_eq!(group.hub_id.as_deref(), Some("123"));
         assert_eq!(info.members, vec!["principal:prin_alice", "user:local"]);
         assert_eq!(
             info.pekos,
@@ -1319,6 +1353,160 @@ pub async fn group_history_older(
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
     })
+}
+
+/// What joining by link or ID asked for (runtime ADR-092 D5).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupJoinRequested {
+    pub channel_id: String,
+    pub name: String,
+}
+
+/// A group's PekoHub registration (runtime ADR-092 D5).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupRegistration {
+    pub id: String,
+    pub page: String,
+    pub visibility: String,
+}
+
+/// A new invite link, or how many `revoke` stopped (runtime ADR-092 D5).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupLink {
+    pub link: Option<String>,
+    pub expires: Option<String>,
+    pub revoked: Option<u64>,
+}
+
+fn str_of(value: &serde_json::Value, key: &str) -> String {
+    value
+        .get(key)
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn group_joined_from(value: &serde_json::Value) -> Result<GroupJoinRequested, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    Ok(GroupJoinRequested {
+        channel_id: str_of(value, "channel"),
+        name: str_of(value, "name"),
+    })
+}
+
+fn group_registered_from(value: &serde_json::Value) -> Result<GroupRegistration, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    Ok(GroupRegistration {
+        id: str_of(value, "id"),
+        page: str_of(value, "page"),
+        visibility: str_of(value, "visibility"),
+    })
+}
+
+fn group_link_from(value: &serde_json::Value) -> Result<GroupLink, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    Ok(GroupLink {
+        link: value
+            .get("link")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        expires: value
+            .get("expires")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+        revoked: value.get("revoked").and_then(serde_json::Value::as_u64),
+    })
+}
+
+/// Join a group by its invite link, or a public one by its ID (runtime
+/// ADR-092 D5). The group appears once its home lets you in.
+#[tauri::command]
+pub async fn group_join(link: String) -> Result<GroupJoinRequested, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_group_join(&link)
+        .await
+        .map_err(|e| format!("channel_group_join failed: {e}"))?;
+    group_joined_from(&value)
+}
+
+/// Give a group an ID on PekoHub, or change who may find it (runtime
+/// ADR-092 D5). `visibility` is `invite_only` or `public`.
+#[tauri::command]
+pub async fn group_register(
+    channel_id: String,
+    visibility: String,
+) -> Result<GroupRegistration, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_group_register(&channel_id, &visibility)
+        .await
+        .map_err(|e| format!("channel_group_register failed: {e}"))?;
+    group_registered_from(&value)
+}
+
+/// Make an invite link to a registered group, or stop them all (runtime
+/// ADR-092 D5).
+#[tauri::command]
+pub async fn group_link(
+    channel_id: String,
+    days: Option<u32>,
+    revoke: bool,
+) -> Result<GroupLink, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_group_link(&channel_id, days, revoke)
+        .await
+        .map_err(|e| format!("channel_group_link failed: {e}"))?;
+    group_link_from(&value)
+}
+
+#[cfg(test)]
+mod group_hub_tests {
+    use super::*;
+
+    #[test]
+    fn join_register_and_link_read_from_the_runtime() {
+        let joined = serde_json::json!({"type": "channel_group_joined", "channel": "chan_a", "name": "book club"});
+        assert_eq!(
+            group_joined_from(&joined).unwrap(),
+            GroupJoinRequested {
+                channel_id: "chan_a".into(),
+                name: "book club".into()
+            }
+        );
+        let registered = serde_json::json!({"type": "channel_group_registered", "channel": "chan_a",
+            "id": "123", "page": "https://pekohub.ai/g/123", "visibility": "public"});
+        assert_eq!(group_registered_from(&registered).unwrap().id, "123");
+        let link = serde_json::json!({"type": "channel_group_link_result", "channel": "chan_a",
+            "link": "https://pekohub.ai/g/123?invite=t", "expires": "2026-11-10T00:00:00+00:00"});
+        assert_eq!(
+            group_link_from(&link).unwrap().link.as_deref(),
+            Some("https://pekohub.ai/g/123?invite=t")
+        );
+        let revoked = serde_json::json!({"type": "channel_group_link_result", "channel": "chan_a", "revoked": 2});
+        assert_eq!(group_link_from(&revoked).unwrap().revoked, Some(2));
+        let refused = serde_json::json!({"type": "error", "message": "No group 1 is open to you"});
+        assert_eq!(
+            group_joined_from(&refused).unwrap_err(),
+            "No group 1 is open to you"
+        );
+    }
 }
 
 #[cfg(test)]

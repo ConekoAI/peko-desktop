@@ -49,8 +49,10 @@ vi.mock("../hooks/useChannels", () => ({
 const groupInvitationsMock = vi.fn();
 const personGroupsMock = vi.fn();
 const groupInvitationAnswerMock = vi.fn();
+const groupJoinMock = vi.fn();
 vi.mock("../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/api")>()),
+  groupJoin: (link: string) => groupJoinMock(link),
   groupInvitations: () => groupInvitationsMock(),
   personGroups: () => personGroupsMock(),
   groupInvitationAnswer: (id: string, accept: boolean) => groupInvitationAnswerMock(id, accept),
@@ -241,5 +243,30 @@ describe("ChannelSidebar — groups on other computers", () => {
       expect.objectContaining({ to: "/channels/$channelId", params: { channelId: "chan_book" } }),
     );
   });
-});
 
+  // Runtime ADR-092 D5: joining by invite link or a public group's ID.
+  it("joins a group by its invite link", async () => {
+    groupInvitationsMock.mockResolvedValue([]);
+    personGroupsMock.mockResolvedValue([]);
+    groupJoinMock.mockReset().mockResolvedValue({ channelId: "chan_book", name: "book club" });
+    renderSidebar();
+    fireEvent.click(screen.getByTestId("group-join-open"));
+    fireEvent.change(screen.getByTestId("group-join-input"), {
+      target: { value: " https://pekohub.ai/g/123?invite=tok " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Join" }));
+    await waitFor(() => expect(groupJoinMock).toHaveBeenCalledWith("https://pekohub.ai/g/123?invite=tok"));
+    expect(await screen.findByTestId("group-join-asked")).toHaveTextContent("book club");
+  });
+
+  it("says why a group can't be joined", async () => {
+    groupInvitationsMock.mockResolvedValue([]);
+    personGroupsMock.mockResolvedValue([]);
+    groupJoinMock.mockReset().mockRejectedValue(new Error("No group 123 is open to you"));
+    renderSidebar();
+    fireEvent.click(screen.getByTestId("group-join-open"));
+    fireEvent.change(screen.getByTestId("group-join-input"), { target: { value: "123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Join" }));
+    expect(await screen.findByText("No group 123 is open to you")).toBeInTheDocument();
+  });
+});
