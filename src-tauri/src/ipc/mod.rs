@@ -1641,6 +1641,26 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Scroll-back in a DM with a peko on another computer (runtime
+    /// ADR-091): the page of posts before message `before`, read from the
+    /// peko's host and not stored here. Answered with
+    /// `channel_history_page { events, has_more }`.
+    pub async fn channel_history_older(
+        &self,
+        channel: &str,
+        before: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_history_older",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "before": before,
+        });
+        self.request_response(req).await
+    }
+
     /// List the principal DIDs currently in `channel`. Mirrors
     /// `RequestPacket::ChannelMembers`. The runtime derives the
     /// authoritative membership from the `Member*` event log.
