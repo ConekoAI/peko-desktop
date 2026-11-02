@@ -40,6 +40,8 @@ function wrap(node: React.ReactNode) {
 describe("attachments", () => {
   it("tells kinds by MIME type, else by extension", () => {
     expect(attachmentKind("a.bin", "image/png")).toBe("image");
+    expect(attachmentKind("a.bin", "image/svg+xml")).toBe("image");
+    expect(attachmentKind("/x/chart.svg")).toBe("image");
     expect(attachmentKind("a.bin", "audio/wav")).toBe("audio");
     expect(attachmentKind("a.bin", "video/mp4")).toBe("video");
     expect(attachmentKind("/x/clip.MOV")).toBe("video");
@@ -141,6 +143,22 @@ describe("attachments", () => {
     ]);
     expect(items).toHaveLength(1);
     expect(items[0].attachments?.[0].name).toBe("a.png");
+  });
+
+  it("shows files a peko sent (Attach) as its own message", () => {
+    const items = chatLogMessagesToChatItems([
+      {
+        schemaVersion: 1,
+        id: "chan_2",
+        sender: "principal:local:prin_x",
+        timestamp: "2026-11-02T10:00:00Z",
+        text: "",
+        attachments: [{ name: "chart.svg", path: "/p/chart.svg", mime: "image/svg+xml", size: 40 }],
+      },
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0].isUser).toBe(false);
+    expect(items[0].attachments?.[0].mime).toBe("image/svg+xml");
   });
 });
 
