@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, LogIn, LogOut, RefreshCw, User } from "lucide-react";
+import { Check, Loader2, LogIn, LogOut, RefreshCw, Unplug, User } from "lucide-react";
 import {
   usePekohubBundle,
   usePekohubLogout,
   runOAuthFlow,
 } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
-import { configuredHubUrl } from "../lib/api";
+import { configuredHubUrl, runtimeHubDisconnect } from "../lib/api";
+import ConfirmModal from "./modals/ConfirmModal";
+
+/** The disconnect confirmation on screen, if any. */
+type DisconnectStep = { kind: "confirm" } | { kind: "unsent"; count: number };
 
 /**
  * Chrome-level profile menu — top of the AppRail, accessible from any
@@ -36,6 +40,9 @@ export default function ProfileMenu() {
   const [open, setOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  const [disconnect, setDisconnect] = useState<DisconnectStep | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectError, setDisconnectError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +103,31 @@ export default function ProfileMenu() {
   function handleSignOut() {
     logout.mutate(pekohubBaseUrl);
     setOpen(false);
+  }
+
+  /**
+   * Disconnect this computer (runtime ADR-091 D5), then sign out. A first
+   * try changes nothing while messages are undelivered; the second
+   * confirmation names them and goes on anyway.
+   */
+  async function handleDisconnect(discardUnsent: boolean) {
+    setDisconnecting(true);
+    setDisconnectError(null);
+    try {
+      const result = await runtimeHubDisconnect(pekohubBaseUrl, discardUnsent);
+      if (!result.done && result.unsent) {
+        setDisconnect({ kind: "unsent", count: result.unsent });
+        return;
+      }
+      setDisconnect(null);
+      logout.mutate(pekohubBaseUrl);
+    } catch (err) {
+      setDisconnect(null);
+      setDisconnectError(err instanceof Error ? err.message : String(err));
+      setOpen(true);
+    } finally {
+      setDisconnecting(false);
+    }
   }
 
   function handleMenuItemClose() {
@@ -179,6 +211,26 @@ export default function ProfileMenu() {
           )}
 
           {signedIn && (
+            <button
+              role="menuitem"
+              data-testid="pekohub-disconnect"
+              onClick={() => {
+                setDisconnect({ kind: "confirm" });
+                setOpen(false);
+              }}
+              disabled={disconnecting}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+            >
+              {disconnecting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Unplug className="h-4 w-4" />
+              )}
+              Disconnect this computer…
+            </button>
+          )}
+
+          {signedIn && (
             <>
               <div className="my-1 h-px bg-slate-200 dark:bg-slate-800" />
               <button
@@ -211,8 +263,37 @@ export default function ProfileMenu() {
               )}
             </div>
           )}
+
+          {disconnectError && (
+            <div
+              data-testid="pekohub-disconnect-error"
+              className="mx-3 mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+            >
+              This computer couldn't disconnect: {disconnectError}
+            </div>
+          )}
         </div>
       )}
+
+      <ConfirmModal
+        open={disconnect?.kind === "confirm"}
+        title="Disconnect this computer?"
+        message="Your pekos on this computer go local-only, so nobody can reach them through PekoHub, and you're signed out. This computer's copies of your chats with pekos on other computers are deleted; those computers keep them, and they come back when you sign in again."
+        confirmText={disconnecting ? "Disconnecting…" : "Disconnect"}
+        variant="danger"
+        onConfirm={() => void handleDisconnect(false)}
+        onCancel={() => setDisconnect(null)}
+      />
+      <ConfirmModal
+        open={disconnect?.kind === "unsent"}
+        title="Some messages haven't been delivered"
+        message={`${disconnect?.kind === "unsent" ? disconnect.count : 0} message(s) to pekos on other computers haven't reached them yet, because those computers are offline. Disconnecting now loses them. Wait until they're delivered, or disconnect anyway.`}
+        confirmText={disconnecting ? "Disconnecting…" : "Disconnect anyway"}
+        cancelText="Wait"
+        variant="danger"
+        onConfirm={() => void handleDisconnect(true)}
+        onCancel={() => setDisconnect(null)}
+      />
     </div>
   );
 }
