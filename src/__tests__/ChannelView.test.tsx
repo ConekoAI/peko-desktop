@@ -22,6 +22,8 @@ const channelEventsWatchMock = vi.fn();
 const channelGetMock = vi.fn();
 const channelMembersMock = vi.fn();
 const channelLeaveMock = vi.fn();
+const personGroupsMock = vi.fn();
+const groupHistoryOlderMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   channelEvents: (...args: unknown[]) => channelEventsMock(...args),
@@ -29,6 +31,8 @@ vi.mock("../lib/api", () => ({
   channelGet: (...args: unknown[]) => channelGetMock(...args),
   channelMembers: (...args: unknown[]) => channelMembersMock(...args),
   channelLeave: (...args: unknown[]) => channelLeaveMock(...args),
+  personGroups: () => personGroupsMock(),
+  groupHistoryOlder: (...args: unknown[]) => groupHistoryOlderMock(...args),
 }));
 
 // Stub the Tauri event API so the stream invalidator's `listen()` doesn't
@@ -102,6 +106,8 @@ describe("ChannelView", () => {
     channelLeaveMock.mockReset();
     listenMock.mockClear();
     navigateMock.mockReset();
+    personGroupsMock.mockReset().mockResolvedValue([]);
+    groupHistoryOlderMock.mockReset();
     usePrincipalsMock.mockReset();
     usePrincipalsMock.mockReturnValue({
       data: [{ name: "alice" }, { name: "bob" }],
@@ -241,5 +247,36 @@ describe("ChannelView", () => {
     // The generic error + retry affordance must NOT render for a
     // membership refusal — retrying won't mint membership.
     expect(screen.queryByTestId("channel-events-error")).toBeNull();
+  });
+
+  // Runtime ADR-092 D3: a group joined from another computer reads earlier
+  // messages from its home; a local group has nothing more to load.
+  it("loads earlier messages of a group joined from another computer", async () => {
+    personGroupsMock.mockResolvedValue([{ channelId: "chan_alpha", name: "alpha", home: "did:key:zH" }]);
+    channelEventsMock.mockResolvedValue([
+      { kind: "posted", author: "alice", text: "latest", at: "2026-08-06T12:10:00Z", msg_id: "m9" },
+    ]);
+    groupHistoryOlderMock.mockResolvedValue({
+      events: [{ kind: "posted", author: "bob", text: "from before", at: "2026-08-06T12:00:00Z", msg_id: "m1" }],
+      hasMore: false,
+    });
+    renderView();
+    fireEvent.click(await screen.findByRole("button", { name: "Load earlier messages" }));
+    expect(await screen.findByText("from before")).toBeInTheDocument();
+    expect(groupHistoryOlderMock).toHaveBeenCalledWith("chan_alpha", "m9");
+    const rows = screen.getAllByTestId("channel-event-row").map((r) => r.textContent ?? "");
+    expect(rows.findIndex((t) => t.includes("from before"))).toBeLessThan(
+      rows.findIndex((t) => t.includes("latest")),
+    );
+    expect(screen.queryByRole("button", { name: "Load earlier messages" })).toBeNull();
+  });
+
+  it("offers nothing earlier in a group hosted here", async () => {
+    channelEventsMock.mockResolvedValue([
+      { kind: "posted", author: "alice", text: "latest", at: "2026-08-06T12:10:00Z", msg_id: "m9" },
+    ]);
+    renderView();
+    expect(await screen.findByText("latest")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load earlier messages" })).toBeNull();
   });
 });

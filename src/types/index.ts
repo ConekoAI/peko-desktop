@@ -502,6 +502,8 @@ export type ChannelEvent =
       parent: string | null;
       text: string;
       at: string;
+      /** Stable across every runtime's copy (absent on old lines). */
+      msg_id?: string;
     }
   | {
       kind: "member_joined";

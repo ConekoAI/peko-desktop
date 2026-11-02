@@ -52,6 +52,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         channel::group_invitations,
         channel::group_invitation_answer,
         channel::person_groups,
+        channel::group_history_older,
         channel::channel_get,
         channel::channel_events,
         channel::channel_members,
