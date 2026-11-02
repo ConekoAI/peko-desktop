@@ -1433,6 +1433,17 @@ export async function groupInvitationAnswer(channelId: string, accept: boolean):
   return invoke<void>("group_invitation_answer", { channelId, accept });
 }
 
+/**
+ * One older page of a group you joined from another computer, read from
+ * its home and not stored here (runtime ADR-092 D3).
+ */
+export async function groupHistoryOlder(
+  channelId: string,
+  before: string,
+): Promise<{ events: ChannelEvent[]; hasMore: boolean }> {
+  return invoke("group_history_older", { channelId, before });
+}
+
 /** Groups you joined from other computers; empty when not signed in. */
 export async function personGroups(): Promise<PersonGroup[]> {
   return invoke<PersonGroup[]>("person_groups");

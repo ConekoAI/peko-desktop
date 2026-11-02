@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import ChannelHeader from "../components/ChannelHeader";
@@ -21,6 +22,8 @@ import {
 import { useToastQueue } from "../hooks/useToastQueue";
 import { usePrincipals } from "../hooks/usePrincipals";
 import { isChannelForbidden } from "../lib/channelErrors";
+import { groupHistoryOlder, personGroups } from "../lib/api";
+import type { ChannelEvent } from "../types";
 
 /**
  * Channel view. PR-1 read-only + PR-2a composer + PR-3
@@ -95,6 +98,42 @@ export default function ChannelView() {
   );
 
   const leaveMut = useChannelLeave(channelId, runtimeId);
+
+  // Runtime ADR-092 D3: in a group you joined from another computer, this
+  // copy goes back as far as it caught up; earlier messages come from the
+  // group's home on request, and aren't stored here.
+  const { data: joinedGroups } = useQuery({ queryKey: ["person-groups"], queryFn: personGroups });
+  const fromAnotherComputer = (joinedGroups ?? []).some((g) => g.channelId === channelId);
+  const [older, setOlder] = useState<ChannelEvent[]>([]);
+  const [olderDone, setOlderDone] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState<string | null>(null);
+  useEffect(() => {
+    setOlder([]);
+    setOlderDone(false);
+    setOlderError(null);
+  }, [channelId]);
+  const shown = useMemo(() => [...older, ...(events ?? [])], [older, events]);
+  const oldestId = useMemo(() => {
+    for (const e of shown) {
+      if (e.kind === "posted" && e.msg_id) return e.msg_id;
+    }
+    return null;
+  }, [shown]);
+  async function loadOlder() {
+    if (!oldestId || loadingOlder) return;
+    setLoadingOlder(true);
+    setOlderError(null);
+    try {
+      const page = await groupHistoryOlder(channelId, oldestId);
+      setOlder((prev) => [...page.events, ...prev]);
+      if (!page.hasMore) setOlderDone(true);
+    } catch (err) {
+      setOlderError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -195,13 +234,29 @@ export default function ChannelView() {
           </div>
           )
         ) : events && events.length > 0 ? (
-          <ul className="space-y-3">
-            {events.map((e, i) => (
-              <li key={i} data-testid="channel-event-row">
-                <ChannelEventRow event={e} />
-              </li>
-            ))}
-          </ul>
+          <>
+            {fromAnotherComputer && oldestId && !olderDone && (
+              <div className="mb-3 flex flex-col items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => void loadOlder()}
+                  disabled={loadingOlder}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-fg-muted transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                >
+                  {loadingOlder && <Loader2 className="h-3 w-3 animate-spin" />}
+                  Load earlier messages
+                </button>
+                {olderError && <span className="text-xs text-danger">{olderError}</span>}
+              </div>
+            )}
+            <ul className="space-y-3">
+              {shown.map((e, i) => (
+                <li key={i} data-testid="channel-event-row">
+                  <ChannelEventRow event={e} />
+                </li>
+              ))}
+            </ul>
+          </>
         ) : (
           <div
             className="mx-auto my-12 max-w-md text-center"

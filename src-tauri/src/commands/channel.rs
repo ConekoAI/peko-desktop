@@ -1284,6 +1284,43 @@ pub async fn person_groups() -> Result<Vec<PersonGroupSummary>, String> {
     }
 }
 
+/// One older page of a group you joined from another computer, read from
+/// the group's home and not stored here (runtime ADR-092 D3).
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupHistoryPage {
+    pub events: Vec<serde_json::Value>,
+    pub has_more: bool,
+}
+
+#[tauri::command]
+pub async fn group_history_older(
+    channel_id: String,
+    before: String,
+) -> Result<GroupHistoryPage, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_history_older(&channel_id, &before)
+        .await
+        .map_err(|e| format!("channel_history_older failed: {e}"))?;
+    if let Some(message) = refusal_of(&value) {
+        return Err(message);
+    }
+    Ok(GroupHistoryPage {
+        events: value
+            .get("events")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default(),
+        has_more: value
+            .get("has_more")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+    })
+}
+
 #[cfg(test)]
 mod group_people_tests {
     use super::*;
