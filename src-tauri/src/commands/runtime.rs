@@ -91,6 +91,120 @@ fn hub_registration_from(value: &serde_json::Value) -> Result<HubRegistration, S
     }
 }
 
+/// What disconnecting this computer from PekoHub came to.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct HubDisconnect {
+    /// The runtime is no longer registered.
+    pub done: bool,
+    /// Messages to pekos on other computers not delivered yet; nothing
+    /// changed. Disconnecting anyway loses them.
+    pub unsent: Option<u32>,
+    /// Pekos that went local-only on the way.
+    pub local_only: Vec<String>,
+}
+
+/// Disconnect this computer from the PekoHub account at `hub` (runtime
+/// ADR-091 D5): its pekos go local-only, and the runtime deletes its
+/// copies of the person's conversations with pekos on other computers
+/// (their hosts keep them). With messages still undelivered nothing
+/// changes and `unsent` says how many, unless `discard_unsent`.
+#[tauri::command]
+pub async fn runtime_hub_disconnect(
+    hub: String,
+    discard_unsent: bool,
+) -> Result<HubDisconnect, String> {
+    let http = reqwest::Client::new();
+    let token = crate::clients::hub_auth::access_token(&http, hub.trim_end_matches('/'))
+        .await
+        .ok_or_else(|| "Sign in to PekoHub first.".to_string())?;
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let unregister = |discard: bool| {
+        let client = &client;
+        let token = &token;
+        async move {
+            client
+                .runtime_unregister(token, discard)
+                .await
+                .map_err(|e| format!("runtime_unregister failed: {e}"))
+        }
+    };
+    let mut local_only = Vec::new();
+    let mut answer = unregister(discard_unsent).await?;
+    // The runtime refuses while pekos are registered: they go first.
+    if refusal(&answer).is_some_and(|m| m.contains("Unregister these principals first")) {
+        let list = client
+            .principal_list()
+            .await
+            .map_err(|e| format!("principal_list failed: {e}"))?;
+        for name in registered_pekos(&list) {
+            let set = client
+                .principal_register(&name, "local_only")
+                .await
+                .map_err(|e| format!("principal_register failed: {e}"))?;
+            if let Some(message) = refusal(&set) {
+                return Err(format!("{name} couldn't go local-only: {message}"));
+            }
+            local_only.push(name);
+        }
+        answer = unregister(discard_unsent).await?;
+    }
+    disconnect_outcome(&answer, local_only)
+}
+
+/// The runtime's refusal, if `answer` is one.
+fn refusal(answer: &serde_json::Value) -> Option<&str> {
+    (answer.get("type").and_then(|t| t.as_str()) == Some("error")).then(|| {
+        answer
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("refused")
+    })
+}
+
+/// Names of the pekos registered with PekoHub in a `principal_list`.
+fn registered_pekos(list: &serde_json::Value) -> Vec<String> {
+    list.get("principals")
+        .and_then(|p| p.as_array())
+        .into_iter()
+        .flatten()
+        .filter(|p| {
+            p.get("exposure")
+                .and_then(|e| e.as_str())
+                .is_some_and(|e| e != "local_only")
+        })
+        .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(str::to_string))
+        .collect()
+}
+
+fn disconnect_outcome(
+    answer: &serde_json::Value,
+    local_only: Vec<String>,
+) -> Result<HubDisconnect, String> {
+    match refusal(answer) {
+        None => Ok(HubDisconnect {
+            done: true,
+            unsent: None,
+            local_only,
+        }),
+        Some(message) if message.contains("have not been delivered yet") => {
+            let count = message
+                .split_whitespace()
+                .next()
+                .and_then(|n| n.parse().ok())
+                .unwrap_or(1);
+            Ok(HubDisconnect {
+                done: false,
+                unsent: Some(count),
+                local_only,
+            })
+        }
+        Some(message) => Err(message.to_string()),
+    }
+}
+
 /// Add a new remote runtime connection.
 #[tauri::command]
 pub async fn runtime_add(
@@ -179,6 +293,45 @@ pub async fn runtime_reconnect(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn disconnecting_reports_unsent_messages_or_finishes() {
+        let done = serde_json::json!({"type": "done", "request_id": 1, "success": true});
+        assert_eq!(
+            disconnect_outcome(&done, vec!["ada".into()]).unwrap(),
+            HubDisconnect {
+                done: true,
+                unsent: None,
+                local_only: vec!["ada".into()]
+            }
+        );
+        let unsent = serde_json::json!({
+            "type": "error",
+            "message": "3 message(s) to pekos on other computers have not been delivered yet. Unregistering deletes …",
+        });
+        assert_eq!(
+            disconnect_outcome(&unsent, vec![]).unwrap(),
+            HubDisconnect {
+                done: false,
+                unsent: Some(3),
+                local_only: vec![]
+            }
+        );
+        let other = serde_json::json!({"type": "error", "message": "PekoHub refused to unregister the runtime: HTTP 401"});
+        assert!(disconnect_outcome(&other, vec![])
+            .unwrap_err()
+            .contains("HTTP 401"));
+    }
+
+    #[test]
+    fn only_registered_pekos_go_local_only() {
+        let list = serde_json::json!({"principals": [
+            {"name": "ada", "exposure": "public"},
+            {"name": "bob", "exposure": "private"},
+            {"name": "cy", "exposure": "local_only"},
+        ]});
+        assert_eq!(registered_pekos(&list), ["ada", "bob"]);
+    }
     use super::*;
 
     fn test_state() -> AppState {

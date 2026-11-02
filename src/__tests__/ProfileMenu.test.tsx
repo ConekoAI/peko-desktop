@@ -16,6 +16,18 @@ vi.mock("../hooks/useRuntimes", () => ({
   runOAuthFlow: (opts: unknown) => runOAuthFlowMock(opts),
 }));
 
+const runtimeHubDisconnectMock = vi.fn();
+vi.mock("../lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/api")>()),
+  // The spy resolves; a `{ reject }` answer is thrown here, the way Tauri's
+  // `invoke` rejects (with the message string).
+  runtimeHubDisconnect: async (hub: string, discard: boolean) => {
+    const answer = await runtimeHubDisconnectMock(hub, discard);
+    if (answer && "reject" in answer) throw answer.reject;
+    return answer;
+  },
+}));
+
 vi.mock("../hooks/useSettings", () => ({
   useSettings: () => useSettingsMock(),
 }));
@@ -212,5 +224,64 @@ describe("ProfileMenu", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /PekoHub account menu/i }));
     expect(screen.queryByRole("menuitem", { name: /Settings/i })).toBeNull();
+  });
+
+  // Runtime ADR-091 D5: disconnecting this computer, then signing out.
+  describe("disconnect this computer", () => {
+    function signedIn() {
+      usePekohubBundleMock.mockReturnValue({ isPending: false, data: { access_token: "t" } });
+      const mutate = vi.fn();
+      usePekohubLogoutMock.mockReturnValue({ mutate, isPending: false });
+      render(<ProfileMenu />, { wrapper: makeWrapper() });
+      fireEvent.click(screen.getByRole("button", { name: /PekoHub account menu/i }));
+      fireEvent.click(screen.getByTestId("pekohub-disconnect"));
+      return mutate;
+    }
+
+    beforeEach(() => runtimeHubDisconnectMock.mockReset());
+
+    it("confirms, disconnects, then signs out", async () => {
+      runtimeHubDisconnectMock.mockResolvedValue({ done: true, unsent: null, localOnly: ["ada"] });
+      const mutate = signedIn();
+      expect(screen.getByText("Disconnect this computer?")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+      await waitFor(() => expect(mutate).toHaveBeenCalledWith("https://api.pekohub.ai"));
+      expect(runtimeHubDisconnectMock).toHaveBeenCalledWith("https://api.pekohub.ai", false);
+      expect(screen.queryByText("Disconnect this computer?")).toBeNull();
+    });
+
+    it("names undelivered messages and goes on only when asked", async () => {
+      runtimeHubDisconnectMock
+        .mockResolvedValueOnce({ done: false, unsent: 2, localOnly: [] })
+        .mockResolvedValueOnce({ done: true, unsent: null, localOnly: [] });
+      const mutate = signedIn();
+      fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+      await screen.findByText("Some messages haven't been delivered");
+      expect(screen.getByText(/^2 message\(s\) to pekos on other computers/)).toBeInTheDocument();
+      expect(mutate).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Disconnect anyway" }));
+      await waitFor(() => expect(mutate).toHaveBeenCalled());
+      expect(runtimeHubDisconnectMock).toHaveBeenLastCalledWith("https://api.pekohub.ai", true);
+    });
+
+    it("waiting keeps everything as it was", async () => {
+      runtimeHubDisconnectMock.mockResolvedValueOnce({ done: false, unsent: 1, localOnly: [] });
+      const mutate = signedIn();
+      fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Wait" }));
+      expect(screen.queryByText("Some messages haven't been delivered")).toBeNull();
+      expect(mutate).not.toHaveBeenCalled();
+      expect(runtimeHubDisconnectMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("says why it couldn't disconnect", async () => {
+      runtimeHubDisconnectMock.mockResolvedValue({
+        reject: "PekoHub refused to unregister the runtime: HTTP 401",
+      });
+      const mutate = signedIn();
+      fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+      expect(await screen.findByTestId("pekohub-disconnect-error")).toHaveTextContent("HTTP 401");
+      expect(mutate).not.toHaveBeenCalled();
+    });
   });
 });

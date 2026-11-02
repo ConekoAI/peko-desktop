@@ -1250,6 +1250,28 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Remove this runtime's PekoHub registration (runtime ADR-091 D5).
+    /// The runtime deletes its copies of the person's conversations with
+    /// pekos on other computers; with messages in them undelivered it
+    /// refuses unless `discard_unsent`. `token` is the account's access
+    /// token. Answered with `done` or `error`.
+    pub async fn runtime_unregister(
+        &self,
+        token: &str,
+        discard_unsent: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "runtime_unregister",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "token": token,
+            "discard_unsent": discard_unsent,
+        });
+        self.request_response_with_timeout(req, Duration::from_secs(30))
+            .await
+    }
+
     pub async fn principal_get(&self, name: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({

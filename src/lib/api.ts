@@ -1066,6 +1066,27 @@ export async function runtimeHubRegister(hub: string, token: string): Promise<Hu
   return invoke<HubRegistration>("runtime_hub_register", { hub, token });
 }
 
+/** What disconnecting this computer from PekoHub came to. */
+export interface HubDisconnect {
+  /** The runtime is no longer registered. */
+  done: boolean;
+  /** Messages to pekos on other computers not delivered yet; nothing changed. */
+  unsent: number | null;
+  /** Pekos that went local-only on the way. */
+  localOnly: string[];
+}
+
+/**
+ * Disconnect this computer from the PekoHub account (runtime ADR-091 D5):
+ * its pekos go local-only and its copies of your conversations with pekos
+ * on other computers are deleted (their hosts keep them). With messages
+ * still undelivered nothing changes and `unsent` says how many, unless
+ * `discardUnsent`.
+ */
+export async function runtimeHubDisconnect(hub: string, discardUnsent: boolean): Promise<HubDisconnect> {
+  return invoke<HubDisconnect>("runtime_hub_disconnect", { hub, discardUnsent });
+}
+
 /**
  * Wait for an OAuth callback redirect on `127.0.0.1:<port>`.
  *
