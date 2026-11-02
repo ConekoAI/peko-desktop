@@ -45,7 +45,7 @@ describe("RemotePekoProfile", () => {
     expect(screen.getByTestId("remote-status-label").textContent).toBe("Online");
     expect(screen.getByText("tester's runtime")).toBeTruthy();
     expect(screen.getByText("localhost:3000")).toBeTruthy();
-    expect(screen.getByText("http://localhost:3000/peko/tester/remy")).toBeTruthy();
+    expect(screen.getByText("http://localhost:3000/@tester/remy")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /remove from your list/i }));
     fireEvent.click(screen.getByRole("button", { name: /^remove$/i }));

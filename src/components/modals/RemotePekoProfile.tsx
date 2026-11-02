@@ -3,6 +3,7 @@ import { Check, Circle, Copy, Loader2, Trash2, X } from "lucide-react";
 import { useRemotePeko, useRemotePrincipalRemove } from "../../hooks/useRemotePrincipals";
 import { statusBadge } from "../../hooks/usePrincipalStatus";
 import PekoAvatar from "../peko/PekoAvatar";
+import { hubWebOrigin } from "../../lib/api";
 
 /** `https://pekohub.org/` → `pekohub.org`. */
 function hostOf(url: string): string {
@@ -49,8 +50,9 @@ export default function RemotePekoProfile({
   if (!open) return null;
 
   const badge = statusBadge(status.data?.status ?? "unknown");
+  // The peko's ID is its page on the hub's website (pekohub ADR-009).
   const shareUrl = record
-    ? `${record.hubUrl.replace(/\/$/, "")}/peko/${record.owner}/${record.principalName}`
+    ? `${hubWebOrigin(record.hubUrl)}/@${record.owner}/${record.principalName}`
     : null;
   const removeError =
     removeMut.error instanceof Error

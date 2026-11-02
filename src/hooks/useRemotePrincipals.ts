@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  hubWebOrigin,
   pekohubListAccessiblePekos,
   remotePrincipalAdd,
   remotePrincipalList,
@@ -68,11 +69,12 @@ export function useRemotePeko(runtimeId: string | undefined, name: string) {
  * `parseShareUrl` is a tiny inline helper that mirrors the Rust
  * `parse_share_url` rules.
  *
- * Accepted shapes (pekohub ADR-005):
- *   - `/peko/{owner}/{name}`                — current canonical share link
- *   - `/p/{owner}/{name}`                   — legacy share link (still
- *                                             accepted on input; the hub
- *                                             keeps a redirect)
+ * Accepted shapes:
+ *   - `/@{owner}/{name}`                    — the peko's ID as its page
+ *                                             (pekohub ADR-009)
+ *   - `/peko/{owner}/{name}`, `/p/{owner}/{name}`
+ *                                           — older share links (the hub
+ *                                             redirects them)
  *   - `/v1/public/pekos/{owner}/{name}`     — current API URL form
  *   - `/v1/public/principals/{owner}/{name}`— legacy API URL form
  * Each accepts an optional `?token=...` invite-token query.
@@ -89,32 +91,40 @@ export function parseShareUrl(raw: string):
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
   const path = url.pathname.replace(/\/$/, "");
   const token = url.searchParams.get("token") ?? undefined;
-  // /peko/{owner}/{name} — current canonical form
-  const peko = path.match(/^\/peko\/([^/]+)\/([^/]+)$/);
-  if (peko)
-    return { hubUrl: url.origin, owner: peko[1], principalName: peko[2], inviteToken: token };
-  // /p/{owner}/{name} — legacy share-link form
-  const p = path.match(/^\/p\/([^/]+)\/([^/]+)$/);
-  if (p) return { hubUrl: url.origin, owner: p[1], principalName: p[2], inviteToken: token };
-  // /v1/public/pekos/{owner}/{name} — current API URL form
-  const apiPeko = path.match(/^\/v1\/public\/pekos\/([^/]+)\/([^/]+)$/);
-  if (apiPeko)
+  // /@{owner}/{name} — the peko's ID is its page; `@` may come encoded.
+  const id = path.match(/^\/(?:@|%40)([^/]+)\/([^/]+)$/i);
+  if (id)
     return {
       hubUrl: url.origin,
-      owner: apiPeko[1],
-      principalName: apiPeko[2],
+      owner: id[1].toLowerCase(),
+      principalName: id[2],
       inviteToken: token,
     };
-  // /v1/public/principals/{owner}/{name} — legacy API URL form
-  const a = path.match(/^\/v1\/public\/principals\/([^/]+)\/([^/]+)$/);
-  if (a)
-    return {
-      hubUrl: url.origin,
-      owner: a[1],
-      principalName: a[2],
-      inviteToken: token,
-    };
+  const forms = [
+    /^\/peko\/([^/]+)\/([^/]+)$/, // older canonical share link
+    /^\/p\/([^/]+)\/([^/]+)$/, // older still
+    /^\/v1\/public\/pekos\/([^/]+)\/([^/]+)$/, // API URL
+    /^\/v1\/public\/principals\/([^/]+)\/([^/]+)$/, // retired API URL
+  ];
+  for (const form of forms) {
+    const m = path.match(form);
+    if (m) return { hubUrl: url.origin, owner: m[1], principalName: m[2], inviteToken: token };
+  }
   return null;
+}
+
+/** A peko's ID as people write it (pekohub ADR-009): `@alice/ada`. */
+const PEKO_ID = /^@([a-z0-9][a-z0-9_-]{0,127})\/([A-Za-z0-9][A-Za-z0-9_-]{0,63})$/i;
+
+/**
+ * What someone typed into "add a peko", as a share link: a link stays as
+ * it is; a peko's ID, `@alice/ada`, becomes its page on `hubUrl`'s website.
+ */
+export function shareLinkFromInput(input: string, hubUrl: string): string {
+  const text = input.trim();
+  const id = text.match(PEKO_ID);
+  if (!id) return text;
+  return `${hubWebOrigin(hubUrl)}/@${id[1].toLowerCase()}/${id[2]}`;
 }
 
 /**

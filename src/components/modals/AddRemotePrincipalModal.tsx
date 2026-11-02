@@ -3,9 +3,12 @@ import { Check, Globe, Link as LinkIcon, X } from "lucide-react";
 
 import {
   parseShareUrl,
+  shareLinkFromInput,
   useRemotePrincipalAdd,
   useRemotePrincipalResolve,
 } from "../../hooks/useRemotePrincipals";
+import { useSettings } from "../../hooks/useSettings";
+import { configuredHubUrl } from "../../lib/api";
 
 /**
  * PR #4: paste a pekohub share link, resolve it through the hub's
@@ -13,9 +16,10 @@ import {
  * `~/.peko/remote-principals.json` table.
  *
  * Flow:
- *   1. User pastes a `${hubUrl}/peko/{owner}/{name}` share URL (the
- *      legacy `/p/...` and `/v1/public/principals/...` forms are
- *      still accepted on input).
+ *   1. User pastes a `${hubUrl}/@{owner}/{name}` share URL, or types the
+ *      peko's ID, `@owner/name`, which names a peko on the configured
+ *      hub (pekohub ADR-009). The older `/peko/...`, `/p/...` and
+ *      `/v1/public/principals/...` forms are still accepted.
  *   2. Inline parser rejects obviously bad shapes BEFORE the IPC
  *      round-trip — saves a hub HTTP call on typos.
  *   3. User clicks "Check" → `useRemotePrincipalResolve` hits the
@@ -36,6 +40,8 @@ export default function AddRemotePrincipalModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { data: settings } = useSettings();
+  const hubUrl = configuredHubUrl(settings);
   const [shareUrl, setShareUrl] = useState("");
   const [parsed, setParsed] = useState<
     | { hubUrl: string; owner: string; principalName: string; inviteToken?: string }
@@ -60,7 +66,7 @@ export default function AddRemotePrincipalModal({
 
   function handleUrlChange(value: string) {
     setShareUrl(value);
-    setParsed(parseShareUrl(value.trim()));
+    setParsed(parseShareUrl(shareLinkFromInput(value, hubUrl)));
     // Any new edit invalidates the prior resolution so the user
     // can't accidentally add stale data after editing the URL.
     if (resolveMut.data) resolveMut.reset();
@@ -68,12 +74,12 @@ export default function AddRemotePrincipalModal({
 
   function handleCheck() {
     if (!parsed) return;
-    resolveMut.mutate(shareUrl.trim());
+    resolveMut.mutate(shareLinkFromInput(shareUrl, hubUrl));
   }
 
   function handleAdd() {
     if (!parsed) return;
-    addMut.mutate(shareUrl.trim(), {
+    addMut.mutate(shareLinkFromInput(shareUrl, hubUrl), {
       onSuccess: () => {
         onClose();
       },
@@ -117,9 +123,9 @@ export default function AddRemotePrincipalModal({
 
         <div className="space-y-4 p-5 text-sm text-slate-700 dark:text-slate-300">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Paste a pekohub share link to add a peko published by
-            someone else. The link looks like{" "}
-            <code className="font-mono">https://pekohub.ai/peko/alice/coding-assistant</code>.
+            Type the ID of someone&apos;s public peko, like{" "}
+            <code className="font-mono">@alice/coding-assistant</code>, or paste its
+            link from PekoHub.
           </p>
 
           <div>
@@ -127,7 +133,7 @@ export default function AddRemotePrincipalModal({
               htmlFor="remote-share-url"
               className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
             >
-              Share link
+              Peko ID or link
             </label>
             <div className="relative">
               <LinkIcon className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
@@ -136,14 +142,15 @@ export default function AddRemotePrincipalModal({
                 autoFocus
                 value={shareUrl}
                 onChange={(e) => handleUrlChange(e.target.value)}
-                placeholder="https://pekohub.ai/peko/owner/name"
+                placeholder="@owner/name"
                 className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
             </div>
             {shareUrl.trim() && !parsed && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                That doesn&apos;t look like a pekohub share link. Expected{" "}
-                <code className="font-mono">https://pekohub.ai/peko/owner/name</code>.
+                That doesn&apos;t look like a peko&apos;s ID or link. Expected{" "}
+                <code className="font-mono">@owner/name</code> or{" "}
+                <code className="font-mono">https://pekohub.ai/@owner/name</code>.
               </p>
             )}
             {parsed && parsed.inviteToken && (

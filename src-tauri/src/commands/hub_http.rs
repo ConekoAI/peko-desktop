@@ -31,8 +31,9 @@ pub enum HubResource {
     Runtimes,
     /// `GET /v1/me/accessible-pekos`: pekos the account can reach.
     AccessiblePekos,
-    /// `GET /v1/discovery/search`: the public directory.
-    DiscoverySearch,
+    /// `GET /v1/search`: one search over people, pekos and seeds. People
+    /// and pekos are found only by their exact ID (hub ADR-009).
+    Search,
 }
 
 impl HubResource {
@@ -40,7 +41,7 @@ impl HubResource {
         match self {
             Self::Runtimes => "/v1/runtimes",
             Self::AccessiblePekos => "/v1/me/accessible-pekos",
-            Self::DiscoverySearch => "/v1/discovery/search",
+            Self::Search => "/v1/search",
         }
     }
 }
@@ -141,8 +142,8 @@ fn check_grant(params: &serde_json::Map<String, serde_json::Value>) -> Result<()
     }
 }
 
-/// The public share link of a peko on this runtime:
-/// `<hub>/peko/<owner's handle>/<name>`, from the hub the runtime is
+/// The public share link of a peko on this runtime — its ID as a page,
+/// `<website>/@<owner's handle>/<name>` (hub ADR-009) — from the hub the runtime is
 /// registered with. The runtime knows the hub and the peko's hub id; the
 /// hub knows the owner's handle. `None` when the peko isn't public, or
 /// the runtime isn't registered, or the hub doesn't know the peko.
@@ -199,7 +200,7 @@ fn public_hub_id(answer: &serde_json::Value) -> Option<String> {
 }
 
 /// The peko's share link from the hub's directory answer: the hub's own
-/// `shareUrl` (on its website), else `<website>/peko/<ownerHandle>/<name>`.
+/// `shareUrl` (on its website), else `<website>/@<ownerHandle>/<name>`.
 fn share_link(hub: &str, resolution: &serde_json::Value) -> Option<String> {
     if let Some(url) = resolution.get("shareUrl").and_then(|v| v.as_str()) {
         return Some(url.to_string());
@@ -209,7 +210,7 @@ fn share_link(hub: &str, resolution: &serde_json::Value) -> Option<String> {
     let handle = resolution.get("ownerHandle")?.as_str()?;
     let name = resolution.get("name")?.as_str()?;
     Some(format!(
-        "{}/peko/{}/{}",
+        "{}/@{}/{}",
         hub.trim_end_matches('/'),
         urlencoding_segment(handle),
         urlencoding_segment(name)
@@ -262,8 +263,11 @@ mod tests {
 
     #[test]
     fn resources_deserialize_from_snake_case() {
-        let r: HubResource = serde_json::from_str("\"discovery_search\"").unwrap();
-        assert_eq!(r, HubResource::DiscoverySearch);
+        let r: HubResource = serde_json::from_str("\"search\"").unwrap();
+        assert_eq!(r, HubResource::Search);
+        assert_eq!(r.path(), "/v1/search");
+        // The peko directory is gone (hub ADR-009).
+        assert!(serde_json::from_str::<HubResource>("\"discovery_search\"").is_err());
         assert!(serde_json::from_str::<HubResource>("\"anything_else\"").is_err());
     }
 
@@ -298,16 +302,16 @@ mod tests {
         let resolution = serde_json::json!({ "name": "remy", "ownerHandle": "tester" });
         assert_eq!(
             share_link("https://api.pekohub.ai/", &resolution).as_deref(),
-            Some("https://pekohub.ai/peko/tester/remy"),
+            Some("https://pekohub.ai/@tester/remy"),
             "links name the website, not the API"
         );
         let with_share_url = serde_json::json!({
             "name": "remy", "ownerHandle": "tester",
-            "shareUrl": "https://pekohub.ai/peko/tester/remy"
+            "shareUrl": "https://pekohub.ai/@tester/remy"
         });
         assert_eq!(
             share_link("https://api.pekohub.ai", &with_share_url).as_deref(),
-            Some("https://pekohub.ai/peko/tester/remy")
+            Some("https://pekohub.ai/@tester/remy")
         );
         // A hub that predates `ownerHandle` gives no link, not a wrong one.
         assert_eq!(

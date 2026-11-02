@@ -14,7 +14,7 @@ import {
   pekohubListAccessiblePekos,
   pekohubListRuntimes,
 } from "../lib/api";
-import { discoverySearch } from "../lib/discovery";
+import { hubSearch } from "../lib/discovery";
 
 const answer = (status: number, body: unknown) => ({
   status,
@@ -148,19 +148,32 @@ describe("the other hub calls go through the backend too", () => {
     expect(invokeMock.mock.calls[0][1]).toMatchObject({ resource: "runtimes", accessToken: "tok_123" });
   });
 
-  it("searches the directory with its query", async () => {
-    invokeMock.mockResolvedValue(answer(200, { hits: [], total: 0, page: 1 }));
-    await discoverySearch("https://pekohub.ai", { q: "fox", category: "coding" });
+  it("looks an ID up in the hub's one search (pekohub ADR-009)", async () => {
+    invokeMock.mockResolvedValue(
+      answer(200, {
+        items: [],
+        total: 0,
+        queryKind: "peko",
+        exact: [{ kind: "peko", id: "@fox/ada", owner: "fox", name: "ada", displayName: "Ada", description: null, avatar: null, status: "online", url: "https://pekohub.ai/@fox/ada" }],
+      }),
+    );
+    const result = await hubSearch("https://pekohub.ai", "@fox/ada");
     expect(invokeMock).toHaveBeenCalledWith("hub_get", {
       baseUrl: "https://pekohub.ai",
-      resource: "discovery_search",
+      resource: "search",
       accessToken: null,
       query: [
-        ["q", "fox"],
-        ["category", "coding"],
+        ["q", "@fox/ada"],
         ["page", "1"],
-        ["per_page", "24"],
+        ["perPage", "24"],
       ],
     });
+    expect(result.queryKind).toBe("peko");
+    expect(result.exact.map((hit) => hit.id)).toEqual(["@fox/ada"]);
+  });
+
+  it("reads a hub from before ADR-009 as seeds only", async () => {
+    invokeMock.mockResolvedValue(answer(200, { items: [{ namespace: "a", name: "b", version: "1.0.0" }], total: 1 }));
+    expect(await hubSearch("https://pekohub.ai", "notes")).toMatchObject({ queryKind: "text", exact: [], total: 1 });
   });
 });

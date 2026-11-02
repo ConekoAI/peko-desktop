@@ -282,7 +282,7 @@ function AccessiblePekoRow({
 
   function handleConnect() {
     setAddError(null);
-    addMut.mutate(shareUrlFor(hubUrl, peko), {
+    addMut.mutate(shareUrlFor(hubUrl, { owner: peko.ownerName, name: peko.principalName }), {
       onSuccess: onOpen,
       onError: (err) =>
         setAddError(err instanceof Error ? err.message : String(err)),
