@@ -120,6 +120,8 @@ impl HubRemoteClient {
 
     /// The thread as `principal_log` returns it for a local peko: the
     /// newest `limit` rows, or the rows before `cursor` when paging back.
+    /// Past the start of this computer's copy, paging goes on in the
+    /// peko's host (runtime ADR-091): those cursors are `msg:<id>`.
     pub async fn log_page(
         &self,
         limit: Option<usize>,
@@ -129,6 +131,19 @@ impl HubRemoteClient {
         let client = crate::ipc::IpcClient::new()
             .await
             .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        if let Some(before) = cursor.as_deref().and_then(|c| c.strip_prefix(HOST_CURSOR)) {
+            let answer = client
+                .channel_history_older(&channel, before)
+                .await
+                .map_err(|e| format!("channel_history_older failed: {e}"))?;
+            if crate::ipc::is_error_response(&answer) {
+                return Err(error_message(
+                    &answer,
+                    "Older messages couldn't be read from the computer hosting this peko.",
+                ));
+            }
+            return Ok(host_page(&self.peer(), &answer));
+        }
         let answer = client
             .channel_peek(
                 &channel,
@@ -232,10 +247,46 @@ fn posted_row(id: String, event: &serde_json::Value) -> Option<serde_json::Value
     }))
 }
 
+/// Cursors into the host's history rather than this computer's copy.
+const HOST_CURSOR: &str = "msg:";
+
+/// A `channel_history_page` from the peko's host as a log page. Rows are
+/// `msg_<id>`; the cursor for older rows is the first row's message id.
+fn host_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
+    let empty = Vec::new();
+    let events = answer
+        .get("events")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty);
+    let messages: Vec<serde_json::Value> = events
+        .iter()
+        .filter_map(|event| {
+            let id = event.get("msg_id").and_then(|v| v.as_str())?;
+            posted_row(format!("msg_{id}"), event)
+        })
+        .collect();
+    let has_more = answer
+        .get("has_more")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let oldest = events
+        .iter()
+        .find_map(|e| e.get("msg_id").and_then(|v| v.as_str()));
+    serde_json::json!({
+        "principal": peer,
+        "peer": "user:local",
+        "messages": messages,
+        "next_cursor": if has_more { oldest.map(|id| format!("{HOST_CURSOR}{id}")) } else { None },
+        "has_more": has_more && oldest.is_some(),
+    })
+}
+
 /// A `channel_peek_result` (tail read) as the page `principal_log`
 /// returns: `{ principal, peer, messages, next_cursor, has_more }`. Rows
 /// are `chan_<line>`, so the log watch's cursor works on them; the
-/// cursor for older rows is the first row's line.
+/// cursor for older rows is the first row's line. At the start of this
+/// computer's copy, the cursor moves on to the host's history before the
+/// oldest message held here.
 fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
     let empty = Vec::new();
     let events = answer
@@ -262,12 +313,20 @@ fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
         .get("has_more")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    let next_cursor = if has_more {
+        first_line
+    } else {
+        events
+            .iter()
+            .find_map(|e| e.get("msg_id").and_then(|v| v.as_str()))
+            .map(|id| format!("{HOST_CURSOR}{id}"))
+    };
     serde_json::json!({
         "principal": peer,
         "peer": "user:local",
+        "has_more": next_cursor.is_some(),
         "messages": messages,
-        "next_cursor": if has_more { first_line } else { None },
-        "has_more": has_more,
+        "next_cursor": next_cursor,
     })
 }
 
@@ -312,6 +371,47 @@ mod tests {
             page["next_cursor"], "1",
             "older rows page back from the first line"
         );
+    }
+
+    fn posted_id(author: &str, text: &str, id: &str) -> serde_json::Value {
+        let mut event = posted(author, text);
+        event["msg_id"] = serde_json::json!(id);
+        event
+    }
+
+    /// Runtime ADR-091: at the start of this computer's copy, paging moves
+    /// on to the peko's host, before the oldest message held here.
+    #[test]
+    fn the_start_of_the_local_copy_pages_on_into_the_host() {
+        let answer = serde_json::json!({
+            "events": [posted_id("user:local", "hi", "m7"), posted_id("principal:hub:x", "hello", "m8")],
+            "event_ids": ["4", "5"],
+            "has_more": false,
+        });
+        let page = log_page("p", &answer);
+        assert_eq!(page["has_more"], true);
+        assert_eq!(page["next_cursor"], "msg:m7");
+    }
+
+    #[test]
+    fn a_host_page_becomes_a_log_page() {
+        let answer = serde_json::json!({
+            "type": "channel_history_page",
+            "channel": "dm_abc",
+            "events": [posted_id("user:local:local", "first", "m1"), posted_id("principal:hub:x", "second", "m2")],
+            "has_more": true,
+        });
+        let page = host_page("p", &answer);
+        let messages = page["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0]["id"], "msg_m1");
+        assert_eq!(messages[1]["text"], "second");
+        assert_eq!(page["next_cursor"], "msg:m1");
+        assert_eq!(page["has_more"], true);
+
+        let last = host_page("p", &serde_json::json!({"events": [posted_id("a", "x", "m0")], "has_more": false}));
+        assert!(last["next_cursor"].is_null());
+        assert_eq!(last["has_more"], false);
     }
 
     #[test]
