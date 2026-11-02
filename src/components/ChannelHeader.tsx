@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Hash, Users, ChevronDown, ChevronUp, UserPlus, LogOut } from "lucide-react";
+import { Hash, Users, ChevronDown, ChevronUp, UserPlus, LogOut, Share2 } from "lucide-react";
 import { useChannel, useChannelInfo } from "../hooks/useChannels";
 import { usePekoDirectory } from "../hooks/usePekoDirectory";
 import RuntimeBadge from "./RuntimeBadge";
 import MemberList from "./MemberList";
+import GroupSharePanel from "./GroupSharePanel";
 
 /**
  * Channel header. Renders the channel's metadata snapshot (name,
@@ -39,6 +40,7 @@ export default function ChannelHeader({
   const { data: info } = useChannelInfo(channelId);
   const directory = usePekoDirectory();
   const [showMembers, setShowMembers] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   // ADR-082: a channel is a DM (two members, always wakes) or a group.
   const kind = info?.kind ?? (channelId.startsWith("dm_") ? "dm" : "group");
 
@@ -63,6 +65,8 @@ export default function ChannelHeader({
   // invite/leave buttons are absent (rather than leaving them to
   // guess from a disabled-looking UI).
   const isGuest = isMember === false;
+  // Runtime ADR-092 D5: a group is shared from its home.
+  const share = kind === "group" && isMember !== false && info?.group?.homeHere ? info.group : null;
 
   return (
     <div className="border-b border-line">
@@ -92,6 +96,17 @@ export default function ChannelHeader({
             >
               View only
             </span>
+          )}
+          {share && (
+            <button
+              type="button"
+              onClick={() => setShowShare((v) => !v)}
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-fg-soft transition-colors hover:bg-surface-sunken"
+              data-testid="channel-share-button"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              <span>Share</span>
+            </button>
           )}
           {showInvite && (
             <button
@@ -137,6 +152,7 @@ export default function ChannelHeader({
         Created by <span title={detail.creator}>{directory.resolve(detail.creator).label}</span> ·{" "}
         {new Date(detail.createdAt).toLocaleString()}
       </div>
+      {share && showShare && <GroupSharePanel channelId={channelId} group={share} />}
       {showMembers && (
         <div className="border-t border-line">
           <MemberList channelId={channelId} runtimeId={runtimeId} />

@@ -1712,6 +1712,57 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Join a group by its invite link, or a public one by its ID (runtime
+    /// ADR-092 D5). Answered with `channel_group_joined`.
+    pub async fn channel_group_join(&self, link: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_group_join",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "link": link,
+        });
+        self.request_response(req).await
+    }
+
+    /// Register a group with PekoHub, or change who may find it (runtime
+    /// ADR-092 D5). Answered with `channel_group_registered`.
+    pub async fn channel_group_register(
+        &self,
+        channel: &str,
+        visibility: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_group_register",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "visibility": visibility,
+        });
+        self.request_response(req).await
+    }
+
+    /// Make an invite link to a registered group, or stop them all
+    /// (runtime ADR-092 D5). Answered with `channel_group_link_result`.
+    pub async fn channel_group_link(
+        &self,
+        channel: &str,
+        days: Option<u32>,
+        revoke: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_group_link",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "days": days,
+            "revoke": revoke,
+        });
+        self.request_response(req).await
+    }
+
     /// Groups this runtime's person joined from other computers (runtime
     /// ADR-092 D2). Answered with `channel_person_groups_result`.
     pub async fn channel_person_groups(&self) -> Result<serde_json::Value> {
