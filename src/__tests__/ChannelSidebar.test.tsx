@@ -46,6 +46,16 @@ vi.mock("../hooks/useChannels", () => ({
     !!info?.members && !info.members.includes("user:local"),
 }));
 
+const groupInvitationsMock = vi.fn();
+const personGroupsMock = vi.fn();
+const groupInvitationAnswerMock = vi.fn();
+vi.mock("../lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/api")>()),
+  groupInvitations: () => groupInvitationsMock(),
+  personGroups: () => personGroupsMock(),
+  groupInvitationAnswer: (id: string, accept: boolean) => groupInvitationAnswerMock(id, accept),
+}));
+
 vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: (...args: unknown[]) => usePrincipalsMock(...args),
 }));
@@ -81,6 +91,8 @@ const sampleRows = [
 
 describe("ChannelSidebar", () => {
   beforeEach(() => {
+    groupInvitationsMock.mockResolvedValue([]);
+    personGroupsMock.mockResolvedValue([]);
     useChannelsMock.mockReset();
     usePrincipalsMock.mockReset();
     navigateMock.mockReset();
@@ -190,6 +202,44 @@ describe("ChannelSidebar", () => {
     renderSidebar();
     expect(await screen.findByTestId("channel-empty")).toHaveTextContent("No groups yet.");
     leftGroups.clear();
+  });
+});
+
+// Runtime ADR-092 D2: invitations from groups on other computers, and the
+// groups you joined, sit beside your pekos' groups.
+describe("ChannelSidebar — groups on other computers", () => {
+  beforeEach(() => {
+    useChannelsMock.mockReturnValue({ data: [], isLoading: false });
+    usePrincipalsMock.mockReturnValue({ data: [] });
+    groupInvitationAnswerMock.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("offers Join and Decline for an invitation", async () => {
+    groupInvitationsMock.mockResolvedValue([
+      { channelId: "chan_book", name: "book club", inviter: "principal:hub:x", members: 3 },
+    ]);
+    personGroupsMock.mockResolvedValue([]);
+    renderSidebar();
+    const card = await screen.findByTestId("invitation-chan_book");
+    expect(card).toHaveTextContent("book club");
+    expect(card).toHaveTextContent("3 members");
+    fireEvent.click(screen.getByRole("button", { name: "Join" }));
+    await waitFor(() => expect(groupInvitationAnswerMock).toHaveBeenCalledWith("chan_book", true));
+    fireEvent.click(screen.getByRole("button", { name: "Decline" }));
+    await waitFor(() => expect(groupInvitationAnswerMock).toHaveBeenCalledWith("chan_book", false));
+  });
+
+  it("lists a group you joined from another computer", async () => {
+    groupInvitationsMock.mockResolvedValue([]);
+    personGroupsMock.mockResolvedValue([{ channelId: "chan_book", name: "book club", home: "did:key:zH" }]);
+    groupNames["chan_book"] = "book club";
+    renderSidebar();
+    expect(await screen.findByTestId("channel-row-chan_book")).toHaveTextContent("book club");
+    expect(screen.queryByTestId("group-invitations")).toBeNull();
+    fireEvent.click(screen.getByTestId("channel-row-chan_book"));
+    expect(navigateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "/channels/$channelId", params: { channelId: "chan_book" } }),
+    );
   });
 });
 

@@ -1139,3 +1139,179 @@ mod tests {
         assert_eq!(r.principal, "");
     }
 }
+
+/// A group on another computer inviting you (runtime ADR-092 D2).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupInvitationSummary {
+    pub channel_id: String,
+    pub name: String,
+    pub inviter: String,
+    pub members: usize,
+}
+
+/// A group you joined from another computer (runtime ADR-092 D2).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PersonGroupSummary {
+    pub channel_id: String,
+    pub name: String,
+    pub home: Option<String>,
+}
+
+fn refusal_of(value: &serde_json::Value) -> Option<String> {
+    (value.get("type").and_then(|t| t.as_str()) == Some("error")).then(|| {
+        value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("refused")
+            .to_string()
+    })
+}
+
+fn invitations_from(value: &serde_json::Value) -> Result<Vec<GroupInvitationSummary>, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    Ok(value
+        .get("invitations")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .map(|i| GroupInvitationSummary {
+            channel_id: i
+                .get("channel")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            name: i
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            inviter: i
+                .get("inviter")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            members: i
+                .get("initial_members")
+                .and_then(|v| v.as_array())
+                .map_or(0, Vec::len),
+        })
+        .collect())
+}
+
+fn person_groups_from(value: &serde_json::Value) -> Result<Vec<PersonGroupSummary>, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    Ok(value
+        .get("groups")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .map(|g| PersonGroupSummary {
+            channel_id: g
+                .get("channel")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            name: g
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string(),
+            home: g.get("home").and_then(|v| v.as_str()).map(str::to_string),
+        })
+        .collect())
+}
+
+/// Groups on other computers inviting you (runtime ADR-092 D2). Empty when
+/// this computer isn't signed in to PekoHub.
+#[tauri::command]
+pub async fn group_invitations() -> Result<Vec<GroupInvitationSummary>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_invitations()
+        .await
+        .map_err(|e| format!("channel_invitations failed: {e}"))?;
+    match invitations_from(&value) {
+        Err(message)
+            if message.contains("Register this runtime")
+                || message.contains("no PekoHub connection") =>
+        {
+            Ok(Vec::new())
+        }
+        other => other,
+    }
+}
+
+/// Accept or decline a group's invitation (runtime ADR-092 D2).
+#[tauri::command]
+pub async fn group_invitation_answer(channel_id: String, accept: bool) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_invitation_answer(&channel_id, accept)
+        .await
+        .map_err(|e| format!("channel_invitation_answer failed: {e}"))?;
+    refusal_of(&value).map_or(Ok(()), Err)
+}
+
+/// Groups you joined from other computers (runtime ADR-092 D2). Empty when
+/// this computer isn't signed in to PekoHub.
+#[tauri::command]
+pub async fn person_groups() -> Result<Vec<PersonGroupSummary>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_person_groups()
+        .await
+        .map_err(|e| format!("channel_person_groups failed: {e}"))?;
+    match person_groups_from(&value) {
+        Err(message)
+            if message.contains("Register this runtime")
+                || message.contains("no PekoHub connection") =>
+        {
+            Ok(Vec::new())
+        }
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod group_people_tests {
+    use super::*;
+
+    #[test]
+    fn invitations_and_groups_read_from_the_runtime() {
+        let invitations = serde_json::json!({
+            "type": "channel_invitations_result",
+            "invitations": [{"channel": "chan_a", "name": "book club", "inviter": "principal:hub:x",
+                "home_runtime": "did:key:zH", "account": "acct", "initial_members": [{}, {}],
+                "received_at": "2026-11-02T10:00:00Z"}],
+        });
+        assert_eq!(
+            invitations_from(&invitations).unwrap(),
+            [GroupInvitationSummary {
+                channel_id: "chan_a".into(),
+                name: "book club".into(),
+                inviter: "principal:hub:x".into(),
+                members: 2,
+            }]
+        );
+        let groups = serde_json::json!({"type": "channel_person_groups_result",
+            "groups": [{"channel": "chan_a", "name": "book club", "home": "did:key:zH"}]});
+        assert_eq!(
+            person_groups_from(&groups).unwrap()[0].home.as_deref(),
+            Some("did:key:zH")
+        );
+        let refused = serde_json::json!({"type": "error", "message": "nope"});
+        assert_eq!(invitations_from(&refused).unwrap_err(), "nope");
+    }
+}

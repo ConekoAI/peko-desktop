@@ -1408,6 +1408,36 @@ export async function channelList(
   });
 }
 
+/** A group on another computer inviting you (runtime ADR-092 D2). */
+export interface GroupInvitation {
+  channelId: string;
+  name: string;
+  inviter: string;
+  members: number;
+}
+
+/** A group you joined from another computer (runtime ADR-092 D2). */
+export interface PersonGroup {
+  channelId: string;
+  name: string;
+  home: string | null;
+}
+
+/** Groups on other computers inviting you; empty when not signed in. */
+export async function groupInvitations(): Promise<GroupInvitation[]> {
+  return invoke<GroupInvitation[]>("group_invitations");
+}
+
+/** Accept or decline a group's invitation. */
+export async function groupInvitationAnswer(channelId: string, accept: boolean): Promise<void> {
+  return invoke<void>("group_invitation_answer", { channelId, accept });
+}
+
+/** Groups you joined from other computers; empty when not signed in. */
+export async function personGroups(): Promise<PersonGroup[]> {
+  return invoke<PersonGroup[]>("person_groups");
+}
+
 /**
  * Look up a single channel's metadata + member count. Returns
  * `null` when the channel doesn't exist on the runtime.

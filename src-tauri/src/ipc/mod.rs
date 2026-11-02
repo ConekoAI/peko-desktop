@@ -1683,6 +1683,47 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Groups on other computers inviting this runtime's person (runtime
+    /// ADR-092 D2). Answered with `channel_invitations_result`.
+    pub async fn channel_invitations(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_invitations",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Accept or decline a group's invitation (runtime ADR-092 D2).
+    pub async fn channel_invitation_answer(
+        &self,
+        channel: &str,
+        accept: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_invitation_answer",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "accept": accept,
+        });
+        self.request_response(req).await
+    }
+
+    /// Groups this runtime's person joined from other computers (runtime
+    /// ADR-092 D2). Answered with `channel_person_groups_result`.
+    pub async fn channel_person_groups(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_person_groups",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
     /// List the principal DIDs currently in `channel`. Mirrors
     /// `RequestPacket::ChannelMembers`. The runtime derives the
     /// authoritative membership from the `Member*` event log.
