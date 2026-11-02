@@ -9,7 +9,7 @@
 //! this machine, and a reply that arrives later shows up on its own.
 //!
 //! The peko is named by the share link it was added from
-//! (`<hub>/peko/<owner>/<name>`); its Hub ID comes from the hub's public
+//! (`<hub>/@<owner>/<name>`, or an older `/peko/…` link); its Hub ID comes from the hub's public
 //! profile the first time the DM is opened.
 
 use std::sync::Arc;

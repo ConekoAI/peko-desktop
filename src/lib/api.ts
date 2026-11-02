@@ -1137,13 +1137,19 @@ export function hubApiBase(url?: string | null): string {
   }
 }
 
+/** The website for a hub's API base: links people open name it, not the API. */
+export function hubWebOrigin(url?: string | null): string {
+  const api = hubApiBase(url);
+  return api === "https://api.pekohub.ai" ? "https://pekohub.ai" : api;
+}
+
 /** The hub the app's settings name (`pekohub.base_url`), as an API base. */
 export function configuredHubUrl(settings?: { key: string; value: string }[] | null): string {
   return hubApiBase(settings?.find((s) => s.key === "pekohub.base_url")?.value);
 }
 
 /** The hub resources the backend reads for the frontend (`hub_http.rs`). */
-export type HubResource = "runtimes" | "accessible_pekos" | "discovery_search";
+export type HubResource = "runtimes" | "accessible_pekos" | "search";
 
 interface HubAnswer {
   status: number;
@@ -1209,7 +1215,7 @@ export function hubGet(
 }
 
 /**
- * A public peko's share link (`<hub>/peko/<owner's handle>/<name>`), from
+ * A public peko's share link (`<website>/@<owner's handle>/<name>`), from
  * the hub this runtime is registered with. `null` when the peko isn't
  * public or the runtime isn't registered.
  */

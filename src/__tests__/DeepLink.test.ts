@@ -8,13 +8,32 @@ import { parseDeepLink } from "../lib/deepLink";
  * hands the desktop when the user clicks a share link from another
  * app; any drift here means a real share link silently fails.
  *
- * Pekohub ADR-005: the emitted forms are now `peko://add-peko` and
- * `https://<hub>/peko/{owner}/{name}`; the legacy
- * `peko://add-principal` and `/p/{owner}/{name}` forms must keep
- * parsing on receipt.
+ * The emitted forms are `peko://add-peko` and
+ * `https://<hub>/@{owner}/{name}` (pekohub ADR-009); the older
+ * `peko://add-principal`, `/peko/{owner}/{name}` and `/p/{owner}/{name}`
+ * forms must keep parsing on receipt.
  */
 
 describe("parseDeepLink", () => {
+  describe("the peko's ID as its page (pekohub ADR-009)", () => {
+    it("accepts add-peko wrapping a /@owner/name link", () => {
+      const inner = "https://pekohub.ai/@alice/coding-assistant";
+      expect(parseDeepLink(`peko://add-peko?url=${encodeURIComponent(inner)}`)).toEqual({
+        kind: "add-principal",
+        shareUrl: inner,
+      });
+    });
+
+    it("accepts a bare /@owner/name link handed over by the OS", () => {
+      const raw = "https://pekohub.ai/@alice/coding-assistant?token=abc";
+      expect(parseDeepLink(raw)).toEqual({ kind: "pekohub-share", shareUrl: raw });
+    });
+
+    it("rejects a person's page", () => {
+      expect(parseDeepLink("https://pekohub.ai/@alice")).toBeNull();
+    });
+  });
+
   describe("peko:// scheme", () => {
     it("accepts the canonical add-peko intent with a hub URL", () => {
       const inner = "https://pekohub.org/peko/alice/coding-assistant";

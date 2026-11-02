@@ -1,35 +1,56 @@
 /**
- * PR #8: discovery client for peko-desktop. Reads the public PekoHub
- * `/v1/discovery/search` endpoint through the backend (`hubGet`: the
- * webview's content security policy allows no outside hosts).
- * PekoHub is anonymous-readable for this endpoint, so no token is sent.
+ * Finding people, pekos and seeds on a PekoHub (pekohub ADR-009).
+ *
+ * The hub lists no one: a person (`@alice`) or a public peko
+ * (`@alice/ada`) is found only by its exact ID. Seeds, which you
+ * download, are searched by text. One endpoint, `GET /v1/search`, reads
+ * the query as an ID first and puts exact matches in `exact`. Read
+ * through the backend (`hubGet`: the webview's content security policy
+ * allows no outside hosts); it is anonymous-readable, so no token is sent.
  */
 
-import { hubApiBase, hubGet, hubJson } from "./api";
+import { hubApiBase, hubGet, hubJson, hubWebOrigin } from "./api";
 
-export interface DiscoveryHit {
-  id: string;
-  publicName: string;
-  description: string | null;
-  /** The owner's display name: a label, not an address. */
-  ownerName: string;
-  /** The owner's handle on the hub; share links are built from it. */
-  ownerNamespace?: string | null;
-  /** The peko's avatar (an emoji or short monogram), from hubs that send it. */
-  avatar?: string | null;
-  category: string | null;
-  tags: string[];
-  status: "online" | "offline" | "busy" | "error";
-  publishedAt: string | null;
-  featured: boolean;
+/** An exact match for an ID: a person, a public peko, or a seed. */
+export type ExactHit =
+  | { kind: "person"; id: string; handle: string; displayName: string; avatarUrl: string | null; url: string }
+  | {
+      kind: "peko";
+      id: string;
+      owner: string;
+      name: string;
+      displayName: string;
+      description: string | null;
+      avatar: string | null;
+      status: string;
+      url: string;
+    }
+  | {
+      kind: "seed";
+      id: string;
+      owner: string;
+      name: string;
+      displayName: string | null;
+      description: string | null;
+      version: string;
+      url: string;
+    };
+
+/** A seed matching the text. */
+export interface SeedHit {
+  namespace: string;
+  name: string;
+  version: string;
+  description?: string;
 }
 
-export interface DiscoveryResult {
-  hits: DiscoveryHit[];
+export interface HubSearchResult {
+  /** How the hub read the query: an ID's kind, or free text. */
+  queryKind: "person" | "peko" | "seed" | "text";
+  exact: ExactHit[];
+  items: SeedHit[];
   total: number;
-  page: number;
 }
-
 
 /**
  * The PekoHub to search: the app's `pekohub.base_url` setting (the
@@ -40,53 +61,37 @@ export function resolveHubUrl(configured?: string | null): string {
   return hubApiBase(configured);
 }
 
-export async function discoverySearch(
-  hubUrl: string,
-  opts?: { q?: string; category?: string; sort?: string },
-): Promise<DiscoveryResult> {
-  const query: Record<string, string> = {};
-  if (opts?.q) query.q = opts.q;
-  if (opts?.category) query.category = opts.category;
-  if (opts?.sort) query.sort = opts.sort;
-  query.page = "1";
-  query.per_page = "24";
-
-  const res = await hubGet(hubUrl, "discovery_search", { query });
+export async function hubSearch(hubUrl: string, q: string): Promise<HubSearchResult> {
+  const res = await hubGet(hubUrl, "search", { query: { q, page: "1", perPage: "24" } });
   if (!res.ok) {
-    throw new Error(`Discovery search failed: HTTP ${res.status}`);
+    throw new Error(`Search failed: HTTP ${res.status}`);
   }
-  return hubJson(res, hubUrl);
+  const body = (await hubJson(res, hubUrl)) as Partial<HubSearchResult>;
+  // A hub from before ADR-009 sends seeds only.
+  return {
+    queryKind: body.queryKind ?? "text",
+    exact: body.exact ?? [],
+    items: body.items ?? [],
+    total: body.total ?? 0,
+  };
 }
 
 /**
- * Build the canonical share URL for a hit — same shape pekohub's
- * SPA uses (`/peko/{owner}/{name}` per pekohub ADR-005; the legacy
- * `/p/...` form is dead on emission but still accepted on input).
- * Mirrors `shareUrlFor` in `pekohub/frontend/src/lib/api.ts` so both
- * apps emit identical deep-link inputs to peko-desktop's
- * `parseDeepLink` (PR #6).
+ * A peko's share link: its ID as a page on the hub's website,
+ * `https://pekohub.ai/@alice/ada` (pekohub ADR-009). Mirrors the hub's
+ * own `shareUrl`, so both emit the same input to `parseDeepLink`.
  */
-export function shareUrlFor(
-  hubUrl: string,
-  hit: { ownerName: string; ownerNamespace?: string | null; publicName: string },
-): string {
-  const base = hubUrl.replace(/\/$/, "");
-  // The hub resolves `/peko/:owner` against the handle; the display
-  // name only matches it by chance (older hubs send no handle).
-  const owner = hit.ownerNamespace ?? hit.ownerName;
-  return `${base}/peko/${encodeURIComponent(owner)}/${encodeURIComponent(hit.publicName)}`;
+export function shareUrlFor(hubUrl: string, peko: { owner: string; name: string }): string {
+  return `${hubWebOrigin(hubUrl)}/@${encodeURIComponent(peko.owner)}/${encodeURIComponent(peko.name)}`;
 }
 
 /**
- * Build the deep-link URL the desktop itself accepts. The share
- * URL is wrapped so the OS hands it back to the desktop (not the
- * browser) when the user clicks the link. Emits only the current
- * `peko://add-peko` form; `parseDeepLink` still accepts the legacy
- * `peko://add-principal` form on receipt.
+ * The deep link the desktop itself accepts. The share URL is wrapped
+ * so the OS hands it back to the desktop (not the browser) when the
+ * user clicks the link. Emits only the current `peko://add-peko` form;
+ * `parseDeepLink` still accepts the legacy `peko://add-principal` form
+ * on receipt.
  */
-export function deepLinkFor(
-  hubUrl: string,
-  hit: { ownerName: string; ownerNamespace?: string | null; publicName: string },
-): string {
-  return `peko://add-peko?url=${encodeURIComponent(shareUrlFor(hubUrl, hit))}`;
+export function deepLinkFor(hubUrl: string, peko: { owner: string; name: string }): string {
+  return `peko://add-peko?url=${encodeURIComponent(shareUrlFor(hubUrl, peko))}`;
 }
