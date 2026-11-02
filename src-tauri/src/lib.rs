@@ -25,7 +25,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        // Size, position, and the like are restored; decorations are
+        // not. They come from the window config (`tauri.macos.conf.json`
+        // gives macOS its native buttons), and a state file saved by an
+        // older build with `decorated: false` would otherwise hide them
+        // for good.
+        .plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all()
+                        - tauri_plugin_window_state::StateFlags::DECORATIONS,
+                )
+                .build(),
+        )
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init())
         // PR #6: deep-link plugin. Wires the platform-specific URL
@@ -49,14 +61,14 @@ pub fn run() {
                 }
             }
             // PR #6: register the desktop scheme(s) so the OS routes
-            // share links into the running app. `register_all`
-            // re-registers every scheme listed in `tauri.conf.json`'s
-            // `plugins.deep-link.desktop.schemes` plus `peko://` for
-            // the explicit "share with peko-desktop" link form.
-            // Without this, macOS will hand the URL to the default
-            // browser because no bundle handler is registered. The
-            // call is idempotent on re-launch.
-            #[cfg(desktop)]
+            // share links into the running app. Windows and Linux register
+            // at runtime (`register_all` writes the registry / the
+            // `.desktop` MIME entry for every scheme in `tauri.conf.json`);
+            // macOS registers from the bundle's Info.plist
+            // (`CFBundleURLTypes`), so there is nothing to do here and the
+            // plugin would only report an unsupported platform. An
+            // unbundled `tauri dev` build on macOS receives no links.
+            #[cfg(any(windows, target_os = "linux"))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 if let Err(e) = app.deep_link().register_all() {
