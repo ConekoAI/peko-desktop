@@ -1,0 +1,5 @@
+# Text files are checked out with LF on every platform, as they are
+# committed. With Windows' default core.autocrlf they came out CRLF, and
+# generated files the build rewrites with LF (src/routeTree.gen.ts) then
+# showed as modified.
+* text=auto eol=lf

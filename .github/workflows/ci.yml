@@ -137,6 +137,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -156,20 +158,18 @@ jobs:
           New-Item -ItemType File -Force -Path "binaries/peko-daemon-$TRIPLE.exe" | Out-Null
           Write-Host "Stubbed binaries/peko-daemon-$TRIPLE.exe"
 
-      - name: Cargo check
-        run: cargo check
+      # Windows-only code (the named-pipe transport, its probe) has
+      # cfg branches Linux and macOS never compile.
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
-      # Test execution on Windows is `--no-run` because the
-      # windows-latest runner's Win32 runtime DLLs don't expose
-      # entrypoints that `tauri-plugin-shell`'s transitive deps
-      # (`shared_child`/`os_pipe`/`windows-targets`) link against —
-      # STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139) at process startup.
-      # Compilation alone is sufficient coverage on Windows; runtime
-      # is exercised by `tauri build` in the Release workflow which
-      # uses the same runner and was green before this crate was
-      # introduced. Re-evaluate when bumping tauri-plugin-shell.
-      - name: Compile Rust unit tests (Windows runner skips execution)
-        run: cargo test --lib --no-run
+      # The test binary used to die at startup with
+      # STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139): Tauri's dialogs link
+      # comctl32's TaskDialogIndirect, which needs the Common Controls v6
+      # manifest that tauri-build embedded in the app binary only.
+      # `build.rs` now embeds it in every binary, the tests included.
+      - name: Run Rust unit tests
+        run: cargo test --lib
 
   # ─────────────────────────────────────────────────────────────────
   # 4. Rust — check & test (macOS)
