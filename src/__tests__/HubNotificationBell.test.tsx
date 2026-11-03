@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import React from "react";
 
 const usePekohubBundleMock = vi.fn();
 vi.mock("../hooks/useRuntimes", () => ({
