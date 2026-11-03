@@ -36,19 +36,34 @@ fn now_utc() -> chrono::DateTime<chrono::Utc> {
     std::time::SystemTime::now().into()
 }
 
-/// The signed-in account's access token for the hub at `api_base`, or
-/// `None` when the app isn't signed in to PekoHub.
-pub async fn access_token(http: &reqwest::Client, api_base: &str) -> Option<String> {
+/// One refresh at a time. Refresh tokens rotate (pekohub ADR-007): two calls
+/// spending the same one race, and the Hub may read the loser as a stolen
+/// token and sign the account out everywhere.
+static REFRESH: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+async fn stored_bundle() -> Option<TokenBundle> {
     let raw = crate::commands::settings::credential_get_raw(PROVIDER.to_string())
         .await
         .ok()
         .flatten()?;
-    let bundle: TokenBundle = serde_json::from_str(&raw).unwrap_or(TokenBundle {
+    Some(serde_json::from_str(&raw).unwrap_or(TokenBundle {
         // A token stored before the bundle format.
         access_token: raw,
         refresh_token: None,
         expires_at: None,
-    });
+    }))
+}
+
+/// The signed-in account's access token for the hub at `api_base`, or
+/// `None` when the app isn't signed in to PekoHub.
+pub async fn access_token(http: &reqwest::Client, api_base: &str) -> Option<String> {
+    let bundle = stored_bundle().await?;
+    if !bundle.expiring(now_utc()) {
+        return Some(bundle.access_token);
+    }
+    let _refreshing = REFRESH.lock().await;
+    // A call that held the lock before us may have refreshed already.
+    let bundle = stored_bundle().await?;
     if !bundle.expiring(now_utc()) {
         return Some(bundle.access_token);
     }
