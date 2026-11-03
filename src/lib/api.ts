@@ -1244,6 +1244,36 @@ export function pekoShareLink(name: string): Promise<string | null> {
   return invoke<string | null>("peko_share_link", { name });
 }
 
+/** Something the PekoHub account should hear about (the Hub sends no email). */
+export interface HubNotification {
+  id: string;
+  kind: string;
+  text: string;
+  /** The website page that acts on it. */
+  path: string | null;
+  url: string | null;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export interface HubNotificationList {
+  unread: number;
+  notifications: HubNotification[];
+}
+
+/** The signed-in account's PekoHub notifications, newest first. */
+export async function hubNotifications(hub: string): Promise<HubNotificationList> {
+  const resp = await hubAnswer(invoke<HubAnswer>("hub_notifications", { hub }));
+  if (!resp.ok) throw new Error(`PekoHub notifications: HTTP ${resp.status}`);
+  return hubJson(resp, hub);
+}
+
+/** Mark PekoHub notifications read: `ids`, or all of them. */
+export async function markHubNotificationsRead(hub: string, ids?: string[]): Promise<void> {
+  const resp = await hubAnswer(invoke<HubAnswer>("hub_notifications_read", { hub, ids: ids ?? null }));
+  if (!resp.ok) throw new Error(`PekoHub notifications: HTTP ${resp.status}`);
+}
+
 /** `POST /oauth/token` on a hub, through the backend (see `hubGet`). */
 function hubOAuthToken(baseUrl: string, params: Record<string, string>): Promise<Response> {
   return hubAnswer(invoke<HubAnswer>("hub_oauth_token", { baseUrl, params }));

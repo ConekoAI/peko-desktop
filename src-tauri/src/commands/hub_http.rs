@@ -3,8 +3,9 @@
 //! The webview's content security policy (`tauri.conf.json`) allows no
 //! outside hosts, so a `fetch()` to a hub fails in a built app. These
 //! commands make the few hub calls the frontend needs. They are a fixed
-//! set — the OAuth token endpoint and three named resources — not a
-//! general proxy, which would undo what the policy protects. Each returns
+//! set — the OAuth token endpoint, three named resources and the
+//! account's notifications — not a general proxy, which would undo what
+//! the policy protects. Each returns
 //! the hub's status and body as they came, so the frontend keeps its own
 //! handling of both.
 
@@ -140,6 +141,53 @@ fn check_grant(params: &serde_json::Map<String, serde_json::Value>) -> Result<()
         Some("authorization_code" | "refresh_token") => Ok(()),
         other => Err(format!("unsupported grant type: {other:?}")),
     }
+}
+
+/// The signed-in account's notifications on the hub at `hub` (`GET
+/// /v1/me/notifications`) — offers to take a peko, new sign-ins,
+/// moderators' actions; the Hub sends no email. Uses the stored sign-in,
+/// refreshed one call at a time (`hub_auth`).
+#[tauri::command]
+pub async fn hub_notifications(
+    state: tauri::State<'_, AppState>,
+    hub: String,
+) -> Result<HubResponse, String> {
+    let api = crate::clients::hub_origin::hub_api_base(&hub);
+    let token = crate::clients::hub_auth::access_token(&state.http, &api)
+        .await
+        .ok_or_else(|| "Sign in to PekoHub first.".to_string())?;
+    let url = hub_url(&hub, "/v1/me/notifications")?;
+    let host = host_of(&url);
+    send(
+        state
+            .http
+            .get(url)
+            .header("Accept", "application/json")
+            .bearer_auth(token),
+        &host,
+    )
+    .await
+}
+
+/// Mark notifications read (`POST /v1/me/notifications/read`): `ids`, or
+/// all of them when `None`.
+#[tauri::command]
+pub async fn hub_notifications_read(
+    state: tauri::State<'_, AppState>,
+    hub: String,
+    ids: Option<Vec<String>>,
+) -> Result<HubResponse, String> {
+    let api = crate::clients::hub_origin::hub_api_base(&hub);
+    let token = crate::clients::hub_auth::access_token(&state.http, &api)
+        .await
+        .ok_or_else(|| "Sign in to PekoHub first.".to_string())?;
+    let url = hub_url(&hub, "/v1/me/notifications/read")?;
+    let host = host_of(&url);
+    let body = match ids {
+        Some(ids) => serde_json::json!({ "ids": ids }),
+        None => serde_json::json!({}),
+    };
+    send(state.http.post(url).bearer_auth(token).json(&body), &host).await
 }
 
 /// The public share link of a peko on this runtime — its ID as a page,

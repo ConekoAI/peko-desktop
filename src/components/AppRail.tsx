@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { MessageCircle, Users, Settings } from "lucide-react";
 import ProfileMenu from "./ProfileMenu";
+import HubNotificationBell from "./HubNotificationBell";
 
 export default function AppRail() {
   const navigate = useNavigate();
@@ -53,6 +54,8 @@ export default function AppRail() {
       </button>
 
       <div className="flex-1" />
+
+      <HubNotificationBell />
 
       <button
         onClick={() => navigate({ to: "/settings" })}
