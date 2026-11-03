@@ -1,14 +1,28 @@
 name: Release
 
-# Tag-triggered release build. Produces a draft GitHub release with
-# native bundles attached: deb, AppImage, rpm (Linux); msi and an NSIS
-# setup exe (Windows). The Windows bundles are not code-signed yet, so
-# SmartScreen warns on first run.
+# Tag-triggered release build. Produces one draft GitHub release with
+# native bundles for every desktop platform attached:
+#   Linux          .deb, .AppImage, .rpm
+#   macOS arm64    .dmg (+ .app.tar.gz)
+#   macOS x86_64   .dmg (+ .app.tar.gz)
+#   Windows x64    NSIS -setup.exe, .msi
 #
 # Pushed by tagging: git tag v0.1.0 && git push origin v0.1.0
 # Manual re-run for an existing tag: Actions -> Release -> Run workflow,
-#   optionally supplying a different tag (e.g. to re-build v0.1.0 after
-#   fixing a release-only issue on a hotfix branch).
+#   supplying the tag (e.g. to re-build v0.1.0 after fixing a
+#   release-only issue on a hotfix branch).
+#
+# The bundled peko-daemon sidecar is built from peko-runtime at the
+# same tag (or `runtime_ref` when dispatching), so the tag must exist
+# in peko-runtime too — `prepare` checks that before anything builds.
+#
+# Signing (optional; each platform builds unsigned without it):
+#   macOS    APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD,
+#            APPLE_SIGNING_IDENTITY; for notarization also APPLE_ID,
+#            APPLE_PASSWORD (app-specific password), APPLE_TEAM_ID.
+#            Without a certificate the app is ad-hoc signed, which
+#            Gatekeeper blocks for downloaded copies (right-click → Open).
+#   Windows  not code-signed yet, so SmartScreen warns on first run.
 
 on:
   push:
@@ -17,12 +31,16 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build (e.g. v0.1.0). Leave empty to use the trigger ref.'
+        description: 'Tag to build (e.g. v0.1.0). Required unless the run is started from a tag.'
+        required: false
+        default: ''
+      runtime_ref:
+        description: 'peko-runtime tag or branch for the sidecar. Leave empty to use the same tag.'
         required: false
         default: ''
 
 permissions:
-  # tauri-action creates a draft release and uploads assets; needs write.
+  # Creating the draft release and uploading assets needs write.
   contents: write
 
 concurrency:
@@ -33,16 +51,116 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-linux:
-    name: Build Tauri (Linux, release)
+  # One draft release that every platform job uploads into. Creating it
+  # here, once, keeps the parallel builds from racing to create
+  # duplicate drafts for the same tag.
+  prepare:
+    name: Prepare draft release
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      runtime_ref: ${{ steps.resolve.outputs.runtime_ref }}
+      release_id: ${{ steps.release.outputs.id }}
+    steps:
+      - name: Resolve tag and runtime ref
+        id: resolve
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_RUNTIME_REF: ${{ inputs.runtime_ref }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            echo "::error::Run from a tag, or pass the 'tag' input."
+            exit 1
+          fi
+          if ! git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG does not exist in $GITHUB_REPOSITORY."
+            exit 1
+          fi
+          RUNTIME_REF="${INPUT_RUNTIME_REF:-$TAG}"
+          if ! git ls-remote --exit-code https://github.com/ConekoAI/peko-runtime.git \
+              "refs/tags/$RUNTIME_REF" "refs/heads/$RUNTIME_REF" >/dev/null; then
+            echo "::error::peko-runtime has no tag or branch '$RUNTIME_REF'. Tag peko-runtime first, or pass 'runtime_ref' (e.g. v0.1.0-rc.5 or master)."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "runtime_ref=$RUNTIME_REF" >> "$GITHUB_OUTPUT"
+          echo "Desktop $TAG, sidecar from peko-runtime $RUNTIME_REF"
+
+      - name: Find or create the draft release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          RUNTIME_REF: ${{ steps.resolve.outputs.runtime_ref }}
+        run: |
+          ID="$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -n 1)"
+          if [ -z "$ID" ]; then
+            case "$TAG" in
+              *alpha*|*beta*|*rc*) PRERELEASE=true ;;
+              *) PRERELEASE=false ;;
+            esac
+            ID="$(gh api "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="$TAG" \
+              -f name="Peko Desktop $TAG" \
+              -f body="See the assets below to download and install. Bundles peko-daemon from peko-runtime $RUNTIME_REF." \
+              -F draft=true \
+              -F prerelease="$PRERELEASE" \
+              --jq .id)"
+            echo "Created draft release $ID for $TAG"
+          else
+            echo "Reusing release $ID for $TAG"
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build Tauri (${{ matrix.platform }}, release)
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-latest
+          # Native runners for both Mac architectures, so the host
+          # triple (which fetch-peko-sidecar.sh and Tauri's externalBin
+          # lookup use) is the target triple.
+          - platform: macos-aarch64
+            os: macos-latest
+          - platform: macos-x86_64
+            os: macos-15-intel
+          # Static CRT: the sidecar must not need the Visual C++
+          # runtime DLLs, which a clean Windows install may not have
+          # (tauri-build links the app's VC runtime statically too; the
+          # app still uses the Universal CRT, part of Windows 10+).
+          - platform: windows-x86_64
+            os: windows-latest
+            sidecar_rustflags: -C target-feature=+crt-static
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        # Git Bash on Windows, so the sidecar script runs everywhere.
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
-          # When triggered by `workflow_dispatch` with a tag input, check
-          # out that tag explicitly (default would be the viewing branch).
-          ref: ${{ inputs.tag || github.ref_name }}
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      # fetch-peko-sidecar.sh defaults to ../peko-runtime.
+      - name: Check out peko-runtime
+        uses: actions/checkout@v4
+        with:
+          repository: ConekoAI/peko-runtime
+          ref: ${{ needs.prepare.outputs.runtime_ref }}
+          path: peko-runtime-src
+
+      - name: Move peko-runtime beside the desktop checkout
+        run: mv peko-runtime-src ../peko-runtime
 
       - uses: actions/setup-node@v4
         with:
@@ -54,10 +172,13 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
-          shared-key: tauri-release-linux
+          workspaces: |
+            src-tauri
+            ../peko-runtime
+          shared-key: tauri-release-${{ matrix.platform }}
 
       - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
@@ -65,96 +186,59 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      # Build the peko-runtime binary from source so the desktop can
+      # Build the peko-daemon binary from source so the desktop can
       # bundle it as a Tauri sidecar (see ADR-043 and
       # scripts/fetch-peko-sidecar.sh). The desktop's tauri.conf.json
-      # declares `bundle.externalBin: ["binaries/peko"]`, which fails
-      # the build if the host-triple-suffixed binary is missing.
-      #
-      # For a tagged release we build peko-runtime at the matching
-      # tag so the shipped engine matches the desktop. For a dev
-      # dispatch without a tag (or a hotfix that needs a newer engine
-      # than the desktop tag), the fallback uses master.
+      # declares `bundle.externalBin: ["binaries/peko-daemon"]`, which
+      # fails the build if the host-triple-suffixed binary is missing.
       - name: Build peko-runtime sidecar
-        run: |
-          RUNTIME_REPO="https://github.com/ConekoAI/peko-runtime.git"
-          RUNTIME_DIR="$(mktemp -d)/peko-runtime"
-          # When triggered by a tag, use that tag in peko-runtime too.
-          # Otherwise default to master so the workflow stays valid for
-          # ad-hoc dispatch.
-          RUNTIME_REF="${PEKO_RUNTIME_REF:-master}"
-          git clone --depth 1 --branch "$RUNTIME_REF" "$RUNTIME_REPO" "$RUNTIME_DIR"
-          (cd "$RUNTIME_DIR" && cargo build --release -p peko-daemon)
-          PEKO_RUNTIME_DIR="$RUNTIME_DIR" bash scripts/fetch-peko-sidecar.sh
         env:
-          PEKO_RUNTIME_REF: ${{ inputs.tag || github.ref_name }}
+          RUSTFLAGS: ${{ matrix.sidecar_rustflags }}
+        run: |
+          (cd ../peko-runtime && cargo build --release -p peko-daemon)
+          bash scripts/fetch-peko-sidecar.sh ../peko-runtime
 
-      # Builds release-mode Tauri app and publishes a draft GitHub
-      # release with the resulting .deb / .AppImage / .rpm attached.
+      # Only hand Tauri the Apple variables that are actually set: an
+      # empty APPLE_CERTIFICATE makes the bundler try to import an empty
+      # certificate and fail. With no certificate, sign ad hoc ("-").
+      - name: Configure macOS signing
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            {
+              echo "APPLE_CERTIFICATE=$APPLE_CERTIFICATE"
+              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+              echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+            } >> "$GITHUB_ENV"
+            echo "Signing with $APPLE_SIGNING_IDENTITY"
+            if [ -n "$APPLE_ID" ]; then
+              {
+                echo "APPLE_ID=$APPLE_ID"
+                echo "APPLE_PASSWORD=$APPLE_PASSWORD"
+                echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+              } >> "$GITHUB_ENV"
+              echo "Notarizing as $APPLE_ID"
+            fi
+          else
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            echo "::warning::No APPLE_CERTIFICATE secret: the macOS app is ad-hoc signed and not notarized."
+          fi
+
+      # Builds the release-mode Tauri app and uploads its bundles to the
+      # draft created by `prepare`.
       # For signed auto-updater artifacts, set TAURI_SIGNING_PRIVATE_KEY
       # and TAURI_SIGNING_PRIVATE_KEY_PASSWORD as repo secrets.
-      - name: Build Tauri app (release) and publish draft
+      - name: Build Tauri app (release) and upload to the draft
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
-          tagName: ${{ inputs.tag || github.ref_name }}
-          releaseName: 'Peko Desktop ${{ inputs.tag || github.ref_name }}'
-          releaseDraft: true
-          releaseBody: 'See the assets below to download and install.'
-
-  build-windows:
-    name: Build Tauri (Windows, release)
-    runs-on: windows-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag || github.ref_name }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          shared-key: tauri-release-windows
-
-      - name: Install Node dependencies
-        run: npm ci
-
-      # As on Linux. Static CRT: the sidecar must not need the Visual
-      # C++ runtime DLLs, which a clean Windows install may not have
-      # (tauri-build links the app's VC runtime statically too; the app
-      # still uses the Universal CRT, part of Windows 10 and later).
-      - name: Build peko-runtime sidecar
-        shell: bash
-        run: |
-          RUNTIME_REPO="https://github.com/ConekoAI/peko-runtime.git"
-          RUNTIME_DIR="$(mktemp -d)/peko-runtime"
-          RUNTIME_REF="${PEKO_RUNTIME_REF:-master}"
-          git clone --depth 1 --branch "$RUNTIME_REF" "$RUNTIME_REPO" "$RUNTIME_DIR"
-          (cd "$RUNTIME_DIR" && cargo build --release -p peko-daemon)
-          PEKO_RUNTIME_DIR="$RUNTIME_DIR" bash scripts/fetch-peko-sidecar.sh
-        env:
-          PEKO_RUNTIME_REF: ${{ inputs.tag || github.ref_name }}
-          RUSTFLAGS: -C target-feature=+crt-static
-
-      # Adds the .msi and NSIS -setup.exe to the same draft release the
-      # Linux job publishes to (tauri-action finds the draft by tag).
-      - name: Build Tauri app (release) and publish draft
-        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: .
-          tagName: ${{ inputs.tag || github.ref_name }}
-          releaseName: 'Peko Desktop ${{ inputs.tag || github.ref_name }}'
-          releaseDraft: true
-          releaseBody: 'See the assets below to download and install.'
+          releaseId: ${{ needs.prepare.outputs.release_id }}
