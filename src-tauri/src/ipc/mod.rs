@@ -10,12 +10,18 @@
 //! registry, credential, settings).
 
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(unix)]
+use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 use tauri::Emitter;
 use thiserror::Error;
 
 use crate::sidecar::sync_probe;
+
+mod transport;
+#[cfg(windows)]
+pub(crate) use transport::pipe_name;
+use transport::Transport;
 
 /// Current IPC protocol version
 pub const PROTOCOL_VERSION: u16 = 1;
@@ -30,6 +36,7 @@ pub const GENESIS_REQUEST_TIMEOUT: Duration = Duration::from_secs(320);
 /// Unique identifier for per-request Unix-domain socket paths so that
 /// concurrent IPC clients in the same process do not bind to the same
 /// filesystem entry and trample each other's responses.
+#[cfg(unix)]
 static IPC_CLIENT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Every request packet includes this header
@@ -327,12 +334,7 @@ fn peer_str_to_subject_value(peer: &str) -> serde_json::Value {
 
 /// Async IPC client for communicating with the peko daemon.
 pub struct IpcClient {
-    #[cfg(windows)]
-    socket: tokio::net::UdpSocket,
-    #[cfg(unix)]
-    socket: tokio::net::UnixDatagram,
-    #[cfg(unix)]
-    _tmp_path: std::path::PathBuf,
+    transport: Transport,
 }
 
 async fn ensure_daemon() -> Result<()> {
@@ -463,30 +465,10 @@ pub fn headless_pid_file_path() -> std::path::PathBuf {
 }
 
 impl IpcClient {
-    /// Create a new IPC client connected to the default daemon endpoint.
-    #[cfg(windows)]
+    /// Create a new IPC client for the default daemon endpoint.
     pub async fn new() -> Result<Self> {
-        let socket = tokio::net::UdpSocket::bind("127.0.0.1:0")
-            .await
-            .map_err(|e| IpcError::ConnectionFailed(e.to_string()))?;
-        Ok(Self { socket })
-    }
-
-    #[cfg(unix)]
-    pub async fn new() -> Result<Self> {
-        let counter = IPC_CLIENT_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let tmp = std::env::temp_dir().join(format!(
-            "peko_desktop_ipc_{}_{}.sock",
-            std::process::id(),
-            counter
-        ));
-        let _ = tokio::fs::remove_file(&tmp).await;
-        let socket = tokio::net::UnixDatagram::bind(&tmp)
-            .map_err(|e| IpcError::ConnectionFailed(e.to_string()))?;
-        bump_recv_buffer(&socket);
         Ok(Self {
-            socket,
-            _tmp_path: tmp,
+            transport: Transport::open().await?,
         })
     }
 
@@ -511,27 +493,12 @@ impl IpcClient {
             serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
         let mut buf = vec![0u8; 65536];
 
-        #[cfg(windows)]
-        {
-            self.socket
-                .send_to(&bytes, "127.0.0.1:11435")
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
-        #[cfg(unix)]
-        {
-            let sock_path = default_socket_path();
-            self.socket
-                .send_to(&bytes, &sock_path)
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
+        self.transport.send(&bytes).await?;
 
-        let len = tokio::time::timeout(timeout, self.socket.recv_from(&mut buf))
+        let len = tokio::time::timeout(timeout, self.transport.recv(&mut buf))
             .await
             .map_err(|_| IpcError::Timeout)?
-            .map_err(|e| IpcError::ReceiveFailed(e.to_string()))?
-            .0;
+            .map_err(|e| IpcError::ReceiveFailed(e.to_string()))?;
 
         let value: serde_json::Value = serde_json::from_slice(&buf[..len])
             .map_err(|e| IpcError::Serialization(e.to_string()))?;
@@ -881,21 +848,7 @@ impl IpcClient {
         let bytes =
             serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
 
-        #[cfg(windows)]
-        {
-            self.socket
-                .send_to(&bytes, "127.0.0.1:11435")
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
-        #[cfg(unix)]
-        {
-            let sock_path = default_socket_path();
-            self.socket
-                .send_to(&bytes, &sock_path)
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
+        self.transport.send(&bytes).await?;
 
         // The runtime's success sequence is `principal_sent_done` →
         // `run_summary` → `done`; a failed run sends `run_summary` →
@@ -916,8 +869,8 @@ impl IpcClient {
             } else {
                 Duration::from_secs(120)
             };
-            let len = match tokio::time::timeout(idle, self.socket.recv_from(&mut buf)).await {
-                Ok(Ok((len, _))) => len,
+            let len = match tokio::time::timeout(idle, self.transport.recv(&mut buf)).await {
+                Ok(Ok(len)) => len,
                 Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
                 Err(_) => {
                     return Err(match pending_error {
@@ -1152,36 +1105,20 @@ impl IpcClient {
             "since_cursor": since_cursor,
         });
         let bytes = serde_json::to_vec(&req).map_err(|e| IpcError::Serialization(e.to_string()))?;
-        #[cfg(windows)]
-        {
-            self.socket
-                .send_to(&bytes, "127.0.0.1:11435")
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
-        #[cfg(unix)]
-        {
-            let sock_path = default_socket_path();
-            self.socket
-                .send_to(&bytes, &sock_path)
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
+        self.transport.send(&bytes).await?;
 
         let mut buf = vec![0u8; 65536];
         loop {
             // Heartbeats arrive every 2s; 15s of silence means the
             // daemon is gone.
-            let len = match tokio::time::timeout(
-                Duration::from_secs(15),
-                self.socket.recv_from(&mut buf),
-            )
-            .await
-            {
-                Ok(Ok((len, _))) => len,
-                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
-                Err(_) => return Err(IpcError::Timeout),
-            };
+            let len =
+                match tokio::time::timeout(Duration::from_secs(15), self.transport.recv(&mut buf))
+                    .await
+                {
+                    Ok(Ok(len)) => len,
+                    Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
+                    Err(_) => return Err(IpcError::Timeout),
+                };
             let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
                 .map_err(|e| IpcError::Serialization(e.to_string()))?;
             match raw.get("type").and_then(|v| v.as_str()).unwrap_or("") {
@@ -2060,34 +1997,18 @@ impl IpcClient {
         });
         let bytes = serde_json::to_vec(&req).map_err(|e| IpcError::Serialization(e.to_string()))?;
 
-        #[cfg(windows)]
-        {
-            self.socket
-                .send_to(&bytes, "127.0.0.1:11435")
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
-        #[cfg(unix)]
-        {
-            let sock_path = default_socket_path();
-            self.socket
-                .send_to(&bytes, &sock_path)
-                .await
-                .map_err(|e| IpcError::SendFailed(e.to_string()))?;
-        }
+        self.transport.send(&bytes).await?;
 
         let mut buf = vec![0u8; 65536];
         loop {
-            let len = match tokio::time::timeout(
-                Duration::from_secs(120),
-                self.socket.recv_from(&mut buf),
-            )
-            .await
-            {
-                Ok(Ok((len, _))) => len,
-                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
-                Err(_) => return Err(IpcError::Timeout),
-            };
+            let len =
+                match tokio::time::timeout(Duration::from_secs(120), self.transport.recv(&mut buf))
+                    .await
+                {
+                    Ok(Ok(len)) => len,
+                    Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
+                    Err(_) => return Err(IpcError::Timeout),
+                };
 
             let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
                 .map_err(|e| IpcError::Serialization(e.to_string()))?;
@@ -2150,13 +2071,6 @@ fn now_millis_string() -> String {
 }
 
 #[cfg(unix)]
-impl Drop for IpcClient {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self._tmp_path);
-    }
-}
-
-#[cfg(unix)]
 fn default_socket_path() -> std::path::PathBuf {
     dirs::home_dir()
         .map(|d| d.join(".peko").join("run").join("daemon.sock"))
@@ -2186,7 +2100,9 @@ fn read_pid_file(path: &std::path::Path) -> Option<u32> {
 
 /// Public re-export of the PID-file reader for the supervisor's
 /// sync probe. Same access boundary as
-/// `default_socket_path_for_probe`.
+/// `default_socket_path_for_probe`. (The Windows probe goes through
+/// `IpcClient::probe_status`, which reads the file itself.)
+#[cfg(unix)]
 pub(crate) fn read_pid_file_for_probe(path: &std::path::Path) -> Option<u32> {
     read_pid_file(path)
 }

@@ -853,13 +853,13 @@ pub fn lockfile_path() -> PathBuf {
 
 /// IPC socket path the runtime binds in sidecar mode. The runtime
 /// does NOT differentiate the socket by mode (it always binds
-/// `daemon.sock` on Unix / `127.0.0.1:11435` UDP on Windows), so
-/// this is informational — it tells the user where to look, not
-/// where a sidecar-only socket lives.
+/// `daemon.sock` on Unix / its named pipe on Windows), so this is
+/// informational — it tells the user where to look, not where a
+/// sidecar-only socket lives.
 pub fn socket_path() -> PathBuf {
     #[cfg(windows)]
     {
-        PathBuf::from("127.0.0.1:11435")
+        PathBuf::from(crate::ipc::pipe_name())
     }
     #[cfg(unix)]
     {
@@ -960,24 +960,36 @@ pub(crate) fn sync_probe() -> Option<StatusSnapshot> {
 
 #[cfg(windows)]
 pub(crate) fn sync_probe() -> Option<StatusSnapshot> {
-    // Windows uses UDP (see `IpcClient::probe_status`). The same
-    // Send-cycle rationale applies; the sync probe uses
-    // `std::net::UdpSocket` with `set_read_timeout` for the short
-    // blocking window. Mirrors the unix branch field-for-field.
-    use std::net::UdpSocket;
+    // Windows talks to the daemon's named pipe, and std has no pipe
+    // client with a read timeout. Run the async probe on a thread of
+    // its own with its own runtime: the caller may itself be on a
+    // runtime thread, where `block_on` would panic. A missing pipe
+    // fails at once; the timeout bounds a wedged daemon.
     use std::time::Duration;
 
-    const PROBE_TIMEOUT: Duration = Duration::from_millis(200);
+    const PROBE_TIMEOUT: Duration = Duration::from_millis(500);
 
-    let socket = UdpSocket::bind("127.0.0.1:0").ok()?;
-    socket.set_read_timeout(Some(PROBE_TIMEOUT)).ok()?;
-    socket.set_write_timeout(Some(PROBE_TIMEOUT)).ok()?;
-    if socket.send_to(b"", "127.0.0.1:11435").is_err() {
-        return None;
-    }
-    let mut buf = [0u8; 65536];
-    let _len = socket.recv(&mut buf).ok()?;
-    None
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .ok()?;
+        rt.block_on(async {
+            tokio::time::timeout(PROBE_TIMEOUT, async {
+                crate::ipc::IpcClient::new()
+                    .await
+                    .ok()?
+                    .probe_status()
+                    .await
+            })
+            .await
+            .ok()
+            .flatten()
+        })
+    })
+    .join()
+    .ok()
+    .flatten()
 }
 
 #[cfg(test)]
@@ -1114,8 +1126,8 @@ mod tests {
         let s = p.to_string_lossy();
         #[cfg(windows)]
         assert!(
-            s.contains("11435"),
-            "windows socket should be UDP port 11435, got {s}"
+            s.starts_with(r"\\.\pipe\"),
+            "windows endpoint should be the daemon's named pipe, got {s}"
         );
         #[cfg(unix)]
         assert!(

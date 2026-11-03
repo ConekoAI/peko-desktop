@@ -1,7 +1,9 @@
 name: Release
 
 # Tag-triggered release build. Produces a draft GitHub release with
-# native bundles (deb, AppImage, rpm) attached.
+# native bundles attached: deb, AppImage, rpm (Linux); msi and an NSIS
+# setup exe (Windows). The Windows bundles are not code-signed yet, so
+# SmartScreen warns on first run.
 #
 # Pushed by tagging: git tag v0.1.0 && git push origin v0.1.0
 # Manual re-run for an existing tag: Actions -> Release -> Run workflow,
@@ -91,6 +93,61 @@ jobs:
       # release with the resulting .deb / .AppImage / .rpm attached.
       # For signed auto-updater artifacts, set TAURI_SIGNING_PRIVATE_KEY
       # and TAURI_SIGNING_PRIVATE_KEY_PASSWORD as repo secrets.
+      - name: Build Tauri app (release) and publish draft
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: .
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: 'Peko Desktop ${{ inputs.tag || github.ref_name }}'
+          releaseDraft: true
+          releaseBody: 'See the assets below to download and install.'
+
+  build-windows:
+    name: Build Tauri (Windows, release)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: tauri-release-windows
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # As on Linux. Static CRT: the sidecar must not need the Visual
+      # C++ runtime DLLs, which a clean Windows install may not have
+      # (tauri-build links the app's VC runtime statically too; the app
+      # still uses the Universal CRT, part of Windows 10 and later).
+      - name: Build peko-runtime sidecar
+        shell: bash
+        run: |
+          RUNTIME_REPO="https://github.com/ConekoAI/peko-runtime.git"
+          RUNTIME_DIR="$(mktemp -d)/peko-runtime"
+          RUNTIME_REF="${PEKO_RUNTIME_REF:-master}"
+          git clone --depth 1 --branch "$RUNTIME_REF" "$RUNTIME_REPO" "$RUNTIME_DIR"
+          (cd "$RUNTIME_DIR" && cargo build --release -p peko-daemon)
+          PEKO_RUNTIME_DIR="$RUNTIME_DIR" bash scripts/fetch-peko-sidecar.sh
+        env:
+          PEKO_RUNTIME_REF: ${{ inputs.tag || github.ref_name }}
+          RUSTFLAGS: -C target-feature=+crt-static
+
+      # Adds the .msi and NSIS -setup.exe to the same draft release the
+      # Linux job publishes to (tauri-action finds the draft by tag).
       - name: Build Tauri app (release) and publish draft
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
