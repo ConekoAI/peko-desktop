@@ -423,7 +423,7 @@ pub async fn principal_send(
         }
         // A remote peko: post to the DM; its reply arrives on the thread.
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            client.send(&message).await?;
+            client.send(&message, &[]).await?;
             Ok(String::new())
         }
     }
@@ -506,14 +506,12 @@ pub async fn principal_send_stream(
                 .map_err(|e| format!("principal_send_stream failed: {e}"))?;
             rx.await.map_err(|e| format!("supervisor task died: {e}"))?
         }
-        crate::state::ResolvedRuntime::HubRemote(_) if !attachments.is_empty() => {
-            return Err("Files can only be sent to a peko on this computer.".to_string());
-        }
-        // A remote peko: post to the DM. The reply arrives later, on the
-        // thread (the log watch shows it), like a message sent to a busy
-        // local peko.
+        // A remote peko: post to the DM, files included (runtime ADR-094:
+        // its runtime pulls them through PekoHub). The reply arrives later,
+        // on the thread (the log watch shows it), like a message sent to a
+        // busy local peko.
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            client.send(&message).await?;
+            client.send(&message, &attachments).await?;
             let _ = on_event.send(crate::ipc::ChatStreamMsg::Queued { message });
             String::new()
         }

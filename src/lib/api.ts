@@ -1635,6 +1635,8 @@ export async function channelPost(
   text: string,
   parent?: string | null,
   runtimeId?: RuntimeId,
+  /** Absolute paths on this computer (runtime ADR-094). */
+  attachments?: string[],
 ): Promise<string> {
   return invoke<string>("channel_post", {
     channelId,
@@ -1642,6 +1644,7 @@ export async function channelPost(
     text,
     parent: parent ?? null,
     runtimeId: runtimeId ?? null,
+    attachments: attachments ?? null,
   });
 }
 
