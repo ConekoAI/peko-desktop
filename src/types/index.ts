@@ -151,6 +151,12 @@ export interface ChatLogMessage {
   correlationId?: string;
   /** Files attached to the message (runtime ADR-088). */
   attachments?: ChatLogAttachment[];
+  /**
+   * Suggested replies the sender offered (runtime ADR-093): text you may
+   * send with a tap instead of typing. Shown only while this is the
+   * thread's latest message; they carry no authority.
+   */
+  options?: string[];
 }
 
 /**
