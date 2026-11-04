@@ -50,14 +50,22 @@ pub fn run() {
         .setup(|app| {
             // Attached audio and video play from the engine's copies
             // through the asset protocol (WebKit streams them with range
-            // requests). Only the pekos' folders are reachable.
+            // requests). Only the pekos' folders are reachable, and the
+            // conversations' file stores, where files from other computers
+            // are kept (runtime ADR-094) — the webview already reads those
+            // conversations over IPC.
             if let Some(home) = crate::commands::system::peko_home() {
                 use tauri::Manager;
-                if let Err(e) = app
-                    .asset_protocol_scope()
-                    .allow_directory(home.join("principals"), true)
-                {
-                    eprintln!("[peko-desktop] attachment playback unavailable: {e}");
+                for dir in [
+                    home.join("principals"),
+                    home.join("runtime").join("channels"),
+                ] {
+                    if let Err(e) = app.asset_protocol_scope().allow_directory(&dir, true) {
+                        eprintln!(
+                            "[peko-desktop] attachment playback unavailable in {}: {e}",
+                            dir.display()
+                        );
+                    }
                 }
             }
             // PR #6: register the desktop scheme(s) so the OS routes
