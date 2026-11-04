@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Hash, Users, ChevronDown, ChevronUp, UserPlus, LogOut, Share2 } from "lucide-react";
+import { Hash, User, Users, ChevronDown, ChevronUp, UserPlus, LogOut, Share2 } from "lucide-react";
 import { useChannel, useChannelInfo } from "../hooks/useChannels";
 import { usePekoDirectory } from "../hooks/usePekoDirectory";
 import RuntimeBadge from "./RuntimeBadge";
@@ -75,7 +75,11 @@ export default function ChannelHeader({
     <div className="border-b border-line">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
+          {title ? (
+            <User className="h-4 w-4 shrink-0 text-fg-subtle" />
+          ) : (
+            <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
+          )}
           <h2 className="truncate text-base font-semibold text-fg">
             {title ?? detail.name}
           </h2>

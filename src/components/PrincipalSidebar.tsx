@@ -28,26 +28,37 @@ import {
   Compass,
   Circle,
   Package,
+  MessageCircle,
 } from "lucide-react";
 import { configuredHubUrl, type RemotePrincipalSummary } from "../lib/api";
 import PekoAvatar from "./peko/PekoAvatar";
 import { pekoIdentity } from "../lib/pekoIdentity";
 import { unreadKey, useUnreadCounts } from "../lib/unread";
+import {
+  ChatSectionLabel,
+  DmRequests,
+  MessagePersonForm,
+  PersonRow,
+  usePeople,
+} from "./PeopleSection";
 
 /**
- * One entry point for adding a peko: create one, wake one from a
- * `.peko` file, connect to someone else's, or browse public ones.
+ * One entry point for starting a chat: create a peko, wake one from a
+ * `.peko` file, connect to someone else's, browse public ones, or message a
+ * person (runtime ADR-095 D6).
  */
-function NewPekoMenu({
+function NewChatMenu({
   onCreate,
   onImport,
   onConnect,
   onDiscover,
+  onMessagePerson,
 }: {
   onCreate?: () => void;
   onImport?: () => void;
   onConnect?: () => void;
   onDiscover: () => void;
+  onMessagePerson: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -73,6 +84,7 @@ function NewPekoMenu({
     { label: "Import a .peko file", icon: Package, run: onImport },
     { label: "Add a peko", icon: LinkIcon, run: onConnect },
     { label: "Discover public pekos", icon: Compass, run: onDiscover },
+    { label: "Message a person", icon: MessageCircle, run: onMessagePerson },
   ].filter((item) => item.run);
 
   return (
@@ -107,7 +119,7 @@ function NewPekoMenu({
         className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
       >
         <Plus className="h-4 w-4" />
-        New peko
+        New chat
       </button>
     </div>
   );
@@ -341,6 +353,9 @@ export default function PrincipalSidebar({
   const navigate = useNavigate();
   const params = useParams({ strict: false });
   const principalName = (params as Record<string, string | undefined>).pekoName ?? "";
+  // Runtime ADR-095 D6: DMs with people sit with the pekos' chats.
+  const personChannel = (params as Record<string, string | undefined>).channelId ?? "";
+  const [messagingPerson, setMessagingPerson] = useState(false);
   // The whole URL's search: the sidebar renders at the `/chat` level,
   // where the child route's `runtimeId` isn't in its own match.
   const routeSearch = useRouterState({ select: (s) => s.location.search }) as Record<
@@ -395,10 +410,11 @@ export default function PrincipalSidebar({
     );
   }, [remotePrincipals, search]);
   const listed = filtered.length + filteredRemote.length;
+  const people = usePeople(search);
 
   // First-run empty state shows a richer emerald CTA inside the list
   // area; otherwise the persistent footer button below handles creation.
-  const showFirstRunCTA = !isLoading && !search.trim() && listed === 0;
+  const showFirstRunCTA = !isLoading && !search.trim() && listed === 0 && people.length === 0;
 
   function openContextMenu(e: React.MouseEvent, name: string, runtimeId: string) {
     e.preventDefault();
@@ -417,7 +433,7 @@ export default function PrincipalSidebar({
     <div className="flex h-full w-60 flex-col border-r border-line bg-surface-raised">
       <div className="border-b border-line p-3">
         <h3 className="truncate text-sm font-semibold text-fg">
-          Pekos
+          Chats
         </h3>
       </div>
 
@@ -428,13 +444,31 @@ export default function PrincipalSidebar({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search pekos…"
+            placeholder="Search chats…"
             className="w-full rounded-lg border border-line bg-surface-card py-1.5 pl-8 pr-3 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           />
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
+        <DmRequests />
+        {people.length > 0 && (
+          <div className="mb-2" data-testid="person-dms">
+            <ChatSectionLabel>People</ChatSectionLabel>
+            {people.map((person) => {
+              const active = person.channelId === personChannel;
+              return (
+                <PersonRow
+                  key={person.channelId}
+                  person={person}
+                  active={active}
+                  rowClass={`${ROW_CLASS} ${rowTone(active)}`}
+                />
+              );
+            })}
+          </div>
+        )}
+        {people.length > 0 && listed > 0 && <ChatSectionLabel>Pekos</ChatSectionLabel>}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
             <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
@@ -509,9 +543,9 @@ export default function PrincipalSidebar({
               )}
             </span>
           </div>
-        ) : (
+        ) : people.length > 0 ? null : (
           <div className="px-2 py-8 text-center text-xs text-fg-subtle">
-            No pekos match
+            No chats match
           </div>
         )}
 
@@ -552,12 +586,15 @@ export default function PrincipalSidebar({
         ) : null}
       </div>
 
+      {messagingPerson && <MessagePersonForm onClose={() => setMessagingPerson(false)} />}
+
       <div className="border-t border-line p-2">
-        <NewPekoMenu
+        <NewChatMenu
           onCreate={onCreateClick}
           onImport={onImportClick}
           onConnect={onConnectClick}
           onDiscover={() => navigate({ to: "/discover" })}
+          onMessagePerson={() => setMessagingPerson(true)}
         />
       </div>
 

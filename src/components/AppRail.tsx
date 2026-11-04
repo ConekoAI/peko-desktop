@@ -10,7 +10,9 @@ export default function AppRail() {
   const isHome =
     location.pathname === "/" ||
     location.pathname === "/chat" ||
-    location.pathname.startsWith("/chat/");
+    location.pathname.startsWith("/chat/") ||
+    // Runtime ADR-095 D6: DMs with people sit with the chats.
+    location.pathname.startsWith("/people/");
 
   const isChannels =
     location.pathname === "/channels" ||
