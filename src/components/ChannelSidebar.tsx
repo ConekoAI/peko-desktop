@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Search, Hash, Link2, Loader2, Mail, MessageCircle, Plus, User } from "lucide-react";
+import { Search, Hash, Link2, Loader2, Mail, Plus } from "lucide-react";
 import {
   channelInfoQuery,
   hasLeftGroup,
@@ -9,17 +9,7 @@ import {
   useChannels,
 } from "../hooks/useChannels";
 import { usePrincipals } from "../hooks/usePrincipals";
-import {
-  dmRequestAnswer,
-  dmRequests,
-  groupInvitationAnswer,
-  groupInvitations,
-  groupJoin,
-  personDmOpen,
-  personDms,
-  personGroups,
-} from "../lib/api";
-import { personLabel } from "../lib/people";
+import { groupInvitationAnswer, groupInvitations, groupJoin, personGroups } from "../lib/api";
 import RuntimeBadge from "./RuntimeBadge";
 
 /**
@@ -77,41 +67,6 @@ export default function ChannelSidebar({
       void qc.invalidateQueries({ queryKey: ["person-groups"] });
     },
   });
-  // Runtime ADR-095 D6: DMs with other people, and people asking to DM you.
-  const { data: people } = useQuery({
-    queryKey: ["person-dms"],
-    queryFn: personDms,
-    refetchInterval: 15_000,
-  });
-  const { data: requests } = useQuery({
-    queryKey: ["dm-requests"],
-    queryFn: dmRequests,
-    refetchInterval: 30_000,
-  });
-  const answerRequest = useMutation({
-    mutationFn: ({ channelId, answer }: { channelId: string; answer: "accept" | "decline" | "block" }) =>
-      dmRequestAnswer(channelId, answer),
-    onSuccess: (opened) => {
-      void qc.invalidateQueries({ queryKey: ["dm-requests"] });
-      void qc.invalidateQueries({ queryKey: ["person-dms"] });
-      void qc.invalidateQueries({ queryKey: ["blocked-people"] });
-      if (opened) openPersonDm(opened);
-    },
-  });
-  function openPersonDm(id: string) {
-    navigate({
-      to: "/channels/$channelId",
-      params: { channelId: id },
-      search: { runtimeId: "local" },
-    });
-  }
-  const shownPeople = useMemo(() => {
-    const rows = people ?? [];
-    if (!search.trim()) return rows;
-    const q = search.toLowerCase();
-    return rows.filter((p) => personLabel(p).toLowerCase().includes(q) || p.account.includes(q));
-  }, [people, search]);
-
   const channels = useMemo(() => {
     if (!pekoChannels && !joined) return undefined;
     const rows = [...(pekoChannels ?? [])];
@@ -224,83 +179,6 @@ export default function ChannelSidebar({
             )}
           </div>
         )}
-        {(requests ?? []).length > 0 && (
-          <div className="mb-2 space-y-1" data-testid="dm-requests">
-            <div className="px-2 pb-1 text-xs font-medium text-fg-subtle">Message requests</div>
-            {requests!.map((r) => (
-              <div
-                key={r.channelId}
-                className="rounded-lg border border-line bg-surface-card p-2 text-sm"
-                data-testid={`dm-request-${r.channelId}`}
-              >
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 shrink-0 text-fg-subtle" />
-                  <span className="min-w-0 flex-1 truncate font-medium text-fg">
-                    {r.name ?? r.account}
-                  </span>
-                </div>
-                <div className="mt-0.5 text-xs text-fg-subtle">
-                  wants to message you. You&apos;ll see what they wrote once you accept.
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    disabled={answerRequest.isPending}
-                    onClick={() => answerRequest.mutate({ channelId: r.channelId, answer: "accept" })}
-                    className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    disabled={answerRequest.isPending}
-                    onClick={() => answerRequest.mutate({ channelId: r.channelId, answer: "decline" })}
-                    className="rounded-md px-2.5 py-1 text-xs text-fg-muted hover:bg-surface-sunken disabled:opacity-50"
-                  >
-                    Decline
-                  </button>
-                  <button
-                    type="button"
-                    disabled={answerRequest.isPending}
-                    onClick={() => answerRequest.mutate({ channelId: r.channelId, answer: "block" })}
-                    className="ml-auto rounded-md px-2.5 py-1 text-xs text-danger hover:bg-danger-soft disabled:opacity-50"
-                  >
-                    Block
-                  </button>
-                </div>
-              </div>
-            ))}
-            {answerRequest.error && (
-              <div className="px-2 text-xs text-red-600 dark:text-red-400">
-                {String(
-                  answerRequest.error instanceof Error
-                    ? answerRequest.error.message
-                    : answerRequest.error,
-                )}
-              </div>
-            )}
-          </div>
-        )}
-        {shownPeople.length > 0 && (
-          <div className="mb-2 space-y-1" data-testid="person-dms">
-            <div className="px-2 pb-1 text-xs font-medium text-fg-subtle">People</div>
-            {shownPeople.map((p) => (
-              <button
-                key={p.channelId}
-                onClick={() => openPersonDm(p.channelId)}
-                data-testid={`person-dm-row-${p.channelId}`}
-                className={[
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-                  p.channelId === channelId ? "bg-brand-soft text-brand" : "text-fg-soft hover:bg-surface-sunken",
-                ].join(" ")}
-              >
-                <User className="h-4 w-4 shrink-0 text-fg-subtle" />
-                <span className="min-w-0 flex-1 truncate">{personLabel(p)}</span>
-                {p.waiting && <span className="shrink-0 text-xs text-fg-subtle">invited</span>}
-              </button>
-            ))}
-          </div>
-        )}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
             <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
@@ -320,7 +198,7 @@ export default function ChannelSidebar({
               />
             ))}
           </div>
-        ) : shownPeople.length > 0 ? null : (
+        ) : (
           <div
             className="px-2 py-8 text-center text-xs text-fg-subtle"
             data-testid="channel-empty"
@@ -332,7 +210,6 @@ export default function ChannelSidebar({
         )}
       </div>
 
-      <MessagePerson onOpened={openPersonDm} />
       <JoinGroup />
 
       {onCreateClick && (
@@ -349,98 +226,6 @@ export default function ChannelSidebar({
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * Message a person by their PekoHub account ID (runtime ADR-095 D6). They
- * get a message request; the DM opens here at once, and what you write
- * reaches them when they accept.
- */
-function MessagePerson({ onOpened }: { onOpened: (channelId: string) => void }) {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [account, setAccount] = useState("");
-  const [name, setName] = useState("");
-  const start = useMutation({
-    mutationFn: () => personDmOpen(account.trim().replace(/^user:hub:/, ""), name.trim() || undefined),
-    onSuccess: (channelId) => {
-      setAccount("");
-      setName("");
-      setOpen(false);
-      void qc.invalidateQueries({ queryKey: ["person-dms"] });
-      onOpened(channelId);
-    },
-  });
-  if (!open) {
-    return (
-      <div className="border-t border-line p-2">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
-          data-testid="person-dm-open"
-        >
-          <MessageCircle className="h-4 w-4" />
-          <span>Message a person</span>
-        </button>
-      </div>
-    );
-  }
-  return (
-    <form
-      className="space-y-2 border-t border-line p-2"
-      data-testid="person-dm-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (account.trim()) start.mutate();
-      }}
-    >
-      <input
-        type="text"
-        value={account}
-        autoFocus
-        onChange={(e) => setAccount(e.target.value)}
-        placeholder="Their PekoHub account ID"
-        className="w-full rounded-lg border border-line bg-surface-card px-2.5 py-1.5 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-        data-testid="person-dm-account"
-      />
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="What to call them (optional)"
-        className="w-full rounded-lg border border-line bg-surface-card px-2.5 py-1.5 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-        data-testid="person-dm-name"
-      />
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={!account.trim() || start.isPending}
-          className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
-        >
-          {start.isPending ? "Opening…" : "Message"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            start.reset();
-          }}
-          className="rounded-md px-2.5 py-1 text-xs text-fg-muted hover:bg-surface-sunken"
-        >
-          Cancel
-        </button>
-      </div>
-      <div className="text-xs text-fg-subtle">
-        They get a message request. What you write reaches them once they accept.
-      </div>
-      {start.error && (
-        <div className="text-xs text-red-600 dark:text-red-400" data-testid="person-dm-error">
-          {String(start.error instanceof Error ? start.error.message : start.error)}
-        </div>
-      )}
-    </form>
   );
 }
 

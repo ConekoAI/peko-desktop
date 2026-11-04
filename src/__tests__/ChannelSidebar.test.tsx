@@ -50,20 +50,12 @@ const groupInvitationsMock = vi.fn();
 const personGroupsMock = vi.fn();
 const groupInvitationAnswerMock = vi.fn();
 const groupJoinMock = vi.fn();
-const personDmsMock = vi.fn();
-const dmRequestsMock = vi.fn();
-const dmRequestAnswerMock = vi.fn();
-const personDmOpenMock = vi.fn();
 vi.mock("../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/api")>()),
   groupJoin: (link: string) => groupJoinMock(link),
   groupInvitations: () => groupInvitationsMock(),
   personGroups: () => personGroupsMock(),
   groupInvitationAnswer: (id: string, accept: boolean) => groupInvitationAnswerMock(id, accept),
-  personDms: () => personDmsMock(),
-  dmRequests: () => dmRequestsMock(),
-  dmRequestAnswer: (id: string, answer: string) => dmRequestAnswerMock(id, answer),
-  personDmOpen: (account: string, name?: string) => personDmOpenMock(account, name),
 }));
 
 vi.mock("../hooks/usePrincipals", () => ({
@@ -103,10 +95,6 @@ describe("ChannelSidebar", () => {
   beforeEach(() => {
     groupInvitationsMock.mockResolvedValue([]);
     personGroupsMock.mockResolvedValue([]);
-    personDmsMock.mockReset().mockResolvedValue([]);
-    dmRequestsMock.mockReset().mockResolvedValue([]);
-    dmRequestAnswerMock.mockReset();
-    personDmOpenMock.mockReset();
     useChannelsMock.mockReset();
     usePrincipalsMock.mockReset();
     navigateMock.mockReset();
@@ -280,81 +268,5 @@ describe("ChannelSidebar — groups on other computers", () => {
     fireEvent.change(screen.getByTestId("group-join-input"), { target: { value: "123" } });
     fireEvent.click(screen.getByRole("button", { name: "Join" }));
     expect(await screen.findByText("No group 123 is open to you")).toBeInTheDocument();
-  });
-
-  // Runtime ADR-095 D6: people, and people asking to message you.
-  it("lists DMs with people, marking the ones not yet accepted", async () => {
-    useChannelsMock.mockReturnValue({ data: [], isLoading: false });
-    usePrincipalsMock.mockReturnValue({ data: [] });
-    personDmsMock.mockResolvedValue([
-      { channelId: "dm_bob", peer: "user:hub:bob-id", account: "bob-id", name: "bob", waiting: true },
-      { channelId: "dm_eve", peer: "user:hub:eve-id", account: "eve-id", name: null, waiting: false },
-    ]);
-    renderSidebar();
-    const bob = await screen.findByTestId("person-dm-row-dm_bob");
-    expect(bob).toHaveTextContent("bob");
-    expect(bob).toHaveTextContent("invited");
-    const eve = screen.getByTestId("person-dm-row-dm_eve");
-    expect(eve).toHaveTextContent("eve-id");
-    expect(eve).not.toHaveTextContent("invited");
-    expect(screen.queryByTestId("channel-empty")).toBeNull();
-    fireEvent.click(eve);
-    expect(navigateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "/channels/$channelId", params: { channelId: "dm_eve" } }),
-    );
-  });
-
-  it("accepts a message request and opens the DM", async () => {
-    useChannelsMock.mockReturnValue({ data: [], isLoading: false });
-    usePrincipalsMock.mockReturnValue({ data: [] });
-    dmRequestsMock.mockResolvedValue([
-      { channelId: "dm_alice", from: "user:hub:alice-id", account: "alice-id", name: "alice", receivedAt: "" },
-    ]);
-    dmRequestAnswerMock.mockResolvedValue("dm_alice");
-    renderSidebar();
-    const request = await screen.findByTestId("dm-request-dm_alice");
-    expect(request).toHaveTextContent("alice");
-    expect(request).toHaveTextContent(/once you accept/);
-    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
-    await waitFor(() => expect(dmRequestAnswerMock).toHaveBeenCalledWith("dm_alice", "accept"));
-    await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith(
-        expect.objectContaining({ params: { channelId: "dm_alice" } }),
-      ),
-    );
-  });
-
-  it("blocks a person from their request", async () => {
-    useChannelsMock.mockReturnValue({ data: [], isLoading: false });
-    usePrincipalsMock.mockReturnValue({ data: [] });
-    dmRequestsMock.mockResolvedValue([
-      { channelId: "dm_eve", from: "user:hub:eve-id", account: "eve-id", name: null, receivedAt: "" },
-    ]);
-    dmRequestAnswerMock.mockResolvedValue(null);
-    navigateMock.mockReset();
-    renderSidebar();
-    await screen.findByTestId("dm-request-dm_eve");
-    fireEvent.click(screen.getByRole("button", { name: "Block" }));
-    await waitFor(() => expect(dmRequestAnswerMock).toHaveBeenCalledWith("dm_eve", "block"));
-    expect(navigateMock).not.toHaveBeenCalled();
-  });
-
-  it("messages a person by their account ID", async () => {
-    useChannelsMock.mockReturnValue({ data: [], isLoading: false });
-    usePrincipalsMock.mockReturnValue({ data: [] });
-    personDmOpenMock.mockResolvedValue("dm_bob");
-    renderSidebar();
-    fireEvent.click(screen.getByTestId("person-dm-open"));
-    fireEvent.change(screen.getByTestId("person-dm-account"), {
-      target: { value: " user:hub:bob-id " },
-    });
-    fireEvent.change(screen.getByTestId("person-dm-name"), { target: { value: "Bob" } });
-    fireEvent.click(screen.getByRole("button", { name: "Message" }));
-    await waitFor(() => expect(personDmOpenMock).toHaveBeenCalledWith("bob-id", "Bob"));
-    await waitFor(() =>
-      expect(navigateMock).toHaveBeenCalledWith(
-        expect.objectContaining({ params: { channelId: "dm_bob" } }),
-      ),
-    );
   });
 });

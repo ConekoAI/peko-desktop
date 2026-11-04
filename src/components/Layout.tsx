@@ -127,7 +127,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const engineFailed = engine?.kind === "failed";
 
   const isChatRoute =
-    location.pathname === "/" || location.pathname === "/chat" || location.pathname.startsWith("/chat/");
+    location.pathname === "/" ||
+    location.pathname === "/chat" ||
+    location.pathname.startsWith("/chat/") ||
+    // Runtime ADR-095 D6: DMs with people sit with the chats.
+    location.pathname.startsWith("/people/");
   // Discover lists pekos to add: it keeps the peko list beside it.
   const isPekoRoute = isChatRoute || location.pathname === "/discover";
 

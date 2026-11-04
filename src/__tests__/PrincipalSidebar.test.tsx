@@ -1,8 +1,27 @@
-// The peko list: pekos on this runtime and pekos reached through a hub
-// sit in one list, look the same, and open their own profile.
+// The chat list: pekos on this runtime and pekos reached through a hub
+// sit in one list, look the same, and open their own profile; DMs with
+// people and requests to message you sit above them (runtime ADR-095 D6).
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render as rtlRender, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+function render(ui: React.ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return rtlRender(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+}
+
+const personDmsMock = vi.fn();
+const dmRequestsMock = vi.fn();
+const dmRequestAnswerMock = vi.fn();
+const personDmOpenMock = vi.fn();
+vi.mock("../lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/api")>()),
+  personDms: () => personDmsMock(),
+  dmRequests: () => dmRequestsMock(),
+  dmRequestAnswer: (id: string, answer: string) => dmRequestAnswerMock(id, answer),
+  personDmOpen: (account: string, name?: string) => personDmOpenMock(account, name),
+}));
 
 const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({
@@ -81,7 +100,13 @@ vi.mock("../components/modals/PrincipalProfileModal", () => ({
 import PrincipalSidebar from "../components/PrincipalSidebar";
 
 describe("PrincipalSidebar", () => {
-  beforeEach(() => navigateMock.mockReset());
+  beforeEach(() => {
+    navigateMock.mockReset();
+    personDmsMock.mockReset().mockResolvedValue([]);
+    dmRequestsMock.mockReset().mockResolvedValue([]);
+    dmRequestAnswerMock.mockReset();
+    personDmOpenMock.mockReset();
+  });
 
   it("lists local and remote pekos together, with no Remote heading", () => {
     render(<PrincipalSidebar />);
@@ -111,5 +136,87 @@ describe("PrincipalSidebar", () => {
     fireEvent.contextMenu(remy);
     fireEvent.click(screen.getByRole("button", { name: /profile/i }));
     expect(screen.getByTestId("profile").textContent).toBe(`remy @ ${HUB}`);
+  });
+
+  it("lists DMs with people above the pekos, marking the ones not yet accepted", async () => {
+    personDmsMock.mockResolvedValue([
+      { channelId: "dm_bob", peer: "user:hub:bob-id", account: "bob-id", name: "Bob", waiting: true },
+      { channelId: "dm_eve", peer: "user:hub:eve-id", account: "eve-id", name: null, waiting: false },
+    ]);
+    render(<PrincipalSidebar />);
+    const bob = await screen.findByTestId("person-dm-row-dm_bob");
+    expect(bob).toHaveTextContent("Bob");
+    expect(bob).toHaveTextContent("invited");
+    const eve = screen.getByTestId("person-dm-row-dm_eve");
+    expect(eve).toHaveTextContent("eve-id");
+    expect(eve).not.toHaveTextContent("invited");
+    // People first, then a Pekos heading over the pekos.
+    expect(screen.getByText("People")).toBeInTheDocument();
+    expect(screen.getByText("Pekos")).toBeInTheDocument();
+    const order = (el: HTMLElement) =>
+      Array.from(document.querySelectorAll("button")).indexOf(el as HTMLButtonElement);
+    expect(order(bob)).toBeLessThan(order(screen.getByRole("button", { name: /omni/ })));
+    fireEvent.click(eve);
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: "/people/$channelId",
+      params: { channelId: "dm_eve" },
+      search: { runtimeId: "local" },
+    });
+  });
+
+  it("has no Pekos heading when there are no people", async () => {
+    render(<PrincipalSidebar />);
+    await waitFor(() => expect(personDmsMock).toHaveBeenCalled());
+    expect(screen.queryByText("Pekos")).toBeNull();
+    expect(screen.getByText("Chats")).toBeInTheDocument();
+  });
+
+  it("accepts a message request and opens the DM with the chats", async () => {
+    dmRequestsMock.mockResolvedValue([
+      { channelId: "dm_alice", from: "user:hub:alice-id", account: "alice-id", name: "Alice", receivedAt: "" },
+    ]);
+    dmRequestAnswerMock.mockResolvedValue("dm_alice");
+    render(<PrincipalSidebar />);
+    const request = await screen.findByTestId("dm-request-dm_alice");
+    expect(request).toHaveTextContent("Alice");
+    expect(request).toHaveTextContent(/once you accept/);
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    await waitFor(() => expect(dmRequestAnswerMock).toHaveBeenCalledWith("dm_alice", "accept"));
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "/people/$channelId", params: { channelId: "dm_alice" } }),
+      ),
+    );
+  });
+
+  it("blocks a person from their request", async () => {
+    dmRequestsMock.mockResolvedValue([
+      { channelId: "dm_eve", from: "user:hub:eve-id", account: "eve-id", name: null, receivedAt: "" },
+    ]);
+    dmRequestAnswerMock.mockResolvedValue(null);
+    render(<PrincipalSidebar />);
+    await screen.findByTestId("dm-request-dm_eve");
+    fireEvent.click(screen.getByRole("button", { name: "Block" }));
+    await waitFor(() => expect(dmRequestAnswerMock).toHaveBeenCalledWith("dm_eve", "block"));
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("messages a person from New chat", async () => {
+    personDmOpenMock.mockResolvedValue("dm_bob");
+    render(<PrincipalSidebar />);
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Message a person" }));
+    fireEvent.change(screen.getByTestId("person-dm-account"), {
+      target: { value: " user:hub:bob-id " },
+    });
+    fireEvent.change(screen.getByTestId("person-dm-name"), { target: { value: "Bob" } });
+    fireEvent.click(screen.getByRole("button", { name: "Message" }));
+    await waitFor(() => expect(personDmOpenMock).toHaveBeenCalledWith("bob-id", "Bob"));
+    await waitFor(() =>
+      expect(navigateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "/people/$channelId", params: { channelId: "dm_bob" } }),
+      ),
+    );
+    expect(screen.queryByTestId("person-dm-form")).toBeNull();
   });
 });
