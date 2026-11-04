@@ -151,10 +151,14 @@ export default function ChannelHeader({
           </button>
         </div>
       </div>
-      <div className="px-4 pb-2 text-xs text-fg-muted">
-        Created by <span title={detail.creator}>{directory.resolve(detail.creator).label}</span> ·{" "}
-        {new Date(detail.createdAt).toLocaleString()}
-      </div>
+      {/* A DM with a person (titled for them) starts on each side when
+          it is opened or accepted, so who "created" this copy says nothing. */}
+      {!title && (
+        <div className="px-4 pb-2 text-xs text-fg-muted">
+          Created by <span title={detail.creator}>{directory.resolve(detail.creator).label}</span> ·{" "}
+          {new Date(detail.createdAt).toLocaleString()}
+        </div>
+      )}
       {share && showShare && <GroupSharePanel channelId={channelId} group={share} />}
       {showMembers && (
         <div className="border-t border-line">

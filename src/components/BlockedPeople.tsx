@@ -35,13 +35,16 @@ export default function BlockedPeople({ className }: { className?: string }) {
         </div>
       ) : (
         <ul className="mt-3 space-y-1">
-          {people!.map((account) => (
+          {people!.map(({ account, name }) => (
             <li
               key={account}
               className="flex items-center gap-2 rounded-lg bg-surface-sunken px-3 py-2"
               data-testid={`blocked-${account}`}
             >
-              <code className="min-w-0 flex-1 truncate text-xs text-fg-soft">{account}</code>
+              <div className="min-w-0 flex-1">
+                {name && <div className="truncate text-sm text-fg">{name}</div>}
+                <code className="block truncate text-xs text-fg-subtle">{account}</code>
+              </div>
               <button
                 type="button"
                 disabled={unblock.isPending}

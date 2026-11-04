@@ -1587,14 +1587,20 @@ export async function dmRequestAnswer(
   return invoke<string | null>("dm_request_answer", { channelId, answer });
 }
 
-/** The people you blocked, as PekoHub account IDs. */
-export async function blockedPeople(): Promise<string[]> {
-  return invoke<string[]>("blocked_people");
+/** A person you blocked: their PekoHub account ID, and their name when known. */
+export interface BlockedPerson {
+  account: string;
+  name: string | null;
+}
+
+/** The people you blocked. */
+export async function blockedPeople(): Promise<BlockedPerson[]> {
+  return invoke<BlockedPerson[]>("blocked_people");
 }
 
 /** Block or unblock a person by account ID; returns everyone blocked now. */
-export async function setPersonBlocked(account: string, blocked: boolean): Promise<string[]> {
-  return invoke<string[]>("set_person_blocked", { account, blocked });
+export async function setPersonBlocked(account: string, blocked: boolean): Promise<BlockedPerson[]> {
+  return invoke<BlockedPerson[]>("set_person_blocked", { account, blocked });
 }
 
 /**
