@@ -22,11 +22,24 @@ import { usePekoDirectory, type ActorDisplay } from "../hooks/usePekoDirectory";
 export default function ChannelEventRow({
   event,
   showRuntimeBadge = true,
+  people,
 }: {
   event: ChannelEvent;
   showRuntimeBadge?: boolean;
+  /**
+   * Set in a DM with another person (runtime ADR-095 D6): what to call
+   * people by address (`user:hub:<account>`). Its birth reads as a
+   * conversation, not a group.
+   */
+  people?: Record<string, string>;
 }) {
-  const directory = usePekoDirectory();
+  const pekos = usePekoDirectory();
+  const directory = {
+    resolve: (actor: string): ActorDisplay => {
+      const name = people?.[actor];
+      return name ? { label: name, peko: null, isYou: false } : pekos.resolve(actor);
+    },
+  };
   switch (event.kind) {
     case "posted": {
       const who = directory.resolve(event.author);
@@ -57,7 +70,13 @@ export default function ChannelEventRow({
           className="rounded-lg bg-brand-soft p-3 text-xs text-brand"
           data-testid="channel-event-row-created"
         >
-          Group <span className="font-semibold">{event.name}</span> created by{" "}
+          {people ? (
+            <>Conversation started by </>
+          ) : (
+            <>
+              Group <span className="font-semibold">{event.name}</span> created by{" "}
+            </>
+          )}
           <span title={event.creator}>{directory.resolve(event.creator).label}</span> ·{" "}
           {new Date(event.at).toLocaleString()}
         </div>

@@ -1536,6 +1536,67 @@ export async function personGroups(): Promise<PersonGroup[]> {
   return invoke<PersonGroup[]>("person_groups");
 }
 
+/** One of your DMs with another person (runtime ADR-095 D6). */
+export interface PersonDm {
+  channelId: string;
+  /** `user:hub:<account>`. */
+  peer: string;
+  /** Their PekoHub account ID. */
+  account: string;
+  name: string | null;
+  /** They haven't accepted yet: nothing you wrote has reached them. */
+  waiting: boolean;
+}
+
+/**
+ * A person asking to DM you (runtime ADR-095 D6). It names only who asks;
+ * what they wrote arrives once you accept.
+ */
+export interface DmRequest {
+  channelId: string;
+  /** `user:hub:<account>`. */
+  from: string;
+  account: string;
+  name: string | null;
+  receivedAt: string;
+}
+
+/** Your DMs with other people; empty when not signed in. */
+export async function personDms(): Promise<PersonDm[]> {
+  return invoke<PersonDm[]>("person_dms");
+}
+
+/**
+ * Open (or find) a DM with a person by their PekoHub account ID. They get
+ * a message request; returns the DM's channel id.
+ */
+export async function personDmOpen(account: string, name?: string): Promise<string> {
+  return invoke<string>("person_dm_open", { account, name: name ?? null });
+}
+
+/** People asking to DM you; empty when not signed in. */
+export async function dmRequests(): Promise<DmRequest[]> {
+  return invoke<DmRequest[]>("dm_requests");
+}
+
+/** Accept, decline, or block a message request. Accepting returns the DM's channel id. */
+export async function dmRequestAnswer(
+  channelId: string,
+  answer: "accept" | "decline" | "block",
+): Promise<string | null> {
+  return invoke<string | null>("dm_request_answer", { channelId, answer });
+}
+
+/** The people you blocked, as PekoHub account IDs. */
+export async function blockedPeople(): Promise<string[]> {
+  return invoke<string[]>("blocked_people");
+}
+
+/** Block or unblock a person by account ID; returns everyone blocked now. */
+export async function setPersonBlocked(account: string, blocked: boolean): Promise<string[]> {
+  return invoke<string[]>("set_person_blocked", { account, blocked });
+}
+
 /**
  * Look up a single channel's metadata + member count. Returns
  * `null` when the channel doesn't exist on the runtime.

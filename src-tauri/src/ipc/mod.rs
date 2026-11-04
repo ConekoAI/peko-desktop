@@ -1649,6 +1649,98 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Open, or find, a DM with another person by their PekoHub account
+    /// (runtime ADR-095 D6). They get a message request. Answered with
+    /// `channel_person_dm_opened`.
+    pub async fn channel_open_person_dm(
+        &self,
+        account: &str,
+        name: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_open_person_dm",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "account": account,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Your DMs with other people, and which still wait to be accepted
+    /// (runtime ADR-095 D6). Answered with `channel_person_dms_result`.
+    pub async fn channel_person_dms(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_person_dms",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// People asking to DM you (runtime ADR-095 D6). Answered with
+    /// `channel_dm_requests_result`.
+    pub async fn channel_dm_requests(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_dm_requests",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Answer a person's message request: `accept`, `decline`, or `block`
+    /// (runtime ADR-095 D6). Accepting is answered with
+    /// `channel_person_dm_opened`, the others with `done`.
+    pub async fn channel_dm_request_answer(
+        &self,
+        channel: &str,
+        answer: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_dm_request_answer",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "answer": answer,
+        });
+        self.request_response(req).await
+    }
+
+    /// Block or unblock a person by PekoHub account (runtime ADR-095 D6).
+    /// Answered with `channel_blocked_people`.
+    pub async fn channel_block_person(
+        &self,
+        account: &str,
+        blocked: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_block_person",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "account": account,
+            "blocked": blocked,
+        });
+        self.request_response(req).await
+    }
+
+    /// The people you blocked (runtime ADR-095 D6). Answered with
+    /// `channel_blocked_people`.
+    pub async fn channel_blocked(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_blocked",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
     /// Join a group by its invite link, or a public one by its ID (runtime
     /// ADR-092 D5). Answered with `channel_group_joined`.
     pub async fn channel_group_join(&self, link: &str) -> Result<serde_json::Value> {

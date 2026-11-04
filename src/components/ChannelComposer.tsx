@@ -26,11 +26,14 @@ export default function ChannelComposer({
   channelId,
   channelName,
   runtimeId,
+  withPerson = false,
 }: {
   channelId: string;
   /** The group's name, for the placeholder. */
   channelName?: string;
   runtimeId?: RuntimeId;
+  /** A DM with another person (runtime ADR-095 D6): no peko to mention. */
+  withPerson?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -170,7 +173,11 @@ export default function ChannelComposer({
           }}
           onSelect={(e) => track(e.currentTarget)}
           onKeyDown={onKeyDown}
-          placeholder={`${channelName ? `Message ${channelName}` : "Message the group"} — @ to mention a peko`}
+          placeholder={
+            withPerson
+              ? `Message ${channelName ?? "them"}`
+              : `${channelName ? `Message ${channelName}` : "Message the group"} — @ to mention a peko`
+          }
           rows={2}
           disabled={mutation.isPending}
           data-testid="channel-composer-input"

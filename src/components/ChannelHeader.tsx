@@ -28,6 +28,7 @@ export default function ChannelHeader({
   isCreator,
   onInviteClick,
   onLeaveClick,
+  title,
 }: {
   channelId: string;
   runtimeId?: string;
@@ -35,6 +36,8 @@ export default function ChannelHeader({
   isCreator?: boolean;
   onInviteClick?: () => void;
   onLeaveClick?: () => void;
+  /** Shown instead of the channel's stored name (a person DM's person). */
+  title?: string;
 }) {
   const { data: detail } = useChannel(channelId, runtimeId);
   const { data: info } = useChannelInfo(channelId);
@@ -74,7 +77,7 @@ export default function ChannelHeader({
         <div className="flex min-w-0 items-center gap-2">
           <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
           <h2 className="truncate text-base font-semibold text-fg">
-            {detail.name}
+            {title ?? detail.name}
           </h2>
           <span
             data-testid="channel-kind-badge"
