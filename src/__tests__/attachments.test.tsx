@@ -130,6 +130,18 @@ describe("attachments", () => {
     expect(player.getAttribute("src")).toContain("memo.wav");
   });
 
+  it("shows a file from another computer that has not arrived, without opening it", () => {
+    wrap(
+      <MessageAttachments
+        attachments={[{ name: "photo.png", path: "", mime: "image/png", size: 2048 }]}
+      />,
+    );
+    expect(screen.getByText("photo.png")).toBeInTheDocument();
+    expect(screen.getByText("not received yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(api.attachmentPreview).not.toHaveBeenCalledWith("");
+  });
+
   it("keeps a thread row that is only files", () => {
     const items = chatLogMessagesToChatItems([
       {

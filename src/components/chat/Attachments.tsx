@@ -182,8 +182,21 @@ function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "
   );
 }
 
+/** A file from another computer that did not arrive (runtime ADR-094). */
+function MissingChip({ attachment }: { attachment: ChatLogAttachment }) {
+  const Icon = ICONS[attachmentKind(attachment.name, attachment.mime)];
+  return (
+    <span title={`${attachment.name} didn't arrive from the other computer yet`} className={`${CHIP} opacity-60`}>
+      <Icon className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+      <span className="truncate">{attachment.name}</span>
+      <span className="shrink-0 text-fg-subtle">not received yet</span>
+    </span>
+  );
+}
+
 /** One file: an image as a thumbnail, audio or video playable, else a chip. */
 export function AttachmentView({ attachment }: { attachment: ChatLogAttachment }) {
+  if (!attachment.path) return <MissingChip attachment={attachment} />;
   const kind = attachmentKind(attachment.name, attachment.mime);
   if (kind === "image") return <Thumbnail attachment={attachment} />;
   if (kind === "audio" || kind === "video") {

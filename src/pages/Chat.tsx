@@ -501,9 +501,10 @@ export default function Chat() {
   const [input, setInput] = useState("");
   // Files going with the next message (paths on this computer).
   const [pendingFiles, setPendingFiles] = useState<string[]>([]);
-  // The engine reads attachments from this computer, so only a peko
-  // here can take them.
-  const canAttach = runtimeId === "local" && !!selectedPrincipal;
+  // The engine reads attachments from this computer; a peko on another
+  // computer gets them through PekoHub (runtime ADR-094: at most 10 MB a
+  // file and 25 MB a message — the runtime says so when a file is over).
+  const canAttach = !!selectedPrincipal && (runtimeId === "local" || !!remotePeko);
   function addFiles(paths: string[]) {
     setPendingFiles((prev) =>
       [...prev, ...paths.filter((p) => !prev.includes(p))].slice(0, MAX_ATTACHMENTS),

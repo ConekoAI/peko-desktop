@@ -1837,12 +1837,18 @@ impl IpcClient {
     /// name hosted by this runtime. A `user:<id>` sender is
     /// impersonation — the runtime refuses it with `[forbidden]`, so
     /// we reject it client-side first for a cleaner error.
+    ///
+    /// `attachments` are absolute paths on this computer (runtime
+    /// ADR-094): the runtime copies them into the channel's file store,
+    /// and a peko on another computer pulls them through PekoHub — at
+    /// most 10 MB a file and 25 MB a message there.
     pub async fn channel_post(
         &self,
         channel: &str,
         sender_name: Option<&str>,
         text: &str,
         parent: Option<&str>,
+        attachments: &[String],
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1853,6 +1859,7 @@ impl IpcClient {
             "sender_name": sender_name,
             "text": text,
             "parent": parent,
+            "attachments": attachments,
         });
         self.request_response(req).await
     }

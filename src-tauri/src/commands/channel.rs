@@ -442,7 +442,9 @@ pub async fn channel_post(
     text: String,
     parent: Option<String>,
     runtime_id: Option<String>,
+    attachments: Option<Vec<String>>,
 ) -> Result<String, String> {
+    let attachments = attachments.unwrap_or_default();
     let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
     let _ = resolved;
     let _ = runtime_id.unwrap_or_else(|| "local".to_string());
@@ -465,6 +467,7 @@ pub async fn channel_post(
             sender_name.as_deref(),
             &text,
             parent.as_deref(),
+            &attachments,
         )
         .await
         .map_err(|e| format!("channel_post failed: {e}"))?;

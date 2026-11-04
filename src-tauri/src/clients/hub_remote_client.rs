@@ -102,14 +102,16 @@ impl HubRemoteClient {
         Ok(channel)
     }
 
-    /// Post `text` to the DM. The reply arrives later, on the thread.
-    pub async fn send(&self, text: &str) -> Result<(), String> {
+    /// Post `text` to the DM, with `attachments` (absolute paths on this
+    /// computer; the peko's runtime pulls them through PekoHub, runtime
+    /// ADR-094). The reply arrives later, on the thread.
+    pub async fn send(&self, text: &str, attachments: &[String]) -> Result<(), String> {
         let channel = self.open_dm().await?;
         let client = crate::ipc::IpcClient::new()
             .await
             .map_err(|e| format!("IpcClient::new failed: {e}"))?;
         let answer = client
-            .channel_post(&channel, None, text, None)
+            .channel_post(&channel, None, text, None, attachments)
             .await
             .map_err(|e| format!("channel_post failed: {e}"))?;
         if crate::ipc::is_error_response(&answer) {
