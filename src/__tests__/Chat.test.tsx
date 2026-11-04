@@ -1,7 +1,7 @@
 // Chat page: sending, streaming, steering, approvals, and the thread.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 
 const navigateMock = vi.fn();
 // The chat route's search params (`?say=` hands over a first message).
@@ -301,8 +301,10 @@ describe("Chat ToS gate", () => {
     await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
     expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({ message: "summarize the doc" });
 
-    const copies = screen.getAllByRole("button", { name: "Copy" });
-    fireEvent.click(copies[copies.length - 1]);
+    // The reply's own Copy: the retried message may already show below it
+    // with a Copy of its own, so "the last Copy" isn't the reply's.
+    const reply = screen.getByText("Here it is.").closest(".group") as HTMLElement;
+    fireEvent.click(within(reply).getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(copyMock).toHaveBeenCalledWith("Here it is."));
   });
 
