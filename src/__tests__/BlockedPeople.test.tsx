@@ -35,10 +35,14 @@ describe("BlockedPeople", () => {
   });
 
   it("unblocks a person", async () => {
-    blockedPeopleMock.mockResolvedValue(["eve-id", "mallory-id"]);
-    setPersonBlockedMock.mockResolvedValue(["mallory-id"]);
+    blockedPeopleMock.mockResolvedValue([
+      { account: "eve-id", name: "Eve" },
+      { account: "mallory-id", name: null },
+    ]);
+    setPersonBlockedMock.mockResolvedValue([{ account: "mallory-id", name: null }]);
     renderCard();
     const eve = await screen.findByTestId("blocked-eve-id");
+    expect(eve).toHaveTextContent("Eve");
     fireEvent.click(eve.querySelector("button")!);
     await waitFor(() => expect(setPersonBlockedMock).toHaveBeenCalledWith("eve-id", false));
     await waitFor(() => expect(screen.queryByTestId("blocked-eve-id")).toBeNull());

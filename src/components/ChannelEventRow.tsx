@@ -71,14 +71,19 @@ export default function ChannelEventRow({
           data-testid="channel-event-row-created"
         >
           {people ? (
-            <>Conversation started by </>
+            // Either side's copy starts when they open or accept it, so
+            // who "created" it here says nothing; name the conversation.
+            <>
+              Conversation with{" "}
+              <span className="font-semibold">{Object.values(people)[0] ?? "them"}</span>
+            </>
           ) : (
             <>
               Group <span className="font-semibold">{event.name}</span> created by{" "}
+              <span title={event.creator}>{directory.resolve(event.creator).label}</span>
             </>
-          )}
-          <span title={event.creator}>{directory.resolve(event.creator).label}</span> ·{" "}
-          {new Date(event.at).toLocaleString()}
+          )}{" "}
+          · {new Date(event.at).toLocaleString()}
         </div>
       );
     case "member_joined":

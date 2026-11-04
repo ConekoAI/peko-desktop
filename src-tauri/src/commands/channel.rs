@@ -1280,16 +1280,34 @@ fn dm_requests_from(value: &serde_json::Value) -> Result<Vec<DmRequestSummary>, 
         .collect())
 }
 
-fn blocked_from(value: &serde_json::Value) -> Result<Vec<String>, String> {
+/// A person you blocked (runtime ADR-095 D6).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockedPerson {
+    /// Their PekoHub account ID.
+    pub account: String,
+    /// What they are called here, when their request named them.
+    pub name: Option<String>,
+}
+
+fn blocked_from(value: &serde_json::Value) -> Result<Vec<BlockedPerson>, String> {
     if let Some(message) = refusal_of(value) {
         return Err(message);
     }
+    let names = value.get("names");
     Ok(value
         .get("people")
         .and_then(|v| v.as_array())
         .into_iter()
         .flatten()
-        .filter_map(|p| p.as_str().map(hub_account))
+        .filter_map(|p| p.as_str())
+        .map(|address| BlockedPerson {
+            account: hub_account(address),
+            name: names
+                .and_then(|n| n.get(address))
+                .and_then(|v| v.as_str())
+                .map(str::to_string),
+        })
         .collect())
 }
 
@@ -1478,7 +1496,7 @@ pub async fn dm_request_answer(
 
 /// The people you blocked, as account IDs (runtime ADR-095 D6).
 #[tauri::command]
-pub async fn blocked_people() -> Result<Vec<String>, String> {
+pub async fn blocked_people() -> Result<Vec<BlockedPerson>, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -1494,7 +1512,10 @@ pub async fn blocked_people() -> Result<Vec<String>, String> {
 
 /// Block or unblock a person by account ID; returns everyone blocked now.
 #[tauri::command]
-pub async fn set_person_blocked(account: String, blocked: bool) -> Result<Vec<String>, String> {
+pub async fn set_person_blocked(
+    account: String,
+    blocked: bool,
+) -> Result<Vec<BlockedPerson>, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -1794,8 +1815,21 @@ mod group_people_tests {
             }]
         );
         let blocked = serde_json::json!({"type": "channel_blocked_people", "request_id": 1,
-            "people": ["user:hub:eve-id"]});
-        assert_eq!(blocked_from(&blocked).unwrap(), ["eve-id"]);
+            "people": ["user:hub:eve-id", "user:hub:mal-id"],
+            "names": {"user:hub:eve-id": "Eve"}});
+        assert_eq!(
+            blocked_from(&blocked).unwrap(),
+            [
+                BlockedPerson {
+                    account: "eve-id".into(),
+                    name: Some("Eve".into())
+                },
+                BlockedPerson {
+                    account: "mal-id".into(),
+                    name: None
+                },
+            ]
+        );
         let unregistered = serde_json::json!({"type": "error",
             "message": "Register this runtime with PekoHub first (peko runtime register)"});
         assert!(not_signed_in(&dm_requests_from(&unregistered).unwrap_err()));

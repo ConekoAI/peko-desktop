@@ -306,7 +306,8 @@ describe("ChannelView", () => {
     renderView();
     expect(await screen.findByText("hey")).toBeInTheDocument();
     const rows = screen.getAllByTestId("channel-event-row").map((r) => r.textContent ?? "");
-    expect(rows[0]).toMatch(/^Conversation started by You/);
+    expect(rows[0]).toMatch(/^Conversation with Bob/);
+    expect(screen.queryByText(/^Created by/)).toBeNull();
     expect(rows[1]).toContain("Bob");
     expect(rows[1]).not.toContain("bob-id");
   });
