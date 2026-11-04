@@ -112,6 +112,10 @@ export default function ChannelView() {
     refetchInterval: 15_000,
   });
   const person = (people ?? []).find((p) => p.channelId === channelId) ?? null;
+  const personNames = useMemo(
+    () => (person ? { [person.peer]: personLabel(person) } : undefined),
+    [person],
+  );
   const fromAnotherComputer = (joinedGroups ?? []).some((g) => g.channelId === channelId);
   const [older, setOlder] = useState<ChannelEvent[]>([]);
   const [olderDone, setOlderDone] = useState(false);
@@ -270,7 +274,7 @@ export default function ChannelView() {
             <ul className="space-y-3">
               {shown.map((e, i) => (
                 <li key={i} data-testid="channel-event-row">
-                  <ChannelEventRow event={e} />
+                  <ChannelEventRow event={e} people={personNames} />
                 </li>
               ))}
             </ul>
@@ -317,6 +321,7 @@ export default function ChannelView() {
           channelId={channelId}
           channelName={person ? personLabel(person) : detail?.name}
           runtimeId={runtimeId}
+          withPerson={!!person}
         />
       ) : (
         <div

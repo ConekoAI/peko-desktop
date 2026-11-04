@@ -291,6 +291,24 @@ describe("ChannelView", () => {
     expect(screen.queryByTestId("channel-invite-button")).toBeNull();
     expect(screen.queryByTestId("channel-leave-button")).toBeNull();
     expect(screen.queryByTestId("channel-composer-no-sender")).toBeNull();
+    // Named for the person, not by their account ID; no "Group … created".
+    expect(screen.getByPlaceholderText("Message bob")).toBeInTheDocument();
+  });
+
+  it("names the other person on their posts in a DM with a person", async () => {
+    personDmsMock.mockResolvedValue([
+      { channelId: "chan_alpha", peer: "user:hub:bob-id", account: "bob-id", name: "Bob", waiting: false },
+    ]);
+    channelEventsMock.mockResolvedValue([
+      { kind: "created", name: "dm-Bob", creator: "user:local", at: "2026-11-04T09:59:00Z" },
+      { kind: "posted", author: "user:hub:bob-id", text: "hey", at: "2026-11-04T10:00:00Z", msg_id: "m2" },
+    ]);
+    renderView();
+    expect(await screen.findByText("hey")).toBeInTheDocument();
+    const rows = screen.getAllByTestId("channel-event-row").map((r) => r.textContent ?? "");
+    expect(rows[0]).toMatch(/^Conversation started by You/);
+    expect(rows[1]).toContain("Bob");
+    expect(rows[1]).not.toContain("bob-id");
   });
 
   it("drops the waiting note once the person accepted", async () => {
