@@ -54,6 +54,8 @@ interface ChatItem {
   queued?: boolean;
   /** Files sent with the message. */
   attachments?: ChatLogAttachment[];
+  /** Replies the peko suggested with this message (runtime ADR-093). */
+  options?: string[];
 }
 
 /** The error a stream ends with when the run was stopped (`peko stop`). */
@@ -74,12 +76,18 @@ function ChatMessage({
   item,
   peko,
   onRetry,
+  onPick,
 }: {
   item: ChatItem;
   /** The reply's author. */
   peko: PekoIdentity;
   /** Present on the latest reply: send the message before it again. */
   onRetry?: () => void;
+  /**
+   * Present while this reply is the thread's latest: send one of its
+   * suggested replies as your own message.
+   */
+  onPick?: (reply: string) => void;
 }) {
   const { event, isUser } = item;
   const isError = event.type === "error";
@@ -127,6 +135,9 @@ function ChatMessage({
           )}
           {item.attachments && <MessageAttachments attachments={item.attachments} />}
         </div>
+        {onPick && item.options && item.options.length > 0 && (
+          <SuggestedReplies replies={item.options} onPick={onPick} />
+        )}
         {/* Floats over the message on hover, like Slack: it takes no
             room, so messages sit close together. */}
         {!item.queued && text && (
@@ -142,6 +153,40 @@ function ChatMessage({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Replies the peko suggested (runtime ADR-093), under its latest
+ * message. A tap sends the reply's text as your message, exactly as if
+ * you typed it; the composer stays free for anything else. Plain
+ * outlined pills, unlike the approval card: they decide nothing.
+ */
+function SuggestedReplies({
+  replies,
+  onPick,
+}: {
+  replies: string[];
+  onPick: (reply: string) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Suggested replies"
+      data-testid="suggested-replies"
+      className="mt-2 flex flex-wrap gap-1.5"
+    >
+      {replies.map((reply) => (
+        <button
+          key={reply}
+          type="button"
+          onClick={() => onPick(reply)}
+          className="rounded-full border border-line bg-surface-card px-3 py-1 text-xs text-fg transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          {reply}
+        </button>
+      ))}
     </div>
   );
 }
@@ -306,14 +351,17 @@ export function chatLogMessagesToChatItems(
   for (const m of messages) {
     const attachments = m.attachments ?? [];
     if (!m.text && attachments.length === 0) continue;
+    const isUser = m.sender.startsWith("user:");
+    const options = isUser ? [] : (m.options ?? []);
     out.push({
       event: {
         type: "chunk",
         content: m.text,
         timestamp: m.timestamp,
       } as StreamEvent,
-      isUser: m.sender.startsWith("user:"),
+      isUser,
       ...(attachments.length > 0 && { attachments }),
+      ...(options.length > 0 && { options }),
     });
   }
   return out;
@@ -774,6 +822,12 @@ export default function Chat() {
   const retryIdx =
     lastUserIdx >= 0 && lastUserIdx < displayItems.length - 1 ? displayItems.length - 1 : -1;
   const retryText = lastUserIdx >= 0 ? (displayItems[lastUserIdx].event.content ?? "").trim() : "";
+  // Suggested replies show only on the thread's latest message, and only
+  // while nothing is in flight: once anyone says anything, they're gone.
+  const pickIdx =
+    !isStreaming && queuedItems.length === 0 && displayItems.length > 0
+      ? displayItems.length - 1
+      : -1;
 
   if (isLoading) {
     return (
@@ -883,6 +937,7 @@ export default function Chat() {
                       ? () => void sendText(retryText)
                       : undefined
                   }
+                  onPick={idx === pickIdx ? (reply) => void sendText(reply) : undefined}
                 />
               </Fragment>
             ))}

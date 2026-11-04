@@ -308,6 +308,80 @@ describe("Chat ToS gate", () => {
     await waitFor(() => expect(copyMock).toHaveBeenCalledWith("Here it is."));
   });
 
+  it("sends a suggested reply with one tap, as your own message", async () => {
+    logState.data = {
+      messages: [
+        { id: "chan_1", sender: "user:local", text: "the build is green", timestamp: "1" },
+        {
+          id: "chan_2",
+          sender: "principal:prin_a",
+          text: "Ship today?",
+          timestamp: "2",
+          options: ["Ship it", "Hold off"],
+        },
+      ],
+    };
+    sendMut.mutateAsync.mockResolvedValue("");
+    render(<Chat />);
+    const group = screen.getByRole("group", { name: "Suggested replies" });
+    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Ship it",
+      "Hold off",
+    ]);
+    fireEvent.click(within(group).getByRole("button", { name: "Ship it" }));
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({ message: "Ship it" });
+    // The composer stays as it was.
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("");
+  });
+
+  it("shows suggested replies only on the latest message, and not while a reply streams", async () => {
+    logState.data = {
+      messages: [
+        {
+          id: "chan_1",
+          sender: "principal:prin_a",
+          text: "Tuesday or Thursday?",
+          timestamp: "1",
+          options: ["Tuesday", "Thursday"],
+        },
+        { id: "chan_2", sender: "user:local", text: "next week, actually", timestamp: "2" },
+      ],
+    };
+    const { unmount } = render(<Chat />);
+    expect(screen.queryByTestId("suggested-replies")).toBeNull();
+    unmount();
+
+    logState.data = {
+      messages: [
+        {
+          id: "chan_1",
+          sender: "principal:prin_a",
+          text: "Ship today?",
+          timestamp: "1",
+          options: ["Ship it", "Hold off"],
+        },
+      ],
+    };
+    let finish: (v: string) => void = () => {};
+    sendMut.mutateAsync.mockReturnValue(new Promise<string>((r) => (finish = r)));
+    render(<Chat />);
+    expect(screen.getByTestId("suggested-replies")).toBeTruthy();
+    sendMessage("one more thing");
+    await waitFor(() => expect(screen.queryByTestId("suggested-replies")).toBeNull());
+    await act(async () => finish(""));
+  });
+
+  it("never shows suggested replies on your own messages", () => {
+    logState.data = {
+      messages: [
+        { id: "chan_1", sender: "user:local", text: "hi", timestamp: "1", options: ["A", "B"] },
+      ],
+    };
+    render(<Chat />);
+    expect(screen.queryByTestId("suggested-replies")).toBeNull();
+  });
+
   it("shows the peko's name on its replies", () => {
     logState.data = {
       messages: [{ id: "chan_1", sender: "principal:prin_a", text: "hi", timestamp: "1" }],

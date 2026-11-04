@@ -231,7 +231,7 @@ fn error_message(answer: &serde_json::Value, fallback: &str) -> String {
 }
 
 /// A `posted` channel event as a `principal_log` row
-/// (`{ schemaVersion, id, sender, timestamp, text, attachments }`); other
+/// (`{ schemaVersion, id, sender, timestamp, text, attachments, options }`); other
 /// events (created, member changes) are not messages.
 fn posted_row(id: String, event: &serde_json::Value) -> Option<serde_json::Value> {
     if event.get("kind").and_then(|k| k.as_str()) != Some("posted") {
@@ -244,6 +244,8 @@ fn posted_row(id: String, event: &serde_json::Value) -> Option<serde_json::Value
         "timestamp": event.get("at").and_then(|v| v.as_str()).unwrap_or_default(),
         "text": event.get("text").and_then(|v| v.as_str()).unwrap_or_default(),
         "attachments": event.get("attachments").cloned().unwrap_or_else(|| serde_json::json!([])),
+        // Suggested replies (runtime ADR-093).
+        "options": event.get("options").cloned().unwrap_or_else(|| serde_json::json!([])),
     }))
 }
 
@@ -461,5 +463,14 @@ mod tests {
         assert!(posted_row("live".into(), &joined).is_none());
         let row = posted_row("msg_m1".into(), &posted("user:local", "hey")).unwrap();
         assert_eq!(row["attachments"], serde_json::json!([]));
+        assert_eq!(row["options"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn posted_rows_keep_suggested_replies() {
+        let mut event = posted("principal:hub:p", "Ship today?");
+        event["options"] = serde_json::json!(["Ship it", "Hold off"]);
+        let row = posted_row("msg_m2".into(), &event).unwrap();
+        assert_eq!(row["options"], serde_json::json!(["Ship it", "Hold off"]));
     }
 }
