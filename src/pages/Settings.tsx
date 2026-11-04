@@ -16,6 +16,7 @@ import { pekoHomeDir } from "../lib/api";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddModelModal from "../components/modals/AddModelModal";
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
+import BlockedPeople from "../components/BlockedPeople";
 import {
   Save,
   Key,
@@ -55,30 +56,33 @@ function GeneralSection() {
   }
 
   return (
-    <div className={CARD}>
-      <h3 className="mb-4 text-sm font-semibold text-fg">Appearance</h3>
-      <div role="radiogroup" aria-label="Theme" className="flex gap-2">
-        {(["light", "dark", "system"] as const).map((t) => {
-          const Icon = t === "light" ? Sun : t === "dark" ? Moon : Monitor;
-          return (
-            <button
-              key={t}
-              role="radio"
-              aria-checked={theme === t}
-              onClick={() => choose(t)}
-              className={[
-                "flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
-                theme === t
-                  ? "border-brand bg-brand-soft text-brand"
-                  : "border-line bg-surface-card text-fg-soft hover:bg-surface-sunken",
-              ].join(" ")}
-            >
-              <Icon className="h-4 w-4" />
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          );
-        })}
+    <div className="space-y-4">
+      <div className={CARD}>
+        <h3 className="mb-4 text-sm font-semibold text-fg">Appearance</h3>
+        <div role="radiogroup" aria-label="Theme" className="flex gap-2">
+          {(["light", "dark", "system"] as const).map((t) => {
+            const Icon = t === "light" ? Sun : t === "dark" ? Moon : Monitor;
+            return (
+              <button
+                key={t}
+                role="radio"
+                aria-checked={theme === t}
+                onClick={() => choose(t)}
+                className={[
+                  "flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
+                  theme === t
+                    ? "border-brand bg-brand-soft text-brand"
+                    : "border-line bg-surface-card text-fg-soft hover:bg-surface-sunken",
+                ].join(" ")}
+              >
+                <Icon className="h-4 w-4" />
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            );
+          })}
+        </div>
       </div>
+      <BlockedPeople className={CARD} />
     </div>
   );
 }

@@ -24,6 +24,7 @@ const channelMembersMock = vi.fn();
 const channelLeaveMock = vi.fn();
 const personGroupsMock = vi.fn();
 const groupHistoryOlderMock = vi.fn();
+const personDmsMock = vi.fn();
 
 vi.mock("../lib/api", () => ({
   channelEvents: (...args: unknown[]) => channelEventsMock(...args),
@@ -32,6 +33,7 @@ vi.mock("../lib/api", () => ({
   channelMembers: (...args: unknown[]) => channelMembersMock(...args),
   channelLeave: (...args: unknown[]) => channelLeaveMock(...args),
   personGroups: () => personGroupsMock(),
+  personDms: () => personDmsMock(),
   groupHistoryOlder: (...args: unknown[]) => groupHistoryOlderMock(...args),
 }));
 
@@ -107,6 +109,7 @@ describe("ChannelView", () => {
     listenMock.mockClear();
     navigateMock.mockReset();
     personGroupsMock.mockReset().mockResolvedValue([]);
+    personDmsMock.mockReset().mockResolvedValue([]);
     groupHistoryOlderMock.mockReset();
     usePrincipalsMock.mockReset();
     usePrincipalsMock.mockReturnValue({
@@ -269,6 +272,35 @@ describe("ChannelView", () => {
       rows.findIndex((t) => t.includes("latest")),
     );
     expect(screen.queryByRole("button", { name: "Load earlier messages" })).toBeNull();
+  });
+
+  // Runtime ADR-095 D6: a DM with another person. It is named for them,
+  // has no Invite / Leave, and says so while they haven't accepted.
+  it("shows a DM with a person by their name, waiting until they accept", async () => {
+    personDmsMock.mockResolvedValue([
+      { channelId: "chan_alpha", peer: "user:hub:bob-id", account: "bob-id", name: "bob", waiting: true },
+    ]);
+    channelEventsMock.mockResolvedValue([
+      { kind: "posted", author: "user:local", text: "hi bob", at: "2026-11-04T10:00:00Z", msg_id: "m1" },
+    ]);
+    renderView();
+    expect(await screen.findByTestId("person-dm-waiting")).toHaveTextContent(
+      /Waiting for bob to accept/,
+    );
+    expect(await screen.findByRole("heading", { name: "bob" })).toBeInTheDocument();
+    expect(screen.queryByTestId("channel-invite-button")).toBeNull();
+    expect(screen.queryByTestId("channel-leave-button")).toBeNull();
+    expect(screen.queryByTestId("channel-composer-no-sender")).toBeNull();
+  });
+
+  it("drops the waiting note once the person accepted", async () => {
+    personDmsMock.mockResolvedValue([
+      { channelId: "chan_alpha", peer: "user:hub:bob-id", account: "bob-id", name: null, waiting: false },
+    ]);
+    channelEventsMock.mockResolvedValue([]);
+    renderView();
+    expect(await screen.findByText(/Say hello to/)).toHaveTextContent("Say hello to bob-id.");
+    expect(screen.queryByTestId("person-dm-waiting")).toBeNull();
   });
 
   it("offers nothing earlier in a group hosted here", async () => {

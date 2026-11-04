@@ -22,7 +22,8 @@ import {
 import { useToastQueue } from "../hooks/useToastQueue";
 import { usePrincipals } from "../hooks/usePrincipals";
 import { isChannelForbidden } from "../lib/channelErrors";
-import { groupHistoryOlder, personGroups } from "../lib/api";
+import { groupHistoryOlder, personDms, personGroups } from "../lib/api";
+import { personLabel } from "../lib/people";
 import type { ChannelEvent } from "../types";
 
 /**
@@ -103,6 +104,14 @@ export default function ChannelView() {
   // copy goes back as far as it caught up; earlier messages come from the
   // group's home on request, and aren't stored here.
   const { data: joinedGroups } = useQuery({ queryKey: ["person-groups"], queryFn: personGroups });
+  // Runtime ADR-095 D6: a DM with another person. No peko is in it; until
+  // they accept, what you write stays on your computers.
+  const { data: people } = useQuery({
+    queryKey: ["person-dms"],
+    queryFn: personDms,
+    refetchInterval: 15_000,
+  });
+  const person = (people ?? []).find((p) => p.channelId === channelId) ?? null;
   const fromAnotherComputer = (joinedGroups ?? []).some((g) => g.channelId === channelId);
   const [older, setOlder] = useState<ChannelEvent[]>([]);
   const [olderDone, setOlderDone] = useState(false);
@@ -166,14 +175,23 @@ export default function ChannelView() {
 
   return (
     <div className="flex h-full flex-col">
-      <ChannelHeader
-        channelId={channelId}
-        runtimeId={runtimeId}
-        isMember={isMember}
-        isCreator={isCreator}
-        onInviteClick={() => setInviteOpen(true)}
-        onLeaveClick={() => setLeaveOpen(true)}
-      />
+      {person ? (
+        <ChannelHeader
+          channelId={channelId}
+          runtimeId={runtimeId}
+          isMember={isMember}
+          title={personLabel(person)}
+        />
+      ) : (
+        <ChannelHeader
+          channelId={channelId}
+          runtimeId={runtimeId}
+          isMember={isMember}
+          isCreator={isCreator}
+          onInviteClick={() => setInviteOpen(true)}
+          onLeaveClick={() => setLeaveOpen(true)}
+        />
+      )}
 
       <div
         ref={scrollerRef}
@@ -265,12 +283,18 @@ export default function ChannelView() {
             <div className="mb-2 text-sm text-fg-muted">
               No events yet.
             </div>
-            {detail?.name && (
+            {person ? (
               <div className="text-xs text-fg-subtle">
-                Be the first to post in <strong>{detail.name}</strong>.
+                Say hello to <strong>{personLabel(person)}</strong>.
               </div>
+            ) : (
+              detail?.name && (
+                <div className="text-xs text-fg-subtle">
+                  Be the first to post in <strong>{detail.name}</strong>.
+                </div>
+              )
             )}
-            {!isMember && (
+            {!isMember && !person && (
               <div className="mt-3 text-xs text-fg-subtle">
                 Ask a current member to invite you, then return to
                 this group to start posting.
@@ -280,8 +304,20 @@ export default function ChannelView() {
         )}
       </div>
 
-      {isMember ? (
-        <ChannelComposer channelId={channelId} channelName={detail?.name} runtimeId={runtimeId} />
+      {person?.waiting && (
+        <div
+          className="border-t border-line bg-surface-raised px-4 py-2 text-xs text-fg-subtle"
+          data-testid="person-dm-waiting"
+        >
+          Waiting for {personLabel(person)} to accept. What you write here reaches them when they do.
+        </div>
+      )}
+      {isMember || person ? (
+        <ChannelComposer
+          channelId={channelId}
+          channelName={person ? personLabel(person) : detail?.name}
+          runtimeId={runtimeId}
+        />
       ) : (
         <div
           className="border-t border-line bg-surface-raised px-4 py-3 text-xs text-fg-muted"

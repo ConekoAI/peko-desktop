@@ -1196,6 +1196,109 @@ pub struct PersonGroupSummary {
     pub home: Option<String>,
 }
 
+/// One of your DMs with another person (runtime ADR-095 D6).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PersonDmSummary {
+    pub channel_id: String,
+    /// The other person, `user:hub:<account>`.
+    pub peer: String,
+    /// Their PekoHub account ID.
+    pub account: String,
+    pub name: Option<String>,
+    /// They haven't accepted yet: nothing you wrote has reached them.
+    pub waiting: bool,
+}
+
+/// A person asking to DM you (runtime ADR-095 D6). It names only who
+/// asks: what they wrote arrives once you accept.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DmRequestSummary {
+    pub channel_id: String,
+    /// Who asks, `user:hub:<account>`.
+    pub from: String,
+    /// Their PekoHub account ID.
+    pub account: String,
+    pub name: Option<String>,
+    pub received_at: String,
+}
+
+/// The account in `user:hub:<account>`, or the address unchanged.
+fn hub_account(address: &str) -> String {
+    address
+        .strip_prefix("user:hub:")
+        .unwrap_or(address)
+        .to_string()
+}
+
+fn str_field(value: &serde_json::Value, key: &str) -> Option<String> {
+    value.get(key).and_then(|v| v.as_str()).map(str::to_string)
+}
+
+fn person_dms_from(value: &serde_json::Value) -> Result<Vec<PersonDmSummary>, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    Ok(value
+        .get("dms")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .map(|d| {
+            let peer = str_field(d, "peer").unwrap_or_default();
+            PersonDmSummary {
+                channel_id: str_field(d, "channel").unwrap_or_default(),
+                account: hub_account(&peer),
+                peer,
+                name: str_field(d, "name"),
+                waiting: d.get("waiting").and_then(|v| v.as_bool()).unwrap_or(false),
+            }
+        })
+        .collect())
+}
+
+fn dm_requests_from(value: &serde_json::Value) -> Result<Vec<DmRequestSummary>, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    Ok(value
+        .get("requests")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .map(|r| {
+            let from = str_field(r, "from").unwrap_or_default();
+            DmRequestSummary {
+                channel_id: str_field(r, "channel").unwrap_or_default(),
+                account: hub_account(&from),
+                from,
+                name: str_field(r, "name"),
+                received_at: str_field(r, "received_at").unwrap_or_default(),
+            }
+        })
+        .collect())
+}
+
+fn blocked_from(value: &serde_json::Value) -> Result<Vec<String>, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    Ok(value
+        .get("people")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|p| p.as_str().map(hub_account))
+        .collect())
+}
+
+/// Whether a refusal only says this computer isn't signed in to PekoHub,
+/// so lists read as empty.
+fn not_signed_in(message: &str) -> bool {
+    message.contains("Register this runtime") || message.contains("no PekoHub connection")
+}
+
 fn refusal_of(value: &serde_json::Value) -> Option<String> {
     (value.get("type").and_then(|t| t.as_str()) == Some("error")).then(|| {
         value
@@ -1297,6 +1400,109 @@ pub async fn group_invitation_answer(channel_id: String, accept: bool) -> Result
         .await
         .map_err(|e| format!("channel_invitation_answer failed: {e}"))?;
     refusal_of(&value).map_or(Ok(()), Err)
+}
+
+/// Your DMs with other people (runtime ADR-095 D6). Empty when this
+/// computer isn't signed in to PekoHub.
+#[tauri::command]
+pub async fn person_dms() -> Result<Vec<PersonDmSummary>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_person_dms()
+        .await
+        .map_err(|e| format!("channel_person_dms failed: {e}"))?;
+    match person_dms_from(&value) {
+        Err(message) if not_signed_in(&message) => Ok(Vec::new()),
+        other => other,
+    }
+}
+
+/// Open, or find, a DM with another person by their PekoHub account ID
+/// (runtime ADR-095 D6). Returns its channel id.
+#[tauri::command]
+pub async fn person_dm_open(account: String, name: Option<String>) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_open_person_dm(account.trim(), name.as_deref().filter(|n| !n.is_empty()))
+        .await
+        .map_err(|e| format!("channel_open_person_dm failed: {e}"))?;
+    if let Some(message) = refusal_of(&value) {
+        return Err(message);
+    }
+    str_field(&value, "channel").ok_or_else(|| "The runtime didn't say which DM it opened.".into())
+}
+
+/// People asking to DM you (runtime ADR-095 D6). Empty when this computer
+/// isn't signed in to PekoHub.
+#[tauri::command]
+pub async fn dm_requests() -> Result<Vec<DmRequestSummary>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_dm_requests()
+        .await
+        .map_err(|e| format!("channel_dm_requests failed: {e}"))?;
+    match dm_requests_from(&value) {
+        Err(message) if not_signed_in(&message) => Ok(Vec::new()),
+        other => other,
+    }
+}
+
+/// Accept, decline, or block a person's message request (runtime ADR-095
+/// D6). Accepting returns the DM's channel id.
+#[tauri::command]
+pub async fn dm_request_answer(
+    channel_id: String,
+    answer: String,
+) -> Result<Option<String>, String> {
+    if !matches!(answer.as_str(), "accept" | "decline" | "block") {
+        return Err(format!("Answer accept, decline, or block, not {answer:?}"));
+    }
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_dm_request_answer(&channel_id, &answer)
+        .await
+        .map_err(|e| format!("channel_dm_request_answer failed: {e}"))?;
+    if let Some(message) = refusal_of(&value) {
+        return Err(message);
+    }
+    Ok(str_field(&value, "channel"))
+}
+
+/// The people you blocked, as account IDs (runtime ADR-095 D6).
+#[tauri::command]
+pub async fn blocked_people() -> Result<Vec<String>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_blocked()
+        .await
+        .map_err(|e| format!("channel_blocked failed: {e}"))?;
+    match blocked_from(&value) {
+        Err(message) if not_signed_in(&message) => Ok(Vec::new()),
+        other => other,
+    }
+}
+
+/// Block or unblock a person by account ID; returns everyone blocked now.
+#[tauri::command]
+pub async fn set_person_blocked(account: String, blocked: bool) -> Result<Vec<String>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_block_person(hub_account(account.trim()).as_str(), blocked)
+        .await
+        .map_err(|e| format!("channel_block_person failed: {e}"))?;
+    blocked_from(&value)
 }
 
 /// Groups you joined from other computers (runtime ADR-092 D2). Empty when
@@ -1541,5 +1747,57 @@ mod group_people_tests {
         );
         let refused = serde_json::json!({"type": "error", "message": "nope"});
         assert_eq!(invitations_from(&refused).unwrap_err(), "nope");
+    }
+
+    /// Runtime ADR-095 D6: the person-DM answers, in the runtime's wire
+    /// shapes (snake_case fields).
+    #[test]
+    fn person_dms_requests_and_blocks_read_from_the_runtime() {
+        let dms = serde_json::json!({
+            "type": "channel_person_dms_result", "request_id": 1,
+            "dms": [{"channel": "dm_ab", "peer": "user:hub:bob-id", "name": "bob", "waiting": true},
+                    {"channel": "dm_cd", "peer": "user:hub:eve-id", "waiting": false}],
+        });
+        assert_eq!(
+            person_dms_from(&dms).unwrap(),
+            [
+                PersonDmSummary {
+                    channel_id: "dm_ab".into(),
+                    peer: "user:hub:bob-id".into(),
+                    account: "bob-id".into(),
+                    name: Some("bob".into()),
+                    waiting: true,
+                },
+                PersonDmSummary {
+                    channel_id: "dm_cd".into(),
+                    peer: "user:hub:eve-id".into(),
+                    account: "eve-id".into(),
+                    name: None,
+                    waiting: false,
+                },
+            ]
+        );
+        let requests = serde_json::json!({
+            "type": "channel_dm_requests_result", "request_id": 1,
+            "requests": [{"channel": "dm_ab", "from": "user:hub:alice-id", "name": "alice",
+                "source_runtime": "did:key:zA", "account": "bob-id",
+                "received_at": "2026-11-04T10:00:00Z"}],
+        });
+        assert_eq!(
+            dm_requests_from(&requests).unwrap(),
+            [DmRequestSummary {
+                channel_id: "dm_ab".into(),
+                from: "user:hub:alice-id".into(),
+                account: "alice-id".into(),
+                name: Some("alice".into()),
+                received_at: "2026-11-04T10:00:00Z".into(),
+            }]
+        );
+        let blocked = serde_json::json!({"type": "channel_blocked_people", "request_id": 1,
+            "people": ["user:hub:eve-id"]});
+        assert_eq!(blocked_from(&blocked).unwrap(), ["eve-id"]);
+        let unregistered = serde_json::json!({"type": "error",
+            "message": "Register this runtime with PekoHub first (peko runtime register)"});
+        assert!(not_signed_in(&dm_requests_from(&unregistered).unwrap_err()));
     }
 }
