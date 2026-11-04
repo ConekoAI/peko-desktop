@@ -9,8 +9,7 @@ const searchState: Record<string, string | undefined> = {};
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
   useParams: () => ({ pekoName: "alice" }),
-  useRouterState: () => ({ location: { pathname: "/chat/alice" } }),
-  useSearch: () => searchState,
+  useRouterState: () => ({ location: { pathname: "/chat/alice", search: searchState } }),
 }));
 
 const sendMut = { mutateAsync: vi.fn() };
@@ -41,10 +40,16 @@ vi.mock("../hooks/usePrincipals", () => ({
 const fetchOlderMock = vi.fn();
 
 const modelsState: { data: unknown } = { data: [] };
+// The pekos on other computers this desktop added, and the one open.
+const remoteState: { list: unknown[]; record: unknown; asked: string[] } = {
+  list: [],
+  record: undefined,
+  asked: [],
+};
 vi.mock("../hooks/useRemotePrincipals", () => ({
-  useRemotePrincipals: () => ({ data: [] }),
-  useRemotePeko: (_runtimeId: string, name: string) => ({
-    record: undefined,
+  useRemotePrincipals: () => ({ data: remoteState.list }),
+  useRemotePeko: (runtimeId: string, name: string) => ({
+    record: (remoteState.asked.push(runtimeId), remoteState.record),
     status: { data: undefined },
     identity: { name, avatar: null, initials: name.slice(0, 1).toUpperCase(), accent: "emerald" },
     description: null,
@@ -80,6 +85,9 @@ function sendMessage(text: string) {
 
 describe("Chat ToS gate", () => {
   beforeEach(() => {
+    remoteState.list = [];
+    remoteState.record = undefined;
+    remoteState.asked = [];
     navigateMock.mockReset();
     sendMut.mutateAsync.mockReset();
     decideMut.mutateAsync.mockReset();
@@ -319,6 +327,33 @@ describe("Chat ToS gate", () => {
     );
     rerender(<Chat />);
     expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens a peko on another computer when this one has none of its own", () => {
+    principalsState.data = [];
+    const bolt = {
+      runtimeId: "hub:https://pekohub.example",
+      principalName: "alice",
+      owner: "yumo",
+      hubUrl: "https://pekohub.example",
+    };
+    remoteState.list = [bolt];
+    remoteState.record = bolt;
+    // The runtime comes from the whole URL (`?runtimeId=`), read where the
+    // page renders, at `/chat`.
+    searchState.runtimeId = bolt.runtimeId;
+    render(<Chat />);
+    expect(remoteState.asked).toContain(bolt.runtimeId);
+    expect(screen.queryByText("No pekos yet")).toBeNull();
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("with only pekos on other computers and none open, asks to pick one", () => {
+    principalsState.data = [];
+    remoteState.list = [{ runtimeId: "hub:https://pekohub.example", principalName: "bolt" }];
+    render(<Chat />);
+    expect(screen.getByText("Select a peko from the sidebar")).toBeInTheDocument();
+    expect(screen.queryByText("No pekos yet")).toBeNull();
   });
 
   it("empty state uses peko copy", () => {

@@ -110,7 +110,7 @@ export default function AddRemotePrincipalModal({
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-              Connect to a Remote Peko
+              Add a peko
             </h2>
           </div>
           <button
@@ -214,7 +214,7 @@ export default function AddRemotePrincipalModal({
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
               <Check className="h-3.5 w-3.5" />
-              {addMut.isPending ? "Adding…" : "Add"}
+              {addMut.isPending ? "Adding…" : "Add peko"}
             </button>
           )}
         </div>

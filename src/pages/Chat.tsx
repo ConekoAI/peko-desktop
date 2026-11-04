@@ -1,5 +1,5 @@
 import { Fragment, useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
-import { useNavigate, useParams, useRouterState, useSearch } from "@tanstack/react-router";
+import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import {
   usePrincipals,
   usePrincipalSend,
@@ -21,7 +21,7 @@ import {
 import { useFileDrop } from "../hooks/useFileDrop";
 import { attachmentStage, pickAttachments } from "../lib/api";
 import { useModels } from "../hooks/useModels";
-import { useRemotePeko } from "../hooks/useRemotePrincipals";
+import { useRemotePeko, useRemotePrincipals } from "../hooks/useRemotePrincipals";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
@@ -368,7 +368,12 @@ export default function Chat() {
   const navigate = useNavigate();
   const routerState = useRouterState();
   const params = useParams({ strict: false });
-  const search = useSearch({ strict: false }) as Record<string, string | undefined>;
+  // The whole URL's search, not one route match's: this page renders at
+  // the `/chat` level (`routes/chat.tsx`), where `runtimeId` and `say` —
+  // declared by the child `/chat/$pekoName` — would read as absent, and a
+  // peko on another computer would bounce back to `/chat` as a missing
+  // local one.
+  const search = routerState.location.search as Record<string, string | undefined>;
   const pathname = routerState.location.pathname;
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -391,6 +396,7 @@ export default function Chat() {
   // from the hub's record, and the header names its owner.
   const remote = useRemotePeko(runtimeId, selectedPrincipal);
   const remotePeko = remote.record;
+  const { data: remotePrincipals } = useRemotePrincipals();
   const localFace = useMemo(
     () =>
       pekoIdentity(
@@ -777,7 +783,16 @@ export default function Chat() {
     );
   }
 
-  if (!principals || principals.length === 0) {
+  // No peko of your own: a peko on another computer you added still opens.
+  if ((!principals || principals.length === 0) && !remotePeko) {
+    if (remotePrincipals && remotePrincipals.length > 0) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-4">
+          <MessageCircle className="h-12 w-12 text-fg-subtle" />
+          <p className="text-sm text-fg-muted">Select a peko from the sidebar</p>
+        </div>
+      );
+    }
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <MessageCircle className="h-12 w-12 text-fg-subtle" />

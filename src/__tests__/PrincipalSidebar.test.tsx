@@ -8,7 +8,8 @@ const navigateMock = vi.fn();
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
   useParams: () => ({}),
-  useSearch: () => ({}),
+  useRouterState: ({ select }: { select: (s: unknown) => unknown }) =>
+    select({ location: { pathname: "/chat", search: {} } }),
 }));
 
 vi.mock("../hooks/usePrincipals", () => ({

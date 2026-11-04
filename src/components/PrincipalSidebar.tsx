@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { isGenesisPending, usePrincipals } from "../hooks/usePrincipals";
 import { usePekohubBundle } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
@@ -71,7 +71,7 @@ function NewPekoMenu({
   const items = [
     { label: "Create a peko", icon: Plus, run: onCreate },
     { label: "Import a .peko file", icon: Package, run: onImport },
-    { label: "Connect to a remote peko", icon: LinkIcon, run: onConnect },
+    { label: "Add a peko", icon: LinkIcon, run: onConnect },
     { label: "Discover public pekos", icon: Compass, run: onDiscover },
   ].filter((item) => item.run);
 
@@ -341,7 +341,12 @@ export default function PrincipalSidebar({
   const navigate = useNavigate();
   const params = useParams({ strict: false });
   const principalName = (params as Record<string, string | undefined>).pekoName ?? "";
-  const routeSearch = useSearch({ strict: false }) as Record<string, string | undefined>;
+  // The whole URL's search: the sidebar renders at the `/chat` level,
+  // where the child route's `runtimeId` isn't in its own match.
+  const routeSearch = useRouterState({ select: (s) => s.location.search }) as Record<
+    string,
+    string | undefined
+  >;
   const currentRuntimeId = routeSearch.runtimeId ?? "local";
 
   const { data: principals, isLoading } = usePrincipals();

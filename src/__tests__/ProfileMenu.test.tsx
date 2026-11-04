@@ -8,17 +8,21 @@ import React from "react";
 const usePekohubBundleMock = vi.fn();
 const usePekohubLogoutMock = vi.fn();
 const runOAuthFlowMock = vi.fn();
+const afterSignInMock = vi.fn();
 const useSettingsMock = vi.fn();
 
 vi.mock("../hooks/useRuntimes", () => ({
   usePekohubBundle: () => usePekohubBundleMock(),
   usePekohubLogout: () => usePekohubLogoutMock(),
   runOAuthFlow: (opts: unknown) => runOAuthFlowMock(opts),
+  afterPekohubSignIn: (qc: unknown) => afterSignInMock(qc),
 }));
 
 const runtimeHubDisconnectMock = vi.fn();
+const hubAccountMock = vi.fn();
 vi.mock("../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../lib/api")>()),
+  hubAccount: (hub: string) => hubAccountMock(hub),
   // The spy resolves; a `{ reject }` answer is thrown here, the way Tauri's
   // `invoke` rejects (with the message string).
   runtimeHubDisconnect: async (hub: string, discard: boolean) => {
@@ -68,6 +72,9 @@ beforeEach(() => {
     isPending: false,
   });
   runOAuthFlowMock.mockReset();
+  afterSignInMock.mockReset();
+  hubAccountMock.mockReset();
+  hubAccountMock.mockResolvedValue(null);
   navigateMock.mockReset();
   useSettingsMock.mockReturnValue(defaultSettings());
 });
@@ -125,6 +132,8 @@ describe("ProfileMenu", () => {
       baseUrl: "https://api.pekohub.ai",
       scope: "runtimes:read",
     });
+    // The stored sign-in is re-read, so the menu shows it without a restart.
+    expect(afterSignInMock).toHaveBeenCalledTimes(1);
   });
 
   it("says so when signing in worked but this computer couldn't register", async () => {
@@ -154,6 +163,35 @@ describe("ProfileMenu", () => {
     expect(
       screen.getByText(/Waiting for PekoHub to redirect you back/),
     ).toBeInTheDocument();
+  });
+
+  it("signed-in: the button shows the account's picture, else its initial", async () => {
+    usePekohubBundleMock.mockReturnValue({ isPending: false, data: { access_token: "abc" } });
+    hubAccountMock.mockResolvedValue({
+      handle: "rlsn",
+      displayName: null,
+      avatar: "data:image/png;base64,iVBORw0KGgo=",
+    });
+    const { unmount } = render(<ProfileMenu />, { wrapper: makeWrapper() });
+    expect(await screen.findByTestId("pekohub-avatar")).toHaveAttribute(
+      "src",
+      "data:image/png;base64,iVBORw0KGgo=",
+    );
+    expect(screen.getByRole("button", { name: /PekoHub account menu/i })).toHaveAttribute(
+      "title",
+      "PekoHub · signed in as @rlsn",
+    );
+    expect(hubAccountMock).toHaveBeenCalledWith("https://api.pekohub.ai");
+    unmount();
+
+    hubAccountMock.mockResolvedValue({ handle: "yumo1996", displayName: "Yumo", avatar: null });
+    render(<ProfileMenu />, { wrapper: makeWrapper() });
+    expect(await screen.findByTestId("pekohub-initial")).toHaveTextContent("Y");
+  });
+
+  it("signed-out: no account is fetched", () => {
+    render(<ProfileMenu />, { wrapper: makeWrapper() });
+    expect(hubAccountMock).not.toHaveBeenCalled();
   });
 
   it("signed-in: dropdown has pekohub-signout, no pekohub-signin", () => {

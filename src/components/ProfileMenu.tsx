@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, LogIn, LogOut, RefreshCw, Unplug, User } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  afterPekohubSignIn,
   usePekohubBundle,
   usePekohubLogout,
   runOAuthFlow,
 } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
-import { configuredHubUrl, runtimeHubDisconnect } from "../lib/api";
+import { configuredHubUrl, hubAccount, runtimeHubDisconnect } from "../lib/api";
 import ConfirmModal from "./modals/ConfirmModal";
 
 /** The disconnect confirmation on screen, if any. */
@@ -36,6 +38,7 @@ export default function ProfileMenu() {
   const { data: settings } = useSettings();
   const { data: bundle, isPending } = usePekohubBundle();
   const logout = usePekohubLogout();
+  const queryClient = useQueryClient();
 
   const [open, setOpen] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
@@ -53,6 +56,15 @@ export default function ProfileMenu() {
     "runtimes:read";
 
   const signedIn = bundle !== null && bundle !== undefined && !isPending;
+  // Who is signed in, with their picture, for the rail button.
+  const { data: account } = useQuery({
+    queryKey: ["hub-account", pekohubBaseUrl],
+    queryFn: () => hubAccount(pekohubBaseUrl),
+    enabled: signedIn,
+    staleTime: 10 * 60_000,
+    retry: false,
+  });
+  const accountName = account ? (account.displayName ?? `@${account.handle}`) : null;
 
   // Outside-click + Escape close the dropdown.
   useEffect(() => {
@@ -84,6 +96,9 @@ export default function ProfileMenu() {
         baseUrl: pekohubBaseUrl,
         scope: oauthScope,
       });
+      // The token is stored now: show it (the cached "not signed in"
+      // would otherwise stand until something refetched it).
+      await afterPekohubSignIn(queryClient);
       if (!result.registered) {
         setOauthError(
           `Signed in, but this computer couldn't connect to PekoHub: ${result.error ?? "unknown error"}`,
@@ -144,11 +159,13 @@ export default function ProfileMenu() {
           isPending
             ? "Loading PekoHub status…"
             : signedIn
-              ? "PekoHub · signed in"
+              ? account
+                ? `PekoHub · signed in as @${account.handle}`
+                : "PekoHub · signed in"
               : "Sign in to PekoHub"
         }
         className={[
-          "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
+          "flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl transition-all",
           isPending
             ? "animate-pulse bg-slate-200 dark:bg-slate-800"
             : signedIn
@@ -157,7 +174,20 @@ export default function ProfileMenu() {
         ].join(" ")}
       >
         {isPending ? null : signedIn ? (
-          <Check className="h-5 w-5" />
+          account?.avatar ? (
+            <img
+              src={account.avatar}
+              alt=""
+              data-testid="pekohub-avatar"
+              className="h-full w-full object-cover"
+            />
+          ) : accountName ? (
+            <span className="text-sm font-semibold" data-testid="pekohub-initial">
+              {accountName.replace(/^@/, "").charAt(0).toUpperCase()}
+            </span>
+          ) : (
+            <Check className="h-5 w-5" />
+          )
         ) : signingIn ? (
           <Loader2 className="h-5 w-5 animate-spin" />
         ) : (
@@ -171,7 +201,11 @@ export default function ProfileMenu() {
           className="absolute bottom-0 left-full z-50 ml-2 w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-950"
         >
           <div className="px-3 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-            {signedIn ? "PekoHub · signed in" : "PekoHub · not signed in"}
+            {signedIn
+              ? account
+                ? `PekoHub · @${account.handle}`
+                : "PekoHub · signed in"
+              : "PekoHub · not signed in"}
           </div>
 
           <div className="my-1 h-px bg-slate-200 dark:bg-slate-800" />

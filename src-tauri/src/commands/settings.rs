@@ -237,33 +237,6 @@ fn check_runtime_error(resp: &serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 
-/// Resolve the default credential id for a provider by listing its
-/// `provider:<provider>` namespace and picking the `default` name row.
-async fn find_default_credential_id(
-    client: &crate::ipc::IpcClient,
-    provider: &str,
-) -> Result<Option<String>, String> {
-    let namespace = provider_namespace(provider);
-    let resp = client
-        .credential_list(Some(&namespace), Some("api_key"))
-        .await
-        .map_err(|e| e.to_string())?;
-    check_runtime_error(&resp)?;
-    Ok(resp
-        .get("providers")
-        .and_then(|v| v.as_array())
-        .and_then(|arr| {
-            arr.iter().find_map(|row| {
-                let name = row.get("name").and_then(|n| n.as_str())?;
-                if name == "default" {
-                    row.get("id").and_then(|id| id.as_str()).map(String::from)
-                } else {
-                    None
-                }
-            })
-        }))
-}
-
 // ─── Provider-keyed credential adapters (current UI) ──────────────
 
 /// Reveal the raw secret material for a provider's default credential.
@@ -273,7 +246,10 @@ pub async fn credential_get_raw(provider: String) -> Result<Option<String>, Stri
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| e.to_string())?;
-    match find_default_credential_id(&client, &provider).await? {
+    // Any kind: the PekoHub sign-in is stored as an `oauth_token`
+    // (`credential_set_raw`), not an `api_key`.
+    let namespace = provider_namespace(&provider);
+    match find_credential_id_by_namespace_and_name(&client, &namespace, "default").await? {
         Some(id) => {
             let resp = client
                 .credential_get_material(&id, "desktop provider-keyed raw reveal")
