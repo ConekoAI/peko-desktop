@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   runtimeList,
   runtimeAdd,
@@ -359,6 +359,21 @@ export async function exchangeOAuthCode(
   return result;
 }
 
+/**
+ * After a PekoHub sign-in: re-read what depends on it — the stored
+ * bundle (the profile menu's signed-in state), the account's runtimes and
+ * credentials, and its notifications.
+ */
+export async function afterPekohubSignIn(qc: QueryClient): Promise<void> {
+  await Promise.all([
+    qc.invalidateQueries({ queryKey: ["pekohub-bundle"] }),
+    qc.invalidateQueries({ queryKey: ["runtimes"] }),
+    qc.invalidateQueries({ queryKey: ["credentials", "pekohub"] }),
+    qc.invalidateQueries({ queryKey: ["hub-notifications"] }),
+    qc.invalidateQueries({ queryKey: ["hub-account"] }),
+  ]);
+}
+
 /** TanStack Query mutation wrapper for the full OAuth exchange. */
 export function useOAuthConnect() {
   const qc = useQueryClient();
@@ -370,11 +385,7 @@ export function useOAuthConnect() {
       code: string;
       state: string;
     }) => exchangeOAuthCode(code, state),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["runtimes"] });
-      qc.invalidateQueries({ queryKey: ["credentials", "pekohub"] });
-      qc.invalidateQueries({ queryKey: ["pekohub-bundle"] });
-    },
+    onSuccess: () => afterPekohubSignIn(qc),
   });
 }
 

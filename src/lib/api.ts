@@ -1244,6 +1244,18 @@ export function pekoShareLink(name: string): Promise<string | null> {
   return invoke<string | null>("peko_share_link", { name });
 }
 
+/** The signed-in PekoHub account; `avatar` is a `data:` URL when it has a picture. */
+export interface HubAccount {
+  handle: string;
+  displayName: string | null;
+  avatar: string | null;
+}
+
+/** The signed-in PekoHub account at `hub`, or `null` when not signed in. */
+export function hubAccount(hub: string): Promise<HubAccount | null> {
+  return invoke<HubAccount | null>("hub_account", { hub });
+}
+
 /** Something the PekoHub account should hear about (the Hub sends no email). */
 export interface HubNotification {
   id: string;

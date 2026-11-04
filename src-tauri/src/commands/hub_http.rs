@@ -3,8 +3,8 @@
 //! The webview's content security policy (`tauri.conf.json`) allows no
 //! outside hosts, so a `fetch()` to a hub fails in a built app. These
 //! commands make the few hub calls the frontend needs. They are a fixed
-//! set — the OAuth token endpoint, three named resources and the
-//! account's notifications — not a general proxy, which would undo what
+//! set — the OAuth token endpoint, three named resources, the account
+//! (with its picture) and its notifications — not a general proxy, which would undo what
 //! the policy protects. Each returns
 //! the hub's status and body as they came, so the frontend keeps its own
 //! handling of both.
@@ -143,6 +143,106 @@ fn check_grant(params: &serde_json::Map<String, serde_json::Value>) -> Result<()
     }
 }
 
+/// The signed-in PekoHub account, as the app shows it.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HubAccount {
+    pub handle: String,
+    pub display_name: Option<String>,
+    /// The account's picture as a `data:` URL: the webview's content
+    /// security policy loads no image from another host, so the backend
+    /// fetches it (an `https` image of at most [`AVATAR_MAX_BYTES`]).
+    pub avatar: Option<String>,
+}
+
+const AVATAR_MAX_BYTES: usize = 512 * 1024;
+
+/// The signed-in account (`GET /v1/auth/me`) on the hub at `hub`, with its
+/// picture; `None` when the app isn't signed in or the hub no longer takes
+/// the sign-in.
+#[tauri::command]
+pub async fn hub_account(
+    state: tauri::State<'_, AppState>,
+    hub: String,
+) -> Result<Option<HubAccount>, String> {
+    let api = crate::clients::hub_origin::hub_api_base(&hub);
+    let Some(token) = crate::clients::hub_auth::access_token(&state.http, &api).await else {
+        return Ok(None);
+    };
+    let url = hub_url(&hub, "/v1/auth/me")?;
+    let host = host_of(&url);
+    let answer = send(
+        state
+            .http
+            .get(url)
+            .header("Accept", "application/json")
+            .bearer_auth(token),
+        &host,
+    )
+    .await?;
+    if answer.status == 401 {
+        return Ok(None);
+    }
+    if !(200..300).contains(&answer.status) {
+        return Err(format!("{host} answered {} for the account", answer.status));
+    }
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Me {
+        namespace: String,
+        display_name: Option<String>,
+        avatar_url: Option<String>,
+    }
+    let me: Me = serde_json::from_str(&answer.body).map_err(|e| e.to_string())?;
+    let avatar = match me.avatar_url.as_deref() {
+        Some(url) => avatar_data_url(&state.http, url).await,
+        None => None,
+    };
+    Ok(Some(HubAccount {
+        handle: me.namespace,
+        display_name: me.display_name,
+        avatar,
+    }))
+}
+
+/// `url`'s image as a `data:` URL, or `None` when it isn't an `https`
+/// image of at most [`AVATAR_MAX_BYTES`] (the app shows initials then).
+async fn avatar_data_url(http: &reqwest::Client, url: &str) -> Option<String> {
+    use base64::Engine as _;
+    let parsed = reqwest::Url::parse(url).ok()?;
+    if parsed.scheme() != "https" {
+        return None;
+    }
+    let resp = http
+        .get(parsed)
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+        .ok()?
+        .error_for_status()
+        .ok()?;
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)?
+        .to_str()
+        .ok()?
+        .split(';')
+        .next()?
+        .trim()
+        .to_string();
+    if !content_type.starts_with("image/") || content_type.contains("svg") {
+        return None;
+    }
+    let bytes = resp.bytes().await.ok()?;
+    if bytes.is_empty() || bytes.len() > AVATAR_MAX_BYTES {
+        return None;
+    }
+    Some(format!(
+        "data:{content_type};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&bytes)
+    ))
+}
+
 /// The signed-in account's notifications on the hub at `hub` (`GET
 /// /v1/me/notifications`) — offers to take a peko, new sign-ins,
 /// moderators' actions; the Hub sends no email. Uses the stored sign-in,
@@ -277,6 +377,21 @@ fn urlencoding_segment(segment: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    /// The webview gets only an `https` image as a picture.
+    #[tokio::test]
+    async fn an_avatar_is_fetched_only_over_https() {
+        let http = reqwest::Client::new();
+        assert_eq!(
+            avatar_data_url(&http, "http://example.com/a.png").await,
+            None
+        );
+        assert_eq!(
+            avatar_data_url(&http, "data:image/png;base64,AAAA").await,
+            None
+        );
+        assert_eq!(avatar_data_url(&http, "not a url").await, None);
+    }
     use super::*;
 
     #[test]
