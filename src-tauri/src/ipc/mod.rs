@@ -789,6 +789,24 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// The chat models an endpoint lists, read with `key`. Nothing is
+    /// stored.
+    pub async fn model_discover(
+        &self,
+        base_url: &str,
+        api_format: &str,
+        key: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "model_discover",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "args": { "base_url": base_url, "api_format": api_format, "key": key },
+        });
+        self.request_response(req).await
+    }
+
     // ── Principal operations (ADR-041) ───────────────────────────────
 
     /// Send a Principal message via the streaming IPC path. The

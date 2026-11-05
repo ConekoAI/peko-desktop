@@ -77,6 +77,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         model_admin::model_update,
         model_admin::model_remove,
         model_admin::model_test,
+        model_admin::model_discover,
         model_admin::model_reload,
         settings::settings_get,
         settings::settings_set,

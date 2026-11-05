@@ -469,6 +469,39 @@ pub async fn model_test(id: String) -> Result<ModelTestResult, String> {
         .ok_or_else(|| "model_test response missing required fields".to_string())
 }
 
+/// The chat models an endpoint offers, read from the endpoint with the
+/// key typed into the form, so the model is picked from a list instead
+/// of typed. Nothing is stored.
+#[tauri::command]
+pub async fn model_discover(
+    base_url: String,
+    api_format: String,
+    key: Option<String>,
+) -> Result<Vec<String>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .model_discover(
+            &base_url,
+            &api_format,
+            key.as_deref().filter(|k| !k.is_empty()),
+        )
+        .await
+        .map_err(|e| format!("model_discover failed: {e}"))?;
+    check_runtime_error(&value)?;
+    project_models_discovered(&value)
+        .ok_or_else(|| "model_discover response missing models".to_string())
+}
+
+fn project_models_discovered(value: &serde_json::Value) -> Option<Vec<String>> {
+    value.get("models")?.as_array().map(|ids| {
+        ids.iter()
+            .filter_map(|m| m.as_str().map(str::to_string))
+            .collect()
+    })
+}
+
 /// Re-read the model catalog and credential vault from disk.
 #[tauri::command]
 pub async fn model_reload() -> Result<(usize, usize), String> {
@@ -496,6 +529,20 @@ pub async fn model_reload() -> Result<(usize, usize), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn discovered_models_project_to_ids() {
+        let v =
+            serde_json::json!({"type": "models_discovered", "request_id": 1, "models": ["a", "b"]});
+        assert_eq!(
+            project_models_discovered(&v),
+            Some(vec!["a".to_string(), "b".to_string()])
+        );
+        assert_eq!(
+            project_models_discovered(&serde_json::json!({"type": "x"})),
+            None
+        );
+    }
 
     /// ADR-088: the add and edit forms set which inputs a model takes;
     /// the spec reaches the runtime in its snake_case shape.
