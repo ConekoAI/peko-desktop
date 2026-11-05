@@ -32,6 +32,10 @@ pub struct RemotePrincipalSummary {
     pub runtime_id: String,
     pub added_at_unix_ms: u64,
     pub has_invite_token: bool,
+    /// Set for one of your own pekos (saved from your account's list).
+    pub hub_id: Option<String>,
+    pub avatar: Option<String>,
+    pub local_id: Option<String>,
 }
 
 impl RemotePrincipalSummary {
@@ -42,12 +46,15 @@ impl RemotePrincipalSummary {
             owner: r.owner.clone(),
             principal_name: r.principal_name.clone(),
             display_name: r.principal_name.clone(),
-            description: None,
+            description: r.description.clone(),
             exposure: r.exposure.clone(),
             status: r.status.clone(),
             runtime_id,
             added_at_unix_ms: r.added_at_unix_ms,
             has_invite_token: r.invite_token.is_some(),
+            hub_id: r.hub_id.clone(),
+            avatar: r.avatar.clone(),
+            local_id: r.local_id.clone(),
         }
     }
 }
@@ -281,6 +288,7 @@ pub async fn remote_principal_add(
         status: resolved.status.clone(),
         added_at_unix_ms,
         invite_token: resolved.invite_token.clone(),
+        ..Default::default()
     };
     let mut records = remote_principals::read_all().unwrap_or_default();
     // Dedupe on (hub_url, owner, principal_name) — adding the same
@@ -316,7 +324,93 @@ pub async fn remote_principal_add(
         runtime_id: format!("hub:{}", record.hub_url.trim_end_matches('/')),
         added_at_unix_ms: record.added_at_unix_ms,
         has_invite_token: record.invite_token.is_some(),
+        hub_id: None,
+        avatar: None,
+        local_id: None,
     })
+}
+
+/// One of your own pekos on another computer, as your PekoHub account
+/// lists it (`/v1/me/accessible-pekos`).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemotePrincipalAdoptRequest {
+    pub hub_url: String,
+    pub owner: String,
+    pub principal_name: String,
+    pub hub_id: String,
+    #[serde(default)]
+    pub exposure: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub local_id: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// The saved records after adopting `req`: a record with its Hub ID (or
+/// its `(hub, owner, name)`) is refreshed in place, keeping when it was
+/// first added; otherwise it is added.
+fn adopt_into(
+    mut records: Vec<RemotePrincipalRecord>,
+    req: RemotePrincipalAdoptRequest,
+    now_unix_ms: u64,
+) -> (Vec<RemotePrincipalRecord>, RemotePrincipalRecord) {
+    let same = |r: &RemotePrincipalRecord| {
+        r.hub_id.as_deref() == Some(req.hub_id.as_str())
+            || (r.hub_url == req.hub_url
+                && r.owner == req.owner
+                && r.principal_name == req.principal_name)
+    };
+    let previous = records.iter().find(|r| same(r)).cloned();
+    records.retain(|r| !same(r));
+    let record = RemotePrincipalRecord {
+        hub_url: req.hub_url,
+        owner: req.owner,
+        principal_name: req.principal_name,
+        exposure: req.exposure.unwrap_or_else(|| "private".to_string()),
+        status: req.status.unwrap_or_else(|| "offline".to_string()),
+        added_at_unix_ms: previous
+            .as_ref()
+            .map(|r| r.added_at_unix_ms)
+            .unwrap_or(now_unix_ms),
+        invite_token: previous.and_then(|r| r.invite_token),
+        hub_id: Some(req.hub_id),
+        avatar: req.avatar.filter(|a| !a.trim().is_empty()),
+        local_id: req.local_id.filter(|id| !id.is_empty()),
+        description: req.description.filter(|d| !d.trim().is_empty()),
+    };
+    records.push(record.clone());
+    (records, record)
+}
+
+/// Save one of your own pekos on another computer so it sits in Chats
+/// like a peko of this computer. Nothing is looked up: your account
+/// listed it with its Hub ID, and its DM opens by that ID.
+#[tauri::command]
+pub async fn remote_principal_adopt(
+    state: tauri::State<'_, AppState>,
+    req: RemotePrincipalAdoptRequest,
+) -> Result<RemotePrincipalSummary, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let (records, record) = adopt_into(remote_principals::read_all().unwrap_or_default(), req, now);
+    remote_principals::write_all(&records)?;
+    let client = HubRemoteClient::new(
+        record.hub_url.clone(),
+        record.owner.clone(),
+        record.principal_name.clone(),
+        record.invite_token.clone(),
+        state.http.clone(),
+    )
+    .with_hub_id(record.hub_id.clone());
+    state.register_hub_remote(client).await;
+    Ok(RemotePrincipalSummary::from_record(&record))
 }
 
 #[tauri::command]
@@ -410,6 +504,58 @@ pub async fn remote_principal_profile(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn adopt(name: &str, hub_id: &str) -> RemotePrincipalAdoptRequest {
+        RemotePrincipalAdoptRequest {
+            hub_url: "http://127.0.0.1:3901".into(),
+            owner: "alice".into(),
+            principal_name: name.into(),
+            hub_id: hub_id.into(),
+            exposure: Some("private".into()),
+            status: Some("online".into()),
+            avatar: Some("🦊".into()),
+            local_id: Some("prin_a".into()),
+            description: Some(" ".into()),
+        }
+    }
+
+    /// Your own peko from your account: saved with its Hub ID and face;
+    /// adopting it again refreshes the one record and keeps when it was
+    /// first added, and an older share-link record of it is replaced.
+    #[test]
+    fn adopting_your_own_peko_keeps_one_record_with_its_hub_id() {
+        let share_link = RemotePrincipalRecord {
+            hub_url: "http://127.0.0.1:3901".into(),
+            owner: "alice".into(),
+            principal_name: "nova".into(),
+            exposure: "public".into(),
+            status: "offline".into(),
+            added_at_unix_ms: 5,
+            invite_token: Some("token".into()),
+            ..Default::default()
+        };
+        let (records, record) = adopt_into(vec![share_link], adopt("nova", "hub-1"), 9);
+        assert_eq!(records.len(), 1);
+        assert_eq!(record.hub_id.as_deref(), Some("hub-1"));
+        assert_eq!(record.avatar.as_deref(), Some("🦊"));
+        assert_eq!(record.local_id.as_deref(), Some("prin_a"));
+        assert_eq!(record.description, None, "blank text is no description");
+        assert_eq!(record.added_at_unix_ms, 5);
+        assert_eq!(record.invite_token.as_deref(), Some("token"));
+
+        let mut renamed = adopt("nova-2", "hub-1");
+        renamed.status = Some("offline".into());
+        let (records, record) = adopt_into(records, renamed, 20);
+        assert_eq!(records.len(), 1, "the same peko by its Hub ID");
+        assert_eq!(record.principal_name, "nova-2");
+        assert_eq!(record.status, "offline");
+
+        let (records, _) = adopt_into(records, adopt("ada", "hub-2"), 30);
+        assert_eq!(records.len(), 2);
+        let summary = RemotePrincipalSummary::from_record(&records[1]);
+        assert_eq!(summary.hub_id.as_deref(), Some("hub-2"));
+        assert_eq!(summary.runtime_id, "hub:http://127.0.0.1:3901");
+    }
 
     #[test]
     fn profile_reads_the_live_instance() {
@@ -565,6 +711,7 @@ mod tests {
             status: "online".to_string(),
             added_at_unix_ms: 0,
             invite_token: None,
+            ..Default::default()
         };
         let summary = RemotePrincipalSummary::from_record(&r);
         assert_eq!(summary.runtime_id, "hub:https://pekohub.org");
@@ -581,6 +728,7 @@ mod tests {
             status: "online".to_string(),
             added_at_unix_ms: 0,
             invite_token: None,
+            ..Default::default()
         };
         let summary = RemotePrincipalSummary::from_record(&r);
         assert_eq!(summary.runtime_id, "hub:https://pekohub.org");

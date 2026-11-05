@@ -28,6 +28,9 @@ pub struct HubRemoteClient {
     /// can read an unlisted peko.
     pub invite_token: Option<String>,
     pub http: reqwest::Client,
+    /// Its PekoHub ID when known up front (one of your own pekos, listed
+    /// by your account); otherwise read from its public page.
+    known_hub_id: Option<String>,
     /// The DM on the local runtime, once opened.
     channel: Arc<Mutex<Option<String>>>,
 }
@@ -48,8 +51,16 @@ impl HubRemoteClient {
             runtime_id,
             invite_token,
             http,
+            known_hub_id: None,
             channel: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Open the DM by this Hub ID instead of looking the peko up on its
+    /// public page, which a private peko doesn't have.
+    pub fn with_hub_id(mut self, hub_id: Option<String>) -> Self {
+        self.known_hub_id = hub_id.filter(|id| !id.is_empty());
+        self
     }
 
     /// The hub's API base: a record may carry the website the share link
@@ -58,8 +69,12 @@ impl HubRemoteClient {
         crate::clients::hub_origin::hub_api_base(&self.hub_url)
     }
 
-    /// The peko's Hub ID, from the hub's public profile.
+    /// The peko's Hub ID: the one it was saved with, else from the hub's
+    /// public profile.
     async fn hub_id(&self) -> Result<String, String> {
+        if let Some(id) = &self.known_hub_id {
+            return Ok(id.clone());
+        }
         let profile = crate::clients::pekohub::PekohubClient::new()
             .with_base_url(self.api_base())
             .get_public_principal(

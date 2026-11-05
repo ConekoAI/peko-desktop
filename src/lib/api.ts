@@ -131,6 +131,11 @@ export interface PrincipalSummary {
   localId?: string;
   /** An emoji or short monogram, if set. */
   avatar?: string | null;
+  /**
+   * Its PekoHub ID once it is on PekoHub; null while it is only on this
+   * computer, whatever `exposure` says it should be.
+   */
+  hubId?: string | null;
   exposure: PrincipalExposure;
   status: string;
   description?: string;
@@ -830,6 +835,10 @@ export interface RemotePrincipalSummary {
   runtimeId: string;
   addedAtUnixMs: number;
   hasInviteToken: boolean;
+  /** Set for one of your own pekos, saved from your account's list. */
+  hubId?: string | null;
+  avatar?: string | null;
+  localId?: string | null;
 }
 
 export interface RemotePrincipalResolveResult {
@@ -885,6 +894,30 @@ export async function remotePrincipalAdd(
 ): Promise<RemotePrincipalSummary> {
   return invoke<RemotePrincipalSummary>("remote_principal_add", {
     req: { shareUrl },
+  });
+}
+
+/**
+ * Save one of your own pekos on another computer, as your account lists
+ * it, so it sits in Chats like a peko of this computer. Its DM opens by
+ * its Hub ID; nothing is looked up.
+ */
+export async function remotePrincipalAdopt(
+  hubUrl: string,
+  peko: AccessiblePrincipal,
+): Promise<RemotePrincipalSummary> {
+  return invoke<RemotePrincipalSummary>("remote_principal_adopt", {
+    req: {
+      hubUrl,
+      owner: peko.owner,
+      principalName: peko.principalName,
+      hubId: peko.hubId,
+      exposure: peko.exposure,
+      status: peko.status,
+      avatar: peko.avatar,
+      localId: peko.localId,
+      description: peko.description,
+    },
   });
 }
 
@@ -1401,20 +1434,38 @@ export async function pekohubListRuntimes(
  */
 export interface AccessiblePrincipal {
   id: string;
+  /** Its PekoHub ID; empty from hubs that predate sending it. */
+  hubId: string;
+  /** The owner's handle (`alice`), for the peko's page and records. */
+  owner: string;
   ownerName: string;
   /** Mapped from the wire's `pekoName` field. */
   principalName: string;
   publicName: string;
   status: string;
+  avatar: string | null;
+  /** Its id on its own runtime: the app keys a peko's accent on it. */
+  localId: string | null;
+  description: string | null;
+  exposure: string;
 }
 
 interface AccessiblePekoWire {
   id?: unknown;
+  hubId?: unknown;
+  owner?: unknown;
   ownerName?: unknown;
   pekoName?: unknown;
   publicName?: unknown;
   status?: unknown;
+  avatar?: unknown;
+  localId?: unknown;
+  description?: unknown;
+  exposure?: unknown;
 }
+
+const textOrNull = (v: unknown): string | null =>
+  typeof v === "string" && v.trim() !== "" ? v : null;
 
 export async function pekohubListAccessiblePekos(
   baseUrl: string,
@@ -1433,10 +1484,16 @@ export async function pekohubListAccessiblePekos(
   }
   return arr.map((w: AccessiblePekoWire) => ({
     id: String(w.id ?? ""),
+    hubId: String(w.hubId ?? ""),
+    owner: String(w.owner ?? w.ownerName ?? "").toLowerCase(),
     ownerName: String(w.ownerName ?? ""),
     principalName: String(w.pekoName ?? ""),
     publicName: String(w.publicName ?? w.pekoName ?? ""),
     status: String(w.status ?? "offline"),
+    avatar: textOrNull(w.avatar),
+    localId: textOrNull(w.localId),
+    description: textOrNull(w.description),
+    exposure: String(w.exposure ?? "private"),
   }));
 }
 

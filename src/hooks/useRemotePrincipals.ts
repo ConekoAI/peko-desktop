@@ -4,6 +4,7 @@ import {
   hubWebOrigin,
   pekohubListAccessiblePekos,
   remotePrincipalAdd,
+  remotePrincipalAdopt,
   remotePrincipalList,
   remotePrincipalRemove,
   remotePrincipalResolve,
@@ -194,7 +195,47 @@ export function useAccessiblePrincipals(hubUrl?: string, accessToken?: string) {
     queryKey: ["accessible-principals", hubUrl ?? null],
     enabled: !!hubUrl && !!accessToken,
     queryFn: () => pekohubListAccessiblePekos(hubUrl!, accessToken!),
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
+    // Your pekos on other computers come and go online as those
+    // computers wake and sleep: read again on focus and every 30 s.
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
+}
+
+/**
+ * Save one of your own pekos on another computer (from your account's
+ * list) so it sits in Chats like a peko of this computer.
+ */
+export function useRemotePrincipalAdopt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ hubUrl, peko }: { hubUrl: string; peko: AccessiblePrincipal }) =>
+      remotePrincipalAdopt(hubUrl, peko),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["remote-principals"] });
+    },
+  });
+}
+
+/**
+ * Which of `own` (your account's pekos) to save as remote pekos: those
+ * with a Hub ID that live on another computer (not one of `here`, this
+ * computer's pekos, by Hub ID or local id) and aren't saved under that
+ * name yet.
+ */
+export function ownPekosToAdopt(
+  own: AccessiblePrincipal[],
+  here: { hubId?: string | null; localId?: string }[],
+  saved: RemotePrincipalSummary[],
+): AccessiblePrincipal[] {
+  const hereHub = new Set(here.map((p) => p.hubId).filter(Boolean));
+  const hereLocal = new Set(here.map((p) => p.localId).filter(Boolean));
+  return own.filter(
+    (p) =>
+      !!p.hubId &&
+      !hereHub.has(p.hubId) &&
+      !(p.localId && hereLocal.has(p.localId)) &&
+      !saved.some((r) => r.hubId === p.hubId && r.principalName === p.principalName),
+  );
 }

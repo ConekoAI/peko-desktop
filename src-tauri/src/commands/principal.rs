@@ -24,6 +24,9 @@ pub struct PrincipalSummary {
     /// The runtime's stable local id (`prin_…`), which channel members
     /// and authors refer to. Empty for pekos from older runtimes.
     pub local_id: String,
+    /// Its PekoHub ID once it is on PekoHub; `None` while it is only on
+    /// this computer, whatever `exposure` says it should be.
+    pub hub_id: Option<String>,
     /// An emoji or short monogram (`identity.avatar`), if set.
     pub avatar: Option<String>,
     pub exposure: String,
@@ -90,6 +93,7 @@ fn summary_from_wire(
     PrincipalSummary {
         name: text("name").unwrap_or_else(|| fallback_name.to_string()),
         local_id: text("local_id").unwrap_or_default(),
+        hub_id: text("hub_id").filter(|id| !id.is_empty()),
         avatar: text("avatar"),
         exposure: text("exposure").unwrap_or_else(|| "unexposed".to_string()),
         // No stored status means the live engine is the truth — and an
@@ -1071,9 +1075,14 @@ mod tests {
         let current = serde_json::json!({
             "local_id": "prin_a", "name": "alice", "avatar": "🦊",
             "owner": {"kind": "user", "id": "local"}, "exposure": "private",
+            "hub_id": "7f700f07-e081-4dd8-b0db-ae41c7efbaeb",
         });
         let p = summary_from_wire(current.as_object().unwrap(), "local", "");
         assert_eq!(p.local_id, "prin_a");
+        assert_eq!(
+            p.hub_id.as_deref(),
+            Some("7f700f07-e081-4dd8-b0db-ae41c7efbaeb")
+        );
         assert_eq!(p.avatar.as_deref(), Some("🦊"));
         assert_eq!(p.owner, "user:local");
         assert_eq!(p.exposure, "private");
@@ -1082,6 +1091,7 @@ mod tests {
         let p = summary_from_wire(older.as_object().unwrap(), "local", "");
         assert_eq!(p.owner, "user:alice");
         assert_eq!(p.local_id, "");
+        assert!(p.hub_id.is_none(), "not on PekoHub, or an older runtime");
         assert!(p.avatar.is_none());
         assert_eq!(
             p.status, "online",

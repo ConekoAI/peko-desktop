@@ -166,13 +166,16 @@ impl AppState {
         });
         match record {
             Some(r) => ResolvedRuntime::HubRemote(
-                self.register_hub_remote(HubRemoteClient::new(
-                    r.hub_url,
-                    r.owner,
-                    r.principal_name,
-                    r.invite_token,
-                    self.http.clone(),
-                ))
+                self.register_hub_remote(
+                    HubRemoteClient::new(
+                        r.hub_url,
+                        r.owner,
+                        r.principal_name,
+                        r.invite_token,
+                        self.http.clone(),
+                    )
+                    .with_hub_id(r.hub_id),
+                )
                 .await,
             ),
             None => self.resolve_runtime(runtime_id).await,

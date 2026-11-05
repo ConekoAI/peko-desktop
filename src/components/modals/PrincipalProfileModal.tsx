@@ -80,6 +80,20 @@ function registrationLabel(exposure: string | undefined): string {
 }
 
 /**
+ * Where a peko of this computer really is: its configured registration
+ * once it has a PekoHub ID, else local only. A peko made here says
+ * "private" before this computer signs in and puts it on PekoHub;
+ * showing that as Private claimed reach it didn't have.
+ */
+export function effectiveRegistration(p: {
+  exposure?: string;
+  hubId?: string | null;
+}): string {
+  if (p.hubId === null && p.exposure !== "local_only") return "local_only";
+  return p.exposure ?? "";
+}
+
+/**
  * The Owner row. This computer's person is one owner whether the
  * runtime calls them `user:local` or by their linked PekoHub account
  * (runtime ADR-081 D3), so both read "You", with the account when
@@ -289,7 +303,7 @@ function LocalPekoProfile({
       setDescription(principal.description ?? "");
       setAvatar(principal.avatar ?? "");
       setStatus(principal.status ?? "");
-      setExposure(principal.exposure ?? "");
+      setExposure(effectiveRegistration(principal));
       setModelId(principal.preferredModelId ?? "");
       // ADR-056: conventional export destination; editable.
       setExportPath(`~/.peko/exports/${principal.name}.peko`);
@@ -312,7 +326,7 @@ function LocalPekoProfile({
     // Registration is its own runtime operation (`principal_register`
     // updates PekoHub over the tunnel), run after the config update.
     const registrationChanged =
-      !isRemote && !!exposure && exposure !== (principal.exposure ?? "");
+      !isRemote && !!exposure && exposure !== effectiveRegistration(principal);
     updateMut.mutate(payload, {
       onSuccess: async () => {
         if (registrationChanged) {
@@ -510,7 +524,11 @@ function LocalPekoProfile({
               />
               <Row
                 label="PekoHub"
-                value={isRemote ? principal.exposure || "—" : registrationLabel(principal.exposure)}
+                value={
+                  isRemote
+                    ? principal.exposure || "—"
+                    : registrationLabel(effectiveRegistration(principal))
+                }
               />
               <Row
                 label="Preferred model"
@@ -995,7 +1013,7 @@ function LocalPekoProfile({
                     setDescription(principal.description ?? "");
                     setAvatar(principal.avatar ?? "");
                     setStatus(principal.status ?? "");
-                    setExposure(principal.exposure ?? "");
+                    setExposure(effectiveRegistration(principal));
                     setModelId(principal.preferredModelId ?? "");
                   }
                 }}

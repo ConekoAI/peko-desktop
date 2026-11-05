@@ -33,14 +33,24 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: () => ({
-    data: [{ name: "omni", owner: "user:local", runtimeId: "local", avatar: "🦉" }],
+    data: [
+      {
+        name: "omni",
+        owner: "user:local",
+        runtimeId: "local",
+        avatar: "🦉",
+        localId: "prin_omni",
+        hubId: "hub-omni",
+      },
+    ],
     isLoading: false,
   }),
   isGenesisPending: () => false,
 }));
 
+const bundleMock = vi.fn(() => ({ data: null as { access_token: string } | null }));
 vi.mock("../hooks/useRuntimes", () => ({
-  usePekohubBundle: () => ({ data: null }),
+  usePekohubBundle: () => bundleMock(),
 }));
 
 vi.mock("../hooks/useSettings", () => ({
@@ -56,7 +66,11 @@ vi.mock("../hooks/usePrincipalStatus", async (importOriginal) => {
 });
 
 const HUB = "hub:http://localhost:3000";
-vi.mock("../hooks/useRemotePrincipals", () => ({
+const accessibleMock = vi.fn(() => ({ data: undefined as unknown }));
+const adoptMock = vi.fn();
+vi.mock("../hooks/useRemotePrincipals", async (importOriginal) => ({
+  ownPekosToAdopt: (await importOriginal<typeof import("../hooks/useRemotePrincipals")>())
+    .ownPekosToAdopt,
   useRemotePrincipals: () => ({
     data: [
       {
@@ -78,8 +92,8 @@ vi.mock("../hooks/useRemotePrincipals", () => ({
     identity: { name, avatar: "🦊", initials: "R", accent: "sky" },
     description: null,
   }),
-  useAccessiblePrincipals: () => ({ data: undefined }),
-  useRemotePrincipalAdd: () => ({ mutate: vi.fn(), isPending: false }),
+  useAccessiblePrincipals: () => accessibleMock(),
+  useRemotePrincipalAdopt: () => ({ mutate: adoptMock, isPending: false }),
 }));
 
 vi.mock("../lib/unread", () => ({
@@ -106,6 +120,41 @@ describe("PrincipalSidebar", () => {
     dmRequestsMock.mockReset().mockResolvedValue([]);
     dmRequestAnswerMock.mockReset();
     personDmOpenMock.mockReset();
+    bundleMock.mockReset().mockReturnValue({ data: null });
+    accessibleMock.mockReset().mockReturnValue({ data: undefined });
+    adoptMock.mockReset();
+  });
+
+  /** One of your pekos as your PekoHub account lists it. */
+  const own = (principalName: string, hubId: string, localId: string) => ({
+    id: `inst-${principalName}`,
+    hubId,
+    owner: "alice",
+    ownerName: "Alice",
+    principalName,
+    publicName: principalName,
+    status: "online",
+    avatar: "🦊",
+    localId,
+    description: null,
+    exposure: "private",
+  });
+
+  it("saves your pekos on other computers into the list, with nothing to connect", () => {
+    bundleMock.mockReturnValue({ data: { access_token: "tok" } });
+    accessibleMock.mockReturnValue({
+      data: [
+        // On this computer already: listed once, as itself.
+        own("omni", "hub-omni", "prin_omni"),
+        // On your other computer: saved, so it lists like omni.
+        own("nova", "hub-nova", "prin_nova"),
+      ],
+    });
+    render(<PrincipalSidebar />);
+    expect(adoptMock).toHaveBeenCalledTimes(1);
+    expect(adoptMock.mock.calls[0][0].peko.principalName).toBe("nova");
+    expect(screen.queryByText(/accessible pekos/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /^connect$/i })).toBeNull();
   });
 
   it("lists local and remote pekos together, with no Remote heading", () => {

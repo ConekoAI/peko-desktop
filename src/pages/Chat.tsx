@@ -904,7 +904,9 @@ export default function Chat() {
         runtimeId={remotePeko ? runtimeId : "local"}
         description={
           remotePeko
-            ? remote.description || `${remotePeko.owner}'s peko`
+            ? // One of yours on another computer reads like one of this
+              // computer's ("Your peko" when it has no description).
+              remote.description || (remotePeko.hubId ? undefined : `${remotePeko.owner}'s peko`)
             : principals?.find((p) => p.name === selectedPrincipal)?.description
         }
       />
