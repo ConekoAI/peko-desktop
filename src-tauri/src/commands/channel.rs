@@ -73,11 +73,12 @@ pub struct ChannelDetail {
 
 /// Mirrors `peko_protocol::channel::ChannelEvent`'s
 /// `#[serde(tag = "kind", rename_all = "snake_case")]` shape so the
-/// React side can switch on `kind` directly. Fields kept camelCase
-/// to match the rest of the desktop's wire convention
-/// (`src/types/index.ts` uses `rename_all = "camelCase"`).
+/// React side can switch on `kind` directly (`member_joined`,
+/// `member_left`; `src/types/index.ts`). The tag must stay snake_case:
+/// camelCase sent `memberJoined`, which the view never matched, so joins
+/// and leaves were silently not shown. Field names are single words.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ChannelEvent {
     Created {
         channel: String,
@@ -950,6 +951,27 @@ mod tests {
         });
         let detail = project_channel_get_envelope(&v, "c", "local").unwrap();
         assert_eq!(detail.member_count, 1); // c joined, b joined-then-left
+    }
+
+    /// The view switches on the protocol's snake_case kinds; a
+    /// camelCase tag (`memberJoined`) left joins and leaves unshown.
+    #[test]
+    fn channel_events_reach_the_view_with_snake_case_kinds() {
+        let joined = ChannelEvent::MemberJoined {
+            channel: "c".into(),
+            member: "user:local".into(),
+            at: "t".into(),
+        };
+        let left = ChannelEvent::MemberLeft {
+            channel: "c".into(),
+            member: "user:local".into(),
+            at: "t".into(),
+        };
+        assert_eq!(
+            serde_json::to_value(&joined).unwrap()["kind"],
+            "member_joined"
+        );
+        assert_eq!(serde_json::to_value(&left).unwrap()["kind"], "member_left");
     }
 
     #[test]

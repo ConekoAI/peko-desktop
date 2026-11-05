@@ -101,6 +101,12 @@ export function useChannelStreamInvalidator(
           void qc.invalidateQueries({
             queryKey: ["channel", rid, channelId],
           });
+          // Someone may have joined or left: the roster and the header's
+          // count come from these.
+          void qc.invalidateQueries({
+            queryKey: ["channel-members", rid, channelId],
+          });
+          void qc.invalidateQueries({ queryKey: ["channel-info", channelId] });
           // The runtime's synthetic Created event for an inbound
           // invite carries `payload.kind === "channel_invite_received"`
           // (mirrors `peko_protocol::channel::ChannelEvent`'s

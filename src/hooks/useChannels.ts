@@ -236,6 +236,8 @@ export function useChannelInvite(channelId: string | undefined, runtimeId?: Runt
       qc.invalidateQueries({ queryKey: ["channel", rid, channelId] });
       qc.invalidateQueries({ queryKey: ["channel-members", rid, channelId] });
       qc.invalidateQueries({ queryKey: ["channel-events", rid, channelId] });
+      // The header counts members from the group's info.
+      qc.invalidateQueries({ queryKey: ["channel-info", channelId] });
     },
   });
 }
