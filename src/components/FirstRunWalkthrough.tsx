@@ -16,9 +16,10 @@ import EndpointForm, {
  * First-run onboarding: from a fresh install to talking with a peko in
  * three steps.
  *
- *   1. Connect a model — the endpoint from the provider's docs (base
- *      URL, API format, model id, key; ADR-068 has no vendor presets),
- *      or, with models already set up, pick one. The model is added and
+ *   1. Connect a model — the base URL and API format from the
+ *      provider's docs and a key (ADR-068 has no vendor presets); the
+ *      model is then picked from the list the endpoint itself offers.
+ *      With models already set up, pick one of those instead. The model is added and
  *      tested; its name and keyless/stored-credential options sit under
  *      "Advanced".
  *   2. Name your peko — a name and an avatar; the description and the
@@ -260,8 +261,9 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-fg-muted">
-        A model is a peko&apos;s mind. Enter the endpoint from your provider&apos;s docs — most
-        say &quot;OpenAI-compatible&quot;, which is Chat Completions.
+        A model is a peko&apos;s mind. Enter the base URL from your provider&apos;s docs (most
+        say &quot;OpenAI-compatible&quot;, which is Chat Completions) and your key; Peko then
+        lists the models it offers.
       </p>
 
       <EndpointForm

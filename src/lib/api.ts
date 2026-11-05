@@ -919,6 +919,18 @@ export async function modelAdd(args: ModelAddArgs): Promise<ModelSummary> {
   return invoke<ModelSummary>("model_add", { args });
 }
 
+/**
+ * The chat models an endpoint offers, read from the endpoint with `key`
+ * (absent for keyless endpoints). Nothing is stored.
+ */
+export async function modelDiscover(
+  baseUrl: string,
+  apiFormat: string,
+  key?: string,
+): Promise<string[]> {
+  return invoke<string[]>("model_discover", { baseUrl, apiFormat, key: key ?? null });
+}
+
 /** Update an existing configured model. */
 export async function modelUpdate(args: ModelUpdateArgs): Promise<ModelSummary> {
   return invoke<ModelSummary>("model_update", { args });

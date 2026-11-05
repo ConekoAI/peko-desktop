@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronRight, Loader2 } from "lucide-react";
 
+import { useEndpointModels } from "../../hooks/useEndpointModels";
 import { API_FORMATS, type ApiFormat } from "../../lib/apiFormats";
 import type { ModelAddArgs } from "../../types";
 
@@ -33,6 +34,7 @@ export const EMPTY_ENDPOINT: EndpointDraft = {
 };
 
 const NAME_RE = /^[A-Za-z0-9_.-]+$/;
+const URL_RE = /^https?:\/\/\S+$/;
 
 /** The id the model will have in the catalog. */
 export function endpointName(draft: EndpointDraft): string {
@@ -40,7 +42,7 @@ export function endpointName(draft: EndpointDraft): string {
 }
 
 export function isEndpointValid(draft: EndpointDraft): boolean {
-  if (!/^https?:\/\/\S+$/.test(draft.baseUrl.trim())) return false;
+  if (!URL_RE.test(draft.baseUrl.trim())) return false;
   if (!draft.modelId.trim()) return false;
   if (draft.name.trim() && !NAME_RE.test(draft.name.trim())) return false;
   if (draft.needsKey && !draft.key.trim() && !draft.credentialId) return false;
@@ -71,7 +73,9 @@ const LABEL = "mb-1 block text-xs font-medium text-fg-muted";
 /**
  * Fields for one endpoint. The name, the keyless switch, and reusing a
  * stored credential sit under "Advanced" so the common case is four
- * fields.
+ * fields. Once the base URL and key are in, the endpoint is asked for
+ * its models, and the model id can be picked from that list (an
+ * endpoint with only one fills it in).
  */
 export default function EndpointForm({
   value,
@@ -88,6 +92,22 @@ export default function EndpointForm({
   const set = (patch: Partial<EndpointDraft>) => onChange({ ...value, ...patch });
   const format = API_FORMATS.find((f) => f.value === value.apiFormat);
   const nameBad = !!value.name.trim() && !NAME_RE.test(value.name.trim());
+  const canList =
+    URL_RE.test(value.baseUrl.trim()) &&
+    !value.credentialId &&
+    (!value.needsKey || !!value.key.trim());
+  const listed = useEndpointModels(
+    value.baseUrl,
+    value.apiFormat,
+    value.needsKey ? value.key : undefined,
+    canList,
+  );
+  const only = listed.data?.length === 1 ? listed.data[0] : null;
+  useEffect(() => {
+    if (only && !value.modelId.trim()) onChange({ ...value, modelId: only });
+    // Only when a one-model list arrives; typing stays the person's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [only]);
 
   return (
     <fieldset disabled={disabled} className="space-y-3">
@@ -122,19 +142,6 @@ export default function EndpointForm({
         {format && <p className="mt-1 text-[11px] text-fg-subtle">{format.hint}</p>}
       </div>
 
-      <label className="block">
-        <span className={LABEL}>Model id</span>
-        <input
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={value.modelId}
-          onChange={(e) => set({ modelId: e.target.value })}
-          placeholder="The provider's model name, e.g. gpt-5 or mimo-v2.6-flash"
-          className={`${INPUT} font-mono`}
-        />
-      </label>
-
       {value.needsKey && !value.credentialId && (
         <div>
           <label className="block">
@@ -156,6 +163,59 @@ export default function EndpointForm({
           </p>
         </div>
       )}
+
+      <div>
+        <label className="block">
+          <span className={LABEL}>Model id</span>
+          <input
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            value={value.modelId}
+            onChange={(e) => set({ modelId: e.target.value })}
+            placeholder={
+              listed.data?.length
+                ? "Pick one below, or type an id"
+                : "The provider's model name, e.g. gpt-5 or mimo-v2.6-flash"
+            }
+            className={`${INPUT} font-mono`}
+          />
+        </label>
+        {listed.isFetching && (
+          <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-fg-subtle">
+            <Loader2 className="h-3 w-3 animate-spin" /> Asking the endpoint for its models…
+          </p>
+        )}
+        {!listed.isFetching && listed.data && listed.data.length > 0 && (
+          <label className="mt-2 block">
+            <span className="sr-only">Models this endpoint offers</span>
+            <select
+              data-testid="endpoint-models"
+              value={listed.data.includes(value.modelId.trim()) ? value.modelId.trim() : ""}
+              onChange={(e) => e.target.value && set({ modelId: e.target.value })}
+              className={INPUT}
+            >
+              <option value="">
+                {listed.data.length === 1
+                  ? "1 model offered"
+                  : `${listed.data.length} models offered — choose one`}
+              </option>
+              {listed.data.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {!listed.isFetching && listed.error && (
+          <p data-testid="endpoint-models-error" className="mt-1 text-[11px] text-fg-subtle">
+            Couldn&apos;t list its models:{" "}
+            {listed.error instanceof Error ? listed.error.message : String(listed.error)}. Type the
+            model id from the provider&apos;s docs.
+          </p>
+        )}
+      </div>
 
       <div>
         <button
