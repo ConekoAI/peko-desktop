@@ -39,7 +39,7 @@ describe("ChannelEventRow", () => {
     );
     expect(screen.getByTestId("channel-event-row-posted")).toBeInTheDocument();
     // The peko's name and face, not its raw id (kept as a tooltip).
-    expect(screen.getByText("alice")).toHaveAttribute("title", "principal:local:prin_alice");
+    expect(screen.getByText("alice")).toHaveAttribute("title", "peko:local:prin_alice");
     expect(screen.getByTestId("peko-avatar")).toHaveTextContent("🦊");
     expect(screen.getByText("first message")).toBeInTheDocument();
   });
@@ -68,7 +68,7 @@ describe("ChannelEventRow", () => {
         }}
       />,
     );
-    expect(screen.getByText("principal:hub:7f1c")).toBeInTheDocument();
+    expect(screen.getByText("peko:hub:7f1c")).toBeInTheDocument();
   });
 
   it("renders the created event with the channel name + creator", () => {

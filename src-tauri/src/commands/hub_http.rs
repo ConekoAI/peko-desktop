@@ -306,7 +306,7 @@ pub async fn peko_share_link(
     let peko = client
         .principal_get(&name)
         .await
-        .map_err(|e| format!("principal_get failed: {e}"))?;
+        .map_err(|e| format!("Couldn't load the peko: {e}"))?;
     let Some(hub_id) = public_hub_id(&peko) else {
         return Ok(None);
     };

@@ -116,7 +116,7 @@ describe("ImportPekoModal", () => {
     principalImportMock.mockResolvedValue({
       type: "principal_imported",
       name: "alice",
-      config_path: "/home/u/.peko/principals/alice",
+      config_path: "/home/u/.peko/pekos/alice",
     });
     const { invalidateSpy } = renderModal();
     await review();

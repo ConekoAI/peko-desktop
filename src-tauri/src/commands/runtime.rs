@@ -138,12 +138,12 @@ pub async fn runtime_hub_disconnect(
         let list = client
             .principal_list()
             .await
-            .map_err(|e| format!("principal_list failed: {e}"))?;
+            .map_err(|e| format!("Couldn't list your pekos: {e}"))?;
         for name in registered_pekos(&list) {
             let set = client
                 .principal_register(&name, "local_only")
                 .await
-                .map_err(|e| format!("principal_register failed: {e}"))?;
+                .map_err(|e| format!("Couldn't put the peko online: {e}"))?;
             if let Some(message) = refusal(&set) {
                 return Err(format!("{name} couldn't go local-only: {message}"));
             }

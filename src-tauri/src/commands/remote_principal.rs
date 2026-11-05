@@ -395,7 +395,7 @@ pub async fn remote_principal_profile(
         .await
     {
         Ok(payload) => Ok(project_profile(&payload)),
-        Err(e) if e == "principal not found" => Ok(None),
+        Err(e) if e == "peko not found" => Ok(None),
         Err(e) => Err(e),
     }
 }

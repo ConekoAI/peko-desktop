@@ -322,9 +322,9 @@ impl PekohubClient {
             .get(&url)
             .send()
             .await
-            .map_err(|e| format!("public principal lookup failed: {e}"))?;
+            .map_err(|e| format!("Couldn't look up the public peko: {e}"))?;
         if resp.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err("principal not found".to_string());
+            return Err("peko not found".to_string());
         }
         if !resp.status().is_success() {
             return Err(format!("pekohub error: {}", resp.status()));

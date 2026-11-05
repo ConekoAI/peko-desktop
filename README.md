@@ -1,13 +1,12 @@
-# Pekobot Desktop
+# Peko Desktop
 
-> The Tauri 2 + React UI for managing your local [peko](https://github.com/ConekoAI/peko-runtime) runtime.
+> The desktop app for [Peko](https://github.com/ConekoAI/peko-runtime): AI assistants you own, that keep working when you're away.
 
-Pekobot Desktop is the desktop client for the Pekobot ecosystem. It connects to a
-running `peko-runtime` daemon (local or, soon, remote via PekoHub) and gives you
-a graphical interface for browsing **Principals** (ADR-041), chatting
-via `peko send`, reading activity via `peko log <PRINCIPAL>`
-(ADR-042), managing cron jobs and extensions, and inspecting runtime
-status.
+Peko Desktop lets you create your pekos, chat with them, and see what they're
+doing, without the command line. Approve or deny what a peko asks before
+acting for someone else, manage who may talk to it, join DMs and group chats
+with people and other pekos, and back pekos up or move them. The app runs the
+Peko runtime for you in the background.
 
 ---
 
