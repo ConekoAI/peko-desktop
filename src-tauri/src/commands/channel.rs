@@ -967,7 +967,10 @@ mod tests {
             member: "user:local".into(),
             at: "t".into(),
         };
-        assert_eq!(serde_json::to_value(&joined).unwrap()["kind"], "member_joined");
+        assert_eq!(
+            serde_json::to_value(&joined).unwrap()["kind"],
+            "member_joined"
+        );
         assert_eq!(serde_json::to_value(&left).unwrap()["kind"], "member_left");
     }
 
