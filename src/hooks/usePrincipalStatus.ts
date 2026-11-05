@@ -1,5 +1,12 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { principalGet, remotePrincipalProfile, type RuntimeId } from "../lib/api";
+import { useQuery, useQueryClient, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
+import {
+  pekohubListAccessiblePekos,
+  principalGet,
+  remotePrincipalProfile,
+  type AccessiblePrincipal,
+  type RuntimeId,
+} from "../lib/api";
+import { loadOAuthBundle } from "./useRuntimes";
 
 /**
  * PR #9: live status polling. The decorative `STATUS_OPTIONS`
@@ -45,6 +52,7 @@ export function usePrincipalStatus(
   ownerForRemote?: string,
   hubUrlForRemote?: string,
 ): UseQueryResult<PrincipalStatus, Error> {
+  const qc = useQueryClient();
   const isRemote = !!runtimeId && runtimeId !== "local" && !!hubUrlForRemote && !!ownerForRemote;
   const enabled =
     !!principalName && (!!runtimeId || runtimeId === undefined) && (!isRemote || (!!ownerForRemote && !!hubUrlForRemote));
@@ -59,7 +67,7 @@ export function usePrincipalStatus(
     ],
     queryFn: async (): Promise<PrincipalStatus> => {
       if (isRemote && hubUrlForRemote && ownerForRemote) {
-        return fetchRemoteStatus(hubUrlForRemote, ownerForRemote, principalName);
+        return fetchRemoteStatus(qc, hubUrlForRemote, ownerForRemote, principalName);
       }
       return fetchLocalStatus(principalName, runtimeId);
     },
@@ -91,13 +99,52 @@ async function fetchLocalStatus(name: string, runtimeId: RuntimeId): Promise<Pri
   }
 }
 
+/** How long one read of your account's pekos serves every row. */
+const OWN_PEKOS_STALE_MS = 15_000;
+
+/**
+ * The account's own pekos on `hubUrl`, shared with the sidebar's list
+ * (same query key), or null when this computer isn't signed in there.
+ */
+export async function ownPekosOnHub(
+  qc: QueryClient,
+  hubUrl: string,
+): Promise<AccessiblePrincipal[] | null> {
+  const bundle = await loadOAuthBundle().catch(() => null);
+  if (!bundle?.access_token) return null;
+  return qc.fetchQuery({
+    queryKey: ["accessible-principals", hubUrl],
+    queryFn: () => pekohubListAccessiblePekos(hubUrl, bundle.access_token),
+    staleTime: OWN_PEKOS_STALE_MS,
+  });
+}
+
 async function fetchRemoteStatus(
+  qc: QueryClient,
   hubUrl: string,
   owner: string,
   principalName: string,
 ): Promise<PrincipalStatus> {
-  // The hub's public peko record (pekohub ADR-005), read by the backend:
-  // the webview's content security policy allows no outside hosts.
+  // One of your own pekos on another computer: your account lists it
+  // with its status and face, private ones included (they have no
+  // public page).
+  const own = await ownPekosOnHub(qc, hubUrl).catch(() => null);
+  const mine = own?.find((p) => p.owner === owner && p.principalName === principalName);
+  if (mine) {
+    return {
+      status: normalizeStatus(mine.status),
+      lastSeenAt: null,
+      source: "remote",
+      profile: {
+        avatar: mine.avatar,
+        description: mine.description,
+        localId: mine.localId,
+      },
+    };
+  }
+  // Anyone else's: the hub's public peko record (pekohub ADR-005), read
+  // by the backend: the webview's content security policy allows no
+  // outside hosts.
   try {
     const live = await remotePrincipalProfile(hubUrl, owner, principalName);
     if (!live) {

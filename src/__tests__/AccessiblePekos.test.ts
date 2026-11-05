@@ -50,10 +50,16 @@ describe("pekohubListAccessiblePekos", () => {
         pekos: [
           {
             id: "inst_1",
-            ownerName: "alice",
+            hubId: "7f700f07-e081-4dd8-b0db-ae41c7efbaeb",
+            localId: "prin_1",
+            owner: "alice",
+            ownerName: "Alice",
             pekoName: "coding-assistant",
             publicName: "Coding Assistant",
+            description: "",
+            avatar: "🦊",
             status: "online",
+            exposure: "private",
           },
         ],
       }),
@@ -62,10 +68,16 @@ describe("pekohubListAccessiblePekos", () => {
     expect(rows).toEqual([
       {
         id: "inst_1",
-        ownerName: "alice",
+        hubId: "7f700f07-e081-4dd8-b0db-ae41c7efbaeb",
+        owner: "alice",
+        ownerName: "Alice",
         principalName: "coding-assistant",
         publicName: "Coding Assistant",
         status: "online",
+        avatar: "🦊",
+        localId: "prin_1",
+        description: null,
+        exposure: "private",
       },
     ]);
   });

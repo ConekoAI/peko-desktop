@@ -4,24 +4,22 @@ import { isGenesisPending, usePrincipals } from "../hooks/usePrincipals";
 import { usePekohubBundle } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
 import {
+  ownPekosToAdopt,
   useAccessiblePrincipals,
   useRemotePeko,
-  useRemotePrincipalAdd,
+  useRemotePrincipalAdopt,
   useRemotePrincipals,
-  type AccessiblePrincipal,
 } from "../hooks/useRemotePrincipals";
 import {
   usePrincipalStatus,
   statusBadge,
   type PrincipalStatusValue,
 } from "../hooks/usePrincipalStatus";
-import { shareUrlFor } from "../lib/discovery";
 import PrincipalProfileModal from "./modals/PrincipalProfileModal";
 import {
   Search,
   Loader2,
   UserCircle,
-  Globe,
   Plus,
   Settings,
   Link as LinkIcon,
@@ -263,83 +261,6 @@ function RemotePekoRow({
   );
 }
 
-/** `https://pekohub.org/foo` → `pekohub.org`. */
-function shortHub(hubUrl: string): string {
-  try {
-    return new URL(hubUrl).host;
-  } catch {
-    return hubUrl;
-  }
-}
-
-/**
- * Pekohub ADR-005: a row from the hub's `/v1/me/accessible-pekos`
- * endpoint (the signed-in user's own pekos plus `private`-exposure
- * entries they can reach). Clicking connects the desktop to the peko
- * through the standard share-link add flow, then opens its chat.
- */
-function AccessiblePekoRow({
-  peko,
-  hubUrl,
-  alreadyAdded,
-  onOpen,
-}: {
-  peko: AccessiblePrincipal;
-  hubUrl: string;
-  alreadyAdded: boolean;
-  onOpen: () => void;
-}) {
-  const addMut = useRemotePrincipalAdd();
-  const [addError, setAddError] = useState<string | null>(null);
-
-  function handleConnect() {
-    setAddError(null);
-    addMut.mutate(shareUrlFor(hubUrl, { owner: peko.ownerName, name: peko.principalName }), {
-      onSuccess: onOpen,
-      onError: (err) =>
-        setAddError(err instanceof Error ? err.message : String(err)),
-    });
-  }
-
-  return (
-    <div className="rounded-lg px-2.5 py-2 text-sm text-fg-soft">
-      <div className="flex items-center gap-2">
-        <Globe className="h-4 w-4 shrink-0 text-fg-subtle" />
-        <span className="min-w-0 flex-1 truncate">
-          <span className="block truncate font-medium">{peko.publicName}</span>
-          <span className="block truncate text-[10px] text-fg-subtle">
-            {peko.ownerName} · {peko.status}
-          </span>
-        </span>
-        {alreadyAdded ? (
-          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-brand">
-            Added
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={handleConnect}
-            disabled={addMut.isPending}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-line bg-surface-card px-2 py-1 text-[11px] font-medium text-fg-soft transition-colors hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-700"
-          >
-            {addMut.isPending ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <LinkIcon className="h-3 w-3" />
-            )}
-            Connect
-          </button>
-        )}
-      </div>
-      {addError && (
-        <p className="mt-1 text-[10px] text-danger">
-          {addError}
-        </p>
-      )}
-    </div>
-  );
-}
-
 export default function PrincipalSidebar({
   onCreateClick,
   onConnectClick,
@@ -377,11 +298,12 @@ export default function PrincipalSidebar({
     y: number;
   } | null>(null);
 
-  // Pekohub ADR-005: "accessible pekos" — the signed-in user's own
-  // pekos plus private-exposure entries they can reach. The endpoint
-  // is owner-scoped, so the section only renders while a PekoHub
-  // OAuth bundle is stored. Same hub-URL source the profile modal
-  // uses (`pekohub.base_url` setting, canonical hub fallback).
+  // Your pekos on your other computers (pekohub ADR-005's owner-scoped
+  // list, read while this computer is signed in). Each is saved as a
+  // remote peko and sits in the list like a peko of this computer: no
+  // section of its own, nothing to connect. Same hub-URL source the
+  // profile modal uses (`pekohub.base_url` setting, canonical hub
+  // fallback).
   const { data: settings } = useSettings();
   const { data: pekohubBundle } = usePekohubBundle();
   const pekohubBaseUrl = useMemo(
@@ -394,6 +316,21 @@ export default function PrincipalSidebar({
     pekohubBundle?.access_token,
   );
 
+  const adoptMut = useRemotePrincipalAdopt();
+  const adopting = useRef(new Set<string>());
+  useEffect(() => {
+    if (!accessiblePekos || !principals || !remotePrincipals) return;
+    for (const peko of ownPekosToAdopt(accessiblePekos, principals, remotePrincipals)) {
+      const key = `${peko.hubId}:${peko.principalName}`;
+      if (adopting.current.has(key)) continue;
+      adopting.current.add(key);
+      adoptMut.mutate(
+        { hubUrl: pekohubBaseUrl, peko },
+        { onError: () => adopting.current.delete(key) },
+      );
+    }
+  }, [accessiblePekos, principals, remotePrincipals, pekohubBaseUrl, adoptMut]);
+
   const filtered = useMemo(() => {
     if (!principals) return [];
     if (!search.trim()) return principals;
@@ -403,12 +340,15 @@ export default function PrincipalSidebar({
   // Pekos on other runtimes sit in the same list, after this runtime's.
   const filteredRemote = useMemo(() => {
     if (!remotePrincipals) return [];
+    // A saved peko that now lives on this computer is listed once, here.
+    const hereHub = new Set((principals ?? []).map((p) => p.hubId).filter(Boolean));
+    const remote = remotePrincipals.filter((rp) => !(rp.hubId && hereHub.has(rp.hubId)));
     const q = search.trim().toLowerCase();
-    if (!q) return remotePrincipals;
-    return remotePrincipals.filter(
+    if (!q) return remote;
+    return remote.filter(
       (rp) => rp.principalName.toLowerCase().includes(q) || rp.owner.toLowerCase().includes(q),
     );
-  }, [remotePrincipals, search]);
+  }, [remotePrincipals, principals, search]);
   const listed = filtered.length + filteredRemote.length;
   const people = usePeople(search);
 
@@ -549,41 +489,6 @@ export default function PrincipalSidebar({
           </div>
         )}
 
-        {accessiblePekos && accessiblePekos.length > 0 ? (
-          <div className="mt-1">
-            <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
-              Accessible pekos
-            </div>
-            <p className="px-2.5 pb-1 text-[10px] text-fg-subtle">
-              Your pekos on {shortHub(pekohubBaseUrl)}, including private ones
-              only you can reach.
-            </p>
-            {accessiblePekos
-              .filter(
-                (ap) =>
-                  !search.trim() ||
-                  ap.publicName.toLowerCase().includes(search.toLowerCase()) ||
-                  ap.ownerName.toLowerCase().includes(search.toLowerCase()),
-              )
-              .map((ap) => (
-                <AccessiblePekoRow
-                  key={ap.id || `${ap.ownerName}-${ap.publicName}`}
-                  peko={ap}
-                  hubUrl={pekohubBaseUrl}
-                  alreadyAdded={
-                    !!remotePrincipals?.some(
-                      (rp) =>
-                        rp.owner === ap.ownerName &&
-                        rp.principalName === ap.principalName,
-                    )
-                  }
-                  onOpen={() =>
-                    handleSelect(ap.principalName, `hub:${pekohubBaseUrl}`)
-                  }
-                />
-              ))}
-          </div>
-        ) : null}
       </div>
 
       {messagingPerson && <MessagePersonForm onClose={() => setMessagingPerson(false)} />}

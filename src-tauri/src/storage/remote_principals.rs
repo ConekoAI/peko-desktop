@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 /// Per-record shape. Matches the fields the hub `/v1/public/pekos/:owner/:pekoName`
 /// endpoint exposes (`unlisted` is a valid exposure value).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct RemotePrincipalRecord {
     pub hub_url: String,
     pub owner: String,
@@ -29,6 +29,19 @@ pub struct RemotePrincipalRecord {
     /// just carries it so a future re-resolve doesn't lose it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_token: Option<String>,
+    /// The peko's PekoHub ID, when the app learned it from the signed-in
+    /// account (one of your own pekos on another computer). Its DM opens
+    /// by this ID: a private peko has no public page to look it up on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hub_id: Option<String>,
+    /// Its face as its runtime announced it, for a peko the public page
+    /// can't describe.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 /// Wrapper so JSON reads stay forward-compatible — missing fields on
@@ -116,6 +129,7 @@ mod tests {
                 status: "online".to_string(),
                 added_at_unix_ms: 1_700_000_000_000,
                 invite_token: None,
+                ..Default::default()
             },
             RemotePrincipalRecord {
                 hub_url: "https://pekohub.org".to_string(),
@@ -125,6 +139,7 @@ mod tests {
                 status: "offline".to_string(),
                 added_at_unix_ms: 1_700_000_001_000,
                 invite_token: Some("opaque".to_string()),
+                ..Default::default()
             },
         ];
         let wrapper = RemotePrincipalFile {
@@ -145,6 +160,7 @@ mod tests {
             status: "online".to_string(),
             added_at_unix_ms: 0,
             invite_token: None,
+            ..Default::default()
         };
         let json = serde_json::to_string(&r).unwrap();
         // `skip_serializing_if = "Option::is_none"` keeps the wire
