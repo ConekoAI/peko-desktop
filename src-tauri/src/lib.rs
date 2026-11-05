@@ -56,7 +56,11 @@ pub fn run() {
             // conversations over IPC.
             if let Some(home) = crate::commands::system::peko_home() {
                 use tauri::Manager;
+                // `principals/` is where pekos lived before the runtime
+                // moved them to `pekos/`; it stays allowed until a runtime
+                // that still uses it has migrated.
                 for dir in [
+                    home.join("pekos"),
                     home.join("principals"),
                     home.join("runtime").join("channels"),
                 ] {

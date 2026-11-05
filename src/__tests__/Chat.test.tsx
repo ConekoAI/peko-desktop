@@ -115,7 +115,7 @@ describe("Chat ToS gate", () => {
 
   it("treats a user stop as no error", async () => {
     sendMut.mutateAsync.mockRejectedValue(
-      new Error("principal_send_stream failed: receive failed: stopped by user"),
+      new Error("Couldn't send the message: receive failed: stopped by user"),
     );
     render(<Chat />);
     sendMessage("hello");

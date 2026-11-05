@@ -506,7 +506,7 @@ export default function PrincipalSidebar({
                     <span
                       className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn"
                       data-testid={`waking-badge-${p.name}`}
-                      title="This peko is still booting (genesis in progress)"
+                      title="This peko is still setting itself up"
                     >
                       <Loader2 className="h-2.5 w-2.5 animate-spin" />
                       waking…

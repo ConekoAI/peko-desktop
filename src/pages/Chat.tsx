@@ -25,6 +25,7 @@ import { useRemotePeko, useRemotePrincipals } from "../hooks/useRemotePrincipals
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
+import { shownAddress } from "../lib/format";
 import {
   Loader2,
   MessageCircle,
@@ -259,7 +260,8 @@ function useElapsed(since: number | null, live: boolean): number {
 
 /** Who is asking, as the card names them. */
 function askerName(request: ApprovalRequest): string {
-  return request.actorName ? `${request.actorName} (${request.actor})` : request.actor;
+  const address = shownAddress(request.actor);
+  return request.actorName ? `${request.actorName} (${address})` : address;
 }
 
 /**

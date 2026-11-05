@@ -45,3 +45,12 @@ export function formatTokens(count: number): string {
   if (count < 1_000_000) return `${(count / 1000).toFixed(1)}K`;
   return `${(count / 1_000_000).toFixed(2)}M`;
 }
+
+/**
+ * An actor address as people read it. The runtime writes a peko's address
+ * as `principal:local:<id>` / `principal:hub:<id>` (its wire form); the app
+ * shows `peko:…`. Other addresses are unchanged.
+ */
+export function shownAddress(address: string): string {
+  return address.startsWith("principal:") ? `peko:${address.slice("principal:".length)}` : address;
+}

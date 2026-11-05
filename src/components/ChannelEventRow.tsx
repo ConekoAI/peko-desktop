@@ -4,6 +4,7 @@ import RuntimeBadge from "./RuntimeBadge";
 import PekoAvatar from "./peko/PekoAvatar";
 import Markdown from "./chat/Markdown";
 import { usePekoDirectory, type ActorDisplay } from "../hooks/usePekoDirectory";
+import { shownAddress } from "../lib/format";
 
 /**
  * PR-2a: per-event row, extracted from `ChannelView.tsx` so the
@@ -48,7 +49,7 @@ export default function ChannelEventRow({
           <ActorFace who={who} />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 text-xs">
-              <span className="text-sm font-semibold text-fg" title={event.author}>
+              <span className="text-sm font-semibold text-fg" title={shownAddress(event.author)}>
                 {who.label}
               </span>
               <span className="text-fg-subtle">{new Date(event.at).toLocaleString()}</span>
@@ -93,7 +94,7 @@ export default function ChannelEventRow({
           data-testid="channel-event-row-member-joined"
         >
           <Plus className="h-3.5 w-3.5" />
-          <span title={event.member}>{directory.resolve(event.member).label}</span>
+          <span title={shownAddress(event.member)}>{directory.resolve(event.member).label}</span>
           <span>joined</span>
           {showRuntimeBadge && <RuntimeBadge runtimeId="local" />}
           <span>· {new Date(event.at).toLocaleString()}</span>
@@ -106,7 +107,7 @@ export default function ChannelEventRow({
           data-testid="channel-event-row-member-left"
         >
           <Minus className="h-3.5 w-3.5" />
-          <span title={event.member}>{directory.resolve(event.member).label}</span>
+          <span title={shownAddress(event.member)}>{directory.resolve(event.member).label}</span>
           <span>left</span>
           <span>· {new Date(event.at).toLocaleString()}</span>
         </div>

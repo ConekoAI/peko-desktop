@@ -59,7 +59,7 @@ pub async fn principal_list(
     let value = client
         .principal_list()
         .await
-        .map_err(|e| format!("principal_list failed: {e}"))?;
+        .map_err(|e| format!("Couldn't list your pekos: {e}"))?;
 
     let empty = Vec::new();
     let items = value
@@ -146,7 +146,7 @@ pub async fn principal_get(
     let value = client
         .principal_get(&name)
         .await
-        .map_err(|e| format!("principal_get failed: {e}"))?;
+        .map_err(|e| format!("Couldn't load the peko: {e}"))?;
 
     Ok(project_principal_get_envelope(&value, &runtime_id))
 }
@@ -207,7 +207,7 @@ pub async fn principal_create(
     let value = client
         .principal_create(&name, description.as_deref(), &model_id, seed.as_deref())
         .await
-        .map_err(|e| format!("principal_create failed: {e}"))?;
+        .map_err(|e| format!("Couldn't create the peko: {e}"))?;
     project_principal_create_envelope(&value, &name)
 }
 
@@ -217,26 +217,26 @@ pub async fn principal_create(
 /// so this is only a UX win, not a security boundary.
 fn validate_principal_name(name: &str) -> Result<(), String> {
     if name.is_empty() || name.len() > 64 {
-        return Err(format!("invalid principal name: {name:?}"));
+        return Err(format!("invalid peko name: {name:?}"));
     }
     // Mirror the runtime's explicit `..` rule (PR #241). The
     // per-char alphanumeric check below incidentally rejects "."
     // and "..", but the explicit check makes the intent obvious and
     // survives a future regex loosening.
     if name == ".." || name == "." || name.contains("..") {
-        return Err(format!("invalid principal name: {name:?}"));
+        return Err(format!("invalid peko name: {name:?}"));
     }
     if name.starts_with('-') || name.ends_with('-') {
-        return Err(format!("invalid principal name: {name:?}"));
+        return Err(format!("invalid peko name: {name:?}"));
     }
     if name.contains('/') || name.contains('\\') {
-        return Err(format!("invalid principal name: {name:?}"));
+        return Err(format!("invalid peko name: {name:?}"));
     }
     if name
         .chars()
         .any(|c| !c.is_ascii_alphanumeric() && c != '-' && c != '_')
     {
-        return Err(format!("invalid principal name: {name:?}"));
+        return Err(format!("invalid peko name: {name:?}"));
     }
     Ok(())
 }
@@ -264,7 +264,7 @@ fn project_principal_create_envelope(
             .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown runtime error");
-        return Err(format!("principal_create failed: {message}"));
+        return Err(format!("Couldn't create the peko: {message}"));
     }
     let p = value
         .get("principal")
@@ -326,7 +326,7 @@ pub async fn principal_update(req: PrincipalUpdateRequest) -> Result<PrincipalSu
             req.avatar.as_deref(),
         )
         .await
-        .map_err(|e| format!("principal_update failed: {e}"))?;
+        .map_err(|e| format!("Couldn't update the peko: {e}"))?;
     project_principal_update_envelope(&value, &runtime_id)
 }
 
@@ -348,7 +348,7 @@ pub async fn principal_remove(name: String, runtime_id: Option<String>) -> Resul
     let value = client
         .principal_remove(&name)
         .await
-        .map_err(|e| format!("principal_remove failed: {e}"))?;
+        .map_err(|e| format!("Couldn't remove the peko: {e}"))?;
     project_principal_remove_envelope(&value)
 }
 
@@ -364,7 +364,7 @@ fn project_principal_update_envelope(
             .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown runtime error");
-        return Err(format!("principal_update failed: {message}"));
+        return Err(format!("Couldn't update the peko: {message}"));
     }
     let p = value
         .get("principal")
@@ -385,7 +385,7 @@ fn project_principal_remove_envelope(value: &serde_json::Value) -> Result<bool, 
             .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown runtime error");
-        return Err(format!("principal_remove failed: {message}"));
+        return Err(format!("Couldn't remove the peko: {message}"));
     }
     value
         .get("removed")
@@ -419,7 +419,7 @@ pub async fn principal_send(
             client
                 .principal_send(name, message)
                 .await
-                .map_err(|e| format!("principal_send failed: {e}"))
+                .map_err(|e| format!("Couldn't send the message: {e}"))
         }
         // A remote peko: post to the DM; its reply arrives on the thread.
         crate::state::ResolvedRuntime::HubRemote(client) => {
@@ -503,7 +503,7 @@ pub async fn principal_send_stream(
                     },
                 )
                 .await
-                .map_err(|e| format!("principal_send_stream failed: {e}"))?;
+                .map_err(|e| format!("Couldn't send the message: {e}"))?;
             rx.await.map_err(|e| format!("supervisor task died: {e}"))?
         }
         // A remote peko: post to the DM, files included (runtime ADR-094:
@@ -546,12 +546,12 @@ pub async fn principal_stop(
     let value = client
         .principal_stop(&name, peer.as_deref())
         .await
-        .map_err(|e| format!("principal_stop failed: {e}"))?;
+        .map_err(|e| format!("Couldn't stop the peko: {e}"))?;
     if crate::ipc::is_error_response(&value) {
         return Err(value
             .get("message")
             .and_then(|v| v.as_str())
-            .unwrap_or("principal_stop failed")
+            .unwrap_or("Couldn't stop the peko")
             .to_string());
     }
     Ok(value)
@@ -690,7 +690,7 @@ pub async fn principal_log(
             client
                 .principal_log(&name, peer.as_deref(), limit, since_secs, cursor.as_deref())
                 .await
-                .map_err(|e| format!("principal_log failed: {e}"))
+                .map_err(|e| format!("Couldn't load the conversation: {e}"))
         }
         crate::state::ResolvedRuntime::HubRemote(client) => {
             let _ = since_secs;
@@ -740,7 +740,7 @@ pub async fn principal_set_status(
     client
         .principal_set_status(&name, &status)
         .await
-        .map_err(|e| format!("principal_set_status failed: {e}"))
+        .map_err(|e| format!("Couldn't change the peko's status: {e}"))
 }
 
 /// Error prefix the frontend matches on to show the "already exposed
@@ -788,7 +788,7 @@ pub async fn principal_register(
     let value = client
         .principal_register(&name, &exposure)
         .await
-        .map_err(|e| format!("principal_register failed: {e}"))?;
+        .map_err(|e| format!("Couldn't put the peko online: {e}"))?;
     if crate::ipc::is_error_response(&value) {
         let message = value
             .get("message")
@@ -821,7 +821,7 @@ pub async fn principal_grant_permission(
     client
         .principal_grant_permission(&name, &subject, &permission)
         .await
-        .map_err(|e| format!("principal_grant_permission failed: {e}"))
+        .map_err(|e| format!("Couldn't grant the permission: {e}"))
 }
 
 /// Revoke a previously-granted permission on a local principal.
@@ -841,7 +841,7 @@ pub async fn principal_revoke_permission(
     client
         .principal_revoke_permission(&name, &subject, &permission)
         .await
-        .map_err(|e| format!("principal_revoke_permission failed: {e}"))
+        .map_err(|e| format!("Couldn't revoke the permission: {e}"))
 }
 
 /// List the permissions currently granted on a local principal.
@@ -860,7 +860,7 @@ pub async fn principal_permissions(
     client
         .principal_permissions(&name)
         .await
-        .map_err(|e| format!("principal_permissions failed: {e}"))
+        .map_err(|e| format!("Couldn't load the permissions: {e}"))
 }
 
 /// PR #11: mint a signed invite token for a local principal.
@@ -897,7 +897,7 @@ pub async fn principal_mint_invite(
     client
         .principal_mint_invite(&name, scope, ttl_secs)
         .await
-        .map_err(|e| format!("principal_mint_invite failed: {e}"))
+        .map_err(|e| format!("Couldn't create the invite link: {e}"))
 }
 
 /// PR #11: revoke a previously-minted invite token. Adds the `jti`
@@ -917,7 +917,7 @@ pub async fn principal_revoke_invite(
     client
         .principal_revoke_invite(&name, &jti)
         .await
-        .map_err(|e| format!("principal_revoke_invite failed: {e}"))
+        .map_err(|e| format!("Couldn't revoke the invite: {e}"))
 }
 
 /// Export a local principal as a `.peko` full-existence package
@@ -942,8 +942,8 @@ pub async fn principal_export(
     let value = client
         .principal_export(&name, output.as_deref())
         .await
-        .map_err(|e| format!("principal_export failed: {e}"))?;
-    error_envelope_to_err(&value, "principal_export")?;
+        .map_err(|e| format!("Couldn't export the peko: {e}"))?;
+    error_envelope_to_err(&value, "Couldn't export the peko")?;
     Ok(value)
 }
 
@@ -978,8 +978,8 @@ pub async fn principal_import(
             rotate_keys.unwrap_or(false),
         )
         .await
-        .map_err(|e| format!("principal_import failed: {e}"))?;
-    error_envelope_to_err(&value, "principal_import")?;
+        .map_err(|e| format!("Couldn't import the peko: {e}"))?;
+    error_envelope_to_err(&value, "Couldn't import the peko")?;
 
     // Runtime requirement: the import materializes the workspace but
     // the daemon only treats the peko as live after a reload.
@@ -991,8 +991,8 @@ pub async fn principal_import(
         let reload = client
             .principal_reload(&imported_name)
             .await
-            .map_err(|e| format!("principal_import: reload failed: {e}"))?;
-        if let Err(e) = error_envelope_to_err(&reload, "principal_reload") {
+            .map_err(|e| format!("Couldn't import the peko: reload failed: {e}"))?;
+        if let Err(e) = error_envelope_to_err(&reload, "Couldn't reload your pekos") {
             return Err(format!(
                 "imported '{imported_name}' but failed to load it into the running daemon: {e}"
             ));
@@ -1019,8 +1019,8 @@ pub async fn principal_import_preview(
     let value = client
         .principal_import_preview(&file_path, name.as_deref(), rotate_keys.unwrap_or(false))
         .await
-        .map_err(|e| format!("principal_import_preview failed: {e}"))?;
-    error_envelope_to_err(&value, "principal_import_preview")?;
+        .map_err(|e| format!("Couldn't read the .peko file: {e}"))?;
+    error_envelope_to_err(&value, "Couldn't read the .peko file")?;
     Ok(value)
 }
 
@@ -1041,21 +1041,23 @@ pub async fn principal_reload(
     let value = client
         .principal_reload(&name)
         .await
-        .map_err(|e| format!("principal_reload failed: {e}"))?;
-    error_envelope_to_err(&value, "principal_reload")?;
+        .map_err(|e| format!("Couldn't reload your pekos: {e}"))?;
+    error_envelope_to_err(&value, "Couldn't reload your pekos")?;
     Ok(value)
 }
 
 /// Map a runtime `{type: "error", message}` envelope to `Err` so
 /// callers get Tauri-idiomatic failures instead of having to inspect
-/// the envelope themselves. `Ok(())` for any other envelope.
+/// the envelope themselves. `Ok(())` for any other envelope. `op` is
+/// the sentence the user sees before the runtime's reason, such as
+/// "Couldn't export the peko".
 fn error_envelope_to_err(value: &serde_json::Value, op: &str) -> Result<(), String> {
     if value.get("type").and_then(|v| v.as_str()) == Some("error") {
         let message = value
             .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown runtime error");
-        return Err(format!("{op} failed: {message}"));
+        return Err(format!("{op}: {message}"));
     }
     Ok(())
 }
@@ -1219,7 +1221,7 @@ mod tests {
         let envelope = serde_json::json!({
             "type": "error",
             "request_id": 1,
-            "message": "principal_create failed: model id 'gpt-x' is not configured"
+            "message": "model id 'gpt-x' is not configured"
         });
         let err = project_principal_create_envelope(&envelope, "alice")
             .expect_err("error envelope should fail projection");
@@ -1230,7 +1232,7 @@ mod tests {
         // And it's clearly framed as a runtime failure, not a
         // wire-shape complaint.
         assert!(
-            err.starts_with("principal_create failed"),
+            err.starts_with("Couldn't create the peko"),
             "error must be prefixed to distinguish from protocol errors, got: {err}"
         );
     }
@@ -1318,12 +1320,12 @@ mod tests {
     #[test]
     fn test_error_envelope_to_err() {
         let err_env = serde_json::json!({"type": "error", "message": "boom"});
-        let err = error_envelope_to_err(&err_env, "principal_export").unwrap_err();
-        assert_eq!(err, "principal_export failed: boom");
+        let err = error_envelope_to_err(&err_env, "Couldn't export the peko").unwrap_err();
+        assert_eq!(err, "Couldn't export the peko: boom");
 
         let ok_env =
             serde_json::json!({"type": "principal_exported", "output_path": "/tmp/a.peko"});
-        assert!(error_envelope_to_err(&ok_env, "principal_export").is_ok());
+        assert!(error_envelope_to_err(&ok_env, "Couldn't export the peko").is_ok());
     }
 
     /// A seed over 64 KB is refused before anything reaches the daemon.
@@ -1355,7 +1357,7 @@ mod tests {
         )
         .await
         .expect_err("invalid name must fail validation");
-        assert!(err.contains("invalid principal name"), "got: {err}");
+        assert!(err.contains("invalid peko name"), "got: {err}");
     }
 }
 

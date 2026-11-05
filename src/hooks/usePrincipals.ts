@@ -103,7 +103,7 @@ export function usePrincipal(name: string | undefined, runtimeId?: RuntimeId) {
   return useQuery({
     queryKey: ["principals", rid, name],
     queryFn: () => {
-      if (!name) throw new Error("principal name required");
+      if (!name) throw new Error("peko name required");
       return principalGet(name, rid);
     },
     enabled: !!name,
@@ -470,7 +470,7 @@ export function usePrincipalLog(
   return useQuery({
     queryKey: ["principal-log", rid, name, peer ?? "owner"],
     queryFn: () => {
-      if (!name) throw new Error("principal name required");
+      if (!name) throw new Error("peko name required");
       return principalLog({ name, peer, limit: 100, runtimeId: rid });
     },
     enabled: !!name,

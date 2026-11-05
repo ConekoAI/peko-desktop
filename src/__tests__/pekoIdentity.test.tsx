@@ -63,6 +63,6 @@ describe("resolveActor", () => {
   it("calls the local user You and keeps unknown actors readable", () => {
     expect(resolveActor("user:local", pekos)).toMatchObject({ label: "You", isYou: true });
     expect(resolveActor("user:hub:9a2f", pekos).label).toBe("9a2f");
-    expect(resolveActor("principal:hub:7f1c", pekos).label).toBe("principal:hub:7f1c");
+    expect(resolveActor("principal:hub:7f1c", pekos).label).toBe("peko:hub:7f1c");
   });
 });

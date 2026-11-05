@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import { usePrincipals, type PrincipalSummary } from "./usePrincipals";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
+import { shownAddress } from "../lib/format";
 
 /** How an actor (a channel member or author) is shown. */
 export interface ActorDisplay {
@@ -29,7 +30,7 @@ export function resolveActor(actor: string, pekos: PrincipalSummary[]): ActorDis
   if (peko) {
     return { label: peko.name, peko: pekoIdentity(peko), isYou: false };
   }
-  return { label: actor.replace(/^user:(hub:)?/, ""), peko: null, isYou: false };
+  return { label: shownAddress(actor.replace(/^user:(hub:)?/, "")), peko: null, isYou: false };
 }
 
 /** `resolveActor` bound to the current peko list, and identities by name. */
