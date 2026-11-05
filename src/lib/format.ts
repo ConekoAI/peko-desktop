@@ -52,5 +52,8 @@ export function formatTokens(count: number): string {
  * shows `peko:…`. Other addresses are unchanged.
  */
 export function shownAddress(address: string): string {
-  return address.startsWith("principal:") ? `peko:${address.slice("principal:".length)}` : address;
+  if (!address.startsWith("principal:")) return address;
+  const rest = address.slice("principal:".length);
+  // A local route is written bare (`principal:prin_x`); show its scope.
+  return rest.startsWith("local:") || rest.startsWith("hub:") ? `peko:${rest}` : `peko:local:${rest}`;
 }
