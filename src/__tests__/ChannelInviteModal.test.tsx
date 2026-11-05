@@ -177,6 +177,34 @@ describe("ChannelInviteModal", () => {
     ).toBeInTheDocument();
   });
 
+  it("recognizes members listed by address, as the runtime sends them", () => {
+    usePrincipalsMock.mockReturnValue({
+      data: [
+        { name: "bo", localId: "prin_bo" },
+        { name: "ada", localId: "prin_ada" },
+      ],
+      isLoading: false,
+    });
+    renderModal({
+      detail: {
+        channelId: "chan_alpha",
+        runtimeId: "local",
+        name: "alpha",
+        creator: "bo",
+        createdAt: "2026-08-06T12:00:00Z",
+        memberCount: 2,
+      },
+      members: {
+        channelId: "chan_alpha",
+        runtimeId: "local",
+        members: ["principal:prin_bo", "user:local"],
+      },
+    });
+    expect(screen.queryByText(/Only a member can add others/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^bo$/)).not.toBeInTheDocument();
+    expect(screen.getByText("ada")).toBeInTheDocument();
+  });
+
   it("surfaces mutation errors inline", () => {
     useChannelInviteMock.mockReturnValue({
       ...idleMut,

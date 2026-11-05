@@ -48,15 +48,27 @@ export default function ChannelInviteModal({
     [members?.members],
   );
 
+  // Members come as addresses (`principal:<local id>`, or with `local:`);
+  // match local pekos by address as well as by name.
+  const isLocalMember = useMemo(() => {
+    return (p: { name: string; localId?: string | null }) =>
+      memberSet.has(p.name) ||
+      (!!p.localId &&
+        (memberSet.has(`principal:${p.localId}`) ||
+          memberSet.has(`principal:local:${p.localId}`)));
+  }, [memberSet]);
+
   // Build the unified list. Local principals are filtered to those
   // that AREN'T already members. Remote principals (whose DID carries
   // the `@<runtime-id>` suffix) get the same filter.
   const candidates = useMemo(() => {
-    const locals = (principals ?? []).map((p) => ({
-      kind: "local" as const,
-      name: p.name,
-      label: p.description ? `${p.name} — ${p.description}` : p.name,
-    }));
+    const locals = (principals ?? [])
+      .filter((p) => !isLocalMember(p))
+      .map((p) => ({
+        kind: "local" as const,
+        name: p.name,
+        label: p.description ? `${p.name} — ${p.description}` : p.name,
+      }));
     const remoteRows = (remotes ?? []).map((r) => {
       // Remote DID form: `<principal_name>@<hub_url>`. Matches the
       // runtime's `@<runtime-id>` suffix convention.
@@ -68,7 +80,7 @@ export default function ChannelInviteModal({
       };
     });
     return [...locals, ...remoteRows].filter((c) => !memberSet.has(c.name));
-  }, [principals, remotes, memberSet]);
+  }, [principals, remotes, memberSet, isLocalMember]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return candidates;
@@ -85,12 +97,15 @@ export default function ChannelInviteModal({
   // creator is local; otherwise the first local member.
   const inviterName = useMemo(() => {
     const creator = detail?.creator;
-    if (creator && memberSet.has(creator) && (principals ?? []).some((p) => p.name === creator)) {
-      return creator;
-    }
-    const firstLocalMember = (principals ?? []).find((p) => memberSet.has(p.name));
-    return firstLocalMember?.name ?? null;
-  }, [detail?.creator, memberSet, principals]);
+    const localMembers = (principals ?? []).filter(isLocalMember);
+    const creatorPeko = localMembers.find(
+      (p) =>
+        p.name === creator ||
+        (!!p.localId &&
+          (creator === `principal:${p.localId}` || creator === `principal:local:${p.localId}`)),
+    );
+    return (creatorPeko ?? localMembers[0])?.name ?? null;
+  }, [detail?.creator, isLocalMember, principals]);
 
   const inviteMut = useChannelInvite(channel);
 
