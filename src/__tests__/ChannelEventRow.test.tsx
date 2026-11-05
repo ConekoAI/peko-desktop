@@ -13,6 +13,7 @@ import { render, screen } from "@testing-library/react";
 
 // Pekos on this runtime: actors resolve to their names.
 vi.mock("../hooks/usePrincipals", () => ({
+  useLocalUserAccount: () => ({ data: null }),
   usePrincipals: () => ({
     data: [
       { name: "alice", localId: "prin_alice", avatar: "🦊", runtimeId: "local" },

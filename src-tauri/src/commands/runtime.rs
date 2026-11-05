@@ -91,6 +91,47 @@ fn hub_registration_from(value: &serde_json::Value) -> Result<HubRegistration, S
     }
 }
 
+/// The PekoHub account this computer's person (the runtime's local
+/// user) is linked to (runtime ADR-081 D3). A peko owned by
+/// `user:hub:<id>` is theirs as much as one owned by `user:local`.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalUserAccount {
+    /// The account's UUID.
+    pub id: String,
+    /// Its name as PekoHub gave it at registration.
+    pub name: Option<String>,
+}
+
+/// The local user's linked PekoHub account, or `None` when the runtime
+/// isn't registered (or predates reporting it).
+#[tauri::command]
+pub async fn local_user_account() -> Result<Option<LocalUserAccount>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let status = client
+        .tunnel_status()
+        .await
+        .map_err(|e| format!("tunnel_status failed: {e}"))?;
+    Ok(local_user_account_from(&status))
+}
+
+fn local_user_account_from(status: &serde_json::Value) -> Option<LocalUserAccount> {
+    let text = |key: &str| {
+        status
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    Some(LocalUserAccount {
+        id: text("account")?,
+        name: text("account_name"),
+    })
+}
+
 /// What disconnecting this computer from PekoHub came to.
 #[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -516,5 +557,27 @@ mod hub_registration_tests {
         // A daemon that predates `runtime_register` answers something else.
         let old = serde_json::json!({"type": "done", "success": false});
         assert!(hub_registration_from(&old).unwrap_err().contains("too old"));
+    }
+
+    #[test]
+    fn tunnel_status_maps_to_the_linked_account() {
+        let linked = serde_json::json!({
+            "type": "tunnel_status",
+            "connected": true,
+            "account": "0b6c7a4e-0000-4000-8000-000000000000",
+            "account_name": "Alice",
+        });
+        assert_eq!(
+            local_user_account_from(&linked),
+            Some(LocalUserAccount {
+                id: "0b6c7a4e-0000-4000-8000-000000000000".into(),
+                name: Some("Alice".into()),
+            })
+        );
+        let unnamed = serde_json::json!({"type": "tunnel_status", "account": "acct"});
+        assert_eq!(local_user_account_from(&unnamed).unwrap().name, None);
+        // Unregistered, or a daemon that predates the field.
+        let none = serde_json::json!({"type": "tunnel_status", "connected": false});
+        assert_eq!(local_user_account_from(&none), None);
     }
 }

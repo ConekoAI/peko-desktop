@@ -371,6 +371,7 @@ export async function afterPekohubSignIn(qc: QueryClient): Promise<void> {
     qc.invalidateQueries({ queryKey: ["credentials", "pekohub"] }),
     qc.invalidateQueries({ queryKey: ["hub-notifications"] }),
     qc.invalidateQueries({ queryKey: ["hub-account"] }),
+    qc.invalidateQueries({ queryKey: ["local-user-account"] }),
   ]);
 }
 
