@@ -40,13 +40,16 @@ const principalState: { data: unknown; isLoading: boolean } = {
 const updateState: MutState = idleMut();
 const removeState: MutState = idleMut();
 const exportState: MutState = idleMut();
+const linkedAccountState: { data: { id: string; name: string | null } | null } = {
+  data: null,
+};
 
 vi.mock("../hooks/usePrincipals", () => ({
   usePrincipal: () => principalState,
   usePrincipalUpdate: () => updateState,
   usePrincipalRemove: () => removeState,
   usePrincipalExport: () => exportState,
-  useCallerSubject: () => "alice",
+  useLocalUserAccount: () => linkedAccountState,
 }));
 
 vi.mock("../hooks/usePrincipalStatus", () => ({
@@ -96,7 +99,7 @@ const LOCAL_PUBLIC = {
   status: "online",
   description: "personal assistant",
   preferredModelId: null,
-  owner: "alice",
+  owner: "user:local",
   runtimeId: "local",
 };
 
@@ -117,6 +120,7 @@ describe("PrincipalProfileModal", () => {
     principalRegisterMock.mockReset();
     principalState.data = undefined;
     principalState.isLoading = false;
+    linkedAccountState.data = null;
     for (const s of [updateState, removeState, exportState]) {
       s.error = null;
       s.isPending = false;
@@ -263,9 +267,28 @@ describe("PrincipalProfileModal", () => {
   it("names the owner \"You\" and hides the runtime of a local peko", () => {
     renderModal();
     const owner = screen.getByText("Owner").parentElement!;
-    expect(owner).toHaveTextContent("You");
+    expect(owner).toHaveTextContent("You (this computer only)");
     expect(screen.queryByText("Runtime")).toBeNull();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("names the linked PekoHub account, under either of the person's addresses", () => {
+    const id = "0b6c7a4e-0000-4000-8000-000000000000";
+    linkedAccountState.data = { id, name: "Alice" };
+    for (const address of ["user:local", `user:hub:${id}`]) {
+      const { unmount } = renderModal({ ...LOCAL_PUBLIC, owner: address });
+      const owner = screen.getByText("Owner").parentElement!;
+      expect(owner).toHaveTextContent("You (Alice on PekoHub)");
+      unmount();
+    }
+  });
+
+  it("shows someone else's address as the owner, not \"You\"", () => {
+    linkedAccountState.data = { id: "0b6c7a4e-0000-4000-8000-000000000000", name: "Alice" };
+    renderModal({ ...LOCAL_PUBLIC, owner: "user:hub:9a2f0000-0000-4000-8000-000000000000" });
+    const owner = screen.getByText("Owner").parentElement!;
+    expect(owner).toHaveTextContent("user:hub:9a2f0000-0000-4000-8000-000000000000");
+    expect(owner).not.toHaveTextContent("You");
   });
 });
 

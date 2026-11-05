@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  useCallerSubject,
+  useLocalUserAccount,
   usePrincipal,
   usePrincipalExport,
   usePrincipalRemove,
@@ -13,6 +13,7 @@ import {
   statusBadge,
   type PrincipalStatusValue,
 } from "../../hooks/usePrincipalStatus";
+import { isLocalUser } from "../../hooks/usePekoDirectory";
 import { useModels } from "../../hooks/useModels";
 import { useSettings } from "../../hooks/useSettings";
 import {
@@ -22,6 +23,7 @@ import {
   principalMintInvite,
   principalRegister,
   principalRevokeInvite,
+  type LocalUserAccount,
   type MintedInvite,
 } from "../../lib/api";
 import type { ModelSummary, PekoRegistration } from "../../types";
@@ -78,6 +80,19 @@ function registrationLabel(exposure: string | undefined): string {
 }
 
 /**
+ * The Owner row. This computer's person is one owner whether the
+ * runtime calls them `user:local` or by their linked PekoHub account
+ * (runtime ADR-081 D3), so both read "You", with the account when
+ * there is one.
+ */
+export function ownerLabel(owner: string, linked: LocalUserAccount | null | undefined): string {
+  if (!owner) return "—";
+  if (!isLocalUser(owner, linked?.id)) return owner;
+  if (!linked) return "You (this computer only)";
+  return linked.name ? `You (${linked.name} on PekoHub)` : "You (on PekoHub)";
+}
+
+/**
  * Backend error prefix for the one-online-copy gate (ADR-081):
  * registering a peko the hub already has registered from another
  * runtime rejects with a message starting with this tag. The modal renders a dedicated inline
@@ -129,7 +144,7 @@ function LocalPekoProfile({
   // (same source the share-link panel uses below) so polling lands
   // on the same hub that minted the share URL.
   const isRemote = !!principal && principal.runtimeId !== "local" && !!principal.runtimeId;
-  const caller = useCallerSubject();
+  const { data: linkedAccount } = useLocalUserAccount();
   const statusQuery = usePrincipalStatus(
     principal?.runtimeId ?? "local",
     principalName,
@@ -505,7 +520,7 @@ function LocalPekoProfile({
                   "—"
                 }
               />
-              <Row label="Owner" value={principal.owner === caller ? "You" : principal.owner} />
+              <Row label="Owner" value={ownerLabel(principal.owner, linkedAccount)} />
               {isRemote && <Row label="Runtime" value={principal.runtimeId} />}
               {!isRemote && <UsagePanel name={principal.name} priced={modelIsPriced} />}
               {/* Public share link (PR-D). Only meaningful when exposure

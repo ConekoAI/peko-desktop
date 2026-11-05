@@ -8,6 +8,7 @@ import {
 
 import {
   principalApprovals,
+  localUserAccount,
   principalCreate,
   principalDecideApproval,
   principalExport,
@@ -259,26 +260,28 @@ export function usePrincipalImport() {
 // ─── Caller identity (for the ADR-042 privacy gate) ─────────────
 
 /**
- * Best-effort caller identity for the desktop.
- *
- * The desktop reads the active runtime's "local user" from the runtime
- * via `principal_list` (the `owner` field on each principal that the
- * local user owns). For a multi-user install the caller is the
- * `user:<hub-user-id>` Subject that was used to log into PekoHub; for
- * a single-user install the runtime exposes a single local DID. This
- * hook returns the Subject string the privacy-gate UI passes to
- * `principal_log` when the caller is not the principal's owner.
+ * Who the desktop speaks as: always the runtime's local user (runtime
+ * ADR-081 D3 — the terminal is the local user, signed in or not). The
+ * privacy-gate UI passes it to `principal_log` as the peer. Signing in
+ * doesn't change it: the runtime links the PekoHub account to the same
+ * local user (see `useLocalUserAccount`).
  */
 export function useCallerSubject(): string {
-  // Caller identity is always local — the dot keystore / vault key
-  // identity is the desktop user's own. Remote principals live in
-  // pekohub's identity space; their `owner` field comes back as a
-  // pekohub user id, not this desktop's identity.
-  const { data: principals } = usePrincipals();
-  if (!principals || principals.length === 0) return "user:local";
-  // Pick any owned principal — every owned principal shares an owner.
-  const owned = principals.find((p) => p.owner && p.owner !== "");
-  return owned?.owner || "user:local";
+  return "user:local";
+}
+
+/**
+ * The PekoHub account this computer's person is linked to, or `null`
+ * when the runtime isn't registered. A peko owned by
+ * `user:hub:<id>` of this account is the person's own.
+ */
+export function useLocalUserAccount() {
+  return useQuery({
+    queryKey: ["local-user-account"],
+    queryFn: localUserAccount,
+    staleTime: 60_000,
+    retry: false,
+  });
 }
 
 // ─── Principal send (chat) ──────────────────────────────────────

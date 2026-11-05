@@ -59,6 +59,7 @@ vi.mock("@tanstack/react-router", () => ({
 
 const usePrincipalsMock = vi.fn();
 vi.mock("../hooks/usePrincipals", () => ({
+  useLocalUserAccount: () => ({ data: null }),
   usePrincipals: (...args: unknown[]) => usePrincipalsMock(...args),
 }));
 

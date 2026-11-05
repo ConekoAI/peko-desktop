@@ -135,6 +135,8 @@ export default function ProfileMenu() {
         return;
       }
       setDisconnect(null);
+      // The local user is no longer linked to the account.
+      void queryClient.invalidateQueries({ queryKey: ["local-user-account"] });
       logout.mutate(pekohubBaseUrl);
     } catch (err) {
       setDisconnect(null);

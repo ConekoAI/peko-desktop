@@ -65,4 +65,10 @@ describe("resolveActor", () => {
     expect(resolveActor("user:hub:9a2f", pekos).label).toBe("9a2f");
     expect(resolveActor("principal:hub:7f1c", pekos).label).toBe("peko:hub:7f1c");
   });
+
+  it("calls the linked PekoHub account You, and only that account", () => {
+    expect(resolveActor("user:hub:9a2f", pekos, "9a2f")).toMatchObject({ label: "You", isYou: true });
+    expect(resolveActor("user:hub:7777", pekos, "9a2f").isYou).toBe(false);
+    expect(resolveActor("user:local", pekos, "9a2f").isYou).toBe(true);
+  });
 });

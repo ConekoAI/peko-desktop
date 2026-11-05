@@ -1100,6 +1100,22 @@ export async function runtimeHubDisconnect(hub: string, discardUnsent: boolean):
 }
 
 /**
+ * The PekoHub account this computer's person is linked to (runtime
+ * ADR-081 D3). Signing in registers the runtime, which links the local
+ * user to the account: it stays one person, also addressed as
+ * `user:hub:<id>`. `null` when the runtime isn't registered.
+ */
+export interface LocalUserAccount {
+  id: string;
+  /** The account's name as PekoHub gave it at registration. */
+  name: string | null;
+}
+
+export async function localUserAccount(): Promise<LocalUserAccount | null> {
+  return invoke<LocalUserAccount | null>("local_user_account");
+}
+
+/**
  * Wait for an OAuth callback redirect on `127.0.0.1:<port>`.
  *
  * D6: the Tauri command spawns a localhost HTTP server and resolves
