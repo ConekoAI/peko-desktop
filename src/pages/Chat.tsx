@@ -20,7 +20,8 @@ import {
 } from "../components/chat/Attachments";
 import { useFileDrop } from "../hooks/useFileDrop";
 import { attachmentStage, pickAttachments } from "../lib/api";
-import { useModels } from "../hooks/useModels";
+import { useModels, useRemotePekoModels } from "../hooks/useModels";
+import { saveModelChoice, savedModelChoice } from "../lib/modelChoice";
 import { useRemotePeko, useRemotePrincipals } from "../hooks/useRemotePrincipals";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
@@ -542,17 +543,34 @@ export default function Chat() {
   // When the peko started on the message it is working on.
   const [workStartedAt, setWorkStartedAt] = useState<number | null>(null);
   const workingSecs = useElapsed(workStartedAt, isStreaming);
-  // The model for the next message; `null` is the peko's own. Resets
-  // when switching pekos.
-  const [modelChoice, setModelChoice] = useState<string | null>(null);
-  const { data: models } = useModels();
-  const composerModels = useMemo<ComposerModel[]>(
-    () =>
-      (models ?? [])
-        .filter((m) => m.enabled)
-        .map((m) => ({ id: m.id, displayName: m.displayName || m.id })),
-    [models],
+  // The model for the next message; `null` is the peko's own. Each
+  // peko keeps its own pick (`lib/modelChoice`), across switches and
+  // restarts.
+  const [modelChoice, setModelChoiceState] = useState<string | null>(() =>
+    savedModelChoice(selectedPrincipal, runtimeId),
   );
+  function setModelChoice(model: string | null) {
+    setModelChoiceState(model);
+    if (selectedPrincipal) saveModelChoice(selectedPrincipal, runtimeId, model);
+  }
+  const { data: models } = useModels();
+  // A peko of yours on another computer runs on that computer's models
+  // (runtime ADR-097); other people's pekos offer no pick.
+  const ownRemote = runtimeId !== "local" && !!remotePeko?.fromAccount;
+  const { data: hostModels } = useRemotePekoModels(runtimeId, selectedPrincipal, ownRemote);
+  const composerModels = useMemo<ComposerModel[]>(() => {
+    if (runtimeId === "local") {
+      return (models ?? [])
+        .filter((m) => m.enabled)
+        .map((m) => ({ id: m.id, displayName: m.displayName || m.id }));
+    }
+    return ownRemote ? (hostModels ?? []) : [];
+  }, [runtimeId, ownRemote, models, hostModels]);
+  // A remembered pick that is not offered (yet, or any more) shows and
+  // sends as the peko's own model; it stays remembered in case it comes
+  // back.
+  const effectiveModel =
+    modelChoice && composerModels.some((m) => m.id === modelChoice) ? modelChoice : null;
   // How the peko works — thinking, tools, steps — stays inside it; the
   // chat shows only that it is working. `awaitingToken` is true while
   // no text of the current step has arrived yet (the indicator shows),
@@ -576,11 +594,11 @@ export default function Chat() {
     setChatItems([]);
     setQueuedItems([]);
     setPendingFiles([]);
-    setModelChoice(null);
+    setModelChoiceState(savedModelChoice(selectedPrincipal, runtimeId));
     setError(null);
     setOlder([]);
     setOlderCursor(undefined);
-  }, [selectedPrincipal]);
+  }, [selectedPrincipal, runtimeId]);
 
   // Until an older page is loaded, the next one starts where the
   // latest page ends.
@@ -725,7 +743,7 @@ export default function Chat() {
         name: selectedPrincipal,
         message,
         runtimeId,
-        overrideModel: modelChoice ?? undefined,
+        overrideModel: effectiveModel ?? undefined,
         attachments: files,
         onEvent: (msg: ChatStreamMsg) => {
           if (msg.kind === "queued" || msg.kind === "runSummary") return;
@@ -984,8 +1002,8 @@ export default function Chat() {
           value={input}
           onChange={setInput}
           onSend={handleSend}
-          models={runtimeId === "local" ? composerModels : []}
-          model={modelChoice}
+          models={composerModels}
+          model={effectiveModel}
           onModelChange={setModelChoice}
           attachments={pendingFiles}
           onAttach={canAttach ? () => void chooseFiles() : undefined}
