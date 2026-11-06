@@ -44,6 +44,17 @@ describe("UsagePanel", () => {
     expect(await screen.findByTestId("usage-spend")).toHaveTextContent("$0.09 of $0.06 budget");
     expect(screen.getByTestId("usage-over-budget")).toBeInTheDocument();
     expect(screen.getByText(/81.7K in · 19 out · 2 requests/)).toBeInTheDocument();
+    expect(screen.queryByTestId("usage-cached")).not.toBeInTheDocument();
+  });
+
+  it("names the cached part of the input", async () => {
+    const data = usage(0.01);
+    api.principalUsage.mockResolvedValue({
+      ...data,
+      state: { ...data.state, cache_read_tokens: 75000 },
+    });
+    wrap(<UsagePanel name="seer" priced />);
+    expect(await screen.findByTestId("usage-cached")).toHaveTextContent("(75.0K cached)");
   });
 
   it("sets a budget, keeping the other limits", async () => {

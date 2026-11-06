@@ -36,6 +36,12 @@ pub struct ModelPricingHint {
     pub input_per_million: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_per_million: Option<f64>,
+    /// Price of input read from the prompt cache; `None` = input price.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read_per_million: Option<f64>,
+    /// Price of input written to the prompt cache; `None` = input price.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write_per_million: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]

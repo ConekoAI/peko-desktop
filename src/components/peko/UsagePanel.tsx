@@ -120,7 +120,11 @@ export default function UsagePanel({
         </div>
       )}
       <p className="mt-1.5 text-[11px] text-fg-muted">
-        {formatTokens(state.input_tokens)} in · {formatTokens(state.output_tokens)} out ·{" "}
+        {formatTokens(state.input_tokens)} in
+        {(state.cache_read_tokens ?? 0) > 0 && (
+          <span data-testid="usage-cached"> ({formatTokens(state.cache_read_tokens ?? 0)} cached)</span>
+        )}{" "}
+        · {formatTokens(state.output_tokens)} out ·{" "}
         {state.request_count} {state.request_count === 1 ? "request" : "requests"}
       </p>
       {over && (

@@ -40,11 +40,13 @@ export default function PriceFields({
       <div className="flex flex-wrap gap-3">
         {field("input", "Input")}
         {field("output", "Output")}
+        {field("cacheRead", "Cached input")}
+        {field("cacheWrite", "Cache write")}
       </div>
       <p className={`mt-1 text-[11px] ${invalid ? "text-danger" : "text-fg-subtle"}`}>
         {invalid
           ? "Enter amounts of $0 or more."
-          : "From your provider's pricing page. With a price, pekos' spend on this model counts toward their budgets."}
+          : "From your provider's pricing page. With a price, pekos' spend on this model counts toward their budgets. Leave the cache prices empty to count cached input at the input price."}
       </p>
     </fieldset>
   );
