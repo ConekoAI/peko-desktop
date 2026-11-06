@@ -5,6 +5,7 @@ import {
   pekohubListAccessiblePekos,
   remotePrincipalAdd,
   remotePrincipalAdopt,
+  remotePrincipalAdoptDms,
   remotePrincipalList,
   remotePrincipalRemove,
   remotePrincipalResolve,
@@ -222,7 +223,7 @@ export function useRemotePrincipalAdopt() {
  * Which of `own` (your account's pekos) to save as remote pekos: those
  * with a Hub ID that live on another computer (not one of `here`, this
  * computer's pekos, by Hub ID or local id) and aren't saved under that
- * name yet.
+ * name as yours yet (one first saved from a DM becomes yours).
  */
 export function ownPekosToAdopt(
   own: AccessiblePrincipal[],
@@ -236,6 +237,47 @@ export function ownPekosToAdopt(
       !!p.hubId &&
       !hereHub.has(p.hubId) &&
       !(p.localId && hereLocal.has(p.localId)) &&
-      !saved.some((r) => r.hubId === p.hubId && r.principalName === p.principalName),
+      !saved.some(
+        (r) => r.hubId === p.hubId && r.principalName === p.principalName && r.fromAccount,
+      ),
   );
+}
+
+/**
+ * Saved pekos of yours (`fromAccount`) that your account no longer
+ * lists — deleted, made local-only, or given to someone else on their
+ * computer — so they leave this computer's list too.
+ */
+export function ownPekosToForget(
+  own: AccessiblePrincipal[],
+  hubUrl: string,
+  saved: RemotePrincipalSummary[],
+): RemotePrincipalSummary[] {
+  const listed = new Set(own.map((p) => p.hubId).filter(Boolean));
+  const sameHub = (url: string) => url.replace(/\/+$/, "") === hubUrl.replace(/\/+$/, "");
+  return saved.filter(
+    (r) => r.fromAccount && !!r.hubId && sameHub(r.hubUrl) && !listed.has(r.hubId),
+  );
+}
+
+/**
+ * Keep the pekos you have DMs with on other computers in the list: the
+ * runtime's DMs (opened here or followed from your other computers) are
+ * saved as remote pekos, checked on focus and every minute while this
+ * computer is signed in to `hubUrl`.
+ */
+export function useAdoptPekoDms(hubUrl: string | undefined) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ["adopt-peko-dms", hubUrl ?? null],
+    enabled: !!hubUrl,
+    queryFn: async () => {
+      const added = await remotePrincipalAdoptDms(hubUrl!);
+      if (added > 0) await qc.invalidateQueries({ queryKey: ["remote-principals"] });
+      return added;
+    },
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
 }

@@ -332,13 +332,23 @@ fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
         .get("has_more")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    // At the start of this computer's copy, page on in the peko's copy
+    // only while this one may lack older posts (runtime ADR-095 D1: a
+    // copy fills back to the first post and says when it has). A
+    // runtime that predates saying so may lack them.
+    let older_elsewhere = answer
+        .get("older_elsewhere")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
     let next_cursor = if has_more {
         first_line
-    } else {
+    } else if older_elsewhere {
         events
             .iter()
             .find_map(|e| e.get("msg_id").and_then(|v| v.as_str()))
             .map(|id| format!("{HOST_CURSOR}{id}"))
+    } else {
+        None
     };
     serde_json::json!({
         "principal": peer,
@@ -410,6 +420,30 @@ mod tests {
         let page = log_page("p", &answer);
         assert_eq!(page["has_more"], true);
         assert_eq!(page["next_cursor"], "msg:m7");
+    }
+
+    /// Runtime ADR-095 D1: a copy that reached the first post has nothing
+    /// older elsewhere, so the thread offers no "Load earlier messages"
+    /// at its start — as for a peko on this computer.
+    #[test]
+    fn a_complete_copy_ends_where_the_conversation_begins() {
+        let answer = serde_json::json!({
+            "events": [posted_id("user:local", "hi", "m7"), posted_id("principal:hub:x", "hello", "m8")],
+            "event_ids": ["4", "5"],
+            "has_more": false,
+            "older_elsewhere": false,
+        });
+        let page = log_page("p", &answer);
+        assert_eq!(page["has_more"], false);
+        assert!(page["next_cursor"].is_null());
+
+        let filling = serde_json::json!({
+            "events": [posted_id("user:local", "hi", "m7")],
+            "event_ids": ["4"],
+            "has_more": false,
+            "older_elsewhere": true,
+        });
+        assert_eq!(log_page("p", &filling)["next_cursor"], "msg:m7");
     }
 
     #[test]

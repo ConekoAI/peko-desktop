@@ -66,11 +66,16 @@ vi.mock("../hooks/usePrincipalStatus", async (importOriginal) => {
 });
 
 const HUB = "hub:http://localhost:3000";
-const accessibleMock = vi.fn(() => ({ data: undefined as unknown }));
+const accessibleMock = vi.fn(() => ({ data: undefined as unknown, isSuccess: false }));
 const adoptMock = vi.fn();
+const removeMock = vi.fn();
 vi.mock("../hooks/useRemotePrincipals", async (importOriginal) => ({
   ownPekosToAdopt: (await importOriginal<typeof import("../hooks/useRemotePrincipals")>())
     .ownPekosToAdopt,
+  ownPekosToForget: (await importOriginal<typeof import("../hooks/useRemotePrincipals")>())
+    .ownPekosToForget,
+  useAdoptPekoDms: () => ({ data: 0 }),
+  useRemotePrincipalRemove: () => ({ mutate: removeMock, isPending: false }),
   useRemotePrincipals: () => ({
     data: [
       {
@@ -121,8 +126,9 @@ describe("PrincipalSidebar", () => {
     dmRequestAnswerMock.mockReset();
     personDmOpenMock.mockReset();
     bundleMock.mockReset().mockReturnValue({ data: null });
-    accessibleMock.mockReset().mockReturnValue({ data: undefined });
+    accessibleMock.mockReset().mockReturnValue({ data: undefined, isSuccess: false });
     adoptMock.mockReset();
+    removeMock.mockReset();
   });
 
   /** One of your pekos as your PekoHub account lists it. */
@@ -143,6 +149,7 @@ describe("PrincipalSidebar", () => {
   it("saves your pekos on other computers into the list, with nothing to connect", () => {
     bundleMock.mockReturnValue({ data: { access_token: "tok" } });
     accessibleMock.mockReturnValue({
+      isSuccess: true,
       data: [
         // On this computer already: listed once, as itself.
         own("omni", "hub-omni", "prin_omni"),
@@ -155,6 +162,8 @@ describe("PrincipalSidebar", () => {
     expect(adoptMock.mock.calls[0][0].peko.principalName).toBe("nova");
     expect(screen.queryByText(/accessible pekos/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /^connect$/i })).toBeNull();
+    // remy is someone else's peko (not from your account): it stays.
+    expect(removeMock).not.toHaveBeenCalled();
   });
 
   it("lists local and remote pekos together, with no Remote heading", () => {

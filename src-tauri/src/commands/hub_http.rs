@@ -95,7 +95,15 @@ pub async fn hub_get(
     }
     let host = host_of(&url);
     let mut request = state.http.get(url).header("Accept", "application/json");
-    if let Some(token) = access_token {
+    if let Some(given) = access_token {
+        // The webview passes the token it read when it signed in; an
+        // access token lasts an hour, and after that every read was a
+        // 401 (your pekos on other computers stopped updating). Use the
+        // signed-in account's token, refreshed when it's expiring.
+        let api = crate::clients::hub_origin::hub_api_base(&base_url);
+        let token = crate::clients::hub_auth::access_token(&state.http, &api)
+            .await
+            .unwrap_or(given);
         request = request.bearer_auth(token);
     }
     send(request, &host).await

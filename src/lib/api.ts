@@ -835,10 +835,15 @@ export interface RemotePrincipalSummary {
   runtimeId: string;
   addedAtUnixMs: number;
   hasInviteToken: boolean;
-  /** Set for one of your own pekos, saved from your account's list. */
+  /** Its PekoHub ID: one of your own pekos, or a peko you have a DM with. */
   hubId?: string | null;
   avatar?: string | null;
   localId?: string | null;
+  /**
+   * One of your own pekos on another computer, saved from your account's
+   * list: it follows the account and isn't removed by hand.
+   */
+  fromAccount?: boolean;
 }
 
 export interface RemotePrincipalResolveResult {
@@ -917,8 +922,18 @@ export async function remotePrincipalAdopt(
       avatar: peko.avatar,
       localId: peko.localId,
       description: peko.description,
+      fromAccount: true,
     },
   });
+}
+
+/**
+ * Save the pekos you have DMs with on other computers — including DMs
+ * that followed you from your other computers — so each sits in Chats
+ * like a peko of this computer. Returns how many were added.
+ */
+export async function remotePrincipalAdoptDms(hubUrl: string): Promise<number> {
+  return invoke<number>("remote_principal_adopt_dms", { hubUrl });
 }
 
 export async function remotePrincipalRemove(args: {

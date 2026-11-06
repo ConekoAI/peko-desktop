@@ -5,9 +5,12 @@ import { usePekohubBundle } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
 import {
   ownPekosToAdopt,
+  ownPekosToForget,
   useAccessiblePrincipals,
+  useAdoptPekoDms,
   useRemotePeko,
   useRemotePrincipalAdopt,
+  useRemotePrincipalRemove,
   useRemotePrincipals,
 } from "../hooks/useRemotePrincipals";
 import {
@@ -311,10 +314,12 @@ export default function PrincipalSidebar({
       configuredHubUrl(settings),
     [settings],
   );
-  const { data: accessiblePekos } = useAccessiblePrincipals(
+  const { data: accessiblePekos, isSuccess: ownListed } = useAccessiblePrincipals(
     pekohubBundle ? pekohubBaseUrl : undefined,
     pekohubBundle?.access_token,
   );
+  // Pekos you have DMs with on other computers join the list the same way.
+  useAdoptPekoDms(pekohubBundle ? pekohubBaseUrl : undefined);
 
   const adoptMut = useRemotePrincipalAdopt();
   const adopting = useRef(new Set<string>());
@@ -330,6 +335,22 @@ export default function PrincipalSidebar({
       );
     }
   }, [accessiblePekos, principals, remotePrincipals, pekohubBaseUrl, adoptMut]);
+
+  // Yours follow your account: one it no longer lists leaves this list.
+  const removeMut = useRemotePrincipalRemove();
+  const forgetting = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ownListed || !accessiblePekos || !remotePrincipals) return;
+    for (const gone of ownPekosToForget(accessiblePekos, pekohubBaseUrl, remotePrincipals)) {
+      const key = gone.hubId ?? gone.principalName;
+      if (forgetting.current.has(key)) continue;
+      forgetting.current.add(key);
+      removeMut.mutate(
+        { hubUrl: gone.hubUrl, owner: gone.owner, principalName: gone.principalName },
+        { onSettled: () => forgetting.current.delete(key) },
+      );
+    }
+  }, [ownListed, accessiblePekos, pekohubBaseUrl, remotePrincipals, removeMut]);
 
   const filtered = useMemo(() => {
     if (!principals) return [];

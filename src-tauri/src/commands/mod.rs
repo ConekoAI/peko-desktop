@@ -106,6 +106,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         remote_principal::remote_principal_resolve,
         remote_principal::remote_principal_add,
         remote_principal::remote_principal_adopt,
+        remote_principal::remote_principal_adopt_dms,
         remote_principal::remote_principal_remove,
         remote_principal::remote_principal_profile,
         hub_http::hub_get,

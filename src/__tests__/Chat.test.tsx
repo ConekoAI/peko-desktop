@@ -424,6 +424,28 @@ describe("Chat ToS gate", () => {
     expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
+  // The header reads like a local peko's for yours, and names the owner
+  // for someone else's — even one known by its Hub ID through a DM.
+  it.each([
+    [true, "Your peko"],
+    [false, "bob's peko"],
+  ])("a remote peko from your account (%s) is headed %s", (fromAccount, subtitle) => {
+    principalsState.data = [];
+    const scout = {
+      runtimeId: "hub:https://pekohub.example",
+      principalName: "scout",
+      owner: "bob",
+      hubUrl: "https://pekohub.example",
+      hubId: "7f700f07-e081-4dd8-b0db-ae41c7efbaeb",
+      fromAccount,
+    };
+    remoteState.list = [scout];
+    remoteState.record = scout;
+    searchState.runtimeId = scout.runtimeId;
+    render(<Chat />);
+    expect(screen.getByText(subtitle)).toBeInTheDocument();
+  });
+
   it("with only pekos on other computers and none open, asks to pick one", () => {
     principalsState.data = [];
     remoteState.list = [{ runtimeId: "hub:https://pekohub.example", principalName: "bolt" }];

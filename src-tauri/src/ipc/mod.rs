@@ -1686,6 +1686,19 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Your DMs with pekos on other computers, including ones that
+    /// followed you from your other computers (runtime ADR-095 D5).
+    /// Answered with `channel_peko_dms_result`.
+    pub async fn channel_peko_dms(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_peko_dms",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
     /// Your DMs with other people, and which still wait to be accepted
     /// (runtime ADR-095 D6). Answered with `channel_person_dms_result`.
     pub async fn channel_person_dms(&self) -> Result<serde_json::Value> {
