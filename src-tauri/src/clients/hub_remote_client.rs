@@ -119,20 +119,42 @@ impl HubRemoteClient {
 
     /// Post `text` to the DM, with `attachments` (absolute paths on this
     /// computer; the peko's runtime pulls them through PekoHub, runtime
-    /// ADR-094). The reply arrives later, on the thread.
-    pub async fn send(&self, text: &str, attachments: &[String]) -> Result<(), String> {
+    /// ADR-094). The reply arrives later, on the thread. `model` asks the
+    /// peko to answer with one of its host's models (runtime ADR-097); its
+    /// host honours it only for the peko's owner.
+    pub async fn send(
+        &self,
+        text: &str,
+        attachments: &[String],
+        model: Option<&str>,
+    ) -> Result<(), String> {
         let channel = self.open_dm().await?;
         let client = crate::ipc::IpcClient::new()
             .await
             .map_err(|e| format!("IpcClient::new failed: {e}"))?;
         let answer = client
-            .channel_post(&channel, None, text, None, attachments)
+            .channel_post(&channel, None, text, None, attachments, model)
             .await
             .map_err(|e| format!("channel_post failed: {e}"))?;
         if crate::ipc::is_error_response(&answer) {
             return Err(error_message(&answer, "The message wasn't sent."));
         }
         Ok(())
+    }
+
+    /// The models this peko's host can answer you with (runtime ADR-097
+    /// D1), as the model picker lists them: `{ id, displayName }`. Empty
+    /// when the host offers you none (a peko that isn't yours).
+    pub async fn models(&self) -> Result<Vec<PekoModel>, String> {
+        let channel = self.open_dm().await?;
+        let client = crate::ipc::IpcClient::new()
+            .await
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        let answer = client
+            .channel_peko_models(&channel)
+            .await
+            .map_err(|e| format!("channel_peko_models failed: {e}"))?;
+        peko_models(&answer)
     }
 
     /// The thread as `principal_log` returns it for a local peko: the
@@ -238,6 +260,31 @@ fn opened_channel(answer: &serde_json::Value) -> Result<String, String> {
     }
 }
 
+/// A model of a peko's host, as the picker shows it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PekoModel {
+    pub id: String,
+    pub display_name: String,
+}
+
+/// The models in a `channel_peko_models_result` answer.
+fn peko_models(answer: &serde_json::Value) -> Result<Vec<PekoModel>, String> {
+    match answer.get("type").and_then(|t| t.as_str()) {
+        Some("channel_peko_models_result") => serde_json::from_value(
+            answer
+                .get("models")
+                .cloned()
+                .unwrap_or(serde_json::Value::Array(Vec::new())),
+        )
+        .map_err(|e| format!("the runtime's model list didn't parse: {e}")),
+        _ => Err(error_message(
+            answer,
+            "The computer hosting this peko didn't list its models.",
+        )),
+    }
+}
+
 fn error_message(answer: &serde_json::Value, fallback: &str) -> String {
     answer
         .get("message")
@@ -332,13 +379,23 @@ fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
         .get("has_more")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    // At the start of this computer's copy, page on in the peko's copy
+    // only while this one may lack older posts (runtime ADR-095 D1: a
+    // copy fills back to the first post and says when it has). A
+    // runtime that predates saying so may lack them.
+    let older_elsewhere = answer
+        .get("older_elsewhere")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
     let next_cursor = if has_more {
         first_line
-    } else {
+    } else if older_elsewhere {
         events
             .iter()
             .find_map(|e| e.get("msg_id").and_then(|v| v.as_str()))
             .map(|id| format!("{HOST_CURSOR}{id}"))
+    } else {
+        None
     };
     serde_json::json!({
         "principal": peer,
@@ -363,6 +420,29 @@ mod tests {
             "at": "2026-11-01T10:00:00Z",
             "msg_id": "m1",
         })
+    }
+
+    #[test]
+    fn the_hosts_models_are_read_from_its_answer() {
+        let answer = serde_json::json!({
+            "type": "channel_peko_models_result",
+            "request_id": 1,
+            "models": [{"id": "work-model", "displayName": "Work model"}],
+        });
+        assert_eq!(
+            peko_models(&answer).unwrap(),
+            [PekoModel {
+                id: "work-model".into(),
+                display_name: "Work model".into(),
+            }]
+        );
+        let offline = serde_json::json!({
+            "type": "error",
+            "message": "The computer hosting this peko did not answer; it may be offline",
+        });
+        assert!(peko_models(&offline)
+            .unwrap_err()
+            .contains("may be offline"));
     }
 
     #[test]
@@ -410,6 +490,30 @@ mod tests {
         let page = log_page("p", &answer);
         assert_eq!(page["has_more"], true);
         assert_eq!(page["next_cursor"], "msg:m7");
+    }
+
+    /// Runtime ADR-095 D1: a copy that reached the first post has nothing
+    /// older elsewhere, so the thread offers no "Load earlier messages"
+    /// at its start — as for a peko on this computer.
+    #[test]
+    fn a_complete_copy_ends_where_the_conversation_begins() {
+        let answer = serde_json::json!({
+            "events": [posted_id("user:local", "hi", "m7"), posted_id("principal:hub:x", "hello", "m8")],
+            "event_ids": ["4", "5"],
+            "has_more": false,
+            "older_elsewhere": false,
+        });
+        let page = log_page("p", &answer);
+        assert_eq!(page["has_more"], false);
+        assert!(page["next_cursor"].is_null());
+
+        let filling = serde_json::json!({
+            "events": [posted_id("user:local", "hi", "m7")],
+            "event_ids": ["4"],
+            "has_more": false,
+            "older_elsewhere": true,
+        });
+        assert_eq!(log_page("p", &filling)["next_cursor"], "msg:m7");
     }
 
     #[test]

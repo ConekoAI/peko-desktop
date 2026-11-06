@@ -36,6 +36,8 @@ pub struct RemotePrincipalSummary {
     pub hub_id: Option<String>,
     pub avatar: Option<String>,
     pub local_id: Option<String>,
+    /// One of your own pekos, following your account: not removed by hand.
+    pub from_account: bool,
 }
 
 impl RemotePrincipalSummary {
@@ -55,6 +57,7 @@ impl RemotePrincipalSummary {
             hub_id: r.hub_id.clone(),
             avatar: r.avatar.clone(),
             local_id: r.local_id.clone(),
+            from_account: r.from_account,
         }
     }
 }
@@ -327,6 +330,7 @@ pub async fn remote_principal_add(
         hub_id: None,
         avatar: None,
         local_id: None,
+        from_account: false,
     })
 }
 
@@ -349,6 +353,10 @@ pub struct RemotePrincipalAdoptRequest {
     pub local_id: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
+    /// From your account's list (one of your own pekos), rather than a DM
+    /// with someone else's peko.
+    #[serde(default)]
+    pub from_account: bool,
 }
 
 /// The saved records after adopting `req`: a record with its Hub ID (or
@@ -377,6 +385,7 @@ fn adopt_into(
             .as_ref()
             .map(|r| r.added_at_unix_ms)
             .unwrap_or(now_unix_ms),
+        from_account: req.from_account || previous.as_ref().is_some_and(|r| r.from_account),
         invite_token: previous.and_then(|r| r.invite_token),
         hub_id: Some(req.hub_id),
         avatar: req.avatar.filter(|a| !a.trim().is_empty()),
@@ -411,6 +420,160 @@ pub async fn remote_principal_adopt(
     .with_hub_id(record.hub_id.clone());
     state.register_hub_remote(client).await;
     Ok(RemotePrincipalSummary::from_record(&record))
+}
+
+/// A peko by its PekoHub ID (`GET /v1/principals/by-hub-id/:id`), read
+/// as the signed-in account: its name, owner's handle, face, and
+/// liveness. `None` when the hub has no such peko or won't show it.
+async fn hub_peko_by_id(
+    http: &reqwest::Client,
+    hub_url: &str,
+    hub_id: &str,
+) -> Result<Option<serde_json::Value>, String> {
+    // A Hub ID is a UUID; anything else never reaches the URL.
+    if hub_id.len() != 36 || !hub_id.chars().all(|c| c.is_ascii_hexdigit() || c == '-') {
+        return Ok(None);
+    }
+    let api = crate::clients::hub_origin::hub_api_base(hub_url);
+    let url = format!(
+        "{}/v1/principals/by-hub-id/{hub_id}",
+        api.trim_end_matches('/')
+    );
+    let mut request = http.get(&url).timeout(std::time::Duration::from_secs(20));
+    if let Some(token) = crate::clients::hub_auth::access_token(http, &api).await {
+        request = request.bearer_auth(token);
+    }
+    let resp = request
+        .send()
+        .await
+        .map_err(|e| format!("Couldn't reach {api}: {e}"))?;
+    match resp.status().as_u16() {
+        200 => resp.json().await.map(Some).map_err(|e| e.to_string()),
+        403 | 404 => Ok(None),
+        other => Err(format!("{api} answered {other} for peko {hub_id}")),
+    }
+}
+
+/// Hub IDs the hub had no peko for lately, so the minute-by-minute DM
+/// check doesn't ask about them again for a while.
+static MISSED: std::sync::Mutex<Vec<(String, std::time::Instant)>> =
+    std::sync::Mutex::new(Vec::new());
+const MISS_REMEMBERED: std::time::Duration = std::time::Duration::from_secs(600);
+
+fn recently_missed(hub_id: &str) -> bool {
+    let mut missed = MISSED.lock().unwrap_or_else(|e| e.into_inner());
+    missed.retain(|(_, at)| at.elapsed() < MISS_REMEMBERED);
+    missed.iter().any(|(id, _)| id == hub_id)
+}
+
+fn note_missed(hub_id: &str) {
+    let mut missed = MISSED.lock().unwrap_or_else(|e| e.into_inner());
+    missed.retain(|(id, at)| id != hub_id && at.elapsed() < MISS_REMEMBERED);
+    missed.push((hub_id.to_string(), std::time::Instant::now()));
+}
+
+/// The record a DM with someone else's peko becomes, from the hub's
+/// answer for its Hub ID. `None` without a name or an owner handle (the
+/// list keys a remote peko by them).
+fn dm_record(
+    hub_url: &str,
+    hub_id: &str,
+    hit: &serde_json::Value,
+    now_unix_ms: u64,
+) -> Option<RemotePrincipalRecord> {
+    let text = |key: &str| {
+        hit.get(key)
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.trim().is_empty())
+            .map(str::to_string)
+    };
+    Some(RemotePrincipalRecord {
+        hub_url: hub_url.to_string(),
+        owner: text("ownerHandle")?,
+        principal_name: text("name")?,
+        exposure: text("exposure").unwrap_or_else(|| "public".to_string()),
+        status: text("status").unwrap_or_else(|| "offline".to_string()),
+        added_at_unix_ms: now_unix_ms,
+        hub_id: Some(hub_id.to_string()),
+        avatar: text("avatar"),
+        local_id: text("localId"),
+        description: text("description"),
+        ..Default::default()
+    })
+}
+
+/// Save the pekos you have DMs with on other computers — opened here or
+/// followed from your other computers (runtime ADR-095 D5) — so each
+/// sits in Chats like a peko of this computer. Returns how many were
+/// added. Nothing when this computer isn't signed in.
+#[tauri::command]
+pub async fn remote_principal_adopt_dms(
+    state: tauri::State<'_, AppState>,
+    hub_url: String,
+) -> Result<usize, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let answer = client
+        .channel_peko_dms()
+        .await
+        .map_err(|e| format!("channel_peko_dms failed: {e}"))?;
+    let Some(dms) = answer.get("dms").and_then(|v| v.as_array()) else {
+        // Not signed in, or a runtime that predates the list.
+        return Ok(0);
+    };
+    let mut records = remote_principals::read_all().unwrap_or_default();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let mut added = Vec::new();
+    for dm in dms {
+        let Some(hub_id) = dm.get("hub_id").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        if records.iter().any(|r| r.hub_id.as_deref() == Some(hub_id)) || recently_missed(hub_id) {
+            continue;
+        }
+        let Some(hit) = hub_peko_by_id(&state.http, &hub_url, hub_id).await? else {
+            // Gone from PekoHub, or not shown to us (a peko made local
+            // only): don't ask again every minute.
+            note_missed(hub_id);
+            continue;
+        };
+        let Some(record) = dm_record(&hub_url, hub_id, &hit, now) else {
+            continue;
+        };
+        // One record per (hub, owner, name).
+        if records.iter().any(|r| {
+            r.hub_url == record.hub_url
+                && r.owner == record.owner
+                && r.principal_name == record.principal_name
+        }) {
+            continue;
+        }
+        records.push(record.clone());
+        added.push(record);
+    }
+    if added.is_empty() {
+        return Ok(0);
+    }
+    remote_principals::write_all(&records)?;
+    for record in &added {
+        state
+            .register_hub_remote(
+                HubRemoteClient::new(
+                    record.hub_url.clone(),
+                    record.owner.clone(),
+                    record.principal_name.clone(),
+                    None,
+                    state.http.clone(),
+                )
+                .with_hub_id(record.hub_id.clone()),
+            )
+            .await;
+    }
+    Ok(added.len())
 }
 
 #[tauri::command]
@@ -451,6 +614,11 @@ pub struct RemotePekoProfile {
     pub local_id: Option<String>,
 }
 
+/// A `by-hub-id` answer as a profile.
+fn project_hub_hit(hit: &serde_json::Value) -> Option<RemotePekoProfile> {
+    project_profile(&serde_json::json!({ "liveInstance": hit }))
+}
+
 fn project_profile(payload: &serde_json::Value) -> Option<RemotePekoProfile> {
     let live = payload.get("liveInstance")?;
     let text = |key: &str| {
@@ -473,15 +641,23 @@ fn project_profile(payload: &serde_json::Value) -> Option<RemotePekoProfile> {
 /// no longer has it (deregistered, or no longer public).
 #[tauri::command]
 pub async fn remote_principal_profile(
+    state: tauri::State<'_, AppState>,
     hub_url: String,
     owner: String,
     principal_name: String,
 ) -> Result<Option<RemotePekoProfile>, String> {
-    let invite_token = remote_principals::read_all()
+    let saved = remote_principals::read_all()
         .unwrap_or_default()
         .into_iter()
-        .find(|r| r.hub_url == hub_url && r.owner == owner && r.principal_name == principal_name)
-        .and_then(|r| r.invite_token);
+        .find(|r| r.hub_url == hub_url && r.owner == owner && r.principal_name == principal_name);
+    // Known by its Hub ID: read it as the signed-in account, which also
+    // answers for a peko with no public page (a contact's private one).
+    if let Some(hub_id) = saved.as_ref().and_then(|r| r.hub_id.clone()) {
+        return Ok(hub_peko_by_id(&state.http, &hub_url, &hub_id)
+            .await?
+            .and_then(|hit| project_hub_hit(&hit)));
+    }
+    let invite_token = saved.and_then(|r| r.invite_token);
     let client = crate::clients::pekohub::PekohubClient::new()
         .with_base_url(crate::clients::hub_origin::hub_api_base(&hub_url));
     match client
@@ -516,6 +692,7 @@ mod tests {
             avatar: Some("🦊".into()),
             local_id: Some("prin_a".into()),
             description: Some(" ".into()),
+            from_account: false,
         }
     }
 
@@ -555,6 +732,61 @@ mod tests {
         let summary = RemotePrincipalSummary::from_record(&records[1]);
         assert_eq!(summary.hub_id.as_deref(), Some("hub-2"));
         assert_eq!(summary.runtime_id, "hub:http://127.0.0.1:3901");
+    }
+
+    /// A DM with someone else's peko becomes a record from the hub's
+    /// answer for its Hub ID; without an owner handle or name it can't.
+    #[test]
+    fn a_dm_with_someone_elses_peko_becomes_a_record() {
+        let hit = serde_json::json!({
+            "name": "helper", "ownerHandle": "bob", "hubId": "hub-9",
+            "localId": "prin_b", "exposure": "public", "status": "online",
+            "avatar": "🐙", "description": "",
+        });
+        let r = dm_record("http://127.0.0.1:3901", "hub-9", &hit, 7).unwrap();
+        assert_eq!(
+            (r.owner.as_str(), r.principal_name.as_str()),
+            ("bob", "helper")
+        );
+        assert_eq!(r.hub_id.as_deref(), Some("hub-9"));
+        assert_eq!(r.avatar.as_deref(), Some("🐙"));
+        assert_eq!(r.description, None);
+        assert!(!r.from_account, "someone else's peko");
+        let profile = project_hub_hit(&hit).unwrap();
+        assert_eq!(profile.status, "online");
+        assert_eq!(profile.local_id.as_deref(), Some("prin_b"));
+
+        let ownerless = serde_json::json!({ "name": "helper", "ownerHandle": null });
+        assert!(dm_record("http://127.0.0.1:3901", "hub-9", &ownerless, 7).is_none());
+    }
+
+    /// A Hub ID the hub had no peko for is skipped for a while.
+    #[test]
+    fn a_missed_hub_id_is_not_asked_about_again_soon() {
+        let id = "00000000-0000-4000-8000-00000000abcd";
+        assert!(!recently_missed(id));
+        note_missed(id);
+        assert!(recently_missed(id));
+        assert!(!recently_missed("00000000-0000-4000-8000-00000000abce"));
+    }
+
+    /// A peko first saved from a DM, then listed by your account, becomes
+    /// one of yours; one of yours stays yours.
+    #[test]
+    fn your_account_claims_a_peko_first_saved_from_a_dm() {
+        let from_dm = RemotePrincipalRecord {
+            hub_url: "http://127.0.0.1:3901".into(),
+            owner: "alice".into(),
+            principal_name: "nova".into(),
+            hub_id: Some("hub-1".into()),
+            ..Default::default()
+        };
+        let mut req = adopt("nova", "hub-1");
+        req.from_account = true;
+        let (_, record) = adopt_into(vec![from_dm], req, 1);
+        assert!(record.from_account);
+        let (_, again) = adopt_into(vec![record], adopt("nova", "hub-1"), 2);
+        assert!(again.from_account);
     }
 
     #[test]

@@ -1638,6 +1638,20 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// The models one of your pekos on another computer can answer you
+    /// with, asked of its host (runtime ADR-097 D1). `channel` is your DM
+    /// with it. Answered with `channel_peko_models_result`.
+    pub async fn channel_peko_models(&self, channel: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_peko_models",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+        });
+        self.request_response(req).await
+    }
+
     /// Groups on other computers inviting this runtime's person (runtime
     /// ADR-092 D2). Answered with `channel_invitations_result`.
     pub async fn channel_invitations(&self) -> Result<serde_json::Value> {
@@ -1682,6 +1696,19 @@ impl IpcClient {
             "request_id": 1u64,
             "account": account,
             "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Your DMs with pekos on other computers, including ones that
+    /// followed you from your other computers (runtime ADR-095 D5).
+    /// Answered with `channel_peko_dms_result`.
+    pub async fn channel_peko_dms(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_peko_dms",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
         });
         self.request_response(req).await
     }
@@ -1959,8 +1986,11 @@ impl IpcClient {
         text: &str,
         parent: Option<&str>,
         attachments: &[String],
+        model: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
+        // `model`: a model of the peko's host to answer this post with
+        // (runtime ADR-097); the host honours it only for the owner.
         let req = serde_json::json!({
             "type": "channel_post",
             "protocol_version": PROTOCOL_VERSION,
@@ -1970,6 +2000,7 @@ impl IpcClient {
             "text": text,
             "parent": parent,
             "attachments": attachments,
+            "model": model,
         });
         self.request_response(req).await
     }

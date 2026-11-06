@@ -6,10 +6,14 @@ import { render, screen, fireEvent, waitFor, act, within } from "@testing-librar
 const navigateMock = vi.fn();
 // The chat route's search params (`?say=` hands over a first message).
 const searchState: Record<string, string | undefined> = {};
+// The open peko (`/chat/<name>`); a test switches pekos by changing it.
+const routeState = { pekoName: "alice" };
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
-  useParams: () => ({ pekoName: "alice" }),
-  useRouterState: () => ({ location: { pathname: "/chat/alice", search: searchState } }),
+  useParams: () => ({ pekoName: routeState.pekoName }),
+  useRouterState: () => ({
+    location: { pathname: `/chat/${routeState.pekoName}`, search: searchState },
+  }),
 }));
 
 const sendMut = { mutateAsync: vi.fn() };
@@ -56,8 +60,17 @@ vi.mock("../hooks/useRemotePrincipals", () => ({
   }),
 }));
 
+// The models of the computer hosting a remote peko, and who asked.
+const hostModelsState: { data: unknown; asked: Array<[string, string, boolean]> } = {
+  data: undefined,
+  asked: [],
+};
 vi.mock("../hooks/useModels", () => ({
   useModels: () => modelsState,
+  useRemotePekoModels: (runtimeId: string, name: string, enabled: boolean) => {
+    hostModelsState.asked.push([runtimeId, name, enabled]);
+    return { data: enabled ? hostModelsState.data : undefined };
+  },
 }));
 
 const copyMock = vi.fn(async (_text: string) => true);
@@ -88,6 +101,10 @@ describe("Chat ToS gate", () => {
     remoteState.list = [];
     remoteState.record = undefined;
     remoteState.asked = [];
+    routeState.pekoName = "alice";
+    hostModelsState.data = undefined;
+    hostModelsState.asked = [];
+    localStorage.clear();
     navigateMock.mockReset();
     sendMut.mutateAsync.mockReset();
     decideMut.mutateAsync.mockReset();
@@ -285,6 +302,77 @@ describe("Chat ToS gate", () => {
     expect(sendMut.mutateAsync.mock.calls[1][0].overrideModel).toBe("fast");
   });
 
+  it("remembers each peko's model when switching pekos", async () => {
+    modelsState.data = [{ id: "fast", displayName: "Fast model", enabled: true }];
+    principalsState.data = [
+      { name: "alice", owner: "user:local", runtimeId: "local" },
+      { name: "bob", owner: "user:local", runtimeId: "local" },
+    ];
+    sendMut.mutateAsync.mockResolvedValue("");
+    const { rerender } = render(<Chat />);
+    const picker = () =>
+      screen.getByRole<HTMLSelectElement>("combobox", { name: /model for this message/i });
+    fireEvent.change(picker(), { target: { value: "fast" } });
+    routeState.pekoName = "bob";
+    rerender(<Chat />);
+    expect(picker().value).toBe("");
+    routeState.pekoName = "alice";
+    rerender(<Chat />);
+    expect(picker().value).toBe("fast");
+    sendMessage("still fast");
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({ name: "alice", overrideModel: "fast" });
+
+    // A pick whose model is gone falls back to the peko's own.
+    modelsState.data = [{ id: "other", displayName: "Other", enabled: true }];
+    rerender(<Chat />);
+    expect(picker().value).toBe("");
+    sendMessage("own model");
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(2));
+    expect(sendMut.mutateAsync.mock.calls[1][0].overrideModel).toBeUndefined();
+  });
+
+  it("offers your peko on another computer that computer's models, and none for others' pekos", async () => {
+    principalsState.data = [];
+    // This computer's own models are not the host's.
+    modelsState.data = [{ id: "fast", displayName: "Fast model", enabled: true }];
+    hostModelsState.data = [{ id: "work", displayName: "Work model" }];
+    const mine = {
+      runtimeId: "hub:https://pekohub.example",
+      principalName: "alice",
+      owner: "yumo",
+      hubUrl: "https://pekohub.example",
+      fromAccount: true,
+    };
+    remoteState.list = [mine];
+    remoteState.record = mine;
+    searchState.runtimeId = mine.runtimeId;
+    sendMut.mutateAsync.mockResolvedValue("");
+    const { rerender, unmount } = render(<Chat />);
+    const picker = screen.getByRole("combobox", { name: /model for this message/i });
+    expect(screen.getByRole("option", { name: "Work model" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Fast model" })).toBeNull();
+    expect(hostModelsState.asked).toContainEqual([mine.runtimeId, "alice", true]);
+    fireEvent.change(picker, { target: { value: "work" } });
+    sendMessage("on the work model");
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({
+      runtimeId: mine.runtimeId,
+      overrideModel: "work",
+    });
+    rerender(<Chat />);
+    unmount();
+
+    // Someone else's peko: no picker, and its host is not asked.
+    const theirs = { ...mine, owner: "ada", fromAccount: false };
+    remoteState.list = [theirs];
+    remoteState.record = theirs;
+    hostModelsState.asked = [];
+    render(<Chat />);
+    expect(screen.queryByRole("combobox", { name: /model for this message/i })).toBeNull();
+    expect(hostModelsState.asked.every(([, , enabled]) => !enabled)).toBe(true);
+  });
+
   it("retries the latest reply by sending its message again, and copies messages", async () => {
     logState.data = {
       messages: [
@@ -422,6 +510,28 @@ describe("Chat ToS gate", () => {
     expect(remoteState.asked).toContain(bolt.runtimeId);
     expect(screen.queryByText("No pekos yet")).toBeNull();
     expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  // The header reads like a local peko's for yours, and names the owner
+  // for someone else's — even one known by its Hub ID through a DM.
+  it.each([
+    [true, "Your peko"],
+    [false, "bob's peko"],
+  ])("a remote peko from your account (%s) is headed %s", (fromAccount, subtitle) => {
+    principalsState.data = [];
+    const scout = {
+      runtimeId: "hub:https://pekohub.example",
+      principalName: "scout",
+      owner: "bob",
+      hubUrl: "https://pekohub.example",
+      hubId: "7f700f07-e081-4dd8-b0db-ae41c7efbaeb",
+      fromAccount,
+    };
+    remoteState.list = [scout];
+    remoteState.record = scout;
+    searchState.runtimeId = scout.runtimeId;
+    render(<Chat />);
+    expect(screen.getByText(subtitle)).toBeInTheDocument();
   });
 
   it("with only pekos on other computers and none open, asks to pick one", () => {

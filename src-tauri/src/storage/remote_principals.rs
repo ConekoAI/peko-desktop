@@ -42,6 +42,11 @@ pub struct RemotePrincipalRecord {
     pub local_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Saved from your PekoHub account's list: one of your own pekos on
+    /// another computer. It follows the account — it leaves the list when
+    /// it leaves the account, and isn't removed by hand.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub from_account: bool,
 }
 
 /// Wrapper so JSON reads stay forward-compatible — missing fields on

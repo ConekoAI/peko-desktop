@@ -21,7 +21,7 @@ vi.mock("../hooks/useRuntimes", () => ({
   loadOAuthBundle: () => bundleMock(),
 }));
 
-import { ownPekosToAdopt } from "../hooks/useRemotePrincipals";
+import { ownPekosToAdopt, ownPekosToForget } from "../hooks/useRemotePrincipals";
 import { usePrincipalStatus } from "../hooks/usePrincipalStatus";
 import { effectiveRegistration } from "../components/modals/PrincipalProfileModal";
 import type { AccessiblePrincipal, RemotePrincipalSummary } from "../lib/api";
@@ -44,9 +44,15 @@ function own(principalName: string, hubId: string, localId: string | null): Acce
   };
 }
 
-function saved(principalName: string, hubId: string | null): RemotePrincipalSummary {
+function saved(
+  principalName: string,
+  hubId: string | null,
+  fromAccount = true,
+  hubUrl = HUB,
+): RemotePrincipalSummary {
   return {
-    hubUrl: HUB,
+    fromAccount,
+    hubUrl,
     owner: "alice",
     principalName,
     displayName: principalName,
@@ -76,6 +82,28 @@ describe("ownPekosToAdopt", () => {
     ];
     const picked = ownPekosToAdopt(list, here, [saved("saved", "h3"), saved("was-named", "h4")]);
     expect(picked.map((p) => p.principalName)).toEqual(["renamed", "new"]);
+  });
+
+  it("claims one first saved from a DM", () => {
+    const list = [own("nova", "h1", "prin_n")];
+    expect(ownPekosToAdopt(list, [], [saved("nova", "h1", false)]).map((p) => p.hubId)).toEqual([
+      "h1",
+    ]);
+  });
+});
+
+describe("ownPekosToForget", () => {
+  it("forgets yours that left your account, on this hub only", () => {
+    const list = [own("kept", "h1", "prin_k")];
+    const gone = ownPekosToForget(list, HUB, [
+      saved("kept", "h1"),
+      saved("deleted", "h2"),
+      // Someone else's peko from a DM: not your account's to drop.
+      saved("theirs", "h3", false),
+      // Saved from another hub: this list says nothing about it.
+      saved("elsewhere", "h4", true, "https://api.pekohub.ai"),
+    ]);
+    expect(gone.map((r) => r.principalName)).toEqual(["deleted"]);
   });
 });
 

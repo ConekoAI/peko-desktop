@@ -50,10 +50,12 @@ export default function RemotePekoProfile({
   if (!open) return null;
 
   const badge = statusBadge(status.data?.status ?? "unknown");
-  // The peko's ID is its page on the hub's website (pekohub ADR-009).
-  const shareUrl = record
-    ? `${hubWebOrigin(record.hubUrl)}/@${record.owner}/${record.principalName}`
-    : null;
+  // The peko's ID is its page on the hub's website (pekohub ADR-009). A
+  // private peko has no page there, so it has no link to share.
+  const shareUrl =
+    record && record.exposure !== "private"
+      ? `${hubWebOrigin(record.hubUrl)}/@${record.owner}/${record.principalName}`
+      : null;
   const removeError =
     removeMut.error instanceof Error
       ? removeMut.error.message
@@ -122,7 +124,9 @@ export default function RemotePekoProfile({
                   <span className="text-[10px] font-normal text-fg-subtle">via PekoHub</span>
                 </span>
               </Row>
-              <Row label="Runs on">{record.owner}'s runtime</Row>
+              <Row label="Runs on">
+                {record.fromAccount ? "Your other computer" : `${record.owner}'s runtime`}
+              </Row>
               <Row label="Reached through">{hostOf(record.hubUrl)}</Row>
               <Row label="Access">
                 {record.hasInviteToken ? "Invite link" : record.exposure === "private" ? "Private" : "Public"}
@@ -144,7 +148,17 @@ export default function RemotePekoProfile({
           )}
         </div>
 
-        {record && (
+        {record?.fromAccount && (
+          <p
+            className="shrink-0 border-t border-line px-5 py-3 text-xs text-fg-muted"
+            data-testid="own-peko-elsewhere"
+          >
+            One of your pekos on another computer. It's in your list while it's on PekoHub; to
+            take it off, remove it or make it local only on that computer.
+          </p>
+        )}
+
+        {record && !record.fromAccount && (
           <div className="shrink-0 border-t border-line px-5 py-3">
             {confirmingRemove ? (
               <div className="space-y-2">

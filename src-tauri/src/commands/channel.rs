@@ -469,6 +469,7 @@ pub async fn channel_post(
             &text,
             parent.as_deref(),
             &attachments,
+            None,
         )
         .await
         .map_err(|e| format!("channel_post failed: {e}"))?;

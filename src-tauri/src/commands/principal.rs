@@ -427,7 +427,7 @@ pub async fn principal_send(
         }
         // A remote peko: post to the DM; its reply arrives on the thread.
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            client.send(&message, &[]).await?;
+            client.send(&message, &[], None).await?;
             Ok(String::new())
         }
     }
@@ -515,7 +515,9 @@ pub async fn principal_send_stream(
         // on the thread (the log watch shows it), like a message sent to a
         // busy local peko.
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            client.send(&message, &attachments).await?;
+            client
+                .send(&message, &attachments, override_model.as_deref())
+                .await?;
             let _ = on_event.send(crate::ipc::ChatStreamMsg::Queued { message });
             String::new()
         }
@@ -525,6 +527,24 @@ pub async fn principal_send_stream(
         request_id,
         content,
     })
+}
+
+/// The models one of your pekos on another computer can answer you with,
+/// from its host (runtime ADR-097 D1), for the composer's model picker.
+/// A local peko's models are `model_list`'s; this is for `runtime_id =
+/// hub:…` only.
+#[tauri::command]
+pub async fn remote_peko_models(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: String,
+) -> Result<Vec<crate::clients::hub_remote_client::PekoModel>, String> {
+    match state.resolve_peko_runtime(Some(&runtime_id), &name).await {
+        crate::state::ResolvedRuntime::HubRemote(client) => client.models().await,
+        crate::state::ResolvedRuntime::Local => {
+            Err("remote_peko_models is for pekos on other computers".to_string())
+        }
+    }
 }
 
 /// Stop the running turn in the caller's thread with `name`
