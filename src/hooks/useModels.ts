@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  remotePekoModels,
   modelList,
   modelAdd,
   modelUpdate,
@@ -20,6 +21,21 @@ export function useModels() {
   return useQuery({
     queryKey: ["models"],
     queryFn: () => modelList(),
+  });
+}
+
+/**
+ * The models one of your pekos on another computer can answer you with,
+ * from the computer hosting it (runtime ADR-097). Only asked when
+ * `enabled` (your own peko elsewhere); an offline host just lists none.
+ */
+export function useRemotePekoModels(runtimeId: string, name: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["remote-peko-models", runtimeId, name],
+    queryFn: () => remotePekoModels(name, runtimeId),
+    enabled: enabled && !!name,
+    staleTime: 60_000,
+    retry: false,
   });
 }
 

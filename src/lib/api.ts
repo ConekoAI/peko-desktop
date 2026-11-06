@@ -959,6 +959,21 @@ export async function modelList(): Promise<ModelSummary[]> {
   return invoke<ModelSummary[]>("model_list");
 }
 
+/** A model of the computer hosting a remote peko (runtime ADR-097). */
+export interface RemotePekoModel {
+  id: string;
+  displayName: string;
+}
+
+/**
+ * The models one of your pekos on another computer can answer you with,
+ * asked of the computer hosting it (runtime ADR-097). Empty when it
+ * offers you none.
+ */
+export async function remotePekoModels(name: string, runtimeId: string): Promise<RemotePekoModel[]> {
+  return invoke<RemotePekoModel[]>("remote_peko_models", { name, runtimeId });
+}
+
 /**
  * Add a configured model from its endpoint: base URL, API format, wire
  * model id, and a key or stored credential (ADR-068; no presets).
