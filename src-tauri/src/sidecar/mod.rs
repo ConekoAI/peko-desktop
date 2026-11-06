@@ -886,6 +886,28 @@ pub fn parse_peko_version(line: &str) -> Option<String> {
     Some(v.to_string())
 }
 
+/// A reply path no other probe in this process uses.
+#[cfg(unix)]
+fn probe_socket_path() -> std::path::PathBuf {
+    static NEXT_PROBE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = NEXT_PROBE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "peko_desktop_probe_{}_{n}.sock",
+        std::process::id()
+    ))
+}
+
+/// Removes the probe's socket file however the probe ends.
+#[cfg(unix)]
+struct RemoveOnDrop(std::path::PathBuf);
+
+#[cfg(unix)]
+impl Drop for RemoveOnDrop {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
 /// Sync adoption probe — the sync counterpart of
 /// `IpcClient::probe_status`. Returns the same `StatusSnapshot`
 /// shape but uses `std::os::unix::net::UnixDatagram` with a short
@@ -899,38 +921,38 @@ pub fn parse_peko_version(line: &str) -> Option<String> {
 /// daemon listening".
 #[cfg(unix)]
 pub(crate) fn sync_probe() -> Option<StatusSnapshot> {
+    probe_at(&crate::ipc::default_socket_path_for_probe())
+}
+
+/// `sync_probe` against the daemon socket at `sock_path`.
+#[cfg(unix)]
+fn probe_at(sock_path: &std::path::Path) -> Option<StatusSnapshot> {
     use std::os::unix::net::UnixDatagram;
     use std::time::Duration;
 
     const PROBE_TIMEOUT: Duration = Duration::from_millis(200);
 
-    let tmp = std::env::temp_dir().join(format!("peko_desktop_probe_{}.sock", std::process::id()));
+    // `ensure_daemon` probes before every IPC call, so probes run
+    // concurrently. Each needs its own reply address: with a shared
+    // path, one probe unlinks and rebinds another's socket, takes its
+    // reply, and the loser waits out its timeout.
+    let tmp = probe_socket_path();
     let _ = std::fs::remove_file(&tmp);
     let socket = UnixDatagram::bind(&tmp).ok()?;
+    let _cleanup = RemoveOnDrop(tmp);
     socket.set_read_timeout(Some(PROBE_TIMEOUT)).ok()?;
     socket.set_write_timeout(Some(PROBE_TIMEOUT)).ok()?;
 
-    let sock_path = crate::ipc::default_socket_path_for_probe();
     let req = serde_json::json!({
         "type": "status",
         "protocol_version": crate::ipc::PROTOCOL_VERSION,
         "request_id": 0u64,
     });
     let bytes = serde_json::to_vec(&req).ok()?;
-    if socket.send_to(&bytes, &sock_path).is_err() {
-        let _ = std::fs::remove_file(&tmp);
-        return None;
-    }
+    socket.send_to(&bytes, sock_path).ok()?;
 
     let mut buf = [0u8; 65536];
-    let len = match socket.recv(&mut buf) {
-        Ok(l) => l,
-        Err(_) => {
-            let _ = std::fs::remove_file(&tmp);
-            return None;
-        }
-    };
-    let _ = std::fs::remove_file(&tmp);
+    let len = socket.recv(&mut buf).ok()?;
 
     let value: serde_json::Value = serde_json::from_slice(&buf[..len]).ok()?;
     if value.get("type").and_then(|v| v.as_str()) != Some("status") {
@@ -995,6 +1017,66 @@ pub(crate) fn sync_probe() -> Option<StatusSnapshot> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Probes run at once (`ensure_daemon` probes before every IPC
+    /// call) each get their own reply, and leave no socket file behind.
+    #[cfg(unix)]
+    #[test]
+    fn concurrent_probes_each_get_their_own_reply() {
+        use std::os::unix::net::UnixDatagram;
+
+        let dir = tempfile::tempdir().unwrap();
+        let daemon_path = dir.path().join("daemon.sock");
+        let daemon = UnixDatagram::bind(&daemon_path).unwrap();
+        // A probe that never sends must fail the test, not hang it.
+        daemon
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        const PROBES: usize = 8;
+        let fake_daemon = std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            let mut peers = Vec::new();
+            // Collect every request before answering, so all probes
+            // are bound and waiting at once.
+            for _ in 0..PROBES {
+                let Ok((_, addr)) = daemon.recv_from(&mut buf) else {
+                    break;
+                };
+                // A probe whose file another probe unlinked has no
+                // address left to answer.
+                if let Some(path) = addr.as_pathname() {
+                    peers.push(path.to_path_buf());
+                }
+            }
+            let reply = br#"{"type":"status","version":"9.9.9","uptime_secs":1}"#;
+            for peer in &peers {
+                daemon.send_to(reply, peer).unwrap();
+            }
+            peers
+        });
+
+        let path = daemon_path.clone();
+        let probes: Vec<_> = (0..PROBES)
+            .map(|_| {
+                let path = path.clone();
+                std::thread::spawn(move || probe_at(&path))
+            })
+            .collect();
+        let answered = probes
+            .into_iter()
+            .map(|p| p.join().unwrap())
+            .filter(|s| s.as_ref().is_some_and(|s| s.version == "9.9.9"))
+            .count();
+        let peers = fake_daemon.join().unwrap();
+
+        assert_eq!(answered, PROBES, "every probe gets a reply");
+        let distinct: std::collections::HashSet<_> = peers.iter().collect();
+        assert_eq!(distinct.len(), PROBES, "each probe has its own reply path");
+        assert!(
+            peers.iter().all(|p| !p.exists()),
+            "probes remove their socket files"
+        );
+    }
 
     #[test]
     fn engine_state_serialization_roundtrip() {

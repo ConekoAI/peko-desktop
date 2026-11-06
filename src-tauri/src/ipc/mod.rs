@@ -54,8 +54,17 @@ pub enum IpcError {
     SendFailed(String),
     #[error("receive failed: {0}")]
     ReceiveFailed(String),
-    #[error("timeout")]
+    /// A request got no reply within its budget.
+    #[error("no reply from the daemon in time")]
     Timeout,
+    /// The daemon did not answer the readiness check before a call
+    /// (`ensure_daemon`): it is down, starting, or wedged.
+    #[error("the daemon did not answer within {}s", .0.as_secs())]
+    DaemonNotReady(Duration),
+    /// An open stream went quiet past its idle budget — the daemon
+    /// sends heartbeats, so this means it went away or stalled.
+    #[error("no word from the daemon on this stream for {}s", .0.as_secs())]
+    StreamSilent(Duration),
     #[error("serialization error: {0}")]
     Serialization(String),
 }
@@ -364,9 +373,10 @@ async fn ensure_daemon() -> Result<()> {
     // has no error UI). Each iteration of `sync_probe` already
     // caps at its 200 ms `read_timeout`, so this loop is cheap
     // when the daemon is already up (one instant success) and
-    // bounded when it isn't. Matches the IPC client's 10 s
-    // `recv_from` timeout below so a hung daemon surfaces the
-    // same `IpcError::Timeout` either way.
+    // bounded when it isn't. A daemon that never answers surfaces
+    // as `IpcError::DaemonNotReady`, distinct from a request that
+    // got no reply (`Timeout`) or a stream that went quiet
+    // (`StreamSilent`).
     wait_for_socket_ready(Duration::from_secs(10)).await?;
     Ok(())
 }
@@ -385,7 +395,7 @@ async fn wait_for_socket_ready(budget: Duration) -> Result<()> {
             return Ok(());
         }
         if std::time::Instant::now() >= deadline {
-            return Err(IpcError::Timeout);
+            return Err(IpcError::DaemonNotReady(budget));
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
@@ -893,7 +903,7 @@ impl IpcClient {
                 Err(_) => {
                     return Err(match pending_error {
                         Some(message) => IpcError::ReceiveFailed(message),
-                        None => IpcError::Timeout,
+                        None => IpcError::StreamSilent(idle),
                     })
                 }
             };
@@ -1129,14 +1139,12 @@ impl IpcClient {
         loop {
             // Heartbeats arrive every 2s; 15s of silence means the
             // daemon is gone.
-            let len =
-                match tokio::time::timeout(Duration::from_secs(15), self.transport.recv(&mut buf))
-                    .await
-                {
-                    Ok(Ok(len)) => len,
-                    Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
-                    Err(_) => return Err(IpcError::Timeout),
-                };
+            const SILENCE: Duration = Duration::from_secs(15);
+            let len = match tokio::time::timeout(SILENCE, self.transport.recv(&mut buf)).await {
+                Ok(Ok(len)) => len,
+                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
+                Err(_) => return Err(IpcError::StreamSilent(SILENCE)),
+            };
             let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
                 .map_err(|e| IpcError::Serialization(e.to_string()))?;
             match raw.get("type").and_then(|v| v.as_str()).unwrap_or("") {
@@ -2148,15 +2156,13 @@ impl IpcClient {
         self.transport.send(&bytes).await?;
 
         let mut buf = vec![0u8; 65536];
+        const IDLE: Duration = Duration::from_secs(120);
         loop {
-            let len =
-                match tokio::time::timeout(Duration::from_secs(120), self.transport.recv(&mut buf))
-                    .await
-                {
-                    Ok(Ok(len)) => len,
-                    Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
-                    Err(_) => return Err(IpcError::Timeout),
-                };
+            let len = match tokio::time::timeout(IDLE, self.transport.recv(&mut buf)).await {
+                Ok(Ok(len)) => len,
+                Ok(Err(e)) => return Err(IpcError::ReceiveFailed(e.to_string())),
+                Err(_) => return Err(IpcError::StreamSilent(IDLE)),
+            };
 
             let raw: serde_json::Value = serde_json::from_slice(&buf[..len])
                 .map_err(|e| IpcError::Serialization(e.to_string()))?;
@@ -2258,6 +2264,24 @@ pub(crate) fn read_pid_file_for_probe(path: &std::path::Path) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The log names which wait ran out: a request's reply, the
+    /// daemon's readiness check, or a stream's heartbeats.
+    #[test]
+    fn timeouts_say_which_wait_ran_out() {
+        assert_eq!(
+            IpcError::DaemonNotReady(Duration::from_secs(10)).to_string(),
+            "the daemon did not answer within 10s"
+        );
+        assert_eq!(
+            IpcError::StreamSilent(Duration::from_secs(15)).to_string(),
+            "no word from the daemon on this stream for 15s"
+        );
+        assert_eq!(
+            IpcError::Timeout.to_string(),
+            "no reply from the daemon in time"
+        );
+    }
 
     #[test]
     fn test_stream_event_serialization() {
