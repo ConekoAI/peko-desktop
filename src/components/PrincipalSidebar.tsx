@@ -329,9 +329,11 @@ export default function PrincipalSidebar({
       const key = `${peko.hubId}:${peko.principalName}`;
       if (adopting.current.has(key)) continue;
       adopting.current.add(key);
+      // Forget the attempt once it settles: if the saved list still
+      // doesn't show it as yours on the next read, it is tried again.
       adoptMut.mutate(
         { hubUrl: pekohubBaseUrl, peko },
-        { onError: () => adopting.current.delete(key) },
+        { onSettled: () => adopting.current.delete(key) },
       );
     }
   }, [accessiblePekos, principals, remotePrincipals, pekohubBaseUrl, adoptMut]);
