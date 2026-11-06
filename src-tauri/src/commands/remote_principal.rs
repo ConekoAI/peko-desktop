@@ -293,16 +293,16 @@ pub async fn remote_principal_add(
         invite_token: resolved.invite_token.clone(),
         ..Default::default()
     };
-    let mut records = remote_principals::read_all().unwrap_or_default();
-    // Dedupe on (hub_url, owner, principal_name) — adding the same
-    // share link twice is a noop that updates the existing record.
-    records.retain(|r| {
-        !(r.hub_url == record.hub_url
-            && r.owner == record.owner
-            && r.principal_name == record.principal_name)
-    });
-    records.push(record.clone());
-    remote_principals::write_all(&records)?;
+    remote_principals::update(|records| {
+        // Dedupe on (hub_url, owner, principal_name) — adding the same
+        // share link twice is a noop that updates the existing record.
+        records.retain(|r| {
+            !(r.hub_url == record.hub_url
+                && r.owner == record.owner
+                && r.principal_name == record.principal_name)
+        });
+        records.push(record.clone());
+    })?;
     // PR #5: build a HubRemoteClient pinned to this hub and register
     // it with AppState so `resolve_runtime` returns `HubRemote(client)`
     // for the new `hub:<hub_url>` runtime_id. Without this, the IPC
@@ -408,8 +408,11 @@ pub async fn remote_principal_adopt(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let (records, record) = adopt_into(remote_principals::read_all().unwrap_or_default(), req, now);
-    remote_principals::write_all(&records)?;
+    let record = remote_principals::update(|records| {
+        let (merged, record) = adopt_into(std::mem::take(records), req, now);
+        *records = merged;
+        record
+    })?;
     let client = HubRemoteClient::new(
         record.hub_url.clone(),
         record.owner.clone(),
@@ -502,6 +505,30 @@ fn dm_record(
     })
 }
 
+/// Add the records found for DMs to `records` as they are now: one that
+/// was saved meanwhile (by Hub ID, or by hub, owner, and name) is left as
+/// it is — your own peko adopted from your account keeps its
+/// `from_account`. Returns the ones added.
+fn add_dm_records(
+    records: &mut Vec<RemotePrincipalRecord>,
+    found: Vec<RemotePrincipalRecord>,
+) -> Vec<RemotePrincipalRecord> {
+    let mut added = Vec::new();
+    for record in found {
+        let saved = records.iter().any(|r| {
+            (r.hub_id.is_some() && r.hub_id == record.hub_id)
+                || (r.hub_url == record.hub_url
+                    && r.owner == record.owner
+                    && r.principal_name == record.principal_name)
+        });
+        if !saved {
+            records.push(record.clone());
+            added.push(record);
+        }
+    }
+    added
+}
+
 /// Save the pekos you have DMs with on other computers — opened here or
 /// followed from your other computers (runtime ADR-095 D5) — so each
 /// sits in Chats like a peko of this computer. Returns how many were
@@ -522,17 +549,19 @@ pub async fn remote_principal_adopt_dms(
         // Not signed in, or a runtime that predates the list.
         return Ok(0);
     };
-    let mut records = remote_principals::read_all().unwrap_or_default();
+    // Which to look up, from what is saved now; the hub is asked outside
+    // the lock, and the list re-read under it before anything is added.
+    let saved = remote_principals::read_all().unwrap_or_default();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let mut added = Vec::new();
+    let mut found = Vec::new();
     for dm in dms {
         let Some(hub_id) = dm.get("hub_id").and_then(|v| v.as_str()) else {
             continue;
         };
-        if records.iter().any(|r| r.hub_id.as_deref() == Some(hub_id)) || recently_missed(hub_id) {
+        if saved.iter().any(|r| r.hub_id.as_deref() == Some(hub_id)) || recently_missed(hub_id) {
             continue;
         }
         let Some(hit) = hub_peko_by_id(&state.http, &hub_url, hub_id).await? else {
@@ -541,24 +570,14 @@ pub async fn remote_principal_adopt_dms(
             note_missed(hub_id);
             continue;
         };
-        let Some(record) = dm_record(&hub_url, hub_id, &hit, now) else {
-            continue;
-        };
-        // One record per (hub, owner, name).
-        if records.iter().any(|r| {
-            r.hub_url == record.hub_url
-                && r.owner == record.owner
-                && r.principal_name == record.principal_name
-        }) {
-            continue;
+        if let Some(record) = dm_record(&hub_url, hub_id, &hit, now) {
+            found.push(record);
         }
-        records.push(record.clone());
-        added.push(record);
     }
-    if added.is_empty() {
+    if found.is_empty() {
         return Ok(0);
     }
-    remote_principals::write_all(&records)?;
+    let added = remote_principals::update(|records| add_dm_records(records, found))?;
     for record in &added {
         state
             .register_hub_remote(
@@ -583,14 +602,14 @@ pub async fn remote_principal_remove(
     owner: String,
     principal_name: String,
 ) -> Result<bool, String> {
-    let mut records = remote_principals::read_all().unwrap_or_default();
-    let before = records.len();
-    records.retain(|r| {
-        !(r.hub_url == hub_url && r.owner == owner && r.principal_name == principal_name)
-    });
-    let removed = records.len() != before;
+    let removed = remote_principals::update(|records| {
+        let before = records.len();
+        records.retain(|r| {
+            !(r.hub_url == hub_url && r.owner == owner && r.principal_name == principal_name)
+        });
+        records.len() != before
+    })?;
     if removed {
-        remote_principals::write_all(&records)?;
         // PR #5: drop the in-memory HubRemoteClient so subsequent
         // IPC commands don't try to stream to a no-longer-added
         // principal. The runtime_id format is `hub:<hub_url>`.
@@ -758,6 +777,34 @@ mod tests {
 
         let ownerless = serde_json::json!({ "name": "helper", "ownerHandle": null });
         assert!(dm_record("http://127.0.0.1:3901", "hub-9", &ownerless, 7).is_none());
+    }
+
+    /// The DM adoption looks pekos up between reading the list and adding
+    /// to it; one of yours adopted from your account meanwhile keeps its
+    /// record (and `from_account`) — before, the stale list was written
+    /// back over it.
+    #[test]
+    fn a_dm_record_found_meanwhile_leaves_your_adoption_alone() {
+        let hit = serde_json::json!({ "name": "nova", "ownerHandle": "carol" });
+        let from_dm = dm_record("http://127.0.0.1:3901", "hub-nova", &hit, 1).unwrap();
+        let scout = dm_record(
+            "http://127.0.0.1:3901",
+            "hub-scout",
+            &serde_json::json!({ "name": "scout", "ownerHandle": "bob" }),
+            1,
+        )
+        .unwrap();
+        // Adopted from the account while the hub was being asked.
+        let mut req = adopt("nova", "hub-nova");
+        req.owner = "carol".into();
+        req.from_account = true;
+        let (mut records, _) = adopt_into(Vec::new(), req, 2);
+
+        let added = add_dm_records(&mut records, vec![from_dm, scout]);
+        assert_eq!(added.len(), 1, "only scout is new");
+        assert_eq!(records.len(), 2);
+        let nova = records.iter().find(|r| r.principal_name == "nova").unwrap();
+        assert!(nova.from_account, "yours stays yours");
     }
 
     /// A Hub ID the hub had no peko for is skipped for a while.

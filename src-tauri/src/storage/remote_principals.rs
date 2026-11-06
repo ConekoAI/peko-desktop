@@ -77,11 +77,31 @@ pub fn read_all() -> Result<Vec<RemotePrincipalRecord>, String> {
     Ok(parsed.principals)
 }
 
+/// Every read-modify-write of the file, one at a time. Without it, a
+/// slow writer (the DM adoption, which waits on the hub between reading
+/// and writing) put back a stale list over one written meanwhile — the
+/// own-peko adoption's `from_account` was lost that way.
+static WRITES: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Read the records, let `change` edit them, and write them back when it
+/// changed something — all under one lock, so concurrent edits keep
+/// each other's work. `change` must not block.
+pub fn update<T>(change: impl FnOnce(&mut Vec<RemotePrincipalRecord>) -> T) -> Result<T, String> {
+    let _one_at_a_time = WRITES.lock().unwrap_or_else(|e| e.into_inner());
+    let before = read_all()?;
+    let mut records = before.clone();
+    let out = change(&mut records);
+    if records != before {
+        write_all(&records)?;
+    }
+    Ok(out)
+}
+
 /// Atomically replace the file with the supplied records. We write to
 /// a sibling tmp file then rename, so a crash mid-write can't leave
 /// a half-truncated JSON document on disk (mirrors the f30a
 /// session-atomic-append pattern).
-pub fn write_all(records: &[RemotePrincipalRecord]) -> Result<(), String> {
+fn write_all(records: &[RemotePrincipalRecord]) -> Result<(), String> {
     let path = file_path()?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
