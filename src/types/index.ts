@@ -341,6 +341,10 @@ export type ModelThinkingMode =
 export interface ModelPricingHint {
   input_per_million?: number;
   output_per_million?: number;
+  /** Price of input read from the prompt cache; unset = the input price. */
+  cache_read_per_million?: number;
+  /** Price of input written to the prompt cache; unset = the input price. */
+  cache_write_per_million?: number;
 }
 
 export interface ModelSpec {
@@ -608,7 +612,10 @@ export interface UsageState {
   request_count: number;
   /** Spend this cycle, US dollars; counted for models with a price. */
   cost_usd?: number | null;
+  /** Part of `input_tokens` read from the provider's prompt cache. */
   cache_read_tokens?: number;
+  /** Part of `input_tokens` written to the provider's prompt cache. */
+  cache_creation_tokens?: number;
 }
 
 export interface PekoUsage {

@@ -18,6 +18,7 @@ import {
   withInputs,
   withPricing,
   type ModelInputs,
+  EMPTY_PRICE_DRAFT,
   type PriceDraft,
 } from "../../lib/model-spec";
 
@@ -42,7 +43,7 @@ export default function AddModelModal({
   const addMut = useAddModel();
   const [draft, setDraft] = useState<EndpointDraft>(EMPTY_ENDPOINT);
   const [inputs, setInputs] = useState<ModelInputs>(NO_MEDIA);
-  const [price, setPrice] = useState<PriceDraft>({ input: "", output: "" });
+  const [price, setPrice] = useState<PriceDraft>(EMPTY_PRICE_DRAFT);
   const pricing = pricingFromDraft(price);
 
   // A reopened dialog starts clean.
@@ -50,7 +51,7 @@ export default function AddModelModal({
     if (open) {
       setDraft(EMPTY_ENDPOINT);
       setInputs(NO_MEDIA);
-      setPrice({ input: "", output: "" });
+      setPrice(EMPTY_PRICE_DRAFT);
       addMut.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

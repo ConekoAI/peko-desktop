@@ -203,16 +203,43 @@ describe("model inputs", () => {
 
 describe("model price", () => {
   it("reads a price draft and keeps tools on a new descriptor", async () => {
-    const { pricingFromDraft, withPricing, priceDraftOf } = await import("../lib/model-spec");
-    expect(pricingFromDraft({ input: "", output: "" })).toBeUndefined();
-    expect(pricingFromDraft({ input: "$1", output: "2.5" })).toEqual({
+    const { pricingFromDraft, withPricing, priceDraftOf, EMPTY_PRICE_DRAFT } = await import(
+      "../lib/model-spec"
+    );
+    const draft = (d: Partial<typeof EMPTY_PRICE_DRAFT>) => ({ ...EMPTY_PRICE_DRAFT, ...d });
+    expect(pricingFromDraft(EMPTY_PRICE_DRAFT)).toBeUndefined();
+    expect(pricingFromDraft(draft({ input: "$1", output: "2.5" }))).toEqual({
       input_per_million: 1,
       output_per_million: 2.5,
     });
-    expect(pricingFromDraft({ input: "-1", output: "" })).toBeNull();
+    expect(pricingFromDraft(draft({ input: "-1" }))).toBeNull();
     const spec = withPricing(null, { input_per_million: 1 });
     expect(spec.tool_support).toBe("function_calling");
-    expect(priceDraftOf(spec)).toEqual({ input: "1", output: "" });
+    expect(priceDraftOf(spec)).toEqual(draft({ input: "1" }));
     expect(withPricing(spec, undefined).pricing).toBeUndefined();
+  });
+
+  it("carries cache prices through the draft", async () => {
+    const { pricingFromDraft, priceDraftOf, priceDraftChanged, EMPTY_PRICE_DRAFT } = await import(
+      "../lib/model-spec"
+    );
+    const pricing = pricingFromDraft({
+      ...EMPTY_PRICE_DRAFT,
+      input: "3",
+      output: "15",
+      cacheRead: "0.3",
+      cacheWrite: "3.75",
+    });
+    expect(pricing).toEqual({
+      input_per_million: 3,
+      output_per_million: 15,
+      cache_read_per_million: 0.3,
+      cache_write_per_million: 3.75,
+    });
+    const back = priceDraftOf({ pricing } as never);
+    expect(back.cacheRead).toBe("0.3");
+    expect(priceDraftChanged(back, { ...back, cacheRead: " 0.3 " })).toBe(false);
+    expect(priceDraftChanged(back, { ...back, cacheWrite: "" })).toBe(true);
+    expect(pricingFromDraft({ ...EMPTY_PRICE_DRAFT, cacheRead: "x" })).toBeNull();
   });
 });

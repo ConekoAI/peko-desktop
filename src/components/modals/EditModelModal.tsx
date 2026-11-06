@@ -9,6 +9,7 @@ import InputsPicker from "../models/InputsPicker";
 import PriceFields from "../models/PriceFields";
 import {
   inputsOf,
+  priceDraftChanged,
   priceDraftOf,
   pricingFromDraft,
   withInputs,
@@ -159,8 +160,7 @@ export default function EditModelModal({
       before.audio !== inputs.audio ||
       before.video !== inputs.video;
     const priceBefore = priceDraftOf(model.spec);
-    const priceChanged =
-      priceBefore.input !== price.input.trim() || priceBefore.output !== price.output.trim();
+    const priceChanged = priceDraftChanged(priceBefore, price);
     if (inputsChanged || priceChanged) {
       args.spec = withPricing(withInputs(model.spec, inputs), pricing ?? undefined);
     }

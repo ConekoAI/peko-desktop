@@ -187,18 +187,41 @@ function baseSpec(spec: ModelSpec | null | undefined): ModelSpec {
 export interface PriceDraft {
   input: string;
   output: string;
+  /** Input read from the prompt cache; empty = the input price. */
+  cacheRead: string;
+  /** Input written to the prompt cache; empty = the input price. */
+  cacheWrite: string;
 }
+
+/** A draft with every field empty. */
+export const EMPTY_PRICE_DRAFT: PriceDraft = { input: "", output: "", cacheRead: "", cacheWrite: "" };
+
+const PRICE_FIELDS = {
+  input: "input_per_million",
+  output: "output_per_million",
+  cacheRead: "cache_read_per_million",
+  cacheWrite: "cache_write_per_million",
+} as const satisfies Record<keyof PriceDraft, keyof ModelPricingHint>;
+
+const PRICE_KEYS = Object.keys(PRICE_FIELDS) as (keyof PriceDraft)[];
 
 export function priceDraftOf(spec: ModelSpec | null | undefined): PriceDraft {
   const p = spec?.pricing;
-  return {
-    input: p?.input_per_million != null ? String(p.input_per_million) : "",
-    output: p?.output_per_million != null ? String(p.output_per_million) : "",
-  };
+  const draft = {} as PriceDraft;
+  for (const key of PRICE_KEYS) {
+    const v = p?.[PRICE_FIELDS[key]];
+    draft[key] = v != null ? String(v) : "";
+  }
+  return draft;
+}
+
+/** Whether two drafts describe a different price, ignoring stray whitespace. */
+export function priceDraftChanged(before: PriceDraft, after: PriceDraft): boolean {
+  return PRICE_KEYS.some((key) => before[key].trim() !== after[key].trim());
 }
 
 /**
- * The price a draft describes: `undefined` when both fields are empty,
+ * The price a draft describes: `undefined` when every field is empty,
  * `null` when a field is not a non-negative number.
  */
 export function pricingFromDraft(draft: PriceDraft): ModelPricingHint | undefined | null {
@@ -208,12 +231,11 @@ export function pricingFromDraft(draft: PriceDraft): ModelPricingHint | undefine
     const n = Number(t);
     return Number.isFinite(n) && n >= 0 ? n : null;
   };
-  const input = read(draft.input);
-  const output = read(draft.output);
-  if (input === null || output === null) return null;
-  if (input === undefined && output === undefined) return undefined;
-  return {
-    ...(input !== undefined && { input_per_million: input }),
-    ...(output !== undefined && { output_per_million: output }),
-  };
+  const pricing: ModelPricingHint = {};
+  for (const key of PRICE_KEYS) {
+    const n = read(draft[key]);
+    if (n === null) return null;
+    if (n !== undefined) pricing[PRICE_FIELDS[key]] = n;
+  }
+  return Object.keys(pricing).length === 0 ? undefined : pricing;
 }
