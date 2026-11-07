@@ -354,14 +354,19 @@ export function usePrincipalSend() {
 }
 
 /**
- * The approval requests waiting for a local peko's owner (runtime
- * ADR-078). Refetched when the peko's thread changes (its notice lands
- * there) and every 30 s, so a request filed elsewhere shows up too.
+ * The approval requests waiting for a peko's owner (runtime ADR-078) —
+ * a local peko's, or one of yours on another computer, from its host
+ * (runtime ADR-099). Refetched when the peko's thread changes (its notice
+ * lands there) and every 30 s, so a request filed elsewhere shows up too.
  */
-export function usePrincipalApprovals(name: string | undefined, enabled: boolean) {
+export function usePrincipalApprovals(
+  name: string | undefined,
+  enabled: boolean,
+  runtimeId = "local",
+) {
   return useQuery({
-    queryKey: ["approvals", name],
-    queryFn: () => principalApprovals(name!),
+    queryKey: ["approvals", name, runtimeId],
+    queryFn: () => principalApprovals(name!, runtimeId),
     enabled: !!name && enabled,
     refetchInterval: 30_000,
   });

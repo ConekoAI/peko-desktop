@@ -19,7 +19,7 @@ vi.mock("@tanstack/react-router", () => ({
 const sendMut = { mutateAsync: vi.fn() };
 const decideMut = { mutateAsync: vi.fn(), isPending: false };
 // The approval requests waiting for the owner.
-const approvalsState: { data: unknown } = { data: [] };
+const approvalsState: { data: unknown; asked: unknown[][] } = { data: [], asked: [] };
 const logWatch = { pausedRef: { current: false }, flush: vi.fn() };
 // What the thread holds; a test sets it to simulate the refetch.
 const logState: { data: unknown } = { data: undefined };
@@ -37,7 +37,9 @@ vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: () => principalsState,
   usePrincipalSend: () => sendMut,
   usePrincipalLog: () => ({ data: logState.data, isSuccess: true, isError: false }),
-  usePrincipalApprovals: () => ({ data: approvalsState.data, refetch: vi.fn() }),
+  usePrincipalApprovals: (...args: unknown[]) => (
+    approvalsState.asked.push(args), { data: approvalsState.data, refetch: vi.fn() }
+  ),
   useDecideApproval: () => decideMut,
   usePrincipalLogWatch: () => logWatch,
   useCallerSubject: () => "user:local",
@@ -113,6 +115,7 @@ describe("Chat ToS gate", () => {
     sendMut.mutateAsync.mockReset();
     decideMut.mutateAsync.mockReset();
     approvalsState.data = [];
+    approvalsState.asked = [];
     logWatch.flush.mockReset();
     logWatch.pausedRef.current = false;
     logState.data = undefined;
@@ -262,6 +265,7 @@ describe("Chat ToS gate", () => {
         id: "apr_0123456789ab",
         approve: true,
         always: false,
+        runtimeId: "local",
       }),
     );
     expect(await screen.findByText(/Running it for user:hub:x/)).toBeInTheDocument();
@@ -375,6 +379,59 @@ describe("Chat ToS gate", () => {
     render(<Chat />);
     expect(screen.queryByRole("combobox", { name: /model for this message/i })).toBeNull();
     expect(hostModelsState.asked.every(([, , enabled]) => !enabled)).toBe(true);
+  });
+
+  it("lets you decide your peko's requests on another computer, and shows none for others' pekos", async () => {
+    principalsState.data = [];
+    const mine = {
+      runtimeId: "hub:https://pekohub.example",
+      principalName: "alice",
+      owner: "yumo",
+      hubUrl: "https://pekohub.example",
+      fromAccount: true,
+    };
+    remoteState.list = [mine];
+    remoteState.record = mine;
+    searchState.runtimeId = mine.runtimeId;
+    approvalsState.data = [
+      {
+        id: "apr_0123456789ab",
+        actor: "user:hub:noah",
+        actorName: "Noah",
+        trust: "untrusted",
+        summary: "`Read` (file_path=finances/q3.md)",
+        reason: "finances are private",
+        createdAt: "2026-11-07T10:00:00Z",
+        expiresAt: "2026-11-08T10:00:00Z",
+      },
+    ];
+    decideMut.mutateAsync.mockResolvedValue("Denied apr_0123456789ab.");
+    const { unmount } = render(<Chat />);
+    expect(approvalsState.asked).toContainEqual(["alice", true, mine.runtimeId]);
+    expect(screen.getByTestId("approval-cards")).toHaveTextContent(
+      "Noah (user:hub:noah) asks alice to run Read (file_path=finances/q3.md)",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Deny" }));
+    await waitFor(() =>
+      expect(decideMut.mutateAsync).toHaveBeenCalledWith({
+        name: "alice",
+        id: "apr_0123456789ab",
+        approve: false,
+        always: false,
+        runtimeId: mine.runtimeId,
+      }),
+    );
+    expect(await screen.findByText("Denied apr_0123456789ab.")).toBeInTheDocument();
+    unmount();
+
+    // Someone else's peko: its host is not asked, and no cards show.
+    const theirs = { ...mine, owner: "ada", fromAccount: false };
+    remoteState.list = [theirs];
+    remoteState.record = theirs;
+    approvalsState.asked = [];
+    render(<Chat />);
+    expect(approvalsState.asked.every(([, enabled]) => !enabled)).toBe(true);
+    expect(screen.queryByTestId("approval-cards")).toBeNull();
   });
 
   it("retries the latest reply by sending its message again, and copies messages", async () => {

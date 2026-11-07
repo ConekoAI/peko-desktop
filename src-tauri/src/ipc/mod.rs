@@ -1660,6 +1660,43 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// The approval requests waiting for you on the host of your peko in
+    /// DM `channel` (runtime ADR-099 D1). Answered with
+    /// `channel_peko_approvals_result`.
+    pub async fn channel_peko_approvals(&self, channel: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_peko_approvals",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+        });
+        self.request_response(req).await
+    }
+
+    /// Your decision on a waiting request of your peko in DM `channel`,
+    /// applied by its host (runtime ADR-099 D2). Answered with
+    /// `approval_decided`.
+    pub async fn channel_peko_approval_decide(
+        &self,
+        channel: &str,
+        id: &str,
+        approve: bool,
+        always: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_peko_approval_decide",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "id": id,
+            "approve": approve,
+            "always": always,
+        });
+        self.request_response(req).await
+    }
+
     /// Groups on other computers inviting this runtime's person (runtime
     /// ADR-092 D2). Answered with `channel_invitations_result`.
     pub async fn channel_invitations(&self) -> Result<serde_json::Value> {

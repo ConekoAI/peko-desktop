@@ -488,9 +488,18 @@ interface WireApproval {
   expires_at: string;
 }
 
-/** The approval requests waiting for a local peko's owner, oldest first. */
-export async function principalApprovals(name: string): Promise<ApprovalRequest[]> {
-  const wire = await invoke<WireApproval[]>("principal_approvals", { name });
+/**
+ * The approval requests waiting for a peko's owner, oldest first. A peko on
+ * another of your computers (`runtimeId = hub:…`) is asked through its host.
+ */
+export async function principalApprovals(
+  name: string,
+  runtimeId = "local",
+): Promise<ApprovalRequest[]> {
+  const wire = await invoke<WireApproval[]>("principal_approvals", {
+    name,
+    runtimeId: runtimeId === "local" ? null : runtimeId,
+  });
   return wire.map((a) => ({
     id: a.id,
     actor: a.actor,
@@ -509,12 +518,16 @@ export async function principalDecideApproval(params: {
   id: string;
   approve: boolean;
   always?: boolean;
+  /** The peko's runtime; a peko elsewhere is decided on its host. */
+  runtimeId?: string;
 }): Promise<string> {
+  const runtimeId = params.runtimeId ?? "local";
   return invoke<string>("principal_decide_approval", {
     name: params.name,
     id: params.id,
     approve: params.approve,
     always: params.always ?? false,
+    runtimeId: runtimeId === "local" ? null : runtimeId,
   });
 }
 
