@@ -12,6 +12,8 @@ import {
   fetchOlderPrincipalLog,
 } from "../hooks/usePrincipals";
 import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
+import { requestPekohubSignIn } from "../lib/pekohubSignIn";
+import { usePekohubBundle } from "../hooks/useRuntimes";
 import Composer, { type ComposerModel } from "../components/chat/Composer";
 import {
   MAX_ATTACHMENTS,
@@ -374,10 +376,13 @@ function PrincipalToolbar({
   peko,
   runtimeId,
   description,
+  computer,
 }: {
   peko: PekoIdentity;
   runtimeId: string;
   description?: string | null;
+  /** The other computer it runs on, when it isn't this one. */
+  computer?: string | null;
 }) {
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -392,7 +397,10 @@ function PrincipalToolbar({
         <PekoAvatar peko={peko} size="md" />
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-fg">{peko.name}</h3>
-          <p className="truncate text-xs text-fg-muted">{description || "Your peko"}</p>
+          <p className="truncate text-xs text-fg-muted">
+            {description || "Your peko"}
+            {computer && <span data-testid="peko-computer"> · on {computer}</span>}
+          </p>
         </div>
       </button>
       <PrincipalProfileModal
@@ -427,6 +435,10 @@ export default function Chat() {
   const search = routerState.location.search as Record<string, string | undefined>;
   const pathname = routerState.location.pathname;
   const [createOpen, setCreateOpen] = useState(false);
+  // A fresh computer with no peko of its own: point to signing in, which
+  // brings the person's pekos on their other computers here.
+  const { data: hubBundle } = usePekohubBundle();
+  const signedInToHub = hubBundle !== null && hubBundle !== undefined;
 
   const runtimeId = search.runtimeId ?? "local";
 
@@ -886,6 +898,20 @@ export default function Chat() {
           <Plus className="h-4 w-4" />
           Create a peko
         </button>
+        {!signedInToHub && (
+          <p className="text-xs text-fg-subtle">
+            Have pekos on another computer?{" "}
+            <button
+              type="button"
+              data-testid="empty-sign-in"
+              onClick={requestPekohubSignIn}
+              className="font-medium text-brand hover:underline"
+            >
+              Sign in with PekoHub
+            </button>{" "}
+            to see them here.
+          </p>
+        )}
         <CreatePrincipalModal
           open={createOpen}
           onClose={() => setCreateOpen(false)}
@@ -928,6 +954,7 @@ export default function Chat() {
               (remotePeko.fromAccount ? undefined : `${remotePeko.owner}'s peko`)
             : principals?.find((p) => p.name === selectedPrincipal)?.description
         }
+        computer={remotePeko?.runtimeName}
       />
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto bg-surface p-4">

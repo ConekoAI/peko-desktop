@@ -23,9 +23,11 @@ import { attachmentOpen } from "../../lib/api";
  * leaves remote URLs as links: loading them would tell a server that,
  * and when, the reply was read.
  */
+// Inline code is a tinted span: the typography plugin's backticks around
+// it are turned off (they showed as literal characters).
 export default function Markdown({ children }: { children: string }) {
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0">
+    <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-slate-100 [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5 dark:[&_:not(pre)>code]:bg-slate-800">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkEmbeds]}
         rehypePlugins={[[rehypeSanitize, SCHEMA], [rehypeHighlight, { detect: false }]]}

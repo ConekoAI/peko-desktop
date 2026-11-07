@@ -29,6 +29,10 @@ const principalsState: { data: unknown; isLoading: boolean } = {
   isLoading: false,
 };
 
+const pekohubBundleMock = vi.fn(() => ({ data: null as unknown }));
+vi.mock("../hooks/useRuntimes", () => ({
+  usePekohubBundle: () => pekohubBundleMock(),
+}));
 vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: () => principalsState,
   usePrincipalSend: () => sendMut,
@@ -542,6 +546,23 @@ describe("Chat ToS gate", () => {
     expect(screen.queryByText("No pekos yet")).toBeNull();
   });
 
+  it("names the other computer one of your pekos runs on", () => {
+    principalsState.data = [];
+    const mine = {
+      runtimeId: "hub:https://pekohub.example",
+      principalName: "alice",
+      owner: "yumo",
+      hubUrl: "https://pekohub.example",
+      fromAccount: true,
+      runtimeName: "Maya's MacBook",
+    };
+    remoteState.list = [mine];
+    remoteState.record = mine;
+    searchState.runtimeId = mine.runtimeId;
+    render(<Chat />);
+    expect(screen.getByTestId("peko-computer")).toHaveTextContent("on Maya's MacBook");
+  });
+
   it("empty state uses peko copy", () => {
     principalsState.data = [];
     render(<Chat />);
@@ -549,6 +570,25 @@ describe("Chat ToS gate", () => {
     expect(
       screen.getByRole("button", { name: /create a peko/i }),
     ).toBeInTheDocument();
+  });
+
+  it("a fresh computer not signed in points to signing in, which the profile menu starts", () => {
+    principalsState.data = [];
+    pekohubBundleMock.mockReturnValue({ data: null });
+    const asked = vi.fn();
+    window.addEventListener("peko:pekohub-sign-in", asked);
+    render(<Chat />);
+    fireEvent.click(screen.getByTestId("empty-sign-in"));
+    expect(asked).toHaveBeenCalledTimes(1);
+    window.removeEventListener("peko:pekohub-sign-in", asked);
+  });
+
+  it("a signed-in computer with no pekos does not ask to sign in", () => {
+    principalsState.data = [];
+    pekohubBundleMock.mockReturnValue({ data: { access_token: "t" } });
+    render(<Chat />);
+    expect(screen.queryByTestId("empty-sign-in")).toBeNull();
+    pekohubBundleMock.mockReturnValue({ data: null });
   });
 });
 

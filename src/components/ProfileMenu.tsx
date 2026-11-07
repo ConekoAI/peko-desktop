@@ -10,6 +10,7 @@ import {
 import { useSettings } from "../hooks/useSettings";
 import { configuredHubUrl, hubAccount, runtimeHubDisconnect } from "../lib/api";
 import ConfirmModal from "./modals/ConfirmModal";
+import { PEKOHUB_SIGN_IN_EVENT } from "../lib/pekohubSignIn";
 
 /** The disconnect confirmation on screen, if any. */
 type DisconnectStep = { kind: "confirm" } | { kind: "unsent"; count: number };
@@ -69,6 +70,18 @@ export default function ProfileMenu() {
     retry: false,
   });
   const accountName = account ? (account.displayName ?? `@${account.handle}`) : null;
+
+  // Elsewhere in the app (a fresh computer's empty chat page) asks to
+  // sign in: open the menu and start, so this menu stays the one owner
+  // of the sign-in state.
+  useEffect(() => {
+    function handleRequest() {
+      setOpen(true);
+      void handleSignIn();
+    }
+    window.addEventListener(PEKOHUB_SIGN_IN_EVENT, handleRequest);
+    return () => window.removeEventListener(PEKOHUB_SIGN_IN_EVENT, handleRequest);
+  });
 
   // Outside-click + Escape close the dropdown.
   useEffect(() => {

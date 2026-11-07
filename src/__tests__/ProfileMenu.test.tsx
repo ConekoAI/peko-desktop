@@ -190,6 +190,17 @@ describe("ProfileMenu", () => {
     expect(screen.queryByText(/Sign-in failed/)).toBeNull();
   });
 
+  it("a request from elsewhere in the app opens the menu and starts signing in", async () => {
+    runOAuthFlowMock.mockReturnValue(new Promise(() => {}));
+    const wrapper = makeWrapper();
+    render(<ProfileMenu />, { wrapper });
+    await act(async () => {
+      window.dispatchEvent(new Event("peko:pekohub-sign-in"));
+    });
+    expect(runOAuthFlowMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Waiting for PekoHub to redirect you back/)).toBeInTheDocument();
+  });
+
   it("signed-in: the button shows the account's picture, else its initial", async () => {
     usePekohubBundleMock.mockReturnValue({ isPending: false, data: { access_token: "abc" } });
     hubAccountMock.mockResolvedValue({
