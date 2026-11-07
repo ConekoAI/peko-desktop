@@ -1402,11 +1402,23 @@ fn runtime_error(value: &serde_json::Value) -> Option<String> {
     })
 }
 
-/// The approval requests waiting for a local peko's owner (ADR-078),
-/// oldest first: `[{ id, actor, actor_name?, trust, summary, reason,
-/// created_at, expires_at }]`, snake_case, passed through.
+/// The approval requests waiting for a peko's owner (ADR-078), oldest
+/// first: `[{ id, actor, actor_name?, trust, summary, reason, created_at,
+/// expires_at }]`, snake_case, passed through. A peko on another of your
+/// computers (`runtime_id = hub:…`) is asked through its host (runtime
+/// ADR-099).
 #[tauri::command]
-pub async fn principal_approvals(name: String) -> Result<serde_json::Value, String> {
+pub async fn principal_approvals(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    if let crate::state::ResolvedRuntime::HubRemote(client) = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await
+    {
+        return client.approvals().await;
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -1424,14 +1436,24 @@ pub async fn principal_approvals(name: String) -> Result<serde_json::Value, Stri
 }
 
 /// Approve (`always`: and remember it) or deny a waiting request.
-/// Resolves to what the runtime did ("Approved apr_… Running it …").
+/// Resolves to what the runtime did ("Approved apr_… Running it …"). For
+/// a peko on another of your computers, its host decides (runtime
+/// ADR-099).
 #[tauri::command]
 pub async fn principal_decide_approval(
+    state: tauri::State<'_, AppState>,
     name: String,
     id: String,
     approve: bool,
     always: bool,
+    runtime_id: Option<String>,
 ) -> Result<String, String> {
+    if let crate::state::ResolvedRuntime::HubRemote(client) = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await
+    {
+        return client.decide_approval(&id, approve, always).await;
+    }
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;

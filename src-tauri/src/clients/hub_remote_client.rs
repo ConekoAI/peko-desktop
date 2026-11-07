@@ -157,6 +157,42 @@ impl HubRemoteClient {
         peko_models(&answer)
     }
 
+    /// The approval requests waiting for you on this peko's host (runtime
+    /// ADR-099 D1), in `approval_list`'s shape (snake_case, passed
+    /// through). Empty when the host shows you none (a peko that isn't
+    /// yours).
+    pub async fn approvals(&self) -> Result<serde_json::Value, String> {
+        let channel = self.open_dm().await?;
+        let client = crate::ipc::IpcClient::new()
+            .await
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        let answer = client
+            .channel_peko_approvals(&channel)
+            .await
+            .map_err(|e| format!("channel_peko_approvals failed: {e}"))?;
+        peko_approvals(&answer)
+    }
+
+    /// Approve (`always`: and remember it) or deny a waiting request on
+    /// this peko's host (runtime ADR-099 D2). Resolves to what the host
+    /// did ("Approved apr_… Running it …"), or its reason it didn't.
+    pub async fn decide_approval(
+        &self,
+        id: &str,
+        approve: bool,
+        always: bool,
+    ) -> Result<String, String> {
+        let channel = self.open_dm().await?;
+        let client = crate::ipc::IpcClient::new()
+            .await
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        let answer = client
+            .channel_peko_approval_decide(&channel, id, approve, always)
+            .await
+            .map_err(|e| format!("channel_peko_approval_decide failed: {e}"))?;
+        approval_decided(&answer)
+    }
+
     /// The thread as `principal_log` returns it for a local peko: the
     /// newest `limit` rows, or the rows before `cursor` when paging back.
     /// Past the start of this computer's copy, paging goes on in the
@@ -281,6 +317,35 @@ fn peko_models(answer: &serde_json::Value) -> Result<Vec<PekoModel>, String> {
         _ => Err(error_message(
             answer,
             "The computer hosting this peko didn't list its models.",
+        )),
+    }
+}
+
+/// The requests in a `channel_peko_approvals_result` answer.
+fn peko_approvals(answer: &serde_json::Value) -> Result<serde_json::Value, String> {
+    match answer.get("type").and_then(|t| t.as_str()) {
+        Some("channel_peko_approvals_result") => Ok(answer
+            .get("approvals")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!([]))),
+        _ => Err(error_message(
+            answer,
+            "The computer hosting this peko didn't list its approval requests.",
+        )),
+    }
+}
+
+/// What an `approval_decided` answer says happened.
+fn approval_decided(answer: &serde_json::Value) -> Result<String, String> {
+    match answer.get("type").and_then(|t| t.as_str()) {
+        Some("approval_decided") => Ok(answer
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or_default()
+            .to_string()),
+        _ => Err(error_message(
+            answer,
+            "The computer hosting this peko didn't take the decision.",
         )),
     }
 }
@@ -443,6 +508,36 @@ mod tests {
         assert!(peko_models(&offline)
             .unwrap_err()
             .contains("may be offline"));
+    }
+
+    #[test]
+    fn the_hosts_approvals_and_decisions_are_read_from_its_answers() {
+        let listed = serde_json::json!({
+            "type": "channel_peko_approvals_result",
+            "request_id": 1,
+            "approvals": [{"id": "apr_0123456789ab", "actor": "user:hub:noah", "trust": "untrusted",
+                "summary": "`Read`", "reason": "private", "created_at": "t0", "expires_at": "t1"}],
+        });
+        assert_eq!(
+            peko_approvals(&listed).unwrap()[0]["id"],
+            "apr_0123456789ab"
+        );
+        let decided = serde_json::json!({
+            "type": "approval_decided",
+            "request_id": 1,
+            "id": "apr_0123456789ab",
+            "approved": false,
+            "message": "Denied apr_0123456789ab.",
+        });
+        assert_eq!(approval_decided(&decided).unwrap(), "Denied apr_0123456789ab.");
+        let refused = serde_json::json!({
+            "type": "error",
+            "message": "Request apr_0123456789ab was already decided.",
+        });
+        assert!(approval_decided(&refused)
+            .unwrap_err()
+            .contains("already decided"));
+        assert!(peko_approvals(&refused).is_err());
     }
 
     #[test]

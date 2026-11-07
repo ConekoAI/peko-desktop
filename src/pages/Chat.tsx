@@ -270,7 +270,15 @@ function askerName(request: ApprovalRequest): string {
  * asked it to do that its policy left to you. Approve runs exactly
  * that call for them; Always also adds a standing rule to POLICY.md.
  */
-function ApprovalCards({ peko, requests }: { peko: string; requests: ApprovalRequest[] }) {
+function ApprovalCards({
+  peko,
+  runtimeId,
+  requests,
+}: {
+  peko: string;
+  runtimeId: string;
+  requests: ApprovalRequest[];
+}) {
   const decide = useDecideApproval();
   const [outcome, setOutcome] = useState<string | null>(null);
   useEffect(() => {
@@ -281,7 +289,7 @@ function ApprovalCards({ peko, requests }: { peko: string; requests: ApprovalReq
 
   async function act(id: string, approve: boolean, always = false) {
     try {
-      setOutcome(await decide.mutateAsync({ name: peko, id, approve, always }));
+      setOutcome(await decide.mutateAsync({ name: peko, id, approve, always, runtimeId }));
     } catch (err) {
       setOutcome(err instanceof Error ? err.message : String(err));
     }
@@ -825,11 +833,17 @@ export default function Chat() {
 
   // Requests someone else made that wait for you, the owner. The
   // peko's notice lands in this thread, so a new row refetches them.
-  const approvals = usePrincipalApprovals(selectedPrincipal || undefined, runtimeId === "local");
+  // One of yours on another computer is asked through its host.
+  const ownsApprovals = runtimeId === "local" || ownRemote;
+  const approvals = usePrincipalApprovals(
+    selectedPrincipal || undefined,
+    ownsApprovals,
+    runtimeId,
+  );
   const refetchApprovals = approvals.refetch;
   useEffect(() => {
-    if (runtimeId === "local" && selectedPrincipal) void refetchApprovals();
-  }, [logData, runtimeId, selectedPrincipal, refetchApprovals]);
+    if (ownsApprovals && selectedPrincipal) void refetchApprovals();
+  }, [logData, ownsApprovals, selectedPrincipal, refetchApprovals]);
 
   // Why the last run here didn't go through, shown beside the thread.
   const runFailure = !isStreaming ? (logData?.runFailure ?? null) : null;
@@ -995,7 +1009,11 @@ export default function Chat() {
         ) : null}
       </div>
 
-      <ApprovalCards peko={selectedPrincipal} requests={approvals.data ?? []} />
+      <ApprovalCards
+        peko={selectedPrincipal}
+        runtimeId={runtimeId}
+        requests={ownsApprovals ? (approvals.data ?? []) : []}
+      />
 
       <div className="border-t border-line bg-surface p-4">
         <Composer
