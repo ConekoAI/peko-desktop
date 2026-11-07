@@ -1783,6 +1783,28 @@ export interface ChannelInfo {
     page: string | null;
     visibility: "invite_only" | "public" | null;
   } | null;
+  /**
+   * Everyone in it once, with names — those on other computers too
+   * (runtime ChannelInfo `people`). Empty from older runtimes.
+   */
+  people?: ChannelPerson[];
+  /** When the group began: its home's time, not this copy's. */
+  createdAt?: string | null;
+}
+
+/** One member of a channel, as people read it. */
+export interface ChannelPerson {
+  /** Canonical address, e.g. `principal:hub:<id>`, `user:local:local`. */
+  address: string;
+  /** Other forms they appear as here (a remote peko's `did:key`, a Hub address). */
+  aliases: string[];
+  /** `principal` (a peko) or `user` (a person). */
+  kind: string;
+  name: string | null;
+  /** This computer's person. */
+  you: boolean;
+  /** Hosted on this computer. */
+  here: boolean;
 }
 
 /** Read a channel's kind, members, and pekos' wake policies (members only). */

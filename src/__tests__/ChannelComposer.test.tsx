@@ -27,6 +27,12 @@ vi.mock("../lib/api", () => ({
       { name: "juno", localId: "prin_j", wake: "mention" },
       { name: "nova", localId: "prin_n", wake: "mention" },
     ],
+    // ada lives on another computer; she is mentioned the same way.
+    people: [
+      { address: "principal:local:prin_j", aliases: [], kind: "principal", name: "juno", you: false, here: true },
+      { address: "principal:hub:b1ec", aliases: [], kind: "principal", name: "ada", you: false, here: false },
+      { address: "user:hub:7777", aliases: [], kind: "user", name: "Gina", you: false, here: false },
+    ],
   }),
 }));
 
@@ -159,6 +165,8 @@ describe("ChannelComposer", () => {
       const input = await typeInto("hey @");
       expect(await screen.findByRole("option", { name: "@juno" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "@nova" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "@ada" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "@Gina" })).toBeNull();
       await typeInto("hey @n");
       expect(screen.queryByRole("option", { name: "@juno" })).toBeNull();
       fireEvent.keyDown(input, { key: "Enter" });

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Hash, User, Users, ChevronDown, ChevronUp, UserPlus, LogOut, Share2 } from "lucide-react";
 import { useChannel, useChannelInfo } from "../hooks/useChannels";
-import { usePekoDirectory } from "../hooks/usePekoDirectory";
+import { useChannelDirectory } from "../hooks/useChannelDirectory";
 import RuntimeBadge from "./RuntimeBadge";
 import MemberList from "./MemberList";
 import GroupSharePanel from "./GroupSharePanel";
@@ -41,7 +41,7 @@ export default function ChannelHeader({
 }) {
   const { data: detail } = useChannel(channelId, runtimeId);
   const { data: info } = useChannelInfo(channelId);
-  const directory = usePekoDirectory();
+  const directory = useChannelDirectory(channelId);
   const [showMembers, setShowMembers] = useState(false);
   const [showShare, setShowShare] = useState(false);
   // ADR-082: a channel is a DM (two members, always wakes) or a group.
@@ -146,7 +146,7 @@ export default function ChannelHeader({
           >
             <Users className="h-3.5 w-3.5" />
             {/* The roster, not the join events (the creator never "joins"). */}
-            <span>{info?.members?.length ?? detail.memberCount}</span>
+            <span>{info?.people?.length || info?.members?.length || detail.memberCount}</span>
             {showMembers ? (
               <ChevronUp className="h-3 w-3" />
             ) : (
@@ -160,7 +160,8 @@ export default function ChannelHeader({
       {!title && (
         <div className="px-4 pb-2 text-xs text-fg-muted">
           Created by <span title={detail.creator}>{directory.resolve(detail.creator).label}</span> ·{" "}
-          {new Date(detail.createdAt).toLocaleString()}
+          {/* A copy from another computer began when the group did. */}
+          {new Date(directory.createdAt ?? detail.createdAt).toLocaleString()}
         </div>
       )}
       {share && showShare && <GroupSharePanel channelId={channelId} group={share} />}

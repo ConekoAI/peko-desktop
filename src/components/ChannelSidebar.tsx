@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Search, Hash, Link2, Loader2, Mail, Plus } from "lucide-react";
@@ -66,6 +66,16 @@ export default function ChannelSidebar({
       void qc.invalidateQueries({ queryKey: ["group-invitations"] });
       void qc.invalidateQueries({ queryKey: ["person-groups"] });
     },
+  });
+  // An accepted invitation becomes a group once the home hears it: look
+  // often until it is listed.
+  const accepted = answer.isSuccess && answer.variables?.accept ? answer.variables.channelId : null;
+  const acceptedListed = !!accepted && (joined ?? []).some((g) => g.channelId === accepted);
+  useQuery({
+    queryKey: ["person-groups"],
+    queryFn: personGroups,
+    enabled: !!accepted && !acceptedListed,
+    refetchInterval: accepted && !acceptedListed ? JOIN_POLL_MS : false,
   });
   const channels = useMemo(() => {
     if (!pekoChannels && !joined) return undefined;
@@ -262,12 +272,16 @@ function GroupRow({
   );
 }
 
+/** How often to look for a group just asked to join. */
+export const JOIN_POLL_MS = 1_500;
+
 /**
  * Join a group by its invite link, or a public one by its ID (runtime
  * ADR-092 D5). The group appears in the list once its home lets you in.
  */
 function JoinGroup() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [link, setLink] = useState("");
   const join = useMutation({
@@ -277,6 +291,28 @@ function JoinGroup() {
       void qc.invalidateQueries({ queryKey: ["person-groups"] });
     },
   });
+  // The home lets you in a moment after it hears the request: look for
+  // the group often until it arrives, then open it.
+  const waitingFor = join.data?.channelId ?? null;
+  const { data: joined } = useQuery({
+    queryKey: ["person-groups"],
+    queryFn: personGroups,
+    enabled: !!waitingFor,
+    refetchInterval: waitingFor ? JOIN_POLL_MS : false,
+  });
+  const arrived = !!waitingFor && (joined ?? []).some((g) => g.channelId === waitingFor);
+  useEffect(() => {
+    if (!arrived || !waitingFor) return;
+    setOpen(false);
+    join.reset();
+    void qc.invalidateQueries({ queryKey: ["channel-info", waitingFor] });
+    navigate({
+      to: "/channels/$channelId",
+      params: { channelId: waitingFor },
+      search: { runtimeId: "local" },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrived, waitingFor]);
   if (!open) {
     return (
       <div className="border-t border-line p-2">
