@@ -11,13 +11,15 @@
 // 100% GET with a known path and a tiny response. Parsing
 // HTTP/1.1 by hand keeps the dependency footprint at zero.
 //
-// The function holds the listener alive until either:
-//   (a) a single callback request arrives (success), or
-//   (b) the spawned `tokio::time::sleep` deadline expires
-//       (timeout, the user walked away from the browser).
+// The function holds the listener alive until one of:
+//   (a) a single callback request arrives (success),
+//   (b) the `tokio::time::sleep` deadline expires (timeout, the user
+//       walked away from the browser), or
+//   (c) a newer sign-in starts on the same port (its browser page never
+//       loaded, say, and the user tried again).
 //
-// On timeout the listener is dropped (port freed) and the future
-// rejects. The SPA surfaces this as "Sign-in timed out — try again".
+// In every case the listener is dropped and the port freed, so the
+// next attempt can bind it; a superseded attempt rejects at once.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -41,6 +43,43 @@ pub struct OAuthCallbackPayload {
 /// even if multiple requests land on the same port.
 type CallbackSender = Arc<Mutex<Option<oneshot::Sender<Result<OAuthCallbackPayload, String>>>>>;
 
+/// The sign-in currently listening, so a newer one can end it and take
+/// its port: its sender (to reject it) and its accept task (to free the
+/// port).
+struct ActiveListener {
+    tx: CallbackSender,
+    task: tokio::task::AbortHandle,
+}
+
+static ACTIVE: Mutex<Option<ActiveListener>> = Mutex::new(None);
+
+/// End the sign-in that is listening, if any: it rejects, and its port is
+/// freed once its accept task stops.
+fn supersede_active() {
+    let previous = ACTIVE.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(previous) = previous {
+        if let Some(tx) = previous.tx.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            let _ = tx.send(Err("a newer sign-in started".to_string()));
+        }
+        previous.task.abort();
+    }
+}
+
+/// Bind `addr`, waiting briefly for a superseded listener to let go of it.
+async fn bind_freed(addr: &str) -> std::io::Result<TcpListener> {
+    let mut tries = 0;
+    loop {
+        match TcpListener::bind(addr).await {
+            Ok(listener) => return Ok(listener),
+            Err(e) if tries < 40 && e.kind() == std::io::ErrorKind::AddrInUse => {
+                tries += 1;
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
 /// Start listening for the OAuth redirect on `127.0.0.1:port`.
 ///
 /// Returns the captured `code`/`state` once PekoHub's browser
@@ -53,7 +92,8 @@ pub async fn start_oauth_callback_listener(
     let path = path.unwrap_or_else(|| "/callback".to_string());
     let bind_addr = format!("127.0.0.1:{port}");
 
-    let listener = TcpListener::bind(&bind_addr)
+    supersede_active();
+    let listener = bind_freed(&bind_addr)
         .await
         .map_err(|e| format!("failed to bind {bind_addr}: {e}"))?;
 
@@ -64,19 +104,31 @@ pub async fn start_oauth_callback_listener(
     // can `select!` between the channel and the timeout.
     let path_for_task = path.clone();
     let tx_for_task = tx.clone();
-    tokio::spawn(async move {
+    let task = tokio::spawn(async move {
         accept_loop(listener, &path_for_task, tx_for_task).await;
     });
+    *ACTIVE.lock().unwrap_or_else(|e| e.into_inner()) = Some(ActiveListener {
+        tx: tx.clone(),
+        task: task.abort_handle(),
+    });
 
-    tokio::select! {
-        res = rx => res.map_err(|_| "callback channel closed".to_string())?,
+    let outcome = tokio::select! {
+        res = rx => res.map_err(|_| "callback channel closed".to_string()).and_then(|r| r),
         _ = tokio::time::sleep(CALLBACK_TIMEOUT) => {
+            task.abort();
             Err(format!(
                 "OAuth callback timed out after {}s — did the browser redirect land?",
                 CALLBACK_TIMEOUT.as_secs()
             ))
         }
+    };
+    // This attempt is over: it no longer holds the slot (unless a newer
+    // one already took it).
+    let mut active = ACTIVE.lock().unwrap_or_else(|e| e.into_inner());
+    if active.as_ref().is_some_and(|a| Arc::ptr_eq(&a.tx, &tx)) {
+        *active = None;
     }
+    outcome
 }
 
 async fn accept_loop(listener: TcpListener, path: &str, tx: CallbackSender) {
@@ -102,6 +154,11 @@ async fn accept_loop(listener: TcpListener, path: &str, tx: CallbackSender) {
         );
         let _ = socket.write_all(response.as_bytes()).await;
         let _ = socket.shutdown().await;
+        // The callback came and its page is written: stop listening, so
+        // the port is free for the next sign-in.
+        if tx.lock().unwrap_or_else(|e| e.into_inner()).is_none() {
+            return;
+        }
     }
 }
 
@@ -281,6 +338,70 @@ mod tests {
         let req = "GET /callback?state=ok HTTP/1.1\r\n\r\n";
         let (status, _) = handle_request(req, "/callback", &tx_slot);
         assert!(status.starts_with("HTTP/1.1 400"));
+    }
+
+    /// A sign-in whose browser page never loaded must not block the next
+    /// one: the newer attempt ends it and takes the port, and once a
+    /// callback lands the port is free again.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_new_sign_in_takes_the_port_and_frees_it_when_done() {
+        let port = 40000 + (std::process::id() % 20000) as u16;
+        let first = tokio::spawn(start_oauth_callback_listener(port, None));
+        // Let the first attempt bind.
+        for _ in 0..100 {
+            if tokio::net::TcpStream::connect(("127.0.0.1", port))
+                .await
+                .is_ok()
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        let second = tokio::spawn(start_oauth_callback_listener(port, None));
+        let superseded = tokio::time::timeout(Duration::from_secs(5), first)
+            .await
+            .expect("the first attempt ends at once")
+            .unwrap();
+        assert_eq!(superseded.unwrap_err(), "a newer sign-in started");
+
+        // The second attempt gets the redirect.
+        let mut sent = false;
+        for _ in 0..100 {
+            if let Ok(mut stream) = tokio::net::TcpStream::connect(("127.0.0.1", port)).await {
+                stream
+                    .write_all(b"GET /callback?code=c2&state=s2 HTTP/1.1\r\n\r\n")
+                    .await
+                    .unwrap();
+                let mut reply = Vec::new();
+                let _ = stream.read_to_end(&mut reply).await;
+                if String::from_utf8_lossy(&reply).contains("200 OK") {
+                    sent = true;
+                    break;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(sent, "the second attempt answered the redirect");
+        let payload = tokio::time::timeout(Duration::from_secs(5), second)
+            .await
+            .expect("the second attempt resolves")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (payload.code.as_str(), payload.state.as_str()),
+            ("c2", "s2")
+        );
+
+        // Done: the port is free for the next sign-in.
+        let mut freed = false;
+        for _ in 0..100 {
+            if TcpListener::bind(("127.0.0.1", port)).await.is_ok() {
+                freed = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(freed, "the port is released after a successful callback");
     }
 
     #[tokio::test]

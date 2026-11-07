@@ -48,6 +48,10 @@ export default function ProfileMenu() {
   const [disconnectError, setDisconnectError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  // The latest sign-in attempt. Pressing Sign in again while one waits
+  // (its browser page never loaded, say) starts a new one; the old one
+  // ends without a word, and only the latest attempt sets the state.
+  const attempt = useRef(0);
 
   const pekohubBaseUrl =
     configuredHubUrl(settings);
@@ -89,6 +93,7 @@ export default function ProfileMenu() {
   }, [open]);
 
   async function handleSignIn() {
+    const mine = ++attempt.current;
     setOauthError(null);
     setSigningIn(true);
     try {
@@ -96,6 +101,7 @@ export default function ProfileMenu() {
         baseUrl: pekohubBaseUrl,
         scope: oauthScope,
       });
+      if (mine !== attempt.current) return;
       // The token is stored now: show it (the cached "not signed in"
       // would otherwise stand until something refetched it).
       await afterPekohubSignIn(queryClient);
@@ -105,13 +111,14 @@ export default function ProfileMenu() {
         );
       }
     } catch (err) {
+      if (mine !== attempt.current) return;
       setOauthError(
         err instanceof Error
           ? err.message
           : "Sign-in failed. Check your browser and try again.",
       );
     } finally {
-      setSigningIn(false);
+      if (mine === attempt.current) setSigningIn(false);
     }
   }
 
@@ -217,7 +224,6 @@ export default function ProfileMenu() {
               role="menuitem"
               data-testid="pekohub-signin"
               onClick={handleSignIn}
-              disabled={signingIn}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               {signingIn ? (
@@ -225,7 +231,7 @@ export default function ProfileMenu() {
               ) : (
                 <LogIn className="h-4 w-4" />
               )}
-              Sign in with PekoHub
+              {signingIn ? "Start sign-in again" : "Sign in with PekoHub"}
             </button>
           )}
 
@@ -291,7 +297,7 @@ export default function ProfileMenu() {
           {(signingIn || oauthError) && (
             <div className="mx-3 mt-2 rounded-lg border border-indigo-200 bg-indigo-50 p-2 text-xs text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
               {signingIn &&
-                "Waiting for PekoHub to redirect you back… complete the sign-in in your browser to continue."}
+                "Waiting for PekoHub to redirect you back… complete the sign-in in your browser to continue. If the page didn't open, start again."}
               {oauthError && (
                 <span className="block text-red-600 dark:text-red-400">
                   {oauthError}

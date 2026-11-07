@@ -165,6 +165,31 @@ describe("ProfileMenu", () => {
     ).toBeInTheDocument();
   });
 
+  it("a sign-in that waits can be started again; the old attempt's end says nothing", async () => {
+    let rejectFirst: (e: unknown) => void = () => {};
+    runOAuthFlowMock
+      .mockReturnValueOnce(new Promise((_, reject) => { rejectFirst = reject; }))
+      .mockResolvedValueOnce({ registered: true, account: "acct" });
+    const wrapper = makeWrapper();
+    render(<ProfileMenu />, { wrapper });
+
+    fireEvent.click(screen.getByRole("button", { name: /PekoHub account menu/i }));
+    fireEvent.click(screen.getByTestId("pekohub-signin"));
+    const again = screen.getByTestId("pekohub-signin");
+    expect(again).not.toBeDisabled();
+    expect(again).toHaveTextContent("Start sign-in again");
+
+    await act(async () => {
+      fireEvent.click(again);
+      rejectFirst("a newer sign-in started");
+      await Promise.resolve();
+    });
+
+    expect(runOAuthFlowMock).toHaveBeenCalledTimes(2);
+    expect(afterSignInMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Sign-in failed/)).toBeNull();
+  });
+
   it("signed-in: the button shows the account's picture, else its initial", async () => {
     usePekohubBundleMock.mockReturnValue({ isPending: false, data: { access_token: "abc" } });
     hubAccountMock.mockResolvedValue({
