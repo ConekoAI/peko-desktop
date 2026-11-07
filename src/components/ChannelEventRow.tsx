@@ -3,7 +3,8 @@ import type { ChannelEvent } from "../lib/api";
 import RuntimeBadge from "./RuntimeBadge";
 import PekoAvatar from "./peko/PekoAvatar";
 import Markdown from "./chat/Markdown";
-import { usePekoDirectory, type ActorDisplay } from "../hooks/usePekoDirectory";
+import type { ActorDisplay } from "../hooks/usePekoDirectory";
+import { useChannelDirectory } from "../hooks/useChannelDirectory";
 import { shownAddress } from "../lib/format";
 
 /**
@@ -24,9 +25,12 @@ export default function ChannelEventRow({
   event,
   showRuntimeBadge = true,
   people,
+  channelId,
 }: {
   event: ChannelEvent;
   showRuntimeBadge?: boolean;
+  /** The channel, so members on other computers read by name. */
+  channelId?: string;
   /**
    * Set in a DM with another person (runtime ADR-095 D6): what to call
    * people by address (`user:hub:<account>`). Its birth reads as a
@@ -34,13 +38,7 @@ export default function ChannelEventRow({
    */
   people?: Record<string, string>;
 }) {
-  const pekos = usePekoDirectory();
-  const directory = {
-    resolve: (actor: string): ActorDisplay => {
-      const name = people?.[actor];
-      return name ? { label: name, peko: null, isYou: false } : pekos.resolve(actor);
-    },
-  };
+  const directory = useChannelDirectory(channelId ?? event.channel, people);
   switch (event.kind) {
     case "posted": {
       const who = directory.resolve(event.author);
@@ -56,9 +54,9 @@ export default function ChannelEventRow({
             </div>
             <div className="mt-0.5 text-sm text-fg-soft">
               {who.isYou ? (
-                <p className="whitespace-pre-wrap break-words">{event.text}</p>
+                <p className="whitespace-pre-wrap break-words">{directory.named(event.text)}</p>
               ) : (
-                <Markdown>{event.text}</Markdown>
+                <Markdown>{directory.named(event.text)}</Markdown>
               )}
             </div>
           </div>
@@ -84,7 +82,7 @@ export default function ChannelEventRow({
               <span title={event.creator}>{directory.resolve(event.creator).label}</span>
             </>
           )}{" "}
-          · {new Date(event.at).toLocaleString()}
+          · {new Date((!people && directory.createdAt) || event.at).toLocaleString()}
         </div>
       );
     case "member_joined":

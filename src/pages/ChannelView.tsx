@@ -274,7 +274,7 @@ export default function ChannelView() {
             <ul className="space-y-3">
               {shown.map((e, i) => (
                 <li key={i} data-testid="channel-event-row">
-                  <ChannelEventRow event={e} people={personNames} />
+                  <ChannelEventRow event={e} people={personNames} channelId={channelId} />
                 </li>
               ))}
             </ul>

@@ -47,6 +47,26 @@ describe("MemberList", () => {
     setWakeState.error = null;
   });
 
+  // Found live: members on other computers showed as raw ids.
+  it("lists everyone once by name, here and elsewhere", () => {
+    useChannelMembersMock.mockReturnValue({ data: { members: [] }, isLoading: false });
+    infoState.data = {
+      kind: "group",
+      pekos: [],
+      people: [
+        { address: "user:local:local", aliases: ["user:hub:6666"], kind: "user", name: "Frank", you: true, here: true },
+        { address: "principal:hub:b1ec", aliases: ["did:key:z6Mk"], kind: "principal", name: "ada", you: false, here: false },
+        { address: "user:hub:7777", aliases: [], kind: "user", name: "Gina", you: false, here: false },
+      ],
+    };
+    renderList();
+    expect(screen.getByTestId("channel-members-local")).toHaveTextContent("You");
+    const elsewhere = screen.getByTestId("channel-members-remote");
+    expect(elsewhere).toHaveTextContent("ada");
+    expect(elsewhere).toHaveTextContent("Gina");
+    expect(elsewhere).not.toHaveTextContent("did:key");
+  });
+
   it("lets you choose when each of your pekos replies in a group", () => {
     useChannelMembersMock.mockReturnValue({
       data: { members: ["principal:prin_a", "user:local"] },

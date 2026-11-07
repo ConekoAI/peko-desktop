@@ -1,5 +1,7 @@
 import { useChannelInfo, useChannelMembers, useSetChannelWake } from "../hooks/useChannels";
-import type { WakePolicy } from "../lib/api";
+import type { ChannelPerson, WakePolicy } from "../lib/api";
+import { useChannelDirectory } from "../hooks/useChannelDirectory";
+import { shownAddress } from "../lib/format";
 import { Globe, Loader2, User } from "lucide-react";
 import { usePekoDirectory } from "../hooks/usePekoDirectory";
 import PekoAvatar from "./peko/PekoAvatar";
@@ -43,6 +45,12 @@ export default function MemberList({
         Loading members…
       </div>
     );
+  }
+
+  // The runtime's roster names everyone once, those on other computers
+  // too (runtime ChannelInfo `people`).
+  if (info?.people && info.people.length > 0) {
+    return <PeopleList channelId={channelId} people={info.people} wakeOf={wakeOf} />;
   }
 
   const members = data?.members ?? [];
@@ -141,6 +149,67 @@ export default function MemberList({
     </div>
   );
 }
+/** Everyone in the group once: on this computer, then elsewhere. */
+function PeopleList({
+  channelId,
+  people,
+  wakeOf,
+}: {
+  channelId: string;
+  people: ChannelPerson[];
+  wakeOf: Map<string, { name: string; localId: string; wake: WakePolicy }>;
+}) {
+  const directory = useChannelDirectory(channelId);
+  const here = people.filter((p) => p.here || p.you);
+  const elsewhere = people.filter((p) => !p.here && !p.you);
+  const row = (p: ChannelPerson) => {
+    const who = directory.resolve(p.address);
+    const localId = p.address.match(/^principal:local:(.+)$/)?.[1];
+    const wakePeko = localId ? wakeOf.get(localId) : undefined;
+    return (
+      <li
+        key={p.address}
+        title={shownAddress(p.address)}
+        className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-fg-soft hover:bg-surface-sunken"
+        data-testid={`channel-member-${p.address}`}
+      >
+        {who.peko ? (
+          <PekoAvatar peko={who.peko} size="sm" />
+        ) : (
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken">
+            <User className="h-3.5 w-3.5 text-fg-muted" />
+          </span>
+        )}
+        <span className="min-w-0 flex-1 truncate font-medium">{who.label}</span>
+        <span className="shrink-0 text-[10px] text-fg-muted">
+          {p.kind === "principal" ? "Peko" : "Person"}
+        </span>
+        {wakePeko && (
+          <WakePicker channelId={channelId} pekoName={wakePeko.name} wake={wakePeko.wake} />
+        )}
+      </li>
+    );
+  };
+  return (
+    <div className="p-3">
+      <section data-testid="channel-members-local">
+        <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+          On this computer
+        </div>
+        <ul className="space-y-1">{here.map(row)}</ul>
+      </section>
+      {elsewhere.length > 0 && (
+        <section className="mt-3" data-testid="channel-members-remote">
+          <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+            Elsewhere
+          </div>
+          <ul className="space-y-1">{elsewhere.map(row)}</ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
 const WAKE_OPTIONS: { value: WakePolicy; label: string; hint: string }[] = [
   { value: "human", label: "Every message", hint: "Replies to every message from a person" },
   { value: "mention", label: "@mentions", hint: "Replies when someone @mentions it" },

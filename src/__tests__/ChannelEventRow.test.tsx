@@ -22,9 +22,57 @@ vi.mock("../hooks/usePrincipals", () => ({
   }),
 }));
 
+// The channel's roster names members on other computers.
+const channelInfo: { data: unknown } = { data: undefined };
+vi.mock("../hooks/useChannels", () => ({
+  useChannelInfo: () => channelInfo,
+}));
+
 import ChannelEventRow from "../components/ChannelEventRow";
 
 describe("ChannelEventRow", () => {
+  // Found live: a copy from another computer showed raw ids.
+  it("names members on other computers and their address mentions", () => {
+    channelInfo.data = {
+      people: [
+        { address: "principal:hub:b1ec", aliases: ["did:key:z6Mk"], kind: "principal", name: "ada", you: false, here: false },
+        { address: "user:hub:7777", aliases: [], kind: "user", name: "Gina", you: false, here: false },
+        { address: "user:local:local", aliases: ["user:hub:6666"], kind: "user", name: "Frank", you: true, here: true },
+      ],
+      createdAt: "2026-11-06T14:36:56Z",
+    };
+    const { unmount } = render(
+      <ChannelEventRow
+        event={{
+          kind: "posted",
+          channel: "group:tinytodo",
+          author: "user:hub:7777",
+          parent: null,
+          text: "@principal:hub:b1ec can you take it?",
+          at: "2026-11-06T14:42:19Z",
+        }}
+      />,
+    );
+    expect(screen.getByText("Gina")).toBeInTheDocument();
+    expect(screen.getByText("@ada can you take it?")).toBeInTheDocument();
+    unmount();
+    render(
+      <ChannelEventRow
+        event={{
+          kind: "created",
+          channel: "group:tinytodo",
+          creator: "principal:hub:b1ec",
+          name: "tinytodo",
+          at: "2026-11-06T14:42:42Z",
+        }}
+      />,
+    );
+    const created = screen.getByTestId("channel-event-row-created");
+    expect(created).toHaveTextContent("created by ada");
+    expect(created).toHaveTextContent(new Date("2026-11-06T14:36:56Z").toLocaleString());
+    channelInfo.data = undefined;
+  });
+
   it("renders the posted event with the body text and author chip", () => {
     render(
       <ChannelEventRow

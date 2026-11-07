@@ -25,6 +25,16 @@ vi.mock("../hooks/usePrincipals", () => ({
   usePrincipals: (...args: unknown[]) => usePrincipalsMock(...args),
 }));
 
+const remotesMock = vi.fn(() => ({ data: [] as unknown[] }));
+vi.mock("../hooks/useRemotePrincipals", () => ({
+  useRemotePrincipals: () => remotesMock(),
+}));
+
+const navigateMock = vi.fn();
+vi.mock("@tanstack/react-router", () => ({
+  useNavigate: () => navigateMock,
+}));
+
 import ChannelCreateModal from "../components/modals/ChannelCreateModal";
 
 function renderModal(
@@ -126,12 +136,45 @@ describe("ChannelCreateModal", () => {
     expect(screen.getByText(/creator not loaded/)).toBeInTheDocument();
   });
 
-  it("does not render the picker when there are zero local principals", () => {
+  it("with no peko here, offers to make one", () => {
     usePrincipalsMock.mockReturnValue({ data: [] });
-    renderModal();
-    // The select dropdown still renders, but the user sees a hint
-    // to load a principal first instead of the empty option list.
-    expect(screen.getByText(/No local principals/i)).toBeInTheDocument();
+    remotesMock.mockReturnValue({ data: [] });
+    const onCreatePeko = vi.fn();
+    renderModal({ onCreatePeko });
+    expect(screen.getByTestId("channel-create-no-peko")).toHaveTextContent(
+      "none of your pekos live on this one",
+    );
+    expect(screen.queryByTestId("channel-create-creator")).toBeNull();
+    expect(screen.queryByTestId("channel-create-submit")).toBeNull();
+    fireEvent.click(screen.getByTestId("channel-create-new-peko"));
+    expect(onCreatePeko).toHaveBeenCalled();
+  });
+
+  // Found live: a computer with no pekos could not start a group. One of
+  // your pekos on another computer starts it and adds you.
+  it("with no peko here, asks one of yours elsewhere to start it", () => {
+    usePrincipalsMock.mockReturnValue({ data: [] });
+    remotesMock.mockReturnValue({
+      data: [
+        { principalName: "ada", displayName: "ada", runtimeId: "hub:rt1", fromAccount: true },
+        { principalName: "bix", displayName: "bix", runtimeId: "hub:rt2", fromAccount: false },
+      ],
+    });
+    const { onClose } = renderModal();
+    expect(screen.queryByTestId("channel-create-ask-bix")).toBeNull();
+    const ask = screen.getByTestId("channel-create-ask-ada");
+    expect(ask).toBeDisabled();
+    fireEvent.change(screen.getByTestId("channel-create-name"), { target: { value: "tinytodo" } });
+    fireEvent.click(ask);
+    expect(onClose).toHaveBeenCalled();
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: "/chat/$pekoName",
+      params: { pekoName: "ada" },
+      search: {
+        runtimeId: "hub:rt1",
+        say: 'Please start a group called "tinytodo", add me to it, and register it on PekoHub (invite only) so it reaches my other computers.',
+      },
+    });
   });
 
   // P1.5: Escape closes the modal. Uses the modal-level keydown

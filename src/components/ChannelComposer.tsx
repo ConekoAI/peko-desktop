@@ -3,6 +3,7 @@ import { Send, Loader2 } from "lucide-react";
 import { useChannelPost } from "../hooks/useChannelPost";
 import { useChannelInfo } from "../hooks/useChannels";
 import { insertMention, mentionCandidates, mentionQuery } from "../lib/mentions";
+import { mentionablePekos } from "../lib/channelPeople";
 import { isChannelForbidden } from "../lib/channelErrors";
 import type { RuntimeId } from "../lib/api";
 
@@ -39,7 +40,14 @@ export default function ChannelComposer({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const mutation = useChannelPost(runtimeId);
   const { data: info } = useChannelInfo(channelId);
-  const pekoNames = useMemo(() => (info?.pekos ?? []).map((p) => p.name), [info]);
+  // The group's pekos: those here, and those on other computers.
+  const pekoNames = useMemo(() => {
+    const names = (info?.pekos ?? []).map((p) => p.name);
+    for (const name of mentionablePekos(info?.people)) {
+      if (!names.includes(name)) names.push(name);
+    }
+    return names;
+  }, [info]);
   // The `@word` under the caret, and which suggestion is highlighted.
   const [caret, setCaret] = useState(0);
   const [highlight, setHighlight] = useState(0);

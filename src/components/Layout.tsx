@@ -229,6 +229,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <ChannelCreateModal
         open={channelCreateOpen}
         onClose={() => setChannelCreateOpen(false)}
+        onCreatePeko={() => {
+          setChannelCreateOpen(false);
+          setCreateOpen(true);
+        }}
         onCreated={(channelId) =>
           navigate({
             to: "/channels/$channelId",

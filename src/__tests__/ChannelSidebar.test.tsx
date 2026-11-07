@@ -259,6 +259,29 @@ describe("ChannelSidebar — groups on other computers", () => {
     expect(await screen.findByTestId("group-join-asked")).toHaveTextContent("book club");
   });
 
+  // Found live: the group arrives a moment after the home lets you in;
+  // the list picks it up then and opens it, with no navigating away.
+  it("opens a joined group as soon as its home lets you in", async () => {
+    groupInvitationsMock.mockResolvedValue([]);
+    personGroupsMock.mockReset().mockResolvedValue([]);
+    groupJoinMock.mockReset().mockResolvedValue({ channelId: "chan_book", name: "book club" });
+    navigateMock.mockReset();
+    renderSidebar();
+    fireEvent.click(screen.getByTestId("group-join-open"));
+    fireEvent.change(screen.getByTestId("group-join-input"), { target: { value: "123" } });
+    fireEvent.click(screen.getByRole("button", { name: "Join" }));
+    expect(await screen.findByTestId("group-join-asked")).toBeInTheDocument();
+    personGroupsMock.mockResolvedValue([{ channelId: "chan_book", name: "book club", home: null }]);
+    await waitFor(
+      () =>
+        expect(navigateMock).toHaveBeenCalledWith(
+          expect.objectContaining({ to: "/channels/$channelId", params: { channelId: "chan_book" } }),
+        ),
+      { timeout: 4000 },
+    );
+    expect(screen.queryByTestId("group-join")).toBeNull();
+  });
+
   it("says why a group can't be joined", async () => {
     groupInvitationsMock.mockResolvedValue([]);
     personGroupsMock.mockResolvedValue([]);

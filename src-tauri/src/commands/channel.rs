@@ -305,6 +305,29 @@ pub struct ChannelInfo {
     pub pekos: Vec<ChannelPekoWake>,
     /// A group's home and PekoHub registration (runtime ADR-092 D1/D5).
     pub group: Option<ChannelGroupSummary>,
+    /// Everyone in it once, with names, including those on other
+    /// computers. Empty from runtimes before it.
+    pub people: Vec<ChannelPerson>,
+    /// When the group began (RFC3339): the home's time, not this copy's.
+    pub created_at: Option<String>,
+}
+
+/// One member of a channel, as people read it.
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelPerson {
+    /// Canonical address, e.g. `principal:hub:<id>`, `user:local:local`.
+    pub address: String,
+    /// Other forms the member appears as (a remote peko's `did:key`, a
+    /// person's Hub address), so a post's author names them too.
+    pub aliases: Vec<String>,
+    /// `principal` (a peko) or `user` (a person).
+    pub kind: String,
+    pub name: Option<String>,
+    /// This computer's person.
+    pub you: bool,
+    /// Hosted on this computer.
+    pub here: bool,
 }
 
 /// Where a group is managed, and its PekoHub ID once registered.
@@ -421,6 +444,33 @@ fn project_channel_info_envelope(value: &serde_json::Value) -> Result<ChannelInf
                 visibility: opt("visibility"),
             }
         }),
+        people: list("people")
+            .iter()
+            .filter_map(|p| {
+                let opt = |k: &str| p.get(k).and_then(|v| v.as_str()).map(str::to_string);
+                let flag = |k: &str| p.get(k).and_then(serde_json::Value::as_bool) == Some(true);
+                Some(ChannelPerson {
+                    address: opt("address")?,
+                    aliases: p
+                        .get("aliases")
+                        .and_then(|v| v.as_array())
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    kind: opt("kind").unwrap_or_default(),
+                    name: opt("name"),
+                    you: flag("you"),
+                    here: flag("here"),
+                })
+            })
+            .collect(),
+        created_at: value
+            .get("created_at")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
     })
 }
 
@@ -1002,8 +1052,31 @@ mod tests {
             "pekos": [{"name": "alice", "local_id": "prin_alice", "wake": "mention"}],
             "group": {"home_here": true, "owner": "principal:local:prin_alice", "hub_id": "123",
                 "page": "https://pekohub.ai/g/123", "visibility": "invite_only"},
+            "people": [
+                {"address": "user:local:local", "aliases": ["user:hub:66"], "kind": "user",
+                    "name": "Frank", "you": true, "here": true},
+                {"address": "principal:hub:b1", "aliases": ["did:key:z6Mk"], "kind": "principal",
+                    "name": "ada", "you": false, "here": false},
+            ],
+            "created_at": "2026-11-06T14:36:56.811782+00:00",
         });
         let info = project_channel_info_envelope(&v).unwrap();
+        assert_eq!(
+            info.created_at.as_deref(),
+            Some("2026-11-06T14:36:56.811782+00:00")
+        );
+        assert_eq!(
+            info.people[1],
+            ChannelPerson {
+                address: "principal:hub:b1".into(),
+                aliases: vec!["did:key:z6Mk".into()],
+                kind: "principal".into(),
+                name: Some("ada".into()),
+                you: false,
+                here: false,
+            }
+        );
+        assert!(info.people[0].you);
         assert_eq!(info.kind, "group");
         let group = info.group.clone().unwrap();
         assert!(group.home_here);

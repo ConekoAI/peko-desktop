@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Users, X } from "lucide-react";
 
+import { useNavigate } from "@tanstack/react-router";
+
 import { useChannelCreate } from "../../hooks/useChannels";
 import { usePrincipals } from "../../hooks/usePrincipals";
+import { useRemotePrincipals } from "../../hooks/useRemotePrincipals";
 import { useModalA11y } from "../../hooks/useModalA11y";
 
 /**
@@ -28,12 +31,23 @@ export default function ChannelCreateModal({
   open,
   onClose,
   onCreated,
+  onCreatePeko,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated?: (channelId: string) => void;
+  /** Open the new-peko flow (no peko lives on this computer). */
+  onCreatePeko?: () => void;
 }) {
   const { data: principals, isLoading: principalsLoading } = usePrincipals();
+  // A group lives with the peko that starts it. With none here, one of
+  // your pekos on another computer can start it for you.
+  const { data: remotes } = useRemotePrincipals();
+  const yoursElsewhere = useMemo(
+    () => (remotes ?? []).filter((r) => r.fromAccount),
+    [remotes],
+  );
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [creatorName, setCreatorName] = useState<string | null>(null);
 
@@ -181,14 +195,23 @@ export default function ChannelCreateModal({
             </label>
             {principalsLoading && (
               <p className="text-xs text-fg-muted">
-                Loading principals…
+                Loading your pekos…
               </p>
             )}
             {!principalsLoading && principalItems.length === 0 && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                No local principals yet. Create one first via the
-                Principals sidebar.
-              </p>
+              <NoPekoHere
+                groupName={trimmedName}
+                yoursElsewhere={yoursElsewhere}
+                onAsk={(peko) => {
+                  onClose();
+                  navigate({
+                    to: "/chat/$pekoName",
+                    params: { pekoName: peko.principalName },
+                    search: { runtimeId: peko.runtimeId, say: askToStart(trimmedName) },
+                  });
+                }}
+                onCreatePeko={onCreatePeko}
+              />
             )}
             {!principalsLoading && principalItems.length > 0 && (
               <select
@@ -221,6 +244,7 @@ export default function ChannelCreateModal({
           >
             Cancel
           </button>
+          {(principalsLoading || principalItems.length > 0) && (
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
@@ -230,8 +254,79 @@ export default function ChannelCreateModal({
             <Check className="h-3.5 w-3.5" />
             {createMut.isPending ? "Creating…" : "Create"}
           </button>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** What you ask a peko of yours to do when it starts a group for you. */
+export function askToStart(groupName: string): string {
+  return `Please start a group called "${groupName}", add me to it, and register it on PekoHub (invite only) so it reaches my other computers.`;
+}
+
+/**
+ * No peko lives on this computer, and a group lives with the peko that
+ * starts it: ask one of yours on another computer, or make one here.
+ */
+function NoPekoHere({
+  groupName,
+  yoursElsewhere,
+  onAsk,
+  onCreatePeko,
+}: {
+  groupName: string;
+  yoursElsewhere: {
+    principalName: string;
+    displayName: string;
+    runtimeId: string;
+  }[];
+  onAsk: (peko: { principalName: string; runtimeId: string }) => void;
+  onCreatePeko?: () => void;
+}) {
+  return (
+    <div
+      className="space-y-2 text-xs text-fg-muted"
+      data-testid="channel-create-no-peko"
+    >
+      <p>
+        A group lives on the computer of the peko that starts it, and none of
+        your pekos live on this one.
+      </p>
+      {yoursElsewhere.length > 0 && (
+        <>
+          <p>
+            {groupName
+              ? "Ask one of yours on another computer to start it; it adds you, and the group shows up here too."
+              : "Name the group, then ask one of yours on another computer to start it."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {yoursElsewhere.map((peko) => (
+              <button
+                key={`${peko.runtimeId}/${peko.principalName}`}
+                type="button"
+                disabled={!groupName}
+                onClick={() => onAsk(peko)}
+                className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+                data-testid={`channel-create-ask-${peko.principalName}`}
+              >
+                Ask {peko.displayName || peko.principalName}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {onCreatePeko && (
+        <button
+          type="button"
+          onClick={onCreatePeko}
+          className="rounded-md border border-line px-2.5 py-1 text-xs text-fg-soft hover:bg-surface-sunken"
+          data-testid="channel-create-new-peko"
+        >
+          Create a peko on this computer
+        </button>
+      )}
     </div>
   );
 }
