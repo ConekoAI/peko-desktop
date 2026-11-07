@@ -844,6 +844,8 @@ export interface RemotePrincipalSummary {
    * list: it follows the account and isn't removed by hand.
    */
   fromAccount?: boolean;
+  /** The computer it runs on, as that computer names itself on PekoHub. */
+  runtimeName?: string | null;
 }
 
 export interface RemotePrincipalResolveResult {
@@ -923,6 +925,7 @@ export async function remotePrincipalAdopt(
       localId: peko.localId,
       description: peko.description,
       fromAccount: true,
+      runtimeName: peko.runtimeName ?? null,
     },
   });
 }
@@ -1478,6 +1481,8 @@ export interface AccessiblePrincipal {
   localId: string | null;
   description: string | null;
   exposure: string;
+  /** The computer it runs on, as that computer names itself on PekoHub. */
+  runtimeName?: string | null;
 }
 
 interface AccessiblePekoWire {
@@ -1492,6 +1497,7 @@ interface AccessiblePekoWire {
   localId?: unknown;
   description?: unknown;
   exposure?: unknown;
+  runtimeName?: unknown;
 }
 
 const textOrNull = (v: unknown): string | null =>
@@ -1524,6 +1530,7 @@ export async function pekohubListAccessiblePekos(
     localId: textOrNull(w.localId),
     description: textOrNull(w.description),
     exposure: String(w.exposure ?? "private"),
+    runtimeName: textOrNull(w.runtimeName),
   }));
 }
 

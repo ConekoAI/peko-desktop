@@ -38,6 +38,8 @@ pub struct RemotePrincipalSummary {
     pub local_id: Option<String>,
     /// One of your own pekos, following your account: not removed by hand.
     pub from_account: bool,
+    /// The computer it runs on, as that computer names itself on PekoHub.
+    pub runtime_name: Option<String>,
 }
 
 impl RemotePrincipalSummary {
@@ -58,6 +60,7 @@ impl RemotePrincipalSummary {
             avatar: r.avatar.clone(),
             local_id: r.local_id.clone(),
             from_account: r.from_account,
+            runtime_name: r.runtime_name.clone(),
         }
     }
 }
@@ -331,6 +334,7 @@ pub async fn remote_principal_add(
         avatar: None,
         local_id: None,
         from_account: false,
+        runtime_name: None,
     })
 }
 
@@ -357,6 +361,9 @@ pub struct RemotePrincipalAdoptRequest {
     /// with someone else's peko.
     #[serde(default)]
     pub from_account: bool,
+    /// The computer it runs on, as PekoHub names it.
+    #[serde(default)]
+    pub runtime_name: Option<String>,
 }
 
 /// The saved records after adopting `req`: a record with its Hub ID (or
@@ -374,6 +381,7 @@ fn adopt_into(
                 && r.principal_name == req.principal_name)
     };
     let previous = records.iter().find(|r| same(r)).cloned();
+    let previous_runtime_name = previous.as_ref().and_then(|r| r.runtime_name.clone());
     records.retain(|r| !same(r));
     let record = RemotePrincipalRecord {
         hub_url: req.hub_url,
@@ -391,6 +399,10 @@ fn adopt_into(
         avatar: req.avatar.filter(|a| !a.trim().is_empty()),
         local_id: req.local_id.filter(|id| !id.is_empty()),
         description: req.description.filter(|d| !d.trim().is_empty()),
+        runtime_name: req
+            .runtime_name
+            .filter(|n| !n.trim().is_empty())
+            .or_else(|| previous_runtime_name.clone()),
     };
     records.push(record.clone());
     (records, record)
@@ -712,7 +724,22 @@ mod tests {
             local_id: Some("prin_a".into()),
             description: Some(" ".into()),
             from_account: false,
+            runtime_name: None,
         }
+    }
+
+    /// The computer a peko runs on is kept from your account's list and
+    /// sent to the app; a later list that doesn't say keeps the old one.
+    #[test]
+    fn adopting_keeps_the_computer_a_peko_runs_on() {
+        let mut first = adopt("nova", "hub-1");
+        first.runtime_name = Some("Maya's MacBook".into());
+        let (records, record) = adopt_into(Vec::new(), first, 1);
+        assert_eq!(record.runtime_name.as_deref(), Some("Maya's MacBook"));
+        let (records, record) = adopt_into(records, adopt("nova", "hub-1"), 2);
+        assert_eq!(record.runtime_name.as_deref(), Some("Maya's MacBook"));
+        let summary = RemotePrincipalSummary::from_record(&records[0]);
+        assert_eq!(summary.runtime_name.as_deref(), Some("Maya's MacBook"));
     }
 
     /// Your own peko from your account: saved with its Hub ID and face;

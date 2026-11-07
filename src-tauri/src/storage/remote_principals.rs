@@ -47,6 +47,9 @@ pub struct RemotePrincipalRecord {
     /// it leaves the account, and isn't removed by hand.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub from_account: bool,
+    /// The computer it runs on, as that computer names itself on PekoHub.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_name: Option<String>,
 }
 
 /// Wrapper so JSON reads stay forward-compatible — missing fields on

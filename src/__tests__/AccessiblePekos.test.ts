@@ -60,6 +60,7 @@ describe("pekohubListAccessiblePekos", () => {
             avatar: "🦊",
             status: "online",
             exposure: "private",
+            runtimeName: "Alice's MacBook",
           },
         ],
       }),
@@ -78,6 +79,7 @@ describe("pekohubListAccessiblePekos", () => {
         localId: "prin_1",
         description: null,
         exposure: "private",
+        runtimeName: "Alice's MacBook",
       },
     ]);
   });
