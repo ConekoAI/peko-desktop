@@ -529,7 +529,10 @@ mod tests {
             "approved": false,
             "message": "Denied apr_0123456789ab.",
         });
-        assert_eq!(approval_decided(&decided).unwrap(), "Denied apr_0123456789ab.");
+        assert_eq!(
+            approval_decided(&decided).unwrap(),
+            "Denied apr_0123456789ab."
+        );
         let refused = serde_json::json!({
             "type": "error",
             "message": "Request apr_0123456789ab was already decided.",
