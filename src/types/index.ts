@@ -213,10 +213,16 @@ export interface ApprovalRequest {
   trust: string;
   /** What it would do: the tool and its target. */
   summary: string;
-  /** Why the reviewer asked the owner. */
+  /** Why the reviewer asked the owner; for an owner task, where it was asked. */
   reason: string;
   createdAt: string;
   expiresAt: string;
+  /**
+   * `owner_task`: a task the peko hands to its owner from a conversation
+   * others share (runtime ADR-100). `summary` is then its whole brief, and
+   * it is approved once, never always. Absent for a reviewed call.
+   */
+  kind?: string | null;
 }
 
 /**

@@ -486,6 +486,7 @@ interface WireApproval {
   reason: string;
   created_at: string;
   expires_at: string;
+  kind?: string | null;
 }
 
 /**
@@ -509,6 +510,7 @@ export async function principalApprovals(
     reason: a.reason,
     createdAt: a.created_at,
     expiresAt: a.expires_at,
+    kind: a.kind ?? null,
   }));
 }
 
