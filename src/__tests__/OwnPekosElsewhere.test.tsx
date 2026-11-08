@@ -84,6 +84,22 @@ describe("ownPekosToAdopt", () => {
     expect(picked.map((p) => p.principalName)).toEqual(["renamed", "new"]);
   });
 
+  it("of several pekos with one name, takes the one online, else the one saved", () => {
+    const off = (hubId: string) => ({ ...own("kit", hubId, null), status: "offline" });
+    const online = own("kit", "live", "prin_live");
+    // A wiped computer's kit stays listed, offline, beside the new one.
+    const list = [online, off("stale-a"), off("stale-b")];
+    expect(ownPekosToAdopt(list, [], []).map((p) => p.hubId)).toEqual(["live"]);
+    // The stale one saved earlier is replaced by the one online.
+    expect(ownPekosToAdopt(list, [], [saved("kit", "stale-b")]).map((p) => p.hubId)).toEqual([
+      "live",
+    ]);
+    // Nothing online: keep what is saved rather than flip to another leftover.
+    const offline = [off("stale-a"), off("stale-b")];
+    expect(ownPekosToAdopt(offline, [], [saved("kit", "stale-b")])).toEqual([]);
+    expect(ownPekosToAdopt(offline, [], []).map((p) => p.hubId)).toEqual(["stale-a"]);
+  });
+
   it("claims one first saved from a DM", () => {
     const list = [own("nova", "h1", "prin_n")];
     expect(ownPekosToAdopt(list, [], [saved("nova", "h1", false)]).map((p) => p.hubId)).toEqual([

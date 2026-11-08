@@ -51,6 +51,8 @@ export function usePrincipalStatus(
   principalName: string,
   ownerForRemote?: string,
   hubUrlForRemote?: string,
+  /** The saved record's Hub ID: an account can list several same-name pekos. */
+  hubIdForRemote?: string | null,
 ): UseQueryResult<PrincipalStatus, Error> {
   const qc = useQueryClient();
   const isRemote = !!runtimeId && runtimeId !== "local" && !!hubUrlForRemote && !!ownerForRemote;
@@ -64,10 +66,17 @@ export function usePrincipalStatus(
       principalName,
       ownerForRemote ?? null,
       hubUrlForRemote ?? null,
+      hubIdForRemote ?? null,
     ],
     queryFn: async (): Promise<PrincipalStatus> => {
       if (isRemote && hubUrlForRemote && ownerForRemote) {
-        return fetchRemoteStatus(qc, hubUrlForRemote, ownerForRemote, principalName);
+        return fetchRemoteStatus(
+          qc,
+          hubUrlForRemote,
+          ownerForRemote,
+          principalName,
+          hubIdForRemote,
+        );
       }
       return fetchLocalStatus(principalName, runtimeId);
     },
@@ -124,12 +133,17 @@ async function fetchRemoteStatus(
   hubUrl: string,
   owner: string,
   principalName: string,
+  hubId?: string | null,
 ): Promise<PrincipalStatus> {
   // One of your own pekos on another computer: your account lists it
   // with its status and face, private ones included (they have no
   // public page).
   const own = await ownPekosOnHub(qc, hubUrl).catch(() => null);
-  const mine = own?.find((p) => p.owner === owner && p.principalName === principalName);
+  // By Hub ID when the record has one: the dot is then the peko the chat
+  // talks to, not another of the same name.
+  const mine = own?.find((p) =>
+    hubId ? p.hubId === hubId : p.owner === owner && p.principalName === principalName,
+  );
   if (mine) {
     return {
       status: normalizeStatus(mine.status),
