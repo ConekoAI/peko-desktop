@@ -302,11 +302,29 @@ function ApprovalCards({
     <div className="space-y-2 border-t border-line bg-surface px-4 pt-3" data-testid="approval-cards">
       {requests.map((r) => (
         <div key={r.id} className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-sm">
-          <p className="text-fg">
-            <span className="font-medium">{askerName(r)}</span> asks {peko} to run{" "}
-            <span className="font-mono text-xs">{r.summary.replace(/`/g, "")}</span>
-          </p>
-          {r.reason && <p className="mt-1 text-xs text-fg-muted">{r.reason}</p>}
+          {r.kind === "owner_task" ? (
+            <>
+              <p className="text-fg">
+                You asked {peko} for something {r.reason || "in a shared conversation"} that
+                needs your full access. Approved, it runs as you, outside that conversation,
+                with only this brief:
+              </p>
+              <p
+                className="mt-2 whitespace-pre-wrap rounded-md border border-line bg-surface p-2 text-xs text-fg"
+                data-testid="owner-task-brief"
+              >
+                {r.summary}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-fg">
+                <span className="font-medium">{askerName(r)}</span> asks {peko} to run{" "}
+                <span className="font-mono text-xs">{r.summary.replace(/`/g, "")}</span>
+              </p>
+              {r.reason && <p className="mt-1 text-xs text-fg-muted">{r.reason}</p>}
+            </>
+          )}
           <div className="mt-2 flex gap-2">
             <button
               type="button"
@@ -316,15 +334,17 @@ function ApprovalCards({
             >
               Approve
             </button>
-            <button
-              type="button"
-              disabled={decide.isPending}
-              onClick={() => void act(r.id, true, true)}
-              title={`Approve, and always allow this for ${r.actorName ?? r.actor}`}
-              className="rounded-md border border-line px-3 py-1 text-xs text-fg-soft hover:bg-surface-sunken disabled:opacity-50"
-            >
-              Always allow
-            </button>
+            {r.kind !== "owner_task" && (
+              <button
+                type="button"
+                disabled={decide.isPending}
+                onClick={() => void act(r.id, true, true)}
+                title={`Approve, and always allow this for ${r.actorName ?? r.actor}`}
+                className="rounded-md border border-line px-3 py-1 text-xs text-fg-soft hover:bg-surface-sunken disabled:opacity-50"
+              >
+                Always allow
+              </button>
+            )}
             <button
               type="button"
               disabled={decide.isPending}

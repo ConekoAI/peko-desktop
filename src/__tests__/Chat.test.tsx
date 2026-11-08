@@ -278,6 +278,36 @@ describe("Chat ToS gate", () => {
     );
   });
 
+  it("shows a task handed to the owner whole, and approves it only once", async () => {
+    approvalsState.data = [
+      {
+        id: "apr_ab0123456789",
+        actor: "user:local:me",
+        actorName: "Me",
+        trust: "untrusted",
+        summary: "Run cargo test in ~/repo.\nReport which tests fail.",
+        reason: "in \u201crepo-team\u201d (4 members)",
+        createdAt: "2026-11-08T10:00:00Z",
+        expiresAt: "2026-11-09T10:00:00Z",
+        kind: "owner_task",
+      },
+    ];
+    decideMut.mutateAsync.mockResolvedValue("Approved apr_ab0123456789. Running it as you now.");
+    render(<Chat />);
+    const cards = screen.getByTestId("approval-cards");
+    expect(cards).toHaveTextContent("You asked alice for something in \u201crepo-team\u201d (4 members)");
+    expect(screen.getByTestId("owner-task-brief").textContent).toBe(
+      "Run cargo test in ~/repo.\nReport which tests fail.",
+    );
+    expect(screen.queryByRole("button", { name: "Always allow" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() =>
+      expect(decideMut.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "apr_ab0123456789", approve: true, always: false }),
+      ),
+    );
+  });
+
   it("sends on Enter, adds a line on Shift+Enter, and never mid-composition", async () => {
     sendMut.mutateAsync.mockResolvedValue("");
     render(<Chat />);
