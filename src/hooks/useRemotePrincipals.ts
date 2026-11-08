@@ -49,6 +49,7 @@ export function useRemotePeko(runtimeId: string | undefined, name: string) {
     name,
     record?.owner,
     record?.hubUrl,
+    record?.hubId,
   );
   const profile = record ? status.data?.profile : undefined;
   const identity: PekoIdentity = pekoIdentity({
@@ -232,7 +233,7 @@ export function ownPekosToAdopt(
 ): AccessiblePrincipal[] {
   const hereHub = new Set(here.map((p) => p.hubId).filter(Boolean));
   const hereLocal = new Set(here.map((p) => p.localId).filter(Boolean));
-  return own.filter(
+  return sameNameCollapsed(own, saved).filter(
     (p) =>
       !!p.hubId &&
       !hereHub.has(p.hubId) &&
@@ -241,6 +242,35 @@ export function ownPekosToAdopt(
         (r) => r.hubId === p.hubId && r.principalName === p.principalName && r.fromAccount,
       ),
   );
+}
+
+/**
+ * One peko per name. The app keeps one entry per name, and an account can
+ * list several pekos with the same name: a peko re-created after its
+ * computer was wiped leaves the old one behind, offline for good
+ * (2026-11-08 field test: the app showed a stale "kit" whose chat and
+ * approvals went nowhere). Of each name, keep the one online, else the
+ * one already saved (so the entry doesn't flip between leftovers), else
+ * the first listed.
+ */
+function sameNameCollapsed(
+  own: AccessiblePrincipal[],
+  saved: RemotePrincipalSummary[],
+): AccessiblePrincipal[] {
+  const best = new Map<string, AccessiblePrincipal>();
+  const rank = (p: AccessiblePrincipal) =>
+    p.status === "online"
+      ? 2
+      : saved.some((r) => r.hubId === p.hubId && r.principalName === p.principalName)
+        ? 1
+        : 0;
+  for (const p of own) {
+    const current = best.get(p.principalName);
+    if (!current || rank(p) > rank(current)) {
+      best.set(p.principalName, p);
+    }
+  }
+  return own.filter((p) => best.get(p.principalName) === p);
 }
 
 /**
