@@ -22,15 +22,15 @@ export default function EngineFailureCard({ message }: { message: string }) {
   return (
     <div
       data-testid="engine-failure-card"
-      className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30"
+      className="rounded-xl border border-danger/25 bg-danger-soft p-4"
     >
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+          <p className="text-sm font-semibold text-danger">
             The engine couldn't start
           </p>
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+          <p className="mt-1 text-xs text-danger">
             This usually means another peko daemon is using the IPC
             socket, or the bundled engine binary failed to launch.
             Chat and other engine-backed features won't work until
@@ -39,7 +39,7 @@ export default function EngineFailureCard({ message }: { message: string }) {
           {showDetails && (
             <pre
               data-testid="engine-failure-details"
-              className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap rounded border border-red-200 bg-white/60 p-2 text-[11px] text-red-700 dark:border-red-900 dark:bg-slate-950/40 dark:text-red-300"
+              className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap rounded border border-danger/25 bg-surface/60 p-2 font-mono text-[11px] text-danger"
             >
               {message}
             </pre>
@@ -50,13 +50,13 @@ export default function EngineFailureCard({ message }: { message: string }) {
         <button
           onClick={() => restart.mutate()}
           disabled={restart.isPending}
-          className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+          className="btn-danger-solid btn-sm"
         >
           {restart.isPending ? "Restarting…" : "Restart engine"}
         </button>
         <button
           onClick={() => setShowDetails((s) => !s)}
-          className="text-xs font-medium text-red-700 underline-offset-2 hover:underline dark:text-red-300"
+          className="text-xs font-medium text-danger underline-offset-2 hover:underline"
         >
           {showDetails ? "Hide details" : "Show details"}
         </button>

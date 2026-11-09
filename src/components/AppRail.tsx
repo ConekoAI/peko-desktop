@@ -1,84 +1,68 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
-import { MessageCircle, Users, Settings } from "lucide-react";
+import { MessageCircle, Settings } from "lucide-react";
 import ProfileMenu from "./ProfileMenu";
 import HubNotificationBell from "./HubNotificationBell";
+import GroupRail from "./rail/GroupRail";
+import { RailDivider, RailItem } from "./rail/RailItem";
+import { useUnreadCounts } from "../lib/unread";
 
-export default function AppRail() {
+/**
+ * The far-left rail: Chats on top, then every group you are in as its own
+ * tile, then account and settings at the foot.
+ */
+export default function AppRail({ onCreateGroup }: { onCreateGroup?: () => void } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
+  const unread = Object.values(useUnreadCounts()).reduce((sum, n) => sum + n, 0);
 
   const isHome =
     location.pathname === "/" ||
     location.pathname === "/chat" ||
     location.pathname.startsWith("/chat/") ||
+    location.pathname === "/discover" ||
     // Runtime ADR-095 D6: DMs with people sit with the chats.
     location.pathname.startsWith("/people/");
-
-  const isChannels =
-    location.pathname === "/channels" ||
-    location.pathname.startsWith("/channels/");
 
   const isSettings = location.pathname === "/settings";
 
   return (
-    <aside className="flex h-full w-16 flex-col items-center gap-2 border-r border-line bg-surface-raised py-3">
-      {/* Home / Direct Messages */}
-      <button
+    <aside className="flex h-full w-[72px] shrink-0 flex-col items-center bg-surface-rail pb-3 pt-3">
+      <RailItem
+        label="Chats"
+        active={isHome}
+        ariaCurrent={isHome}
+        unread={unread > 0}
+        badge={unread}
         onClick={() => navigate({ to: "/chat" })}
-        className={[
-          "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
-          isHome
-            ? "bg-brand-soft text-brand"
-            : "text-fg-muted hover:bg-surface-sunken hover:text-fg-soft",
-        ].join(" ")}
-        title="Chats"
-        aria-label="Chats"
+        testId="app-rail-chats"
       >
         <MessageCircle className="h-5 w-5" />
-      </button>
+      </RailItem>
 
-      {/* PR-1: Channels (peko-channel cross-runtime). Same chrome
-          shape as the Direct Messages icon — direct route, not a
-          nested menu. The active style mirrors the chat icon's. */}
-      <button
-        onClick={() => navigate({ to: "/channels" })}
-        className={[
-          "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
-          isChannels
-            ? "bg-brand-soft text-brand"
-            : "text-fg-muted hover:bg-surface-sunken hover:text-fg-soft",
-        ].join(" ")}
-        title="Groups"
+      <RailDivider />
+
+      <nav
         aria-label="Groups"
-        data-testid="app-rail-channels"
+        className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        data-testid="app-rail-groups"
       >
-        <Users className="h-5 w-5" />
-      </button>
+        <GroupRail onCreateClick={onCreateGroup} />
+      </nav>
 
-      <div className="flex-1" />
-
-      <HubNotificationBell />
-
-      <button
-        onClick={() => navigate({ to: "/settings" })}
-        className={[
-          "flex h-10 w-10 items-center justify-center rounded-xl transition-all",
-          isSettings
-            ? "bg-brand-soft text-brand"
-            : "text-fg-muted hover:bg-surface-sunken hover:text-fg-soft",
-        ].join(" ")}
-        title="Settings"
-        aria-label="Settings"
-        aria-current={isSettings ? "page" : undefined}
-      >
-        <Settings className="h-5 w-5" />
-      </button>
-
-      {/* PekoHub account — chrome-level sign-in / sign-out, accessible
-          from any route. Owns the OAuth flow (ProfileMenu reuses
-          useRuntimes hooks; no auth code lives here). The Settings
-          link still lives inside the dropdown for navigation. */}
-      <ProfileMenu />
+      <div className="mt-2 flex w-full flex-col items-center gap-2 pt-2">
+        <HubNotificationBell />
+        <RailItem
+          label="Settings"
+          active={isSettings}
+          ariaCurrent={isSettings}
+          onClick={() => navigate({ to: "/settings" })}
+          testId="app-rail-settings"
+        >
+          <Settings className="h-5 w-5" />
+        </RailItem>
+        {/* PekoHub account — sign in / out from any route. */}
+        <ProfileMenu />
+      </div>
     </aside>
   );
 }

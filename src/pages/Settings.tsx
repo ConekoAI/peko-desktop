@@ -46,7 +46,7 @@ import type { RuntimeConnection, CredentialDetail, CredentialKind } from "../typ
 
 type Section = "general" | "models" | "advanced" | "about";
 
-const CARD = "rounded-xl border border-line bg-surface-card p-5";
+const CARD = "card p-5";
 
 function GeneralSection() {
   const [theme, setThemeState] = useState(getTheme);
@@ -59,8 +59,12 @@ function GeneralSection() {
   return (
     <div className="space-y-4">
       <div className={CARD}>
-        <h3 className="mb-4 text-sm font-semibold text-fg">Appearance</h3>
-        <div role="radiogroup" aria-label="Theme" className="flex gap-2">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="h-section">Appearance</h3>
+            <p className="field-hint mt-0.5">Dark matches PekoHub.</p>
+          </div>
+        <div role="radiogroup" aria-label="Theme" className="segmented">
           {(["light", "dark", "system"] as const).map((t) => {
             const Icon = t === "light" ? Sun : t === "dark" ? Moon : Monitor;
             return (
@@ -69,18 +73,14 @@ function GeneralSection() {
                 role="radio"
                 aria-checked={theme === t}
                 onClick={() => choose(t)}
-                className={[
-                  "flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
-                  theme === t
-                    ? "border-brand bg-brand-soft text-brand"
-                    : "border-line bg-surface-card text-fg-soft hover:bg-surface-sunken",
-                ].join(" ")}
+                className={["segment", theme === t ? "segment-active" : ""].join(" ")}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-3.5 w-3.5" />
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             );
           })}
+        </div>
         </div>
       </div>
       <KeepAwakeSetting className={CARD} />
@@ -120,10 +120,10 @@ function StoredKeys() {
     <div>
       <div className={CARD}>
         <div className="mb-3">
-          <h3 className="text-sm font-semibold text-fg">
+          <h3 className="h-section">
             Stored keys
           </h3>
-          <p className="mt-0.5 text-xs text-fg-muted">
+          <p className="field-hint mt-0.5">
             Every secret in the engine&apos;s vault. Model keys are managed
             from Models; this list is for keys other tools use.
           </p>
@@ -132,11 +132,11 @@ function StoredKeys() {
         <form
           data-testid="add-credential-form"
           onSubmit={handleSave}
-          className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-line p-3"
+          className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-line bg-surface-raised p-4"
         >
           <h4 className="col-span-2 text-xs font-semibold text-fg-soft">Add a key</h4>
           <label className="block">
-            <span className="mb-1 block text-[11px] text-fg-muted">Namespace</span>
+            <span className="field-label mb-1.5 block text-xs">Namespace</span>
             <input
               type="text"
               value={namespace}
@@ -144,11 +144,11 @@ function StoredKeys() {
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none focus:border-brand"
+              className="input input-sm"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] text-fg-muted">Name</span>
+            <span className="field-label mb-1.5 block text-xs">Name</span>
             <input
               type="text"
               value={name}
@@ -157,15 +157,15 @@ function StoredKeys() {
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none focus:border-brand"
+              className="input input-sm"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] text-fg-muted">Kind</span>
+            <span className="field-label mb-1.5 block text-xs">Kind</span>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as CredentialKind)}
-              className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none focus:border-brand"
+              className="select input-sm"
             >
               <option value="api_key">API key</option>
               <option value="bearer_token">Bearer token</option>
@@ -176,20 +176,20 @@ function StoredKeys() {
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] text-fg-muted">Secret</span>
+            <span className="field-label mb-1.5 block text-xs">Secret</span>
             <input
               type="password"
               value={material}
               onChange={(e) => setMaterial(e.target.value)}
               autoComplete="off"
-              className="w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-fg outline-none focus:border-brand"
+              className="input input-sm"
             />
           </label>
           <div className="col-span-2 flex justify-end">
             <button
               type="submit"
               disabled={!name.trim() || !material.trim() || setCred.isPending}
-              className="inline-flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
+              className="btn-primary btn-sm"
             >
               {setCred.isPending ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -210,7 +210,7 @@ function StoredKeys() {
         {!isLoading && (credentials?.length ?? 0) === 0 && (
           <div
             data-testid="credentials-empty-state"
-            className="rounded-lg border border-dashed border-line px-4 py-8 text-center"
+            className="rounded-xl border border-dashed border-line-strong px-4 py-10 text-center"
           >
             <Key className="mx-auto mb-2 h-6 w-6 text-fg-subtle" />
             <p className="text-sm font-medium text-fg-soft">
@@ -225,7 +225,7 @@ function StoredKeys() {
         {!isLoading && (credentials?.length ?? 0) > 0 && (
           <div
             data-testid="credentials-rows"
-            className="max-h-[60vh] divide-y divide-line overflow-y-auto rounded-lg border border-line"
+            className="rows max-h-[60vh] overflow-y-auto"
           >
             {credentials?.map((c) => (
               <CredentialRow key={c.id} credential={c} />
@@ -250,7 +250,7 @@ function CredentialRow({ credential }: { credential: CredentialDetail }) {
           <span className="font-mono text-xs text-fg">
             {credential.namespace}/{credential.name}
           </span>
-          <span className="rounded bg-surface-sunken px-1 py-0.5 text-[10px] uppercase text-fg-muted">
+          <span className="badge-neutral uppercase">
             {credential.kind}
           </span>
           {credential.lastTestedAt && (
@@ -263,7 +263,7 @@ function CredentialRow({ credential }: { credential: CredentialDetail }) {
         <button
           onClick={() => deleteCred.mutate(credential.id)}
           disabled={deleteCred.isPending}
-          className="inline-flex items-center gap-1 rounded-lg border border-danger/30 bg-surface-card px-2 py-1 text-[11px] font-medium text-danger transition-colors hover:bg-danger-soft disabled:opacity-50"
+          className="btn-danger btn-xs border border-danger/30"
         >
           <Trash2 className="h-3 w-3" />
           Delete
@@ -297,7 +297,7 @@ function RevealButton({ id }: { id: string }) {
               type="text"
               readOnly
               value={data ?? ""}
-              className="w-full rounded border border-line bg-surface-sunken px-2 py-1 font-mono text-[10px] text-fg-soft outline-none"
+              className="input input-sm bg-surface-sunken font-mono text-[11px]"
             />
           )}
         </div>
@@ -312,20 +312,17 @@ function ModelsSection() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-line bg-surface-card p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <div>
+        <div className="mb-4 flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-sm font-semibold text-fg">
-              Models
-            </h3>
-            <p className="mt-0.5 text-xs text-fg-muted">
+            <p className="text-sm text-fg-muted">
               The endpoints your pekos think with. Each model keeps its own API key; change it under Edit.
             </p>
           </div>
           <button
             onClick={() => setShowAdd(true)}
             data-testid="open-add-model-modal"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-fg transition-colors hover:bg-brand-hover"
+            className="btn-primary btn-sm"
           >
             <Plus className="h-3.5 w-3.5" />
             Add model
@@ -341,7 +338,7 @@ function ModelsSection() {
         {!isLoading && !isError && (models?.length ?? 0) === 0 && (
           <div
             data-testid="models-empty-state"
-            className="rounded-lg border border-dashed border-line px-4 py-8 text-center"
+            className="rounded-xl border border-dashed border-line-strong px-4 py-10 text-center"
           >
             <Cpu className="mx-auto mb-2 h-6 w-6 text-fg-subtle" />
             <p className="text-sm font-medium text-fg-soft">
@@ -352,7 +349,7 @@ function ModelsSection() {
             </p>
             <button
               onClick={() => setShowAdd(true)}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-fg transition-colors hover:bg-brand-hover"
+              className="btn-primary btn-sm mt-3"
             >
               <Plus className="h-3.5 w-3.5" />
               Add your first model
@@ -363,9 +360,8 @@ function ModelsSection() {
         {!isLoading && !isError && (models?.length ?? 0) > 0 && (
           <div
             data-testid="models-gallery"
-            className="max-h-[60vh] overflow-y-auto rounded-lg"
           >
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {models?.map((m) => <ModelGalleryCard key={m.id} model={m} />)}
             </div>
           </div>
@@ -374,7 +370,7 @@ function ModelsSection() {
         {isError && (
           <div
             data-testid="models-catalog-unavailable"
-            className="rounded-xl border border-warn/30 bg-warn-soft p-4"
+            className="rounded-xl border border-warn/25 bg-warn-soft p-4"
           >
             <div className="mb-1 flex items-center gap-2">
               <Info className="h-4 w-4 text-warn" />
@@ -453,7 +449,7 @@ function Runtimes() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-fg">Runtimes</h3>
+          <h3 className="h-section">Runtimes</h3>
           <p className="text-xs text-fg-muted">
             This computer&apos;s engine, and remote engines you connect to by id.
           </p>
@@ -461,7 +457,7 @@ function Runtimes() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAdd(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-card px-3 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+            className="btn-secondary"
           >
             <Plus className="h-4 w-4" />
             Add Remote
@@ -471,31 +467,31 @@ function Runtimes() {
 
       {/* Manual add form */}
       {showAdd && (
-        <div className="rounded-xl border border-line bg-surface-card p-4">
-          <h4 className="mb-3 text-sm font-semibold text-fg">Add Remote Runtime</h4>
+        <div className="card p-5">
+          <h4 className="h-section mb-3">Add Remote Runtime</h4>
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">Runtime ID</label>
+              <label className="field-label mb-1.5 block">Runtime ID</label>
               <input
                 type="text"
                 value={newRuntimeId}
                 onChange={(e) => setNewRuntimeId(e.target.value)}
                 placeholder="e.g. did:key:z6Mk..."
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">Display Name</label>
+              <label className="field-label mb-1.5 block">Display Name</label>
               <input
                 type="text"
                 value={newRuntimeName}
                 onChange={(e) => setNewRuntimeName(e.target.value)}
                 placeholder="e.g. Home Server"
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">
+              <label className="field-label mb-1.5 block">
                 PekoHub URL (optional)
               </label>
               <input
@@ -503,21 +499,21 @@ function Runtimes() {
                 value={newRuntimeUrl}
                 onChange={(e) => setNewRuntimeUrl(e.target.value)}
                 placeholder="https://api.pekohub.ai"
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input"
               />
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handleAdd}
                 disabled={addRuntime.isPending || !newRuntimeId.trim() || !newRuntimeName.trim()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
+                className="btn-primary"
               >
                 {addRuntime.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 Add
               </button>
               <button
                 onClick={() => setShowAdd(false)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-card px-4 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+                className="btn-secondary"
               >
                 <X className="h-4 w-4" />
                 Cancel
@@ -537,7 +533,7 @@ function Runtimes() {
           runtimes.map((runtime) => (
             <div
               key={runtime.id}
-              className="group flex items-center justify-between rounded-xl border border-line bg-surface-card p-4"
+              className="card group flex items-center justify-between p-4"
             >
               <div className="flex items-center gap-3">
                 <div
@@ -551,7 +547,7 @@ function Runtimes() {
                   {runtime.connectionType === "local" ? (
                     <MonitorIcon className="h-4 w-4 text-fg-muted" />
                   ) : (
-                    <Globe className="h-4 w-4 text-brand" />
+                    <Globe className="h-4 w-4 text-brand-text" />
                   )}
                 </div>
                 <div>
@@ -566,11 +562,11 @@ function Runtimes() {
                           if (e.key === "Escape") setEditingName(null);
                         }}
                         autoFocus
-                        className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg outline-none focus:border-brand"
+                        className="input px-2 py-1"
                       />
                       <button
                         onClick={() => commitRename(runtime.id)}
-                        className="rounded p-1 text-brand hover:bg-brand-soft"
+                        className="rounded p-1 text-brand-text hover:bg-brand-soft"
                       >
                         <Check className="h-3.5 w-3.5" />
                       </button>
@@ -595,7 +591,7 @@ function Runtimes() {
                     <span
                       className={[
                         runtime.status === "connected"
-                          ? "text-brand"
+                          ? "text-brand-text"
                           : runtime.status === "error"
                             ? "text-danger"
                             : runtime.status === "connecting"
@@ -613,7 +609,7 @@ function Runtimes() {
                 <button
                   onClick={() => reconnectRuntime.mutate(runtime.id)}
                   disabled={reconnectRuntime.isPending}
-                  className="rounded-lg p-2 text-fg-subtle transition-colors hover:bg-surface-sunken hover:text-fg-soft disabled:opacity-50"
+                  className="btn-icon"
                   title="Reconnect"
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -622,7 +618,7 @@ function Runtimes() {
                   <button
                     onClick={() => removeRuntime.mutate(runtime.id)}
                     disabled={removeRuntime.isPending}
-                    className="rounded-lg p-2 text-fg-subtle transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-50"
+                    className="btn-icon hover:bg-danger-soft hover:text-danger"
                     title="Remove"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -645,14 +641,14 @@ function PekoFolder() {
   const { data: dir, error } = useQuery({ queryKey: ["peko-home-dir"], queryFn: pekoHomeDir });
   return (
     <div className={CARD}>
-      <h3 className="text-sm font-semibold text-fg">Peko folder</h3>
-      <p className="mt-0.5 text-xs text-fg-muted">
+      <h3 className="h-section">Peko folder</h3>
+      <p className="field-hint mt-0.5">
         Where the engine keeps your pekos, models, and keys.
       </p>
       <div className="mt-3 flex items-center gap-2">
         <code
           data-testid="peko-home-dir"
-          className="min-w-0 flex-1 truncate rounded-lg bg-surface-sunken px-3 py-2 text-xs text-fg-soft"
+          className="min-w-0 flex-1 truncate rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-fg-soft"
         >
           {dir ?? (error ? "Unknown" : "…")}
         </code>
@@ -660,7 +656,7 @@ function PekoFolder() {
           type="button"
           disabled={!dir}
           onClick={() => dir && void revealItemInDir(dir)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface-card px-3 py-2 text-xs font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
+          className="btn-secondary btn-sm shrink-0"
         >
           <FolderOpen className="h-3.5 w-3.5" />
           Show folder
@@ -704,12 +700,12 @@ function AboutSection() {
     <div className="space-y-4">
       <div className={CARD}>
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand">
-            <span className="text-xl font-bold text-brand-fg">P</span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand shadow-sm">
+            <span className="h-3 w-3 rounded-full bg-white" />
           </div>
-          <h3 className="text-lg font-bold text-fg">Peko</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-fg">Peko</h3>
         </div>
-        <dl className="space-y-2 text-sm">
+        <dl className="rows text-sm [&>div]:px-4 [&>div]:py-2.5">
           <div className="flex justify-between">
             <dt className="text-fg-muted">App version</dt>
             <dd data-testid="app-version" className="font-medium text-fg">
@@ -726,14 +722,14 @@ function AboutSection() {
       </div>
 
       <div className={CARD}>
-        <h3 className="mb-2 text-sm font-semibold text-fg">Help</h3>
+        <h3 className="h-section mb-2">Help</h3>
         <div className="flex flex-col items-start gap-1">
           {LINKS.map((link) => (
             <button
               key={link.url}
               type="button"
               onClick={() => void openUrl(link.url)}
-              className="inline-flex items-center gap-1 text-sm text-brand hover:underline"
+              className="link inline-flex items-center gap-1 text-sm"
             >
               {link.label}
               <ExternalLink className="h-3 w-3" />
@@ -743,14 +739,14 @@ function AboutSection() {
       </div>
 
       <div className={CARD}>
-        <h3 className="mb-2 text-sm font-semibold text-fg">Onboarding</h3>
+        <h3 className="h-section mb-2">Onboarding</h3>
         <p className="mb-3 text-xs text-fg-muted">
           Walk through connecting a model and creating a peko again.
         </p>
         <button
           type="button"
           onClick={handleReplayOnboarding}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-card px-3 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+          className="btn-secondary"
         >
           Replay onboarding
         </button>
@@ -768,36 +764,40 @@ const SECTIONS: { id: Section; label: string; icon: React.ElementType }[] = [
 
 export default function Settings() {
   const [active, setActive] = useState<Section>("general");
+  const current = SECTIONS.find((x) => x.id === active) ?? SECTIONS[0];
 
   return (
-    <div className="mx-auto flex max-w-4xl gap-6">
-      <nav aria-label="Settings sections" className="w-44 shrink-0">
-        <h2 className="mb-3 px-3 text-xl font-bold text-fg">Settings</h2>
-        <div className="space-y-1">
+    <div className="flex h-full">
+      <nav
+        aria-label="Settings sections"
+        className="flex w-64 shrink-0 flex-col border-r border-line bg-surface-raised"
+      >
+        <div className="flex h-12 shrink-0 items-center border-b border-line px-4">
+          <h2 className="text-[15px] font-semibold tracking-tight text-fg">Settings</h2>
+        </div>
+        <div className="space-y-0.5 p-2">
           {SECTIONS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActive(id)}
               aria-current={active === id ? "page" : undefined}
-              className={[
-                "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                active === id
-                  ? "bg-brand-soft text-brand"
-                  : "text-fg-soft hover:bg-surface-sunken",
-              ].join(" ")}
+              className={["nav-item", active === id ? "nav-item-active" : ""].join(" ")}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={["h-4 w-4", active === id ? "text-brand-text" : ""].join(" ")} />
               {label}
             </button>
           ))}
         </div>
       </nav>
 
-      <div className="min-w-0 flex-1 pt-11">
-        {active === "general" && <GeneralSection />}
-        {active === "models" && <ModelsSection />}
-        {active === "advanced" && <AdvancedSection />}
-        {active === "about" && <AboutSection />}
+      <div className="min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl px-8 py-8">
+          <h1 className="h-page mb-6">{current.label}</h1>
+          {active === "general" && <GeneralSection />}
+          {active === "models" && <ModelsSection />}
+          {active === "advanced" && <AdvancedSection />}
+          {active === "about" && <AboutSection />}
+        </div>
       </div>
     </div>
   );

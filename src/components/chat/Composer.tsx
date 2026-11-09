@@ -75,7 +75,7 @@ export default function Composer({
         e.preventDefault();
         if (canSend) onSend();
       }}
-      className="rounded-xl border border-line bg-surface-raised focus-within:border-brand focus-within:ring-1 focus-within:ring-brand"
+      className="rounded-xl border border-line-strong bg-surface-card shadow-sm transition-colors focus-within:border-peko-500 focus-within:ring-2 focus-within:ring-peko-500/20"
     >
       <PendingAttachments paths={attachments} onRemove={(path) => onRemoveAttachment?.(path)} />
       <textarea
@@ -92,7 +92,7 @@ export default function Composer({
           onPasteFiles(files);
         }}
         placeholder="Message your peko…"
-        className="block max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm text-fg outline-none placeholder:text-slate-400"
+        className="block max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm text-fg outline-none placeholder:text-fg-subtle"
       />
       <div className="flex items-center gap-2 px-2 pb-2">
         {onAttach && (
@@ -101,7 +101,7 @@ export default function Composer({
             onClick={onAttach}
             aria-label="Attach files"
             title="Attach files — or drop them on the window"
-            className="inline-flex items-center rounded-md p-1.5 text-fg-muted hover:bg-surface-sunken hover:text-fg-soft"
+            className="btn-icon"
           >
             <Paperclip className="h-4 w-4" />
           </button>
@@ -111,7 +111,7 @@ export default function Composer({
             aria-label="Model for this message"
             value={model ?? ""}
             onChange={(e) => onModelChange(e.target.value || null)}
-            className="max-w-[14rem] truncate rounded-md border-none bg-transparent px-2 py-1 text-xs text-fg-muted outline-none hover:bg-surface-sunken focus:ring-1 focus:ring-brand"
+            className="max-w-[14rem] truncate rounded-md border-none bg-transparent px-2 py-1 text-xs text-fg-muted outline-none hover:bg-surface-sunken focus:ring-1 focus:ring-peko-500"
           >
             <option value="">Peko&apos;s model</option>
             {models.map((m) => (
@@ -129,7 +129,7 @@ export default function Composer({
           disabled={!canSend}
           aria-label="Send"
           title="Send (Enter)"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
+          className="btn-primary h-8 w-8 p-0"
         >
           <Send className="h-4 w-4" />
         </button>

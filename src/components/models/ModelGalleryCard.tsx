@@ -76,7 +76,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
   return (
     <div
       data-testid={`model-card-${model.id}`}
-      className="flex h-full flex-col rounded-xl border border-line bg-surface-card p-4 transition-shadow hover:shadow-md"
+      className="card card-hover flex h-full flex-col p-4"
     >
       {/* Header: the name gets the full width; the format sits with
           the status pills below, so it never truncates the name. */}
@@ -100,25 +100,25 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
           <span
             title="API format"
-            className="rounded-md border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-fg-muted"
+            className="badge-neutral uppercase tracking-wide"
           >
             {apiFormatShort(model.apiFormat)}
           </span>
           {!model.enabled && (
             <span
               data-testid={`model-card-status-disabled-${model.id}`}
-              className="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-fg-muted"
+              className="badge-neutral"
             >
               Disabled
             </span>
           )}
           {model.requiresKey && !model.credentialId && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn">
+            <span className="badge-warn">
               No key — add one under Edit
             </span>
           )}
           {model.credentialId && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand">
+            <span className="badge-ok">
               <Check className="h-2.5 w-2.5" />
               Key set
             </span>
@@ -169,7 +169,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
           className={[
             "mb-2 text-[11px]",
             feedback.ok
-              ? "text-brand"
+              ? "text-brand-text"
               : "text-danger",
           ].join(" ")}
           data-testid={`model-card-feedback-${model.id}`}
@@ -187,7 +187,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             checked={model.enabled}
             onChange={handleToggleEnabled}
             data-testid={`model-card-enabled-${model.id}`}
-            className="h-3.5 w-3.5 rounded border-line accent-brand focus:ring-brand"
+            className="h-3.5 w-3.5"
           />
           Enabled
         </label>
@@ -197,7 +197,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             disabled={testModel.isPending}
             title="Test model"
             data-testid={`model-card-test-${model.id}`}
-            className="rounded p-1.5 text-fg-subtle transition-colors hover:text-brand"
+            className="btn-icon"
           >
             {testModel.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -209,7 +209,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             onClick={() => setShowEdit(true)}
             title="Edit"
             data-testid={`model-card-edit-${model.id}`}
-            className="rounded p-1.5 text-fg-subtle transition-colors hover:text-fg-soft"
+            className="btn-icon"
           >
             <Edit3 className="h-3.5 w-3.5" />
           </button>
@@ -222,7 +222,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
                 onClick={handleConfirmRemove}
                 disabled={removeModel.isPending}
                 data-testid={`model-card-confirm-remove-${model.id}`}
-                className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                className="btn-danger-solid btn-xs"
               >
                 {removeModel.isPending ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -234,7 +234,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
               <button
                 onClick={() => setConfirmingRemove(false)}
                 disabled={removeModel.isPending}
-                className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface-card px-2 py-1 text-[11px] font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                className="btn-secondary btn-xs"
               >
                 Cancel
               </button>
@@ -244,7 +244,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
               onClick={() => setConfirmingRemove(true)}
               title="Remove"
               data-testid={`model-card-remove-${model.id}`}
-              className="rounded p-1.5 text-fg-subtle transition-colors hover:text-red-600"
+              className="btn-icon hover:bg-danger-soft hover:text-danger"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

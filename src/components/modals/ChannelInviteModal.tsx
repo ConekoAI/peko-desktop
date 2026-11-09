@@ -164,22 +164,22 @@ export default function ChannelInviteModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-backdrop"
     >
-      <div className="flex w-full max-w-md flex-col rounded-xl border border-line bg-surface-card shadow-xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
+      <div className="modal-panel flex w-full max-w-md flex-col">
+        <div className="modal-header shrink-0 justify-between">
           <div className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5 text-brand" />
+            <UserPlus className="h-5 w-5 text-brand-text" />
             <h2
               id="channel-invite-modal-title"
-              className="text-base font-semibold text-fg"
+              className="modal-title"
             >
               Invite to <span className="font-mono">{channel}</span>
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
+            className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
           </button>
@@ -191,7 +191,7 @@ export default function ChannelInviteModal({
           </p>
 
           {!inviterName && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400">
+            <div className="rounded-lg border border-warn/25 bg-warn-soft px-3 py-2 text-xs text-warn">
               Only a member can add others. Ask someone in this group to add
               one of your pekos first.
             </div>
@@ -204,7 +204,7 @@ export default function ChannelInviteModal({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search pekos…"
-              className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="input"
               data-testid="channel-invite-search"
             />
           </div>
@@ -229,7 +229,7 @@ export default function ChannelInviteModal({
                       className={[
                         "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
                         selected === c.name
-                          ? "bg-brand-soft text-brand"
+                          ? "bg-brand-soft text-brand-text"
                           : "text-fg-soft hover:bg-surface-sunken",
                       ].join(" ")}
                       data-testid={`channel-invite-row-${c.name}`}
@@ -257,17 +257,17 @@ export default function ChannelInviteModal({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="modal-footer shrink-0">
           <button
             onClick={onClose}
-            className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+            className="btn-secondary"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
+            className="btn-primary"
             data-testid="channel-invite-submit"
           >
             <Check className="h-3.5 w-3.5" />

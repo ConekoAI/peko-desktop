@@ -104,25 +104,25 @@ export default function AddRemotePrincipalModal({
   const canAdd = !!resolved && !addMut.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-md flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+    <div className="modal-backdrop">
+      <div className="modal-panel flex w-full max-w-md flex-col">
+        <div className="modal-header shrink-0 justify-between">
           <div className="flex items-center gap-2">
-            <Globe className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+            <Globe className="h-5 w-5 text-ok" />
+            <h2 className="modal-title">
               Add a peko
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-4 p-5 text-sm text-slate-700 dark:text-slate-300">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+        <div className="space-y-4 p-5 text-sm text-fg-soft">
+          <p className="text-xs text-fg-muted">
             Type the ID of someone&apos;s public peko, like{" "}
             <code className="font-mono">@alice/coding-assistant</code>, or paste its
             link from PekoHub.
@@ -131,30 +131,30 @@ export default function AddRemotePrincipalModal({
           <div>
             <label
               htmlFor="remote-share-url"
-              className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+              className="field-label mb-1.5 block"
             >
               Peko ID or link
             </label>
             <div className="relative">
-              <LinkIcon className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+              <LinkIcon className="absolute left-2.5 top-2 h-3.5 w-3.5 text-fg-subtle" />
               <input
                 id="remote-share-url"
                 autoFocus
                 value={shareUrl}
                 onChange={(e) => handleUrlChange(e.target.value)}
                 placeholder="@owner/name"
-                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                className="input pl-8 pr-3 font-mono"
               />
             </div>
             {shareUrl.trim() && !parsed && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              <p className="mt-1 text-xs text-danger">
                 That doesn&apos;t look like a peko&apos;s ID or link. Expected{" "}
                 <code className="font-mono">@owner/name</code> or{" "}
                 <code className="font-mono">https://pekohub.ai/@owner/name</code>.
               </p>
             )}
             {parsed && parsed.inviteToken && (
-              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+              <p className="mt-1 text-xs text-ok">
                 Invite token detected — the peko&apos;s owner shared this
                 link privately with you.
               </p>
@@ -162,39 +162,39 @@ export default function AddRemotePrincipalModal({
           </div>
 
           {resolved && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+            <div className="rounded-lg border border-line bg-surface-raised p-3">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-medium text-slate-900 dark:text-white">
+                <span className="font-medium text-fg">
                   {resolved.displayName}
                 </span>
                 <ExposureBadge exposure={resolved.exposure} />
               </div>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs text-fg-muted">
                 Owned by <span className="font-mono">{resolved.owner}</span> on{" "}
                 <span className="font-mono">{resolved.hubUrl}</span>
               </p>
               {resolved.description && (
-                <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                <p className="mt-2 text-xs text-fg-muted">
                   {resolved.description}
                 </p>
               )}
-              <p className="mt-2 text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <p className="mt-2 text-[10px] uppercase tracking-wider text-fg-subtle">
                 Status: {resolved.status}
               </p>
             </div>
           )}
 
           {errorMessage && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">
+            <div className="rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-xs text-danger">
               {errorMessage}
             </div>
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 px-5 py-3 dark:border-slate-800">
+        <div className="modal-footer shrink-0">
           <button
             onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="btn-secondary"
           >
             Cancel
           </button>
@@ -202,7 +202,7 @@ export default function AddRemotePrincipalModal({
             <button
               onClick={handleCheck}
               disabled={!canCheck}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-white px-4 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50 dark:bg-slate-900 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+              className="btn-secondary"
             >
               {resolveMut.isPending ? "Checking…" : "Check"}
             </button>
@@ -211,7 +211,7 @@ export default function AddRemotePrincipalModal({
             <button
               onClick={handleAdd}
               disabled={!canAdd}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
             >
               <Check className="h-3.5 w-3.5" />
               {addMut.isPending ? "Adding…" : "Add peko"}
@@ -227,12 +227,12 @@ export default function AddRemotePrincipalModal({
 function ExposureBadge({ exposure }: { exposure: string }) {
   const palette: Record<string, string> = {
     public:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+      "bg-ok-soft text-ok",
     unlisted:
-      "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-    private: "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+      "bg-warn-soft text-warn",
+    private: "bg-surface-sunken text-fg-soft",
     unexposed:
-      "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+      "bg-danger-soft text-danger",
   };
   const cls = palette[exposure] ?? palette.private;
   return (

@@ -43,13 +43,13 @@ export default function ChannelInviteToast({
 
   return (
     <div
-      className="fixed right-4 top-12 z-50 flex max-w-sm items-center gap-2 rounded-lg border border-brand/30 bg-surface-card px-3 py-2 text-xs shadow-lg"
+      className="popover fixed right-4 top-12 z-50 flex max-w-sm items-center gap-2 px-3 py-2 text-xs"
       data-testid="channel-invite-toast"
     >
-      <Hash className="h-3.5 w-3.5 shrink-0 text-brand" />
+      <Hash className="h-3.5 w-3.5 shrink-0 text-brand-text" />
       <button
         onClick={handleOpen}
-        className="min-w-0 flex-1 truncate text-left text-fg-soft hover:text-brand"
+        className="min-w-0 flex-1 truncate text-left text-fg-soft hover:text-brand-text"
         data-testid="channel-invite-toast-open"
       >
         Added to{" "}
@@ -59,7 +59,7 @@ export default function ChannelInviteToast({
       </button>
       {pendingCount > 0 && (
         <span
-          className="shrink-0 rounded-full bg-brand-soft px-1.5 py-0.5 text-[10px] font-semibold text-brand"
+          className="badge-accent shrink-0"
           data-testid="channel-invite-toast-pending"
           title={`${pendingCount} more invite${pendingCount === 1 ? "" : "s"} pending`}
         >
@@ -68,7 +68,7 @@ export default function ChannelInviteToast({
       )}
       <button
         onClick={onDismiss}
-        className="shrink-0 rounded p-1 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
+        className="btn-icon shrink-0 p-1"
         aria-label="Dismiss invite toast"
       >
         <X className="h-3 w-3" />

@@ -89,7 +89,7 @@ export default function FirstRunWalkthrough() {
       aria-modal="true"
       aria-labelledby="first-run-walkthrough-title"
       data-testid="first-run-walkthrough"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+      className="modal-backdrop"
     >
       <Onboarding onClose={close} takenNames={(principals ?? []).map((p) => p.name)} />
     </div>
@@ -113,10 +113,10 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
   }
 
   return (
-    <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-surface-card shadow-2xl">
+    <div className="modal-panel flex max-h-[90vh] max-w-xl flex-col overflow-hidden">
       <div className="flex items-start justify-between px-6 pt-5">
         <div>
-          <p className="text-xs font-medium text-brand">Welcome to Peko</p>
+          <p className="eyebrow text-brand-text">Welcome to Peko</p>
           <h2 id="first-run-walkthrough-title" className="mt-0.5 text-lg font-semibold text-fg">
             {STEPS[step - 1].label}
           </h2>
@@ -124,7 +124,7 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg px-2 py-1 text-xs text-fg-muted hover:bg-surface-sunken hover:text-fg-soft"
+          className="btn-ghost btn-xs"
         >
           Skip
         </button>
@@ -194,11 +194,11 @@ function ModelStep({ onNext }: { onNext: (modelId: string) => void }) {
           use.
         </p>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-fg-muted">Model</span>
+          <span className="field-label mb-1.5 block">Model</span>
           <select
             value={existing}
             onChange={(e) => setExisting(e.target.value)}
-            className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="select"
           >
             {enabled.map((m) => (
               <option key={m.id} value={m.id}>
@@ -278,7 +278,7 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
       {failureText && (
         <div
           data-testid="onboarding-model-error"
-          className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger"
+          className="note-danger text-xs"
         >
           <p className="font-medium">Couldn&apos;t reach the model.</p>
           <p className="mt-0.5 break-words">{failureText}</p>
@@ -352,7 +352,7 @@ function HelloStep({
   return (
     <div className="space-y-4">
       <p className="flex items-center gap-1.5 text-sm text-fg-muted">
-        <Check className="h-4 w-4 text-brand" />
+        <Check className="h-4 w-4 text-brand-text" />
         {pekoName} is awake. What would you like to say first?
       </p>
       <textarea
@@ -360,7 +360,7 @@ function HelloStep({
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={3}
-        className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+        className="input"
       />
       <div className="flex flex-wrap gap-1.5">
         {FIRST_MESSAGES.map((m) => (

@@ -4,7 +4,7 @@ import { Monitor, Globe } from "lucide-react";
  * PR-1 channel UI primitive. Visual reuse of the runtime
  * provenance pattern already established by `PrincipalSidebar.tsx`:
  * `Monitor` for local, `Globe` for remote. Kept tiny + dependency-
- * free so it slots into ChannelHeader / MemberList / ChannelSidebar
+ * free so it slots into ChannelHeader / MemberList
  * without lifting any state.
  *
  * Not a Zustand/TanStack-Query consumer — it renders whatever the
@@ -28,7 +28,7 @@ export default function RuntimeBadge({
 
   return (
     <span
-      className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400"
+      className="inline-flex items-center gap-1 text-fg-muted"
       data-testid={`runtime-badge-${runtimeId}`}
       title={label}
     >

@@ -73,26 +73,26 @@ export default function ImportPekoModal({
   const blocked = (preview?.validation_errors.length ?? 0) > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+    <div className="modal-backdrop">
+      <div className="modal-panel flex max-h-[85vh] w-full max-w-md flex-col">
+        <div className="modal-header shrink-0 justify-between">
           <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+            <Package className="h-5 w-5 text-ok" />
+            <h2 className="modal-title">
               Import a .peko package
             </h2>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-4 overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-300">
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+        <div className="space-y-4 overflow-y-auto p-5 text-sm text-fg-soft">
+          <p className="text-xs text-fg-muted">
             A <code>.peko</code> package wakes the <strong>same</strong> peko —
             its identity, memory, and private keys travel with the package.
             To grow a <strong>fresh</strong> peko from a definition instead,
@@ -102,7 +102,7 @@ export default function ImportPekoModal({
           {importMut.isSuccess ? (
             <div
               data-testid="import-peko-success"
-              className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
+              className="flex items-start gap-2 rounded-lg border border-ok/25 bg-ok-soft px-3 py-2 text-xs text-ok"
             >
               <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <p>
@@ -121,9 +121,9 @@ export default function ImportPekoModal({
               <div>
                 <label
                   htmlFor="peko-import-path"
-                  className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
+                  className="field-label mb-1.5 block"
                 >
-                  Package path <span className="text-red-500">*</span>
+                  Package path <span className="text-danger">*</span>
                 </label>
                 <input
                   id="peko-import-path"
@@ -134,10 +134,10 @@ export default function ImportPekoModal({
                     previewMut.reset();
                   }}
                   placeholder="~/.peko/alice.peko"
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+                  className="input font-mono"
                 />
               </div>
-              <label className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+              <label className="flex items-start gap-2 text-xs text-fg-muted">
                 <input
                   type="checkbox"
                   checked={rotateKeys}
@@ -159,18 +159,18 @@ export default function ImportPekoModal({
           {errorMessage && (
             <div
               data-testid="import-peko-error"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400"
+              className="rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-xs text-danger"
             >
               {errorMessage}
             </div>
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 px-5 py-3 dark:border-slate-800">
+        <div className="modal-footer shrink-0">
           {importMut.isSuccess ? (
             <button
               onClick={onClose}
-              className="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+              className="rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover"
             >
               Done
             </button>
@@ -178,7 +178,7 @@ export default function ImportPekoModal({
             <>
               <button
                 onClick={onClose}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="btn-secondary"
               >
                 Cancel
               </button>
@@ -187,7 +187,7 @@ export default function ImportPekoModal({
                   onClick={handleImport}
                   disabled={blocked || importMut.isPending}
                   data-testid="import-peko-submit"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
                 >
                   {importMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Wake {preview.name}
@@ -197,7 +197,7 @@ export default function ImportPekoModal({
                   onClick={handleReview}
                   disabled={!path.trim() || previewMut.isPending}
                   data-testid="import-peko-review"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
                 >
                   {previewMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Review
@@ -222,19 +222,19 @@ function PreviewSummary({ preview }: { preview: ImportPreview }) {
   return (
     <div
       data-testid="import-peko-preview"
-      className="space-y-2 rounded-lg border border-slate-200 p-3 text-xs dark:border-slate-800"
+      className="space-y-2 rounded-lg border border-line p-3 text-xs"
     >
       <p>
         <span className="font-mono font-medium">{preview.name}</span>{" "}
-        <span className="text-slate-400">v{preview.version}</span>
+        <span className="text-fg-subtle">v{preview.version}</span>
         {preview.description ? ` — ${preview.description}` : ""}
       </p>
-      <p className="text-slate-500 dark:text-slate-400">
+      <p className="text-fg-muted">
         {inv.file_count} files
         {inv.skills.length > 0 ? ` · skills: ${inv.skills.join(", ")}` : ""}
       </p>
       {runnable.length > 0 && (
-        <div className="rounded-md bg-amber-50 p-2 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+        <div className="rounded-md bg-warn-soft p-2 text-warn">
           <p className="flex items-center gap-1 font-medium">
             <AlertTriangle className="h-3.5 w-3.5" />
             This package can run code on this computer:
@@ -249,12 +249,12 @@ function PreviewSummary({ preview }: { preview: ImportPreview }) {
         </div>
       )}
       {preview.validation_warnings.map((w) => (
-        <p key={w} className="text-amber-700 dark:text-amber-400">
+        <p key={w} className="text-warn">
           {w}
         </p>
       ))}
       {preview.validation_errors.map((e) => (
-        <p key={e} className="text-red-600 dark:text-red-400">
+        <p key={e} className="text-danger">
           {e}
         </p>
       ))}

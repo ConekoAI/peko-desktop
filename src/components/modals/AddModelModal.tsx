@@ -96,17 +96,17 @@ export default function AddModelModal({
     addMut.error instanceof Error ? addMut.error.message : addMut.error ? String(addMut.error) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl border border-line bg-surface-card shadow-xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
+    <div className="modal-backdrop">
+      <div className="modal-panel flex max-h-[90vh] w-full max-w-lg flex-col">
+        <div className="modal-header shrink-0 justify-between">
           <div className="flex items-center gap-2">
-            <Plus className="h-5 w-5 text-brand" />
-            <h2 className="text-base font-semibold text-fg">Add a model</h2>
+            <Plus className="h-5 w-5 text-brand-text" />
+            <h2 className="modal-title">Add a model</h2>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
+            className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
           </button>
@@ -139,17 +139,17 @@ export default function AddModelModal({
           {error && (
             <div
               data-testid="add-model-error"
-              className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger"
+              className="note-danger text-xs"
             >
               {error}
             </div>
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="modal-footer shrink-0">
           <button
             onClick={onClose}
-            className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft hover:bg-surface-sunken"
+            className="btn-secondary"
           >
             Cancel
           </button>
@@ -157,7 +157,7 @@ export default function AddModelModal({
             onClick={submit}
             disabled={!canSubmit}
             data-testid="add-model-submit"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-40"
+            className="btn-primary"
           >
             <Check className="h-3.5 w-3.5" />
             {addMut.isPending ? "Adding…" : "Add"}

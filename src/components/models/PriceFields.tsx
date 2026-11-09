@@ -34,7 +34,7 @@ export default function PriceFields({
   );
   return (
     <fieldset disabled={disabled}>
-      <legend className="mb-1 block text-xs font-medium text-fg-muted">
+      <legend className="field-label mb-1.5 block">
         Price per million tokens
       </legend>
       <div className="flex flex-wrap gap-3">

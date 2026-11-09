@@ -16,12 +16,12 @@ export default function ChatStream({ messages, className = "" }: ChatStreamProps
   return (
     <div
       className={[
-        "flex flex-col gap-4 overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950",
+        "flex flex-col gap-4 overflow-y-auto rounded-lg border border-line bg-surface-card p-4",
         className,
       ].join(" ")}
     >
       {messages.length === 0 && (
-        <div className="py-8 text-center text-sm text-slate-400 dark:text-slate-600">
+        <div className="py-8 text-center text-sm text-fg-subtle">
           No messages yet
         </div>
       )}
@@ -31,7 +31,7 @@ export default function ChatStream({ messages, className = "" }: ChatStreamProps
           return (
             <div
               key={msg.id}
-              className="max-w-[85%] self-start rounded-xl rounded-tl-sm bg-slate-100 px-4 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+              className="max-w-[85%] self-start rounded-xl rounded-tl-sm bg-surface-sunken px-4 py-2.5 text-sm text-fg"
             >
               {msg.content}
             </div>
@@ -42,7 +42,7 @@ export default function ChatStream({ messages, className = "" }: ChatStreamProps
           return (
             <div
               key={msg.id}
-              className="max-w-[85%] self-start rounded-xl rounded-tl-sm bg-red-50 px-4 py-2.5 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400"
+              className="max-w-[85%] self-start rounded-xl rounded-tl-sm bg-danger-soft px-4 py-2.5 text-sm text-danger"
             >
               {msg.content}
             </div>

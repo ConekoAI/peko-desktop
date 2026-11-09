@@ -32,11 +32,11 @@ export default function KeepAwakeSetting({ className }: { className?: string }) 
           data-testid="keep-awake-toggle"
         />
         <span>
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-fg">
-            <Coffee className="h-4 w-4" />
+          <span className="h-section flex items-center gap-1.5">
+            <Coffee className="h-4 w-4 text-brand-text" />
             Keep this computer awake while a peko works
           </span>
-          <span className="mt-0.5 block text-xs text-fg-muted">
+          <span className="field-hint mt-0.5 block">
             So the pekos on this computer can finish what you ask them from your other
             computers. Sleep is held off only while a peko is working, and a minute after.
             Closing a laptop&apos;s lid still puts it to sleep.

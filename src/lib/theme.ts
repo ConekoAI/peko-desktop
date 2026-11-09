@@ -7,7 +7,8 @@ export function getTheme(): Theme {
   if (stored === "light" || stored === "dark" || stored === "system") {
     return stored;
   }
-  return "system";
+  // PekoHub is dark; a new install looks the same until you pick otherwise.
+  return "dark";
 }
 
 export function setTheme(theme: Theme): void {

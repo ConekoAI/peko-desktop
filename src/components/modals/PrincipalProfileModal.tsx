@@ -456,9 +456,9 @@ function LocalPekoProfile({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[75vh] w-full max-w-lg flex-col rounded-xl border border-line bg-surface shadow-xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
+    <div className="modal-backdrop">
+      <div className="modal-panel flex max-h-[75vh] w-full max-w-lg flex-col">
+        <div className="modal-header shrink-0 justify-between">
           <div className="flex items-center gap-3">
             <PekoAvatar
               peko={pekoIdentity(
@@ -469,7 +469,7 @@ function LocalPekoProfile({
               size="lg"
             />
             {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+              <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
             ) : principal ? (
               <div>
                 <h2 className="text-lg font-semibold text-fg">
@@ -491,7 +491,7 @@ function LocalPekoProfile({
             {principal && !isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-surface-sunken hover:text-fg-soft"
+                className="btn-icon -mr-1.5"
                 title="Edit"
                 aria-label="Edit"
               >
@@ -500,7 +500,7 @@ function LocalPekoProfile({
             )}
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-surface-sunken hover:text-fg-soft"
+              className="btn-icon -mr-1.5"
             >
               <X className="h-4 w-4" />
             </button>
@@ -547,19 +547,19 @@ function LocalPekoProfile({
                   pattern: read-only URL + a click-to-copy button that
                   briefly swaps to a check mark. */}
               {shareUrl !== null && (
-                <div className="rounded-lg border border-emerald-200 bg-brand-soft p-3 dark:border-emerald-900">
+                <div className="rounded-xl border border-line bg-surface-raised p-3.5">
                   <div className="flex items-start gap-2">
-                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-text" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-emerald-900 dark:text-emerald-200">
+                      <p className="text-xs font-semibold text-fg">
                         Share link
                       </p>
-                      <p className="mt-0.5 break-all font-mono text-[11px] text-brand">
+                      <p className="mt-0.5 break-all font-mono text-[11px] text-fg-muted">
                         {shareUrl}
                       </p>
                       <button
                         onClick={handleCopyShareLink}
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/50 dark:hover:bg-emerald-950"
+                        className="btn-secondary btn-xs mt-2"
                         data-testid="copy-share-link"
                       >
                         {copied ? (
@@ -589,19 +589,19 @@ function LocalPekoProfile({
               {(principal.exposure === "public" ||
                 principal.exposure === "private" ||
                 principal.exposure === "unlisted") && (
-                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/30">
+                <div className="rounded-xl border border-line bg-surface-raised p-3.5">
                   <div className="flex items-start gap-2">
-                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                    <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-text" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-violet-900 dark:text-violet-200">
+                      <p className="text-xs font-semibold text-fg">
                         Invite link
                       </p>
-                      <p className="mt-0.5 text-[11px] text-violet-700 dark:text-violet-300">
+                      <p className="mt-0.5 text-[11px] text-fg-muted">
                         Share with one friend. Burns immediately on revoke.
                       </p>
                       {mintError && (
                         <p
-                          className="mt-2 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
+                          className="note-danger mt-2 px-2.5 py-1.5 text-[11px]"
                           data-testid="invite-error"
                         >
                           {mintError}
@@ -610,12 +610,12 @@ function LocalPekoProfile({
                       {mintedInvite ? (
                         <>
                           <p
-                            className="mt-2 break-all font-mono text-[11px] text-violet-700 dark:text-violet-300"
+                            className="mt-2 break-all font-mono text-[11px] text-fg-soft"
                             data-testid="invite-url"
                           >
                             {mintedInvite.url}
                           </p>
-                          <p className="mt-1 text-[10px] text-violet-600/70 dark:text-violet-400/70">
+                          <p className="mt-1 text-[10px] text-fg-subtle">
                             jti {mintedInvite.claims.jti.slice(0, 8)}…
                             {" · "}
                             expires{" "}
@@ -634,7 +634,7 @@ function LocalPekoProfile({
                                   /* clipboard denied — non-fatal */
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300 dark:hover:bg-violet-950"
+                              className="btn-secondary btn-xs"
                               data-testid="copy-invite-link"
                             >
                               <Copy className="h-3.5 w-3.5" />
@@ -643,7 +643,7 @@ function LocalPekoProfile({
                             <button
                               onClick={handleRevokeInvite}
                               disabled={revokingInvite}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-950"
+                              className="btn-danger btn-xs border border-danger/30"
                               data-testid="burn-invite"
                             >
                               {revokingInvite ? (
@@ -659,7 +659,7 @@ function LocalPekoProfile({
                         <button
                           onClick={handleMintInvite}
                           disabled={mintingInvite}
-                          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white px-2.5 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-50 dark:border-violet-900 dark:bg-violet-950/50 dark:text-violet-300 dark:hover:bg-violet-950"
+                          className="btn-secondary btn-xs mt-2"
                           data-testid="generate-invite"
                         >
                           {mintingInvite ? (
@@ -687,7 +687,7 @@ function LocalPekoProfile({
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
+                      <p className="text-xs font-medium text-warn">
                         Export .peko package
                       </p>
                       <p className="mt-0.5 text-[11px] text-warn">
@@ -698,7 +698,7 @@ function LocalPekoProfile({
                       </p>
                       <label
                         htmlFor="peko-export-path"
-                        className="mb-1 mt-2 block text-[11px] font-medium text-amber-900 dark:text-amber-200"
+                        className="mb-1 mt-2 block text-[11px] font-medium text-warn"
                       >
                         Destination path
                       </label>
@@ -706,7 +706,7 @@ function LocalPekoProfile({
                         id="peko-export-path"
                         value={exportPath}
                         onChange={(e) => setExportPath(e.target.value)}
-                        className="w-full rounded-lg border border-amber-200 bg-surface px-2.5 py-1.5 font-mono text-[11px] text-slate-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-amber-800 dark:text-amber-100"
+                        className="w-full rounded-lg border border-warn/25 bg-surface px-2.5 py-1.5 font-mono text-[11px] text-fg outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                       />
                       {trimmedExportPath.length > 0 && !exportPathValid && (
                         <p className="mt-1 text-[11px] text-warn">
@@ -717,7 +717,7 @@ function LocalPekoProfile({
                         onClick={handleExport}
                         disabled={!exportPathValid || exportMut.isPending}
                         data-testid="export-peko-submit"
-                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-surface px-2.5 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-warn/40 bg-surface px-2.5 py-1 text-xs font-medium text-warn transition-colors hover:bg-amber-100 disabled:opacity-50"
                       >
                         {exportMut.isPending ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -729,7 +729,7 @@ function LocalPekoProfile({
                       {exportError && (
                         <p
                           data-testid="export-peko-error"
-                          className="mt-2 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300"
+                          className="note-danger mt-2 px-2.5 py-1.5 text-[11px]"
                         >
                           {exportError}
                         </p>
@@ -737,7 +737,7 @@ function LocalPekoProfile({
                       {exportedTo && (
                         <p
                           data-testid="export-peko-success"
-                          className="mt-2 break-all text-[11px] text-brand"
+                          className="mt-2 break-all text-[11px] text-brand-text"
                         >
                           Exported to <span className="font-mono">{exportedTo}</span>
                         </p>
@@ -768,7 +768,7 @@ function LocalPekoProfile({
                       <button
                         onClick={() => setConfirmingRemove(false)}
                         disabled={removeMut.isPending}
-                        className="rounded-lg border border-line bg-surface-card px-3 py-1.5 text-xs font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                        className="btn-secondary btn-sm"
                       >
                         Keep {principal.name}
                       </button>
@@ -810,7 +810,7 @@ function LocalPekoProfile({
                 <div>
                   <label
                     htmlFor="principal-avatar"
-                    className="mb-1 block text-xs font-medium text-fg-muted"
+                    className="field-label mb-1.5 block"
                   >
                     Avatar
                   </label>
@@ -821,7 +821,7 @@ function LocalPekoProfile({
                       onChange={(e) => setAvatar(e.target.value)}
                       placeholder="An emoji or two letters"
                       maxLength={16}
-                      className="w-40 rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                      className="input w-40"
                     />
                     {avatar && (
                       <button
@@ -844,7 +844,7 @@ function LocalPekoProfile({
                         className={[
                           "flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors",
                           avatar === emoji
-                            ? "bg-brand-soft ring-1 ring-emerald-500"
+                            ? "bg-brand-soft ring-1 ring-peko-500"
                             : "hover:bg-surface-sunken",
                         ].join(" ")}
                       >
@@ -857,7 +857,7 @@ function LocalPekoProfile({
               <div>
                 <label
                   htmlFor="principal-description"
-                  className="mb-1 block text-xs font-medium text-fg-muted"
+                  className="field-label mb-1.5 block"
                 >
                   Description
                 </label>
@@ -867,7 +867,7 @@ function LocalPekoProfile({
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What this peko does"
                   rows={2}
-                  className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  className="input"
                 />
               </div>
 
@@ -885,7 +885,7 @@ function LocalPekoProfile({
                   <div>
                     <label
                       htmlFor="principal-status"
-                      className="mb-1 block text-xs font-medium text-fg-muted"
+                      className="field-label mb-1.5 block"
                     >
                       Quick status
                     </label>
@@ -893,7 +893,7 @@ function LocalPekoProfile({
                       id="principal-status"
                       value={status}
                       onChange={(e) => handleQuickStatusChange(e.target.value)}
-                      className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                      className="select"
                     >
                       <option value="">—</option>
                       {STATUS_OPTIONS.map((o) => (
@@ -909,7 +909,7 @@ function LocalPekoProfile({
                   <div>
                     <label
                       htmlFor="principal-exposure"
-                      className="mb-1 block text-xs font-medium text-fg-muted"
+                      className="field-label mb-1.5 block"
                     >
                       PekoHub
                     </label>
@@ -917,7 +917,7 @@ function LocalPekoProfile({
                       id="principal-exposure"
                       value={exposure}
                       onChange={(e) => setExposure(e.target.value)}
-                      className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                      className="select"
                     >
                       {REGISTRATION_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -935,12 +935,12 @@ function LocalPekoProfile({
               <div>
                 <label
                   htmlFor="principal-model"
-                  className="mb-1 block text-xs font-medium text-fg-muted"
+                  className="field-label mb-1.5 block"
                 >
                   Preferred model
                 </label>
                 {modelsLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                  <Loader2 className="h-4 w-4 animate-spin text-fg-subtle" />
                 ) : modelItems.length === 0 ? (
                   <p className="text-xs text-warn">
                     No configured models. Add one in Settings → Models first.
@@ -950,7 +950,7 @@ function LocalPekoProfile({
                     id="principal-model"
                     value={modelId}
                     onChange={(e) => setModelId(e.target.value)}
-                    className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    className="select"
                   >
                     <option value="">— None —</option>
                     {modelItems.map((m) => (
@@ -987,7 +987,7 @@ function LocalPekoProfile({
 
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="modal-footer shrink-0">
           {principal && !isEditing && (
             <button
               onClick={() => {
@@ -997,7 +997,7 @@ function LocalPekoProfile({
                   params: { pekoName: principal.name },
                 });
               }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover"
+              className="btn-primary"
             >
               <MessageSquare className="h-3.5 w-3.5" />
               Chat
@@ -1018,14 +1018,14 @@ function LocalPekoProfile({
                   }
                 }}
                 disabled={updateMut.isPending || registering}
-                className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                className="btn-secondary"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={updateMut.isPending || registering}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
+                className="btn-primary"
               >
                 {updateMut.isPending || registering ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1036,7 +1036,7 @@ function LocalPekoProfile({
           ) : (
             <button
               onClick={onClose}
-              className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+              className="btn-secondary"
             >
               Close
             </button>
@@ -1049,9 +1049,9 @@ function LocalPekoProfile({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-fg-muted">{label}</span>
-      <span className="font-medium text-fg">{value}</span>
+    <div className="flex items-start justify-between gap-6">
+      <span className="shrink-0 text-sm text-fg-muted">{label}</span>
+      <span className="min-w-0 text-right text-sm font-medium text-fg">{value}</span>
     </div>
   );
 }

@@ -103,11 +103,11 @@ export default function HubNotificationBell() {
         onClick={toggle}
         aria-label={unread > 0 ? `PekoHub notifications, ${unread} unread` : "PekoHub notifications"}
         title="PekoHub notifications"
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl text-fg-muted transition-all hover:bg-surface-sunken hover:text-fg-soft"
+        className="relative flex h-11 w-11 items-center justify-center rounded-[22px] bg-surface-sunken text-fg-soft transition-all duration-200 hover:rounded-xl hover:bg-brand hover:text-white"
       >
         <Bell className="h-5 w-5" />
         {unread > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-none text-white">
+          <span className="count-badge absolute -bottom-1 -right-1 ring-[3px] ring-surface-rail">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -117,13 +117,13 @@ export default function HubNotificationBell() {
         <div
           role="menu"
           aria-label="PekoHub notifications"
-          className="absolute bottom-0 left-full z-50 ml-2 w-80 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-950"
+          className="popover absolute bottom-0 left-full z-50 ml-3 w-80"
         >
-          <div className="px-3 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">PekoHub</div>
+          <div className="eyebrow px-2.5 pb-1.5 pt-2">PekoHub</div>
           {list.isError ? (
-            <p className="px-3 py-4 text-sm text-slate-500">Couldn&apos;t reach PekoHub.</p>
+            <p className="px-3 py-4 text-sm text-fg-muted">Couldn&apos;t reach PekoHub.</p>
           ) : items.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-slate-500">Nothing yet.</p>
+            <p className="px-3 py-4 text-sm text-fg-muted">Nothing yet.</p>
           ) : (
             <ul className="max-h-96 overflow-y-auto">
               {items.map((item) => (
@@ -132,12 +132,12 @@ export default function HubNotificationBell() {
                     role="menuitem"
                     onClick={() => openItem(item)}
                     className={[
-                      "w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-900",
-                      fresh.has(item.id) ? "bg-indigo-50 dark:bg-indigo-950/40" : "",
+                      "w-full rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-surface-sunken",
+                      fresh.has(item.id) ? "bg-brand-soft" : "",
                     ].join(" ")}
                   >
-                    <p className="text-sm text-slate-800 dark:text-slate-200">{item.text}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">{ago(item.createdAt)}</p>
+                    <p className="text-sm text-fg">{item.text}</p>
+                    <p className="mt-0.5 text-xs text-fg-muted">{ago(item.createdAt)}</p>
                   </button>
                 </li>
               ))}

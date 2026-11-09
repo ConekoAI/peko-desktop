@@ -85,7 +85,7 @@ export default function NewPekoForm({
   if (models && !model) {
     return (
       <div className="space-y-4">
-        <p className="rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn" data-testid="new-peko-no-model">
+        <p className="note-warn text-xs" data-testid="new-peko-no-model">
           A peko needs a model to think with. Add one in Settings → Models first.
         </p>
         {secondary && <div className="flex justify-end">{secondary}</div>}
@@ -98,7 +98,7 @@ export default function NewPekoForm({
       <div className="flex items-center gap-4">
         <PekoAvatar peko={pekoIdentity({ name: trimmed || "?", avatar })} size="lg" />
         <label className="block flex-1">
-          <span className="mb-1 block text-xs font-medium text-fg-muted">Name</span>
+          <span className="field-label mb-1.5 block">Name</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -107,7 +107,7 @@ export default function NewPekoForm({
             spellCheck={false}
             disabled={busy}
             aria-invalid={trimmed.length > 0 && !nameOk}
-            className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="input"
           />
           {trimmed.length > 0 && !nameOk && (
             <span className="mt-1 block text-[11px] text-danger">
@@ -120,7 +120,7 @@ export default function NewPekoForm({
       </div>
 
       <div>
-        <span className="mb-1 block text-xs font-medium text-fg-muted">Avatar</span>
+        <span className="field-label mb-1.5 block">Avatar</span>
         <div className="flex flex-wrap gap-1" role="group" aria-label="Avatar">
           {AVATAR_SUGGESTIONS.map((emoji) => (
             <button
@@ -143,7 +143,7 @@ export default function NewPekoForm({
 
       <Disclosure open={advanced} onToggle={() => setAdvanced((a) => !a)} label="Advanced">
         <div>
-          <span className="mb-1 block text-xs font-medium text-fg-muted">Start from a seed</span>
+          <span className="field-label mb-1.5 block">Start from a seed</span>
           {seed ? (
             <div className="flex items-center justify-between rounded-lg border border-line bg-surface-sunken px-3 py-2 text-xs">
               <span className="truncate font-mono text-fg-soft" data-testid="new-peko-seed">
@@ -175,22 +175,22 @@ export default function NewPekoForm({
           {seedError && <span className="mt-1 block text-[11px] text-danger">{seedError}</span>}
         </div>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium text-fg-muted">Description</span>
+          <span className="field-label mb-1.5 block">Description</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             placeholder="What this peko is for (optional)"
-            className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="input"
           />
         </label>
         {enabledModels.length > 1 && (
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-fg-muted">Model</span>
+            <span className="field-label mb-1.5 block">Model</span>
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="select"
             >
               {enabledModels.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -203,7 +203,7 @@ export default function NewPekoForm({
       </Disclosure>
 
       {failureText && (
-        <div className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger" data-testid="onboarding-create-error">
+        <div className="note-danger text-xs" data-testid="onboarding-create-error">
           {failureText}
         </div>
       )}
@@ -241,7 +241,7 @@ export function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
+      className="btn-primary"
     >
       {children}
     </button>

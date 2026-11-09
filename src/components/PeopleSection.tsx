@@ -19,7 +19,7 @@ export function usePersonDmNavigate() {
 /** Section heading inside the chat list. */
 export function ChatSectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+    <div className="eyebrow px-2 pb-1.5 pt-3">
       {children}
     </div>
   );
@@ -59,7 +59,7 @@ export function DmRequests() {
       {requests.map((r) => (
         <div
           key={r.channelId}
-          className="rounded-lg border border-line bg-surface-card p-2 text-sm"
+          className="card p-2.5 text-sm"
           data-testid={`dm-request-${r.channelId}`}
         >
           <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ export function DmRequests() {
               type="button"
               disabled={answer.isPending}
               onClick={() => answer.mutate({ channelId: r.channelId, answer: "accept" })}
-              className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+              className="btn-primary btn-sm"
             >
               Accept
             </button>
@@ -84,7 +84,7 @@ export function DmRequests() {
               type="button"
               disabled={answer.isPending}
               onClick={() => answer.mutate({ channelId: r.channelId, answer: "decline" })}
-              className="rounded-md px-2.5 py-1 text-xs text-fg-muted hover:bg-surface-sunken disabled:opacity-50"
+              className="btn-ghost btn-xs"
             >
               Decline
             </button>
@@ -92,7 +92,7 @@ export function DmRequests() {
               type="button"
               disabled={answer.isPending}
               onClick={() => answer.mutate({ channelId: r.channelId, answer: "block" })}
-              className="ml-auto rounded-md px-2.5 py-1 text-xs text-danger hover:bg-danger-soft disabled:opacity-50"
+              className="btn-danger btn-xs ml-auto"
             >
               Block
             </button>
@@ -184,7 +184,7 @@ export function MessagePersonForm({ onClose }: { onClose: () => void }) {
         autoFocus
         onChange={(e) => setAccount(e.target.value)}
         placeholder="Their PekoHub account ID"
-        className="w-full rounded-lg border border-line bg-surface-card px-2.5 py-1.5 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+        className="input input-sm"
         data-testid="person-dm-account"
       />
       <input
@@ -192,21 +192,21 @@ export function MessagePersonForm({ onClose }: { onClose: () => void }) {
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="What to call them (optional)"
-        className="w-full rounded-lg border border-line bg-surface-card px-2.5 py-1.5 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+        className="input input-sm"
         data-testid="person-dm-name"
       />
       <div className="flex gap-2">
         <button
           type="submit"
           disabled={!account.trim() || start.isPending}
-          className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+          className="btn-primary btn-sm"
         >
           {start.isPending ? "Opening…" : "Message"}
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md px-2.5 py-1 text-xs text-fg-muted hover:bg-surface-sunken"
+          className="btn-ghost btn-xs"
         >
           Cancel
         </button>

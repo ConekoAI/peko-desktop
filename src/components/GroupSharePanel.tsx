@@ -32,7 +32,7 @@ export default function GroupSharePanel({
   const registered = !!group.hubId;
 
   return (
-    <div className="space-y-3 border-t border-line px-4 py-3 text-sm" data-testid="group-share">
+    <div className="space-y-3 border-t border-line bg-surface-raised/60 px-4 py-3 text-sm" data-testid="group-share">
       {registered ? (
         <div className="flex flex-wrap items-center gap-2 text-fg-soft">
           <span>
@@ -52,7 +52,7 @@ export default function GroupSharePanel({
         <select
           value={visibility}
           onChange={(e) => setVisibility(e.target.value as Visibility)}
-          className="rounded-md border border-line bg-surface-card px-2 py-1 text-xs text-fg"
+          className="select input-sm w-auto pr-7"
           data-testid="group-share-visibility"
         >
           <option value="invite_only">Invite only</option>
@@ -62,7 +62,7 @@ export default function GroupSharePanel({
           type="button"
           disabled={register.isPending || (registered && visibility === group.visibility)}
           onClick={() => register.mutate(visibility)}
-          className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+          className="btn-primary btn-sm"
           data-testid="group-share-register"
         >
           {registered ? "Save" : register.isPending ? "Registering…" : "Register on PekoHub"}
@@ -73,7 +73,7 @@ export default function GroupSharePanel({
               type="button"
               disabled={link.isPending}
               onClick={() => link.mutate(false)}
-              className="flex items-center gap-1 rounded-md px-2.5 py-1 text-xs text-fg-soft hover:bg-surface-sunken disabled:opacity-50"
+              className="btn-ghost btn-xs"
               data-testid="group-share-link"
             >
               <Link2 className="h-3.5 w-3.5" />
@@ -83,7 +83,7 @@ export default function GroupSharePanel({
               type="button"
               disabled={link.isPending}
               onClick={() => link.mutate(true)}
-              className="rounded-md px-2.5 py-1 text-xs text-fg-muted hover:bg-surface-sunken disabled:opacity-50"
+              className="btn-ghost btn-xs"
               data-testid="group-share-revoke"
             >
               Stop all links
@@ -92,7 +92,7 @@ export default function GroupSharePanel({
         )}
       </div>
       {link.data?.link && (
-        <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-sunken p-2">
+        <div className="flex items-center gap-1 rounded-lg border border-line bg-surface py-1 pl-3 pr-1">
           <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg" data-testid="group-share-link-value">
             {link.data.link}
           </code>
@@ -108,7 +108,7 @@ export default function GroupSharePanel({
         </div>
       )}
       {error && (
-        <div className="text-xs text-red-600 dark:text-red-400">
+        <div className="text-xs text-danger">
           {String(error instanceof Error ? error.message : error)}
         </div>
       )}
@@ -129,7 +129,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="rounded p-1 text-fg-subtle hover:bg-surface-sunken hover:text-fg"
+      className="btn-icon"
     >
       {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
     </button>

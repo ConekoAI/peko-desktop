@@ -47,10 +47,10 @@ export default function ChannelEventRow({
       if (event.board) {
         return (
           <div
-            className="flex items-center gap-2 px-1 text-xs text-fg-muted"
+            className="flex items-center gap-2 px-2 py-0.5 pl-[3.25rem] text-xs text-fg-muted"
             data-testid="channel-event-row-board"
           >
-            <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+            <ClipboardList className="h-3.5 w-3.5 shrink-0 text-brand-text" />
             <span className="min-w-0 break-words" title={shownAddress(event.author)}>
               {directory.named(boardLine(event.text, who.label))}
             </span>
@@ -59,14 +59,14 @@ export default function ChannelEventRow({
         );
       }
       return (
-        <div className="flex gap-3 px-1 py-1" data-testid="channel-event-row-posted">
+        <div className="flex gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-raised" data-testid="channel-event-row-posted">
           <ActorFace who={who} />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 text-xs">
               <span className="text-sm font-semibold text-fg" title={shownAddress(event.author)}>
                 {who.label}
               </span>
-              <span className="text-fg-subtle">{new Date(event.at).toLocaleString()}</span>
+              <span className="text-[11px] text-fg-subtle">{new Date(event.at).toLocaleString()}</span>
             </div>
             <div className="mt-0.5 text-sm text-fg-soft">
               {who.isYou ? (
@@ -82,7 +82,7 @@ export default function ChannelEventRow({
     case "created":
       return (
         <div
-          className="rounded-lg bg-brand-soft p-3 text-xs text-brand"
+          className="mx-2 mb-2 rounded-xl border border-line bg-surface-raised px-4 py-3 text-xs text-fg-muted"
           data-testid="channel-event-row-created"
         >
           {people ? (
@@ -90,11 +90,11 @@ export default function ChannelEventRow({
             // who "created" it here says nothing; name the conversation.
             <>
               Conversation with{" "}
-              <span className="font-semibold">{Object.values(people)[0] ?? "them"}</span>
+              <span className="font-semibold text-fg">{Object.values(people)[0] ?? "them"}</span>
             </>
           ) : (
             <>
-              Group <span className="font-semibold">{event.name}</span> created by{" "}
+              Group <span className="font-semibold text-fg">{event.name}</span> created by{" "}
               <span title={event.creator}>{directory.resolve(event.creator).label}</span>
             </>
           )}{" "}
@@ -104,11 +104,11 @@ export default function ChannelEventRow({
     case "member_joined":
       return (
         <div
-          className="flex items-center gap-2 text-xs text-fg-muted"
+          className="flex items-center gap-2 px-2 pl-[3.25rem] text-xs text-fg-subtle"
           data-testid="channel-event-row-member-joined"
         >
-          <Plus className="h-3.5 w-3.5" />
-          <span title={shownAddress(event.member)}>{directory.resolve(event.member).label}</span>
+          <Plus className="h-3.5 w-3.5 text-ok" />
+          <span className="font-medium text-fg-muted" title={shownAddress(event.member)}>{directory.resolve(event.member).label}</span>
           <span>joined</span>
           {showRuntimeBadge && <RuntimeBadge runtimeId="local" />}
           <span>· {new Date(event.at).toLocaleString()}</span>
@@ -117,11 +117,11 @@ export default function ChannelEventRow({
     case "member_left":
       return (
         <div
-          className="flex items-center gap-2 text-xs text-fg-muted"
+          className="flex items-center gap-2 px-2 pl-[3.25rem] text-xs text-fg-subtle"
           data-testid="channel-event-row-member-left"
         >
           <Minus className="h-3.5 w-3.5" />
-          <span title={shownAddress(event.member)}>{directory.resolve(event.member).label}</span>
+          <span className="font-medium text-fg-muted" title={shownAddress(event.member)}>{directory.resolve(event.member).label}</span>
           <span>left</span>
           <span>· {new Date(event.at).toLocaleString()}</span>
         </div>
@@ -142,8 +142,8 @@ function boardLine(text: string, label: string): string {
 function ActorFace({ who }: { who: ActorDisplay }) {
   if (who.peko) return <PekoAvatar peko={who.peko} size="md" />;
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-sunken">
-      <User className="h-4 w-4 text-fg-muted" />
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-peko-800 text-peko-100">
+      <User className="h-4 w-4" />
     </span>
   );
 }

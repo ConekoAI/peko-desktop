@@ -65,16 +65,16 @@ export default function TitleBar() {
   return (
     <div
       onMouseDown={handleMouseDown}
-      className="flex h-9 shrink-0 select-none items-center justify-between border-b border-line bg-slate-100/80 backdrop-blur dark:bg-slate-900/80"
+      className="flex h-9 shrink-0 select-none items-center justify-between bg-surface-rail"
     >
       {/* Left: app branding. On macOS the window buttons sit here and
           the bar stays empty, like other Mac apps. */}
       {!IS_MAC && (
         <div className="flex items-center gap-2 px-3">
           <div className="flex h-5 w-5 items-center justify-center rounded-md bg-brand">
-            <span className="text-[10px] font-bold text-white">P</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
           </div>
-          <span className="text-xs font-semibold text-fg-muted">Peko</span>
+          <span className="text-xs font-semibold tracking-tight text-fg-soft">Peko</span>
         </div>
       )}
 
@@ -86,7 +86,7 @@ export default function TitleBar() {
         <div className="flex items-center">
           <button
             onClick={handleMinimize}
-            className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-surface-sunken hover:text-fg-soft"
+            className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-surface-sunken hover:text-fg"
             title="Minimize"
           >
             <Minus className="h-3.5 w-3.5" />
@@ -104,7 +104,7 @@ export default function TitleBar() {
           </button>
           <button
             onClick={handleClose}
-            className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-red-500 hover:text-white dark:hover:bg-red-500 dark:hover:text-white"
+            className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-rose-600 hover:text-white"
             title="Close"
           >
             <X className="h-3.5 w-3.5" />
