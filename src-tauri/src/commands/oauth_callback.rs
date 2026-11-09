@@ -368,10 +368,16 @@ mod tests {
         let mut sent = false;
         for _ in 0..100 {
             if let Ok(mut stream) = tokio::net::TcpStream::connect(("127.0.0.1", port)).await {
-                stream
+                // A connection can still reach the first attempt as it closes
+                // (Windows then resets it): try again, like a browser would.
+                if stream
                     .write_all(b"GET /callback?code=c2&state=s2 HTTP/1.1\r\n\r\n")
                     .await
-                    .unwrap();
+                    .is_err()
+                {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                    continue;
+                }
                 let mut reply = Vec::new();
                 let _ = stream.read_to_end(&mut reply).await;
                 if String::from_utf8_lossy(&reply).contains("200 OK") {

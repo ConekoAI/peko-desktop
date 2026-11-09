@@ -17,6 +17,7 @@ import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough"
 import AddModelModal from "../components/modals/AddModelModal";
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
 import BlockedPeople from "../components/BlockedPeople";
+import KeepAwakeSetting from "../components/KeepAwakeSetting";
 import {
   Save,
   Key,
@@ -82,6 +83,7 @@ function GeneralSection() {
           })}
         </div>
       </div>
+      <KeepAwakeSetting className={CARD} />
       <BlockedPeople className={CARD} />
     </div>
   );
