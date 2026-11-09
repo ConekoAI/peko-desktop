@@ -107,6 +107,8 @@ export function useChannelStreamInvalidator(
             queryKey: ["channel-members", rid, channelId],
           });
           void qc.invalidateQueries({ queryKey: ["channel-info", channelId] });
+          // A post may carry a board change (runtime ADR-101).
+          void qc.invalidateQueries({ queryKey: ["channel-board", channelId] });
           // The runtime's synthetic Created event for an inbound
           // invite carries `payload.kind === "channel_invite_received"`
           // (mirrors `peko_protocol::channel::ChannelEvent`'s

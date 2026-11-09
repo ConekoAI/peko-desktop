@@ -1,4 +1,4 @@
-import { Minus, Plus, User } from "lucide-react";
+import { ClipboardList, Minus, Plus, User } from "lucide-react";
 import type { ChannelEvent } from "../lib/api";
 import RuntimeBadge from "./RuntimeBadge";
 import PekoAvatar from "./peko/PekoAvatar";
@@ -42,6 +42,22 @@ export default function ChannelEventRow({
   switch (event.kind) {
     case "posted": {
       const who = directory.resolve(event.author);
+      // Runtime ADR-101: a board change reads as a compact line, not a
+      // message; the board itself is above the conversation.
+      if (event.board) {
+        return (
+          <div
+            className="flex items-center gap-2 px-1 text-xs text-fg-muted"
+            data-testid="channel-event-row-board"
+          >
+            <ClipboardList className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 break-words" title={shownAddress(event.author)}>
+              {directory.named(boardLine(event.text, who.label))}
+            </span>
+            <span className="shrink-0 text-fg-subtle">· {new Date(event.at).toLocaleString()}</span>
+          </div>
+        );
+      }
       return (
         <div className="flex gap-3 px-1 py-1" data-testid="channel-event-row-posted">
           <ActorFace who={who} />
@@ -111,6 +127,16 @@ export default function ChannelEventRow({
         </div>
       );
   }
+}
+
+/**
+ * A board post's line without its `board:` prefix, naming its author as
+ * the reader knows them (the runtime writes the author's own name).
+ */
+function boardLine(text: string, label: string): string {
+  const body = text.replace(/^board:\s*/, "");
+  const cut = body.search(/[ :]/);
+  return cut > 0 ? `${label}${body.slice(cut)}` : body;
 }
 
 function ActorFace({ who }: { who: ActorDisplay }) {

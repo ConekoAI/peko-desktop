@@ -5,6 +5,7 @@ import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import ChannelHeader from "../components/ChannelHeader";
 import ChannelComposer from "../components/ChannelComposer";
 import ChannelEventRow from "../components/ChannelEventRow";
+import BoardPanel from "../components/BoardPanel";
 import ChannelInviteModal from "../components/modals/ChannelInviteModal";
 import ChannelLeaveConfirmModal from "../components/modals/ChannelLeaveConfirmModal";
 import ChannelInviteToast, {
@@ -196,6 +197,9 @@ export default function ChannelView() {
           onLeaveClick={() => setLeaveOpen(true)}
         />
       )}
+
+      {/* Runtime ADR-101: a group's board; a DM has none. */}
+      {!person && isMember && <BoardPanel channelId={channelId} />}
 
       <div
         ref={scrollerRef}

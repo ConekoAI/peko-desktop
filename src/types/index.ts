@@ -520,6 +520,8 @@ export type ChannelEvent =
       at: string;
       /** Stable across every runtime's copy (absent on old lines). */
       msg_id?: string;
+      /** Runtime ADR-101: the board change this post makes. */
+      board?: BoardOp;
     }
   | {
       kind: "member_joined";
@@ -627,4 +629,40 @@ export interface UsageState {
 export interface PekoUsage {
   state: UsageState;
   config: UsageLimits;
+}
+
+/** Runtime ADR-101: where a board item stands. */
+export type BoardState = "open" | "doing" | "blocked" | "done";
+
+/** Runtime ADR-101: one change to a group's board. */
+export type BoardOp =
+  | { op: "add"; title: string; for?: string }
+  | { op: "claim"; item: string; check_at?: string }
+  | {
+      op: "update";
+      item: string;
+      state: "doing" | "blocked" | "done";
+      note?: string;
+      check_at?: string;
+    }
+  | { op: "release"; item: string }
+  | { op: "drop"; item: string };
+
+/** Runtime ADR-101: one item on a group's board, as `channel_board` returns it. */
+export interface BoardItem {
+  /** The `msg_id` of the post that added it. */
+  id: string;
+  /** Its short reference (`b3f9a1`). */
+  short: string;
+  title: string;
+  added_by: string;
+  /** The member it was asked of. */
+  for?: string;
+  state: BoardState;
+  claimant?: string;
+  note?: string;
+  /** RFC 3339: when its holder looks at it again. */
+  check_at?: string;
+  added_at: string;
+  updated_at: string;
 }
