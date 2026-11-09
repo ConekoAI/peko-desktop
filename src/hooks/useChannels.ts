@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { isChannelForbidden } from "../lib/channelErrors";
 
+import type { BoardItem, BoardOp } from "../types";
 import {
+  channelBoard,
   channelCreate,
   channelGet,
   channelInfo,
@@ -296,6 +298,33 @@ export function channelInfoQuery(channelId: string | undefined) {
  */
 export function hasLeftGroup(info: ChannelInfo | undefined, error: unknown): boolean {
   return (!!error && isChannelForbidden(error)) || (!!info?.members && !info.members.includes(LOCAL_USER));
+}
+
+// ─── Board (runtime ADR-101) ─────────────────────────────────────
+
+/** A group's board: what is open, being worked, blocked, and lately done. */
+export function useChannelBoard(channelId: string | undefined, enabled = true) {
+  return useQuery<BoardItem[], ChannelError>({
+    queryKey: ["channel-board", channelId],
+    enabled: !!channelId && enabled,
+    queryFn: () => channelBoard(channelId!).catch(rethrowAsChannelError),
+    staleTime: 10_000,
+    retry: (count, error) => !isChannelForbidden(error) && count < 3,
+  });
+}
+
+/** Change a group's board as you; the reply is the board as it now stands. */
+export function useChangeBoard(channelId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation<BoardItem[], ChannelError, BoardOp>({
+    mutationFn: (op) => {
+      if (!channelId) return Promise.reject(new Error("channel id required"));
+      return channelBoard(channelId, op).catch(rethrowAsChannelError);
+    },
+    onSuccess: (items) => {
+      qc.setQueryData(["channel-board", channelId], items);
+    },
+  });
 }
 
 /**

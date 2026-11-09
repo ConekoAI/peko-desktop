@@ -68,6 +68,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         channel::channel_members,
         channel::channel_info,
         channel::channel_set_wake,
+        channel::channel_board,
         channel::channel_post,
         channel::channel_create,
         channel::channel_invite,

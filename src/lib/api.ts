@@ -18,6 +18,8 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 
 import type {
   ApprovalRequest,
+  BoardItem,
+  BoardOp,
   BootState,
   ChannelDetail,
   ChannelEvent,
@@ -1832,6 +1834,23 @@ export interface ChannelPerson {
 /** Read a channel's kind, members, and pekos' wake policies (members only). */
 export async function channelInfo(channelId: string): Promise<ChannelInfo> {
   return invoke<ChannelInfo>("channel_info", { channelId });
+}
+
+/**
+ * Runtime ADR-101: a group's board, changed with `op` first when given.
+ * The change is posted as you (or as `senderName`, one of your pekos);
+ * the runtime refuses what you may not do, with a reason.
+ */
+export async function channelBoard(
+  channelId: string,
+  op?: BoardOp,
+  senderName?: string,
+): Promise<BoardItem[]> {
+  return invoke<BoardItem[]>("channel_board", {
+    channelId,
+    op: op ?? null,
+    senderName: senderName ?? null,
+  });
 }
 
 /**

@@ -172,4 +172,25 @@ describe("ChannelEventRow", () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId("runtime-badge-local")).toBeNull();
   });
+
+  // Runtime ADR-101: a board change is a compact line, not a message.
+  it("shows a board change as a line naming its author", () => {
+    channelInfo.data = { people: [] };
+    render(
+      <ChannelEventRow
+        event={{
+          kind: "posted",
+          channel: "group:stats",
+          author: "principal:prin_alice",
+          parent: null,
+          text: "board: alice took “run the tests”",
+          at: "2026-11-09T10:00:00Z",
+          board: { op: "claim", item: "msg_1" },
+        }}
+      />,
+    );
+    const row = screen.getByTestId("channel-event-row-board");
+    expect(row).toHaveTextContent("alice took “run the tests”");
+    expect(screen.queryByTestId("channel-event-row-posted")).toBeNull();
+  });
 });

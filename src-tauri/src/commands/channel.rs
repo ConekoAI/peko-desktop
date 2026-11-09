@@ -92,6 +92,12 @@ pub enum ChannelEvent {
         parent: Option<String>,
         text: String,
         at: String,
+        /// Stable across every runtime's copy (absent on old lines).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        msg_id: Option<String>,
+        /// Runtime ADR-101: the board change this post makes.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        board: Option<serde_json::Value>,
     },
     MemberJoined {
         channel: String,
@@ -381,6 +387,40 @@ pub async fn channel_set_wake(
         .and_then(|v| v.as_str())
         .unwrap_or(&wake)
         .to_string())
+}
+
+/// Read a group's board, or change it with `op` first (runtime ADR-101,
+/// `channel_board`). The change is posted as you, or as `sender_name`
+/// (one of your pekos). Returns the board's items, each with its full
+/// `id` and `short` reference.
+#[tauri::command]
+pub async fn channel_board(
+    channel_id: String,
+    op: Option<serde_json::Value>,
+    sender_name: Option<String>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_board(&channel_id, op, sender_name.as_deref())
+        .await
+        .map_err(|e| format!("channel_board failed: {e}"))?;
+    project_channel_board_envelope(&value)
+}
+
+/// Project a `channel_board_result` envelope; a runtime `error` becomes `Err`.
+fn project_channel_board_envelope(
+    value: &serde_json::Value,
+) -> Result<Vec<serde_json::Value>, String> {
+    if crate::ipc::is_error_response(value) {
+        return Err(runtime_error_message(value));
+    }
+    Ok(value
+        .get("items")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default())
 }
 
 fn runtime_error_message(value: &serde_json::Value) -> String {
@@ -915,6 +955,11 @@ fn parse_channel_event(value: &serde_json::Value, fallback_channel: &str) -> Opt
                 .unwrap_or("")
                 .to_string(),
             at,
+            msg_id: value
+                .get("msg_id")
+                .and_then(|m| m.as_str())
+                .map(str::to_string),
+            board: value.get("board").filter(|b| b.is_object()).cloned(),
         }),
         "member_joined" => Some(ChannelEvent::MemberJoined {
             channel,
@@ -1002,6 +1047,33 @@ mod tests {
         });
         let detail = project_channel_get_envelope(&v, "c", "local").unwrap();
         assert_eq!(detail.member_count, 1); // c joined, b joined-then-left
+    }
+
+    /// A post keeps its stable id and its board change (runtime ADR-101),
+    /// and the board reply projects to its items.
+    #[test]
+    fn a_post_keeps_its_id_and_board_change() {
+        let value = serde_json::json!({"kind": "posted", "channel": "c", "author": "a",
+            "parent": null, "text": "board: kit took “run the tests”", "at": "t",
+            "msg_id": "msg_1", "board": {"op": "claim", "item": "msg_0"}});
+        let Some(ChannelEvent::Posted { msg_id, board, .. }) = parse_channel_event(&value, "c")
+        else {
+            panic!("not a post");
+        };
+        assert_eq!(msg_id.as_deref(), Some("msg_1"));
+        assert_eq!(board.unwrap()["op"], "claim");
+        let line = serde_json::to_value(parse_channel_event(&value, "c").unwrap()).unwrap();
+        assert_eq!(line["msg_id"], "msg_1");
+        let board = project_channel_board_envelope(&serde_json::json!({
+            "type": "channel_board_result", "request_id": 1, "channel": "group:x",
+            "items": [{"id": "msg_0", "short": "0", "title": "run the tests", "state": "open"}]
+        }))
+        .unwrap();
+        assert_eq!(board[0]["title"], "run the tests");
+        assert!(project_channel_board_envelope(
+            &serde_json::json!({"type": "error", "request_id": 1, "message": "boards are for groups"})
+        )
+        .is_err());
     }
 
     /// The view switches on the protocol's snake_case kinds; a
