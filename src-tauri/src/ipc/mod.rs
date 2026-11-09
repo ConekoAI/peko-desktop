@@ -1998,18 +1998,14 @@ impl IpcClient {
         sender_name: Option<&str>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
-        let mut req = serde_json::json!({
+        let req = serde_json::json!({
             "type": "channel_board",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "channel": channel,
+            "sender_name": sender_name,
+            "op": op,
         });
-        if let Some(op) = op {
-            req["op"] = op;
-        }
-        if let Some(sender) = sender_name {
-            req["sender_name"] = serde_json::json!(sender);
-        }
         self.request_response(req).await
     }
 
