@@ -92,7 +92,7 @@ export default function DataTable<T>({
     <div className="space-y-3">
       {searchable && (
         <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
           <input
             type="text"
             value={search}
@@ -101,20 +101,20 @@ export default function DataTable<T>({
               setPage(1);
             }}
             placeholder="Search..."
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:placeholder-slate-600"
+            className="input pl-9 pr-4"
           />
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+      <div className="overflow-x-auto rounded-lg border border-line">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 dark:bg-slate-900">
+          <thead className="bg-surface-raised">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={[
-                    "px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300",
+                    "px-4 py-3 text-left font-semibold text-fg-soft",
                     col.sortable ? "cursor-pointer select-none" : "",
                   ].join(" ")}
                   onClick={col.sortable ? () => toggleSort(col.key) : undefined}
@@ -132,12 +132,12 @@ export default function DataTable<T>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+          <tbody className="divide-y divide-line">
             {paged.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-8 text-center text-slate-500 dark:text-slate-400"
+                  className="px-4 py-8 text-center text-fg-muted"
                 >
                   {emptyText}
                 </td>
@@ -146,10 +146,10 @@ export default function DataTable<T>({
               paged.map((row) => (
                 <tr
                   key={keyExtractor(row)}
-                  className="bg-white hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-900/50"
+                  className="bg-surface-card hover:bg-surface-sunken"
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-slate-700 dark:text-slate-300">
+                    <td key={col.key} className="px-4 py-3 text-fg-soft">
                       {col.render(row)}
                     </td>
                   ))}
@@ -162,24 +162,24 @@ export default function DataTable<T>({
 
       {pageSize && totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-fg-muted">
             Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)} of {sorted.length}
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+              className="rounded-lg border border-line bg-surface-card px-3 py-1.5 text-sm text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
             >
               Previous
             </button>
-            <span className="text-sm text-slate-600 dark:text-slate-400">
+            <span className="text-sm text-fg-muted">
               Page {page} of {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+              className="rounded-lg border border-line bg-surface-card px-3 py-1.5 text-sm text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
             >
               Next
             </button>

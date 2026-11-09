@@ -97,7 +97,7 @@ function NewChatMenu({
       {open && (
         <div
           role="menu"
-          className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-line bg-surface-card py-1 shadow-lg"
+          className="popover absolute bottom-full left-0 right-0 mb-2"
         >
           {items.map(({ label, icon: Icon, run }) => (
             <button
@@ -108,9 +108,9 @@ function NewChatMenu({
                 setOpen(false);
                 run?.();
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg-soft hover:bg-surface-sunken"
+              className="menu-item"
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4 text-fg-subtle" />
               {label}
             </button>
           ))}
@@ -121,7 +121,7 @@ function NewChatMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+        className="btn-secondary w-full"
       >
         <Plus className="h-4 w-4" />
         New chat
@@ -156,7 +156,7 @@ function PrincipalContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 w-48 rounded-lg border border-line bg-surface-card py-1 shadow-lg"
+      className="popover fixed z-50 w-48"
       style={{ left: position.x, top: position.y }}
       onClick={(e) => e.stopPropagation()}
     >
@@ -165,18 +165,18 @@ function PrincipalContextMenu({
           onOpenChat();
           onClose();
         }}
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg-soft hover:bg-surface-sunken"
+        className="menu-item"
       >
         <UserCircle className="h-4 w-4" />
         Open Chat
       </button>
-      <div className="my-1 border-t border-line" />
+      <div className="my-1 h-px bg-line" />
       <button
         onClick={() => {
           onOpenProfile();
           onClose();
         }}
-        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-fg-soft hover:bg-surface-sunken"
+        className="menu-item"
       >
         <Settings className="h-4 w-4" />
         Profile
@@ -214,7 +214,7 @@ function LocalStatusDot({ name }: { name: string }) {
 function UnreadBadge({ count, testId }: { count: number; testId: string }) {
   return (
     <span
-      className="shrink-0 rounded-full bg-brand px-1.5 text-[11px] font-semibold leading-5 text-brand-fg"
+      className="count-badge shrink-0"
       data-testid={testId}
       aria-label={`${count} unread`}
     >
@@ -223,9 +223,9 @@ function UnreadBadge({ count, testId }: { count: number; testId: string }) {
   );
 }
 
-const ROW_CLASS = "group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors";
+const ROW_CLASS = "group flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors";
 const rowTone = (active: boolean) =>
-  active ? "bg-brand-soft text-brand" : "text-fg-soft hover:bg-surface-sunken";
+  active ? "bg-brand-soft text-fg" : "text-fg-muted hover:bg-surface-sunken hover:text-fg";
 
 /**
  * A peko on someone else's runtime, saved in
@@ -408,27 +408,27 @@ export default function PrincipalSidebar({
   }
 
   return (
-    <div className="flex h-full w-60 flex-col border-r border-line bg-surface-raised">
-      <div className="border-b border-line p-3">
-        <h3 className="truncate text-sm font-semibold text-fg">
+    <div className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-surface-raised">
+      <div className="flex h-12 shrink-0 items-center border-b border-line px-4">
+        <h3 className="truncate text-[15px] font-semibold tracking-tight text-fg">
           Chats
         </h3>
       </div>
 
-      <div className="border-b border-line p-2">
+      <div className="px-3 pb-1 pt-3">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-subtle" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search chats…"
-            className="w-full rounded-lg border border-line bg-surface-card py-1.5 pl-8 pr-3 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="input bg-surface py-1.5 pl-8 pr-3"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         <DmRequests />
         {people.length > 0 && (
           <div className="mb-2" data-testid="person-dms">
@@ -449,8 +449,8 @@ export default function PrincipalSidebar({
         {people.length > 0 && listed > 0 && <ChatSectionLabel>Pekos</ChatSectionLabel>}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-            <span className="text-xs text-slate-400">Loading...</span>
+            <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
+            <span className="text-xs text-fg-subtle">Loading...</span>
           </div>
         ) : listed > 0 ? (
           <div className="mb-3">
@@ -482,7 +482,7 @@ export default function PrincipalSidebar({
                       the badge never shows stale. */}
                   {isGenesisPending(p) && (
                     <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn"
+                      className="badge-warn shrink-0"
                       data-testid={`waking-badge-${p.name}`}
                       title="This peko is still setting itself up"
                     >
@@ -538,7 +538,7 @@ export default function PrincipalSidebar({
                 <button
                   type="button"
                   onClick={onCreateClick}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-brand-fg transition-colors hover:bg-brand-hover"
+                  className="btn-primary btn-sm"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Create your first peko
@@ -556,7 +556,7 @@ export default function PrincipalSidebar({
 
       {messagingPerson && <MessagePersonForm onClose={() => setMessagingPerson(false)} />}
 
-      <div className="border-t border-line p-2">
+      <div className="border-t border-line p-3">
         <NewChatMenu
           onCreate={onCreateClick}
           onImport={onImportClick}

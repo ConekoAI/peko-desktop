@@ -179,7 +179,7 @@ export default function ChannelView() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface">
       {person ? (
         <ChannelHeader
           channelId={channelId}
@@ -203,7 +203,7 @@ export default function ChannelView() {
 
       <div
         ref={scrollerRef}
-        className="flex-1 overflow-y-auto px-4 py-3"
+        className="flex-1 overflow-y-auto px-3 py-4"
         data-testid="channel-events"
       >
         {isLoading ? (
@@ -214,7 +214,7 @@ export default function ChannelView() {
         ) : eventsError ? (
           isChannelForbidden(eventsError) ? (
             <div
-              className="mx-auto my-6 max-w-md rounded-lg border border-warn/30 bg-warn-soft px-4 py-3 text-xs text-warn"
+              className="mx-auto my-6 max-w-md rounded-xl border border-warn/25 bg-warn-soft px-4 py-3 text-xs text-warn"
               role="alert"
               aria-live="assertive"
               data-testid="channel-events-forbidden"
@@ -234,7 +234,7 @@ export default function ChannelView() {
             </div>
           ) : (
           <div
-            className="mx-auto my-6 max-w-md rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-xs text-danger"
+            className="mx-auto my-6 max-w-md rounded-xl border border-danger/25 bg-danger-soft px-4 py-3 text-xs text-danger"
             role="alert"
             aria-live="assertive"
             data-testid="channel-events-error"
@@ -249,7 +249,7 @@ export default function ChannelView() {
                 <button
                   type="button"
                   onClick={() => void refetchEvents()}
-                  className="mt-2 inline-flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs hover:bg-red-100"
+                  className="btn-danger btn-xs mt-2 border border-danger/40"
                   data-testid="channel-events-retry"
                 >
                   <RefreshCw className="h-3 w-3" />
@@ -267,7 +267,7 @@ export default function ChannelView() {
                   type="button"
                   onClick={() => void loadOlder()}
                   disabled={loadingOlder}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-fg-muted transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                  className="btn-secondary btn-xs rounded-full px-3"
                 >
                   {loadingOlder && <Loader2 className="h-3 w-3 animate-spin" />}
                   Load earlier messages
@@ -275,7 +275,7 @@ export default function ChannelView() {
                 {olderError && <span className="text-xs text-danger">{olderError}</span>}
               </div>
             )}
-            <ul className="space-y-3">
+            <ul className="space-y-1">
               {shown.map((e, i) => (
                 <li key={i} data-testid="channel-event-row">
                   <ChannelEventRow event={e} people={personNames} channelId={channelId} />
@@ -314,7 +314,7 @@ export default function ChannelView() {
 
       {person?.waiting && (
         <div
-          className="border-t border-line bg-surface-raised px-4 py-2 text-xs text-fg-subtle"
+          className="border-t border-line bg-surface-raised px-5 py-2 text-xs text-fg-subtle"
           data-testid="person-dm-waiting"
         >
           Waiting for {personLabel(person)} to accept. What you write here reaches them when they do.
@@ -329,7 +329,7 @@ export default function ChannelView() {
         />
       ) : (
         <div
-          className="border-t border-line bg-surface-raised px-4 py-3 text-xs text-fg-muted"
+          className="m-4 mt-2 rounded-xl border border-line bg-surface-raised px-4 py-3 text-center text-xs text-fg-muted"
           data-testid="channel-composer-no-sender"
         >
           You can read this group but not post in it.

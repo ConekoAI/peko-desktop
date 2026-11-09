@@ -208,15 +208,15 @@ export function statusBadge(value: PrincipalStatusValue): {
 } {
   switch (value) {
     case "online":
-      return { label: "Online", color: "text-emerald-500", icon: "circle" };
+      return { label: "Online", color: "text-ok", icon: "circle" };
     case "busy":
-      return { label: "Busy", color: "text-amber-500", icon: "dot" };
+      return { label: "Busy", color: "text-warn", icon: "dot" };
     case "offline":
-      return { label: "Offline", color: "text-slate-400", icon: "off" };
+      return { label: "Offline", color: "text-fg-subtle", icon: "off" };
     case "error":
-      return { label: "Error", color: "text-red-500", icon: "alert" };
+      return { label: "Error", color: "text-danger", icon: "alert" };
     case "unknown":
     default:
-      return { label: "Unknown", color: "text-slate-400", icon: "dot" };
+      return { label: "Unknown", color: "text-fg-subtle", icon: "dot" };
   }
 }

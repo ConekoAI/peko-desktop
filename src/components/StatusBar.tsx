@@ -22,9 +22,9 @@ export default function StatusBar() {
   const subtitle = engineStateSubtitle(engine);
 
   return (
-    <footer className="flex h-7 items-center justify-between border-t border-danger/30 bg-danger-soft px-4 text-xs text-red-700 dark:text-red-300">
+    <footer className="flex h-7 items-center justify-between border-t border-danger/30 bg-danger-soft px-4 text-xs text-danger">
       <div className="flex items-center gap-2">
-        <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+        <span className="inline-block h-2 w-2 rounded-full bg-danger" />
         <span className="font-medium">
           {engineStateLabel(engine)}: {subtitle ?? "engine is in a failed state"}
         </span>

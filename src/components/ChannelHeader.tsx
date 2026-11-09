@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Hash, User, Users, ChevronDown, ChevronUp, UserPlus, LogOut, Share2 } from "lucide-react";
 import { useChannel, useChannelInfo } from "../hooks/useChannels";
 import { useChannelDirectory } from "../hooks/useChannelDirectory";
+import { groupMonogram } from "../lib/format";
 import RuntimeBadge from "./RuntimeBadge";
 import MemberList from "./MemberList";
 import GroupSharePanel from "./GroupSharePanel";
@@ -49,7 +50,7 @@ export default function ChannelHeader({
 
   if (!detail) {
     return (
-      <div className="flex items-center gap-2 border-b border-line px-4 py-3 text-sm text-fg-subtle">
+      <div className="flex h-14 items-center gap-2 border-b border-line px-4 text-sm text-fg-subtle">
         <Hash className="h-4 w-4" />
         <span className="truncate font-mono">{channelId}</span>
       </div>
@@ -72,43 +73,58 @@ export default function ChannelHeader({
   const share = kind === "group" && isMember !== false && info?.group?.homeHere ? info.group : null;
 
   return (
-    <div className="border-b border-line">
-      <div className="flex items-center justify-between gap-2 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          {title ? (
-            <User className="h-4 w-4 shrink-0 text-fg-subtle" />
-          ) : (
-            <Hash className="h-4 w-4 shrink-0 text-fg-subtle" />
-          )}
-          <h2 className="truncate text-base font-semibold text-fg">
-            {title ?? detail.name}
-          </h2>
-          <span
-            data-testid="channel-kind-badge"
-            className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-fg-muted"
-            title={detail.channelId}
-          >
-            {kind === "dm" ? "Direct message" : "Group"}
+    <div className="border-b border-line bg-surface">
+      <div className="flex h-14 items-center justify-between gap-3 px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="tile h-9 w-9 rounded-xl text-[13px] font-semibold">
+            {title ? (
+              <User className="h-4 w-4" />
+            ) : (
+              groupMonogram(detail.name)
+            )}
           </span>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <h2 className="truncate text-[15px] font-semibold leading-tight tracking-tight text-fg">
+                {title ?? detail.name}
+              </h2>
+              <span
+                data-testid="channel-kind-badge"
+                className="badge-neutral shrink-0"
+                title={detail.channelId}
+              >
+                {kind === "dm" ? "Direct message" : "Group"}
+              </span>
+              {isGuest && (
+                <span
+                  className="badge-warn shrink-0"
+                  data-testid="channel-guest-chip"
+                  title="You aren't in this group — you can read but not post."
+                >
+                  View only
+                </span>
+              )}
+            </div>
+            {/* A DM with a person (titled for them) starts on each side when
+                it is opened or accepted, so who "created" this copy says nothing. */}
+            {!title && (
+              <div className="truncate text-xs leading-tight text-fg-subtle">
+                Created by <span title={detail.creator}>{directory.resolve(detail.creator).label}</span> ·{" "}
+                {/* A copy from another computer began when the group did. */}
+                {new Date(directory.createdAt ?? detail.createdAt).toLocaleString()}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1">
           {detail.runtimeId && detail.runtimeId !== "local" && (
             <RuntimeBadge runtimeId={detail.runtimeId} />
-          )}
-          {isGuest && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-fg-muted"
-              data-testid="channel-guest-chip"
-              title="You aren't in this group — you can read but not post."
-            >
-              View only
-            </span>
           )}
           {share && (
             <button
               type="button"
               onClick={() => setShowShare((v) => !v)}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-fg-soft transition-colors hover:bg-surface-sunken"
+              className={`btn-ghost btn-sm ${showShare ? "bg-surface-sunken text-fg" : ""}`}
               data-testid="channel-share-button"
             >
               <Share2 className="h-3.5 w-3.5" />
@@ -119,7 +135,7 @@ export default function ChannelHeader({
             <button
               type="button"
               onClick={onInviteClick}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-fg-soft transition-colors hover:bg-surface-sunken"
+              className="btn-ghost btn-sm"
               data-testid="channel-invite-button"
             >
               <UserPlus className="h-3.5 w-3.5" />
@@ -131,17 +147,19 @@ export default function ChannelHeader({
               type="button"
               onClick={onLeaveClick}
               title={isCreator ? "Leave group (you'll stay its creator)" : "Leave group"}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-fg-soft transition-colors hover:bg-surface-sunken"
+              className="btn-ghost btn-sm hover:bg-danger-soft hover:text-danger"
               data-testid="channel-leave-button"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span>Leave</span>
             </button>
           )}
+          <span aria-hidden className="mx-1 h-5 w-px bg-line" />
           <button
             type="button"
             onClick={() => setShowMembers((v) => !v)}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-fg-soft transition-colors hover:bg-surface-sunken"
+            aria-expanded={showMembers}
+            className={`btn-ghost btn-sm ${showMembers ? "bg-surface-sunken text-fg" : ""}`}
             data-testid="channel-toggle-members"
           >
             <Users className="h-3.5 w-3.5" />
@@ -155,15 +173,6 @@ export default function ChannelHeader({
           </button>
         </div>
       </div>
-      {/* A DM with a person (titled for them) starts on each side when
-          it is opened or accepted, so who "created" this copy says nothing. */}
-      {!title && (
-        <div className="px-4 pb-2 text-xs text-fg-muted">
-          Created by <span title={detail.creator}>{directory.resolve(detail.creator).label}</span> ·{" "}
-          {/* A copy from another computer began when the group did. */}
-          {new Date(directory.createdAt ?? detail.createdAt).toLocaleString()}
-        </div>
-      )}
       {share && showShare && <GroupSharePanel channelId={channelId} group={share} />}
       {showMembers && (
         <div className="border-t border-line">

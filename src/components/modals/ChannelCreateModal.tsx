@@ -135,22 +135,22 @@ export default function ChannelCreateModal({
         // accidentally dismiss the dialog. P1.5 UX parity.
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-backdrop"
     >
-      <div className="flex w-full max-w-md flex-col rounded-xl border border-line bg-surface-card shadow-xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
+      <div className="modal-panel flex w-full max-w-md flex-col">
+        <div className="modal-header shrink-0 justify-between">
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-brand" />
+            <Users className="h-5 w-5 text-brand-text" />
             <h2
               id="channel-create-modal-title"
-              className="text-base font-semibold text-fg"
+              className="modal-title"
             >
               New group
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
+            className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
           </button>
@@ -165,9 +165,9 @@ export default function ChannelCreateModal({
           <div>
             <label
               htmlFor="channel-name"
-              className="mb-1 block text-xs font-medium text-fg-muted"
+              className="field-label mb-1.5 block"
             >
-              Group name <span className="text-red-500">*</span>
+              Group name <span className="text-danger">*</span>
             </label>
             <input
               id="channel-name"
@@ -176,7 +176,7 @@ export default function ChannelCreateModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="team"
               maxLength={64}
-              className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="input"
               data-testid="channel-create-name"
             />
             {name && !nameValid && (
@@ -189,9 +189,9 @@ export default function ChannelCreateModal({
           <div>
             <label
               htmlFor="channel-creator"
-              className="mb-1 block text-xs font-medium text-fg-muted"
+              className="field-label mb-1.5 block"
             >
-              Started by <span className="text-red-500">*</span>
+              Started by <span className="text-danger">*</span>
             </label>
             {principalsLoading && (
               <p className="text-xs text-fg-muted">
@@ -218,7 +218,7 @@ export default function ChannelCreateModal({
                 id="channel-creator"
                 value={creatorName ?? ""}
                 onChange={(e) => setCreatorName(e.target.value || null)}
-                className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="select"
                 data-testid="channel-create-creator"
               >
                 {principalItems.map((p) => (
@@ -237,10 +237,10 @@ export default function ChannelCreateModal({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="modal-footer shrink-0">
           <button
             onClick={onClose}
-            className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+            className="btn-secondary"
           >
             Cancel
           </button>
@@ -248,7 +248,7 @@ export default function ChannelCreateModal({
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
+            className="btn-primary"
             data-testid="channel-create-submit"
           >
             <Check className="h-3.5 w-3.5" />
@@ -308,7 +308,7 @@ function NoPekoHere({
                 type="button"
                 disabled={!groupName}
                 onClick={() => onAsk(peko)}
-                className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+                className="btn-primary btn-sm"
                 data-testid={`channel-create-ask-${peko.principalName}`}
               >
                 Ask {peko.displayName || peko.principalName}

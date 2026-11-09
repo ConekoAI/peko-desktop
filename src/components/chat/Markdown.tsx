@@ -27,7 +27,7 @@ import { attachmentOpen } from "../../lib/api";
 // it are turned off (they showed as literal characters).
 export default function Markdown({ children }: { children: string }) {
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-slate-100 [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5 dark:[&_:not(pre)>code]:bg-slate-800">
+    <div className="prose prose-sm max-w-none break-words leading-relaxed [--tw-prose-body:var(--fg-soft)] [--tw-prose-headings:var(--fg)] [--tw-prose-bold:var(--fg)] [--tw-prose-links:var(--brand-text)] [--tw-prose-counters:var(--fg-subtle)] [--tw-prose-bullets:var(--line-strong)] [--tw-prose-hr:var(--line)] [--tw-prose-quotes:var(--fg-muted)] [--tw-prose-quote-borders:var(--line-strong)] [--tw-prose-code:var(--fg)] [--tw-prose-th-borders:var(--line-strong)] [--tw-prose-td-borders:var(--line)] [--tw-prose-captions:var(--fg-subtle)] prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-surface-sunken [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:text-[0.85em]">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkEmbeds]}
         rehypePlugins={[[rehypeSanitize, SCHEMA], [rehypeHighlight, { detect: false }]]}
@@ -198,7 +198,7 @@ function MarkdownImage({ src, alt }: { src: string; alt?: string }) {
       <img
         src={src}
         alt={alt ?? ""}
-        className="not-prose my-1 inline-block max-h-96 max-w-full rounded-lg border border-line bg-white object-contain"
+        className="not-prose my-1 inline-block max-h-96 max-w-full rounded-lg border border-line bg-surface-card object-contain"
       />
     );
   }
@@ -230,7 +230,7 @@ function MarkdownLink({ href, children }: { href?: string; children?: ReactNode 
         type="button"
         title={`Open ${baseName(path)}`}
         onClick={() => void attachmentOpen(path).catch(() => {})}
-        className="text-brand underline underline-offset-2 hover:opacity-80"
+        className="text-brand-text underline underline-offset-2 hover:opacity-80"
       >
         {children}
       </button>
@@ -272,8 +272,8 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   }
 
   return (
-    <div className="not-prose my-2 overflow-hidden rounded-lg border border-line">
-      <div className="flex items-center justify-between bg-surface-sunken px-3 py-1 text-[11px] text-fg-muted">
+    <div className="not-prose my-2 overflow-hidden rounded-lg border border-line bg-surface">
+      <div className="flex items-center justify-between border-b border-line bg-surface-raised px-3 py-1 font-mono text-[11px] text-fg-subtle">
         <span>{language ?? "code"}</span>
         <span className="flex items-center gap-1">
           {isSvg && (
@@ -281,7 +281,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
               type="button"
               onClick={() => setShowCode((v) => !v)}
               aria-label={showCode ? "Show image" : "Show code"}
-              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-sunken hover:text-fg-soft"
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-sans transition-colors hover:bg-surface-sunken hover:text-fg"
             >
               {showCode ? <ImageIcon className="h-3 w-3" /> : <Code className="h-3 w-3" />}
               {showCode ? "Image" : "Code"}
@@ -291,7 +291,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
             type="button"
             onClick={copy}
             aria-label={copied ? "Copied" : "Copy code"}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-surface-sunken hover:text-fg-soft"
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-sans transition-colors hover:bg-surface-sunken hover:text-fg"
           >
             {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             {copied ? "Copied" : "Copy"}
@@ -299,11 +299,11 @@ function CodeBlock({ children }: { children?: ReactNode }) {
         </span>
       </div>
       {showCode ? (
-        <pre className="overflow-x-auto bg-surface-raised p-3 text-[12.5px] leading-relaxed">
+        <pre className="overflow-x-auto bg-surface px-3.5 py-3 text-[12.5px] leading-relaxed text-fg">
           {children}
         </pre>
       ) : (
-        <div className="flex justify-center bg-white p-3">
+        <div className="flex justify-center bg-surface-card p-3">
           <img src={svgDataUrl(code)} alt="SVG image" className="max-h-96 max-w-full object-contain" />
         </div>
       )}

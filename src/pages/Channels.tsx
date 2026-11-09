@@ -3,9 +3,9 @@ import { Plus, Users } from "lucide-react";
 import { useSearch } from "@tanstack/react-router";
 
 /**
- * Channels landing page. The active channel list lives in
- * `ChannelSidebar` (mounted by `Layout`), so this page hosts an
- * empty-state hint when no channel is selected.
+ * Groups landing page. Every group is a tile in the app rail
+ * (`GroupRail`), so this page hosts an empty-state hint when no group
+ * is open.
  *
  * P1.7 polish: the empty state now offers an in-app "+ New channel"
  * CTA. Reads `?newChannel=1` from the URL on mount and removes it
@@ -34,25 +34,27 @@ export default function Channels() {
   }, [search.newChannel]);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-      <Users className="h-10 w-10 text-fg-subtle" />
-      <h2 className="text-base font-semibold text-fg-soft">
-        Groups
-      </h2>
-      <p className="max-w-sm text-sm text-fg-muted">
-        Pick a group from the sidebar, or start one with your pekos.
-      </p>
-      <button
-        type="button"
-        onClick={() => {
-          window.dispatchEvent(new CustomEvent("peko:open-channel-create"));
-        }}
-        className="mt-1 inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover"
-        data-testid="channels-empty-new-button"
-      >
-        <Plus className="h-4 w-4" />
-        New group
-      </button>
+    <div className="flex h-full items-center justify-center p-8">
+      <div className="flex max-w-sm animate-fade-up flex-col items-center text-center">
+        <div className="tile mb-4 h-14 w-14 rounded-2xl">
+          <Users className="h-6 w-6" />
+        </div>
+        <h2 className="h-section">Groups</h2>
+        <p className="mt-1.5 text-sm text-fg-muted">
+          Pick a group in the bar on the left, or start one with your pekos.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent("peko:open-channel-create"));
+          }}
+          className="btn-primary mt-5"
+          data-testid="channels-empty-new-button"
+        >
+          <Plus className="h-4 w-4" />
+          New group
+        </button>
+      </div>
     </div>
   );
 }

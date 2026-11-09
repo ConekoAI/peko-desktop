@@ -45,22 +45,23 @@ export default function ChannelLeaveConfirmModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-backdrop"
     >
-      <div className="w-full max-w-md rounded-xl border border-line bg-surface-card p-6 shadow-xl">
+      <div className="modal-panel max-w-md p-6">
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/50">
-            <LogOut className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warn-soft">
+            <LogOut className="h-5 w-5 text-warn" />
           </div>
           <h2
             id="channel-leave-modal-title"
-            className="text-lg font-semibold text-fg"
+            className="modal-title"
           >
             Leave {channelName || <span className="font-mono">{channelId}</span>}?
           </h2>
           <button
             onClick={onCancel}
-            className="ml-auto rounded-lg p-1 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
+            aria-label="Close"
+            className="btn-icon -mr-2 ml-auto"
           >
             <X className="h-4 w-4" />
           </button>
@@ -72,22 +73,22 @@ export default function ChannelLeaveConfirmModal({
         </p>
 
         {isCreator && (
-          <p className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400">
+          <p className="note-warn mb-6 text-xs">
             You created this group. Leaving doesn&apos;t delete it — the
             remaining members keep their access.
           </p>
         )}
 
-        <div className="flex justify-end gap-3">
+        <div className="mt-6 flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="rounded-lg border border-line bg-surface-card px-4 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+            className="btn-secondary"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            className="btn-danger-solid"
             data-testid="channel-leave-confirm"
           >
             Leave group

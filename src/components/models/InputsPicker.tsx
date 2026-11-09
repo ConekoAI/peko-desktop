@@ -24,7 +24,7 @@ export default function InputsPicker({
 }) {
   return (
     <fieldset disabled={disabled}>
-      <legend className="mb-1 block text-xs font-medium text-fg-muted">Understands</legend>
+      <legend className="field-label mb-1.5 block">Understands</legend>
       <div className="flex flex-wrap gap-2">
         <span className="inline-flex items-center rounded-lg border border-line bg-surface-sunken px-3 py-1.5 text-xs text-fg-muted">
           Text
@@ -41,7 +41,7 @@ export default function InputsPicker({
               className={[
                 "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
                 on
-                  ? "border-brand bg-brand-soft text-brand"
+                  ? "border-brand bg-brand-soft text-brand-text"
                   : "border-line bg-surface-card text-fg-soft hover:bg-surface-sunken",
               ].join(" ")}
             >

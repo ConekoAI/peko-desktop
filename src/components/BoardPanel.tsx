@@ -47,30 +47,30 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
 
   if (!isGroup) return null;
   return (
-    <section className="border-b border-line bg-surface-raised text-xs" data-testid="board-panel">
+    <section className="border-b border-line bg-surface-raised/60 text-xs" data-testid="board-panel">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 px-4 py-2 text-left text-fg-muted hover:bg-surface-sunken"
+        className="flex w-full items-center gap-2 px-4 py-2 text-left text-fg-muted transition-colors hover:bg-surface-sunken/60"
         aria-expanded={open}
       >
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-        <ClipboardList className="h-3.5 w-3.5" />
-        <span className="font-medium text-fg">Board</span>
+        <ClipboardList className="h-3.5 w-3.5 text-brand-text" />
+        <span className="font-semibold text-fg">Board</span>
         <span data-testid="board-summary">{summary}</span>
       </button>
       {open && (
-        <div className="space-y-1.5 px-4 pb-3">
+        <div className="grid gap-2 px-4 pb-3 pt-1">
           {all.map((item) => {
             const holder = item.claimant ? directory.resolve(item.claimant) : null;
             const mine = !!holder?.isYou;
             const addedByMe = directory.resolve(item.added_by).isYou;
             const pastCheckIn = !!item.check_at && item.state !== "done" && Date.parse(item.check_at) <= now;
             return (
-              <div key={item.id} className="rounded border border-line px-2 py-1.5" data-testid="board-item">
-                <div className="flex items-baseline gap-2">
+              <div key={item.id} className="card px-3 py-2.5" data-testid="board-item">
+                <div className="flex items-center gap-2">
                   <StateChip state={item.state} />
-                  <span className="min-w-0 flex-1 break-words text-fg">{item.title}</span>
+                  <span className="min-w-0 flex-1 break-words text-[13px] font-medium text-fg">{item.title}</span>
                   <span className="shrink-0 text-fg-subtle">
                     {holder
                       ? holder.label
@@ -80,7 +80,7 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
                   </span>
                 </div>
                 {(item.note || item.check_at) && (
-                  <div className="mt-0.5 text-fg-subtle">
+                  <div className="mt-1 text-fg-subtle">
                     {item.note}
                     {item.check_at && item.state !== "done" && (
                       <span className={pastCheckIn ? "ml-1 text-warn" : "ml-1"}>
@@ -92,7 +92,7 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
                 )}
                 {blocking === item.id ? (
                   <form
-                    className="mt-1 flex gap-1"
+                    className="mt-2 flex gap-1.5"
                     onSubmit={(e) => {
                       e.preventDefault();
                       run(
@@ -110,17 +110,17 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
                       onChange={(e) => setNote(e.target.value)}
                       placeholder="What does it wait on?"
                       maxLength={500}
-                      className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-0.5"
+                      className="input input-sm min-w-0 flex-1"
                     />
-                    <button type="submit" className="rounded border border-line px-2 py-0.5 hover:bg-surface-sunken">
+                    <button type="submit" className="btn-secondary btn-xs">
                       Block
                     </button>
-                    <button type="button" onClick={() => setBlocking(null)} className="px-1 text-fg-subtle">
+                    <button type="button" onClick={() => setBlocking(null)} className="btn-ghost btn-xs">
                       Cancel
                     </button>
                   </form>
                 ) : (
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     {!item.claimant && item.state !== "done" && (
                       <Action label="Take it" onClick={() => run({ op: "claim", item: item.id })} />
                     )}
@@ -148,7 +148,7 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
             );
           })}
           <form
-            className="flex gap-1 pt-1"
+            className="flex gap-1.5 pt-1"
             onSubmit={(e) => {
               e.preventDefault();
               const t = title.trim();
@@ -161,13 +161,13 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Add work to the board"
               maxLength={120}
-              className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1"
+              className="input input-sm min-w-0 flex-1"
               aria-label="New board item"
             />
             <button
               type="submit"
               disabled={!title.trim() || change.isPending}
-              className="inline-flex items-center gap-1 rounded border border-line px-2 py-1 hover:bg-surface-sunken disabled:opacity-50"
+              className="btn-primary btn-sm"
             >
               {change.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
               Add
@@ -189,7 +189,7 @@ function Action({ label, onClick }: { label: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded border border-line px-1.5 py-0.5 text-fg-muted hover:bg-surface-sunken"
+      className="btn-secondary btn-xs"
     >
       {label}
     </button>
@@ -198,14 +198,14 @@ function Action({ label, onClick }: { label: string; onClick: () => void }) {
 
 const STATE_STYLE: Record<BoardItem["state"], string> = {
   open: "bg-surface-sunken text-fg-muted",
-  doing: "bg-brand-soft text-brand",
+  doing: "bg-brand-soft text-brand-text",
   blocked: "bg-warn-soft text-warn",
   done: "bg-surface-sunken text-fg-subtle line-through",
 };
 
 function StateChip({ state }: { state: BoardItem["state"] }) {
   return (
-    <span className={`shrink-0 rounded px-1.5 py-px text-[10px] uppercase tracking-wide ${STATE_STYLE[state]}`}>
+    <span className={`badge shrink-0 uppercase tracking-wide ${STATE_STYLE[state]}`}>
       {state}
     </span>
   );

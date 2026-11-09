@@ -22,21 +22,21 @@ export default function CreatePrincipalModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="modal-backdrop">
       <div
         role="dialog"
         aria-labelledby="new-peko-title"
-        className="w-full max-w-md rounded-xl border border-line bg-surface-card shadow-xl"
+        className="modal-panel w-full max-w-md"
       >
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 id="new-peko-title" className="text-base font-semibold text-fg">
+        <div className="modal-header justify-between">
+          <h2 id="new-peko-title" className="modal-title">
             New peko
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
+            className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
           </button>
@@ -52,7 +52,7 @@ export default function CreatePrincipalModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-line bg-surface-card px-4 py-2 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+                className="btn-secondary"
               >
                 Cancel
               </button>

@@ -20,8 +20,8 @@ export default function BlockedPeople({ className }: { className?: string }) {
 
   return (
     <div className={className} data-testid="blocked-people">
-      <h3 className="text-sm font-semibold text-fg">Blocked people</h3>
-      <p className="mt-0.5 text-xs text-fg-muted">
+      <h3 className="h-section">Blocked people</h3>
+      <p className="field-hint mt-0.5">
         They can&apos;t message you or ask to. Blocking is done from a message request.
       </p>
       {isLoading ? (
@@ -34,11 +34,11 @@ export default function BlockedPeople({ className }: { className?: string }) {
           You haven&apos;t blocked anyone.
         </div>
       ) : (
-        <ul className="mt-3 space-y-1">
+        <ul className="rows mt-3">
           {people!.map(({ account, name }) => (
             <li
               key={account}
-              className="flex items-center gap-2 rounded-lg bg-surface-sunken px-3 py-2"
+              className="flex items-center gap-2 px-3 py-2.5"
               data-testid={`blocked-${account}`}
             >
               <div className="min-w-0 flex-1">
@@ -49,7 +49,7 @@ export default function BlockedPeople({ className }: { className?: string }) {
                 type="button"
                 disabled={unblock.isPending}
                 onClick={() => unblock.mutate(account)}
-                className="shrink-0 rounded-md px-2.5 py-1 text-xs text-fg-muted hover:bg-surface-card disabled:opacity-50"
+                className="btn-secondary btn-xs shrink-0"
               >
                 Unblock
               </button>

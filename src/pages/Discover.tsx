@@ -39,47 +39,47 @@ export default function Discover() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-950">
-        <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Find a peko</h1>
-        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+      <header className="border-b border-line bg-surface px-8 pb-5 pt-8">
+        <h1 className="h-page">Find a peko</h1>
+        <p className="mt-1 text-sm text-fg-muted">
           People and pekos are found by their exact ID, like <code>@alice/ada</code>. Seeds can be
           searched by name. On{" "}
-          <code className="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">{hubUrl}</code>
+          <code className="code-inline">{hubUrl}</code>
         </p>
       </header>
 
       <form
-        className="border-b border-slate-200 px-6 py-4 dark:border-slate-800"
+        className="border-b border-line px-8 pb-5"
         onSubmit={(e) => {
           e.preventDefault();
           setQ(input.trim());
         }}
       >
         <div className="relative">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
           <input
             type="search"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="@alice/ada, or search seeds…"
             aria-label="Peko ID or search"
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-3 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            className="input pl-10 pr-3"
           />
         </div>
       </form>
 
-      <section className="flex-1 overflow-y-auto px-6 py-6">
+      <section className="flex-1 overflow-y-auto px-8 py-6">
         {!q ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+          <div className="rounded-xl border border-dashed border-line-strong p-12 text-center text-sm text-fg-muted">
             PekoHub doesn&apos;t list pekos. Ask for one&apos;s ID — <code>@owner/name</code> — and
             look it up here.
           </div>
         ) : search.isLoading ? (
-          <div className="flex min-h-[30vh] items-center justify-center text-slate-500">
+          <div className="flex min-h-[30vh] items-center justify-center text-fg-muted">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
         ) : search.error ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+          <div className="rounded-xl border border-warn/25 bg-warn-soft p-4 text-sm text-warn">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
@@ -91,13 +91,13 @@ export default function Discover() {
             </div>
           </div>
         ) : !data || (data.exact.length === 0 && data.items.length === 0) ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900">
+          <div className="rounded-xl border border-dashed border-line-strong p-12 text-center text-sm text-fg-muted">
             {byId
               ? `No one public is ${q}. Check the spelling, or ask its owner whether it is public.`
               : "No seeds matched. Pekos are found only by their exact ID, like @alice/ada."}
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.exact.map((hit) => (
               <ExactCard key={`${hit.kind}:${hit.id}`} hit={hit} hubUrl={hubUrl} />
             ))}
@@ -162,10 +162,10 @@ function ResultCard({
   addLink?: string;
 }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <article className="card card-hover flex flex-col p-5">
       <header className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate font-semibold text-slate-900 dark:text-white">
+          <h3 className="truncate text-[15px] font-medium text-fg">
             {avatar && (
               <span aria-hidden="true" className="mr-1.5 select-none">
                 {avatar}
@@ -173,23 +173,23 @@ function ResultCard({
             )}
             {title}
           </h3>
-          <p className="mt-0.5 truncate font-mono text-xs text-slate-500 dark:text-slate-400">{id}</p>
+          <p className="mt-0.5 truncate font-mono text-xs text-fg-muted">{id}</p>
         </div>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        <span className="badge-neutral shrink-0">
           {kind}
         </span>
       </header>
 
       {description && (
-        <p className="mt-2 line-clamp-3 text-sm text-slate-600 dark:text-slate-300">{description}</p>
+        <p className="mt-3 line-clamp-2 text-[13px] leading-relaxed text-fg-muted">{description}</p>
       )}
 
-      <footer className="mt-4 flex items-center justify-between gap-2">
+      <footer className="mt-auto flex items-center justify-between gap-2 pt-4">
         <a
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+          className="link inline-flex items-center gap-1 text-xs font-medium"
         >
           <ExternalLink className="h-3 w-3" />
           Open in browser
@@ -197,7 +197,7 @@ function ResultCard({
         {addLink && (
           <a
             href={addLink}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            className="btn-secondary btn-sm"
           >
             <Plus className="h-3 w-3" />
             Add to desktop

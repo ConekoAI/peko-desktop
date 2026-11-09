@@ -73,3 +73,11 @@ export function timeAgo(iso: string, now: number = Date.now()): string {
   if (hours < 24) return unit(hours, "hour");
   return unit(Math.floor(hours / 24), "day");
 }
+
+/** Up to two letters standing for a group's name. */
+export function groupMonogram(name: string): string {
+  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if (words.length === 0) return "#";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}

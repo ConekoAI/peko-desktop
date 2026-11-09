@@ -88,10 +88,10 @@ export default function MemberList({
   return (
     <div className="p-3">
       <section data-testid="channel-members-local">
-        <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+        <div className="eyebrow mb-1.5 px-2">
           Local
         </div>
-        <ul className="space-y-1">
+        <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">
           {local.map((did) => {
             const who = directory.resolve(did);
             const wakePeko = wakeOf.get(did.replace(/^principal:(local:)?/, ""));
@@ -99,14 +99,14 @@ export default function MemberList({
               <li
                 key={did}
                 title={did}
-                className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-fg-soft hover:bg-surface-sunken"
+                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
                 data-testid={`channel-member-${did}`}
               >
                 {who.peko ? (
                   <PekoAvatar peko={who.peko} size="sm" />
                 ) : (
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken">
-                    <User className="h-3.5 w-3.5 text-fg-muted" />
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-peko-800 text-peko-100">
+                    <User className="h-3.5 w-3.5" />
                   </span>
                 )}
                 <span className="min-w-0 flex-1 truncate font-medium">{who.label}</span>
@@ -123,14 +123,14 @@ export default function MemberList({
 
       {remote.length > 0 && (
         <section className="mt-3" data-testid="channel-members-remote">
-          <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+          <div className="eyebrow mb-1.5 px-2">
             Remote
           </div>
-          <ul className="space-y-1">
+          <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">
             {remote.map((row) => (
               <li
                 key={row.principal}
-                className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-fg-soft hover:bg-surface-sunken"
+                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
                 data-testid={`channel-member-${row.principal}`}
               >
                 <Globe className="h-4 w-4 shrink-0 text-fg-subtle" />
@@ -170,14 +170,14 @@ function PeopleList({
       <li
         key={p.address}
         title={shownAddress(p.address)}
-        className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-fg-soft hover:bg-surface-sunken"
+        className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-fg-soft transition-colors hover:bg-surface-sunken"
         data-testid={`channel-member-${p.address}`}
       >
         {who.peko ? (
           <PekoAvatar peko={who.peko} size="sm" />
         ) : (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken">
-            <User className="h-3.5 w-3.5 text-fg-muted" />
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-peko-800 text-peko-100">
+            <User className="h-3.5 w-3.5" />
           </span>
         )}
         <span className="min-w-0 flex-1 truncate font-medium">{who.label}</span>
@@ -193,17 +193,17 @@ function PeopleList({
   return (
     <div className="p-3">
       <section data-testid="channel-members-local">
-        <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+        <div className="eyebrow mb-1.5 px-2">
           On this computer
         </div>
-        <ul className="space-y-1">{here.map(row)}</ul>
+        <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">{here.map(row)}</ul>
       </section>
       {elsewhere.length > 0 && (
         <section className="mt-3" data-testid="channel-members-remote">
-          <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+          <div className="eyebrow mb-1.5 px-2">
             Elsewhere
           </div>
-          <ul className="space-y-1">{elsewhere.map(row)}</ul>
+          <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">{elsewhere.map(row)}</ul>
         </section>
       )}
     </div>
@@ -240,7 +240,7 @@ function WakePicker({
         disabled={setWake.isPending}
         title={WAKE_OPTIONS.find((o) => o.value === current)?.hint}
         onChange={(e) => setWake.mutate({ pekoName, wake: e.target.value as WakePolicy })}
-        className="rounded-md border border-line bg-surface-card px-1.5 py-0.5 text-[11px] text-fg-soft outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-60"
+        className="select input-sm w-auto py-1 pr-7 text-[11px] text-fg-soft disabled:opacity-60"
       >
         {WAKE_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>

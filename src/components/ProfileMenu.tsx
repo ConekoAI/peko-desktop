@@ -187,12 +187,12 @@ export default function ProfileMenu() {
               : "Sign in to PekoHub"
         }
         className={[
-          "flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl transition-all",
+          "flex h-11 w-11 items-center justify-center overflow-hidden transition-all duration-200",
           isPending
-            ? "animate-pulse bg-slate-200 dark:bg-slate-800"
+            ? "animate-pulse rounded-full bg-surface-sunken"
             : signedIn
-              ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900"
-              : "text-slate-500 hover:bg-slate-200 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200",
+              ? "rounded-full bg-peko-800 text-peko-100 ring-2 ring-transparent hover:ring-peko-400/60"
+              : "rounded-[22px] bg-surface-sunken text-fg-soft hover:rounded-xl hover:bg-brand hover:text-white",
         ].join(" ")}
       >
         {isPending ? null : signedIn ? (
@@ -220,9 +220,9 @@ export default function ProfileMenu() {
       {open && (
         <div
           role="menu"
-          className="absolute bottom-0 left-full z-50 ml-2 w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-800 dark:bg-slate-950"
+          className="popover absolute bottom-0 left-full z-50 ml-3 w-64"
         >
-          <div className="px-3 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+          <div className="px-2.5 pb-1.5 pt-2 text-xs font-medium text-fg-muted">
             {signedIn
               ? account
                 ? `PekoHub · @${account.handle}`
@@ -230,14 +230,14 @@ export default function ProfileMenu() {
               : "PekoHub · not signed in"}
           </div>
 
-          <div className="my-1 h-px bg-slate-200 dark:bg-slate-800" />
+          <div className="my-1 h-px bg-line" />
 
           {!signedIn && (
             <button
               role="menuitem"
               data-testid="pekohub-signin"
               onClick={handleSignIn}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="menu-item"
             >
               {signingIn ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -254,7 +254,7 @@ export default function ProfileMenu() {
               data-testid="pekohub-signout"
               onClick={handleSignOut}
               disabled={logout.isPending}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+              className="menu-item hover:bg-danger-soft hover:text-danger"
             >
               {logout.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -274,7 +274,7 @@ export default function ProfileMenu() {
                 setOpen(false);
               }}
               disabled={disconnecting}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+              className="menu-item hover:bg-danger-soft hover:text-danger"
             >
               {disconnecting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -287,7 +287,7 @@ export default function ProfileMenu() {
 
           {signedIn && (
             <>
-              <div className="my-1 h-px bg-slate-200 dark:bg-slate-800" />
+              <div className="my-1 h-px bg-line" />
               <button
                 role="menuitem"
                 onClick={() => {
@@ -295,7 +295,7 @@ export default function ProfileMenu() {
                   handleMenuItemClose();
                 }}
                 disabled={signingIn}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="menu-item"
               >
                 {signingIn ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -308,11 +308,11 @@ export default function ProfileMenu() {
           )}
 
           {(signingIn || oauthError) && (
-            <div className="mx-3 mt-2 rounded-lg border border-indigo-200 bg-indigo-50 p-2 text-xs text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200">
+            <div className="note-info mx-1 mb-1 mt-2 block text-xs">
               {signingIn &&
                 "Waiting for PekoHub to redirect you back… complete the sign-in in your browser to continue. If the page didn't open, start again."}
               {oauthError && (
-                <span className="block text-red-600 dark:text-red-400">
+                <span className="block text-danger">
                   {oauthError}
                 </span>
               )}
@@ -322,7 +322,7 @@ export default function ProfileMenu() {
           {disconnectError && (
             <div
               data-testid="pekohub-disconnect-error"
-              className="mx-3 mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+              className="note-danger mx-1 mb-1 mt-2 block text-xs"
             >
               This computer couldn't disconnect: {disconnectError}
             </div>

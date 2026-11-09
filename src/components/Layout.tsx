@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import AppRail from "./AppRail";
 import PrincipalSidebar from "./PrincipalSidebar";
-import ChannelSidebar from "./ChannelSidebar";
 import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
 import EngineFailureCard from "./EngineFailureCard";
@@ -149,29 +148,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           on first-run flows. Auto-clears via the 5s timeout in
           the listener. */}
       {deepLinkError && (
-        <div className="fixed right-4 top-12 z-50 max-w-sm rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-red-700 shadow-lg dark:text-red-300">
+        <div className="note-danger fixed right-4 top-12 z-50 max-w-sm text-xs shadow-pop">
           {deepLinkError}
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden bg-surface-rail">
         {/* Far left: app rail (always visible) */}
-        <AppRail />
+        <AppRail onCreateGroup={() => setChannelCreateOpen(true)} />
 
-        {/* Context sidebar: the peko list beside chats, the group
-            list beside groups, nothing beside full pages (Settings). */}
-        {isPekoRoute ? (
+        {/* Context sidebar: the peko list beside chats. Groups live in
+            the rail itself, so a group opens straight to its conversation. */}
+        {/* Everything right of the rail sits on one framed panel. */}
+        <div className="flex min-w-0 flex-1 overflow-hidden rounded-tl-xl border-l border-t border-line bg-surface">
+        {isPekoRoute && (
           <PrincipalSidebar
             onCreateClick={() => setCreateOpen(true)}
             onConnectClick={() => setConnectOpen(true)}
             onImportClick={() => setImportOpen(true)}
           />
-        ) : isChannelsRoute ? (
-          <ChannelSidebar onCreateClick={() => setChannelCreateOpen(true)} />
-        ) : null}
+        )}
 
         {/* Main content area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Content */}
           {/* Chats and groups manage their own scrolling; full pages
               (Settings) scroll here. One overflow class each: with both,
@@ -179,7 +178,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <main
             className={[
               "flex-1",
-              isChatRoute || isChannelsRoute ? "overflow-hidden" : "overflow-auto p-6",
+              isChatRoute || isChannelsRoute ? "overflow-hidden" : "overflow-auto",
             ].join(" ")}
           >
             {/* Engine failure card. Only renders on Failed. On every
@@ -213,6 +212,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               layout-level failure card) so the happy path has no
               engine chrome at all. */}
           {engineFailed && <StatusBar />}
+        </div>
         </div>
       </div>
 

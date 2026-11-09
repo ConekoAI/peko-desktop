@@ -67,8 +67,8 @@ export function endpointArgs(draft: EndpointDraft): ModelAddArgs {
 }
 
 const INPUT =
-  "w-full rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand";
-const LABEL = "mb-1 block text-xs font-medium text-fg-muted";
+  "input";
+const LABEL = "field-label mb-1.5 block";
 
 /**
  * Fields for one endpoint. The name, the keyless switch, and reusing a

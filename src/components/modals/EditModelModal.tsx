@@ -177,18 +177,18 @@ export default function EditModelModal({
     failure instanceof Error ? failure.message : failure ? String(failure) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-line bg-surface-card shadow-xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
+    <div className="modal-backdrop">
+      <div className="modal-panel flex max-h-[90vh] w-full max-w-2xl flex-col">
+        <div className="modal-header shrink-0 justify-between">
           <div>
-            <h2 className="text-base font-semibold text-fg">
+            <h2 className="modal-title">
               Edit Model
             </h2>
             <p className="text-xs text-fg-muted">{model.id}</p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
+            className="btn-icon -mr-1.5"
             data-testid="edit-model-close"
           >
             <X className="h-4 w-4" />
@@ -198,36 +198,36 @@ export default function EditModelModal({
         <div className="space-y-4 overflow-y-auto p-5 text-sm text-fg-soft">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">
+              <label className="field-label mb-1.5 block">
                 Display name
               </label>
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">
+              <label className="field-label mb-1.5 block">
                 Base URL
               </label>
               <input
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
-                className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 font-mono text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input font-mono"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">
+              <label className="field-label mb-1.5 block">
                 API format
               </label>
               <select
                 value={apiFormat}
                 onChange={(e) => setApiFormat(e.target.value)}
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="select"
               >
                 {API_FORMATS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -237,13 +237,13 @@ export default function EditModelModal({
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">
+              <label className="field-label mb-1.5 block">
                 Wire model ID
               </label>
               <input
                 value={modelId}
                 onChange={(e) => setModelId(e.target.value)}
-                className="w-full rounded-lg border border-line bg-surface-card px-3 py-2 font-mono text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input font-mono"
               />
             </div>
           </div>
@@ -258,7 +258,7 @@ export default function EditModelModal({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">
+              <label className="field-label mb-1.5 block">
                 Context window
               </label>
               <input
@@ -269,11 +269,11 @@ export default function EditModelModal({
                   setContextWindow(v ? Number(v) : "");
                 }}
                 placeholder="128000"
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-fg-muted">
+              <label className="field-label mb-1.5 block">
                 Max output tokens
               </label>
               <input
@@ -284,7 +284,7 @@ export default function EditModelModal({
                   setMaxOutputTokens(v ? Number(v) : "");
                 }}
                 placeholder="4096"
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input"
               />
             </div>
           </div>
@@ -293,7 +293,7 @@ export default function EditModelModal({
             <div>
               <label
                 htmlFor="edit-model-new-key"
-                className="mb-1 block text-xs font-medium text-fg-muted"
+                className="field-label mb-1.5 block"
               >
                 Replace API key
               </label>
@@ -304,19 +304,19 @@ export default function EditModelModal({
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value)}
                 placeholder={credentialId ? "Leave empty to keep the current key" : "Paste the API key"}
-                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="input"
               />
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-fg-muted">
+            <label className="field-label mb-1.5 block">
               Stored key
             </label>
             <select
               value={credentialId}
               onChange={(e) => setCredentialId(e.target.value)}
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="select"
             >
               <option value="">— None —</option>
               {credentialOptions.map((c) => (
@@ -354,7 +354,7 @@ export default function EditModelModal({
               <button
                 type="button"
                 onClick={addHeader}
-                className="inline-flex items-center gap-1 rounded-md border border-line bg-surface-card px-2 py-0.5 text-[11px] font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+                className="btn-secondary text-[11px]"
               >
                 <Plus className="h-3 w-3" /> Add header
               </button>
@@ -371,13 +371,13 @@ export default function EditModelModal({
                     value={h.key}
                     onChange={(e) => updateHeader(i, { key: e.target.value })}
                     placeholder="Header name"
-                    className="flex-1 rounded-lg border border-line bg-surface-card px-3 py-1.5 text-xs text-fg outline-none focus:border-brand"
+                    className="input input-sm flex-1"
                   />
                   <input
                     value={h.value}
                     onChange={(e) => updateHeader(i, { value: e.target.value })}
                     placeholder="Value"
-                    className="flex-1 rounded-lg border border-line bg-surface-card px-3 py-1.5 text-xs text-fg outline-none focus:border-brand"
+                    className="input input-sm flex-1"
                   />
                   <button
                     type="button"
@@ -398,10 +398,10 @@ export default function EditModelModal({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 py-3">
+        <div className="modal-footer shrink-0">
           <button
             onClick={onClose}
-            className="rounded-lg border border-line bg-surface-card px-4 py-1.5 text-sm font-medium text-fg-soft transition-colors hover:bg-surface-sunken"
+            className="btn-secondary"
           >
             Cancel
           </button>
@@ -409,7 +409,7 @@ export default function EditModelModal({
             onClick={() => void handleSubmit()}
             disabled={updateMut.isPending || setKeyMut.isPending || pricing === null}
             data-testid="edit-model-submit"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-50"
+            className="btn-primary"
           >
             <Check className="h-3.5 w-3.5" />
             {updateMut.isPending ? "Saving…" : "Save changes"}

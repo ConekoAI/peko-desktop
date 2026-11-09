@@ -126,11 +126,11 @@ export default function ChannelComposer({
   }
 
   return (
-    <div className="border-t border-line bg-surface p-3">
+    <div className="bg-surface px-4 pb-4 pt-2">
       {mutation.isError && (
         isChannelForbidden(mutation.error) ? (
           <div
-            className="mb-2 rounded-lg border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn"
+            className="note-warn mb-2 text-xs"
             data-testid="channel-composer-forbidden"
           >
             You aren&apos;t in this group — only members can
@@ -138,19 +138,19 @@ export default function ChannelComposer({
           </div>
         ) : (
           <div
-            className="mb-2 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger"
+            className="note-danger mb-2 text-xs"
             data-testid="channel-composer-error"
           >
             {errorMessage}
           </div>
         )
       )}
-      <div className="relative flex items-end gap-2">
+      <div className="relative flex items-end gap-2 rounded-xl border border-line-strong bg-surface-card p-1.5 shadow-sm transition-colors focus-within:border-peko-500 focus-within:ring-2 focus-within:ring-peko-500/20">
         {menuOpen && (
           <ul
             role="listbox"
             aria-label="Mention a peko"
-            className="absolute bottom-full left-0 mb-1 min-w-48 rounded-lg border border-line bg-surface-card py-1 shadow-lg"
+            className="popover absolute bottom-full left-0 mb-2 min-w-48"
           >
             {suggestions.map((name, i) => (
               <li
@@ -162,8 +162,8 @@ export default function ChannelComposer({
                   choose(name);
                 }}
                 className={[
-                  "cursor-pointer px-3 py-1.5 text-sm",
-                  i === highlight ? "bg-brand-soft text-brand" : "text-fg-soft hover:bg-surface-sunken",
+                  "cursor-pointer rounded-lg px-2.5 py-1.5 text-sm",
+                  i === highlight ? "bg-brand-soft text-fg" : "text-fg-soft hover:bg-surface-sunken",
                 ].join(" ")}
               >
                 @{name}
@@ -189,14 +189,14 @@ export default function ChannelComposer({
           rows={2}
           disabled={mutation.isPending}
           data-testid="channel-composer-input"
-          className="flex-1 resize-none rounded-lg border border-line bg-surface-card px-3 py-2 text-sm text-fg outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:opacity-50"
+          className="block max-h-[200px] min-h-[36px] flex-1 resize-none bg-transparent px-2.5 py-2 text-sm leading-relaxed text-fg outline-none placeholder:text-fg-subtle disabled:opacity-50"
         />
         <button
           type="button"
           onClick={() => void submit()}
           disabled={!canSubmit}
           data-testid="channel-composer-send"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-fg transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn-primary h-9 w-9 shrink-0 p-0"
           aria-label="Send message"
         >
           {mutation.isPending ? (

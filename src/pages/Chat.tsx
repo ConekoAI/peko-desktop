@@ -90,7 +90,7 @@ function HostOfflineNotice({
     <div
       role="status"
       data-testid="host-offline"
-      className="flex items-start gap-2 border-t border-line bg-surface-raised px-4 py-2 text-xs text-fg-muted"
+      className="flex items-start gap-2 border-t border-line bg-surface-raised px-5 py-2 text-xs text-fg-muted"
     >
       <Moon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <p>
@@ -153,14 +153,14 @@ function ChatMessage({
   }
 
   return (
-    <div className="group relative flex w-full gap-3 px-4 py-1.5 hover:bg-surface-raised">
+    <div className="group relative flex w-full gap-3 rounded-lg px-3 py-1.5 transition-colors hover:bg-surface-raised">
       <div className="mt-0.5 shrink-0">
         {isUser ? (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
-            <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-peko-800 text-peko-100">
+            <User className="h-4 w-4" />
           </div>
         ) : isError ? (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-danger-soft">
             <X className="h-4 w-4 text-danger" />
           </div>
         ) : (
@@ -201,7 +201,7 @@ function ChatMessage({
         {/* Floats over the message on hover, like Slack: it takes no
             room, so messages sit close together. */}
         {!item.queued && text && (
-          <div className="absolute -top-3 right-4 flex gap-1 rounded-md border border-line bg-surface-card p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <div className="absolute -top-3 right-3 flex gap-0.5 rounded-lg border border-line bg-surface-card p-0.5 opacity-0 shadow-pop transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             <MessageAction label={copied ? "Copied" : "Copy"} onClick={copy}>
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             </MessageAction>
@@ -242,7 +242,7 @@ function SuggestedReplies({
           key={reply}
           type="button"
           onClick={() => onPick(reply)}
-          className="rounded-full border border-line bg-surface-card px-3 py-1 text-xs text-fg transition-colors hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          className="rounded-full border border-line-strong bg-surface-card px-3 py-1 text-xs font-medium text-fg-soft transition-colors hover:border-peko-400/60 hover:bg-brand-soft hover:text-fg"
         >
           {reply}
         </button>
@@ -357,7 +357,7 @@ function ApprovalCards({
   return (
     <div className="space-y-2 border-t border-line bg-surface px-4 pt-3" data-testid="approval-cards">
       {requests.map((r) => (
-        <div key={r.id} className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-sm">
+        <div key={r.id} className="rounded-xl border border-warn/25 bg-warn-soft p-3.5 text-sm">
           {r.kind === "owner_task" ? (
             <>
               <p className="text-fg">
@@ -366,7 +366,7 @@ function ApprovalCards({
                 with only this brief:
               </p>
               <p
-                className="mt-2 whitespace-pre-wrap rounded-md border border-line bg-surface p-2 text-xs text-fg"
+                className="mt-2 whitespace-pre-wrap rounded-lg border border-line bg-surface p-2.5 text-xs text-fg"
                 data-testid="owner-task-brief"
               >
                 {r.summary}
@@ -386,7 +386,7 @@ function ApprovalCards({
               type="button"
               disabled={decide.isPending}
               onClick={() => void act(r.id, true)}
-              className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-brand-fg hover:bg-brand-hover disabled:opacity-50"
+              className="btn-primary btn-sm"
             >
               Approve
             </button>
@@ -396,7 +396,7 @@ function ApprovalCards({
                 disabled={decide.isPending}
                 onClick={() => void act(r.id, true, true)}
                 title={`Approve, and always allow this for ${r.actorName ?? r.actor}`}
-                className="rounded-md border border-line px-3 py-1 text-xs text-fg-soft hover:bg-surface-sunken disabled:opacity-50"
+                className="btn-secondary btn-sm"
               >
                 Always allow
               </button>
@@ -405,7 +405,7 @@ function ApprovalCards({
               type="button"
               disabled={decide.isPending}
               onClick={() => void act(r.id, false)}
-              className="rounded-md border border-line px-3 py-1 text-xs text-fg-soft hover:bg-surface-sunken disabled:opacity-50"
+              className="btn-secondary btn-sm"
             >
               Deny
             </button>
@@ -472,17 +472,17 @@ function PrincipalToolbar({
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   return (
-    <div className="flex items-center justify-between border-b border-line px-4 py-3">
+    <div className="flex h-14 shrink-0 items-center justify-between border-b border-line bg-surface px-4">
       <button
         type="button"
         onClick={() => setProfileOpen(true)}
         title={`${peko.name}'s profile`}
-        className="flex min-w-0 items-center gap-3 rounded-lg p-1 -m-1 text-left hover:bg-surface-sunken"
+        className="-mx-1.5 flex min-w-0 items-center gap-3 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface-sunken"
       >
         <PekoAvatar peko={peko} size="md" />
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-fg">{peko.name}</h3>
-          <p className="truncate text-xs text-fg-muted">
+          <h3 className="truncate text-[15px] font-semibold leading-tight tracking-tight text-fg">{peko.name}</h3>
+          <p className="truncate text-xs leading-tight text-fg-muted">
             {description || "Your peko"}
             {computer && <span data-testid="peko-computer"> · on {computer}</span>}
           </p>
@@ -962,7 +962,7 @@ export default function Chat() {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-fg-subtle" />
+        <Loader2 className="h-6 w-6 animate-spin text-fg-subtle" />
       </div>
     );
   }
@@ -971,26 +971,26 @@ export default function Chat() {
   if ((!principals || principals.length === 0) && !remotePeko) {
     if (remotePrincipals && remotePrincipals.length > 0) {
       return (
-        <div className="flex h-full flex-col items-center justify-center gap-4">
-          <MessageCircle className="h-12 w-12 text-fg-subtle" />
+        <div className="flex h-full animate-fade-in flex-col items-center justify-center gap-4 p-8">
+          <div className="tile h-14 w-14 rounded-2xl"><MessageCircle className="h-6 w-6" /></div>
           <p className="text-sm text-fg-muted">Select a peko from the sidebar</p>
         </div>
       );
     }
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4">
-        <MessageCircle className="h-12 w-12 text-fg-subtle" />
+      <div className="flex h-full animate-fade-in flex-col items-center justify-center gap-4 p-8">
+        <div className="tile h-14 w-14 rounded-2xl"><MessageCircle className="h-6 w-6" /></div>
         <div className="text-center">
-          <p className="text-sm font-medium text-fg-muted">
+          <p className="h-section">
             No pekos yet
           </p>
-          <p className="text-xs text-fg-subtle">
+          <p className="mt-1 text-sm text-fg-muted">
             Create your first peko to start chatting.
           </p>
         </div>
         <button
           onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-hover"
+          className="btn-primary"
         >
           <Plus className="h-4 w-4" />
           Create a peko
@@ -1002,7 +1002,7 @@ export default function Chat() {
               type="button"
               data-testid="empty-sign-in"
               onClick={requestPekohubSignIn}
-              className="font-medium text-brand hover:underline"
+              className="link font-medium"
             >
               Sign in with PekoHub
             </button>{" "}
@@ -1020,8 +1020,8 @@ export default function Chat() {
 
   if (!selectedPrincipal) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4">
-        <MessageCircle className="h-12 w-12 text-fg-subtle" />
+      <div className="flex h-full animate-fade-in flex-col items-center justify-center gap-4 p-8">
+        <div className="tile h-14 w-14 rounded-2xl"><MessageCircle className="h-6 w-6" /></div>
         <p className="text-sm text-fg-muted">
           Select a peko from the sidebar
         </p>
@@ -1034,7 +1034,7 @@ export default function Chat() {
       {dragging && (
         <div
           data-testid="chat-drop-overlay"
-          className="pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand bg-brand-soft/80 text-brand"
+          className="pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand bg-brand-soft/80 text-brand-text"
         >
           <Paperclip className="h-6 w-6" />
           <p className="text-sm font-medium">Drop files to attach</p>
@@ -1054,7 +1054,7 @@ export default function Chat() {
         computer={remotePeko?.runtimeName}
       />
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-surface p-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-surface px-3 py-4">
         {displayItems.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-fg-subtle">
             <MessageCircle className="h-10 w-10" />
@@ -1068,7 +1068,7 @@ export default function Chat() {
                   type="button"
                   onClick={() => void loadOlder()}
                   disabled={loadingOlder}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs text-fg-muted transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                  className="btn-secondary btn-xs rounded-full px-3"
                 >
                   {loadingOlder && <Loader2 className="h-3 w-3 animate-spin" />}
                   Load earlier messages
@@ -1118,7 +1118,7 @@ export default function Chat() {
         )}
 
         {error ? (
-          <div className="mt-3 rounded-lg bg-danger-soft p-3 text-sm text-danger">
+          <div className="note-danger mt-3">
             {error}
           </div>
         ) : null}
@@ -1138,7 +1138,7 @@ export default function Chat() {
         />
       )}
 
-      <div className="border-t border-line bg-surface p-4">
+      <div className="bg-surface px-4 pb-4 pt-2">
         <Composer
           value={input}
           onChange={setInput}

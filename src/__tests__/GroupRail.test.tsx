@@ -1,19 +1,13 @@
-// src/__tests__/ChannelSidebar.test.tsx
+// src/__tests__/GroupRail.test.tsx
 //
-// PR-1 / feature/desktop-channels: render the read-only channel
-// sidebar. Validates:
-//   • empty state ("No channels yet. Create one with `peko channel create`.")
-//   • grouped rendering with runtime badge per row
-//   • search filter against `channelId`
-//   • active-row indicator on the route's $channelId
-//   • disabled "New channel" CTA in PR-1 (PR-3 wires the modal)
+// Every group you are in is a tile in the app rail beside Chats. Covers:
+//   • a tile per group, named once its info loads (the id until then)
+//   • groups you left are hidden
+//   • the "New group" tile calls the layout's create modal
+//   • invitations from other computers, joined groups, join by link
 //
-// Mock pattern follows `ModelGalleryCard.test.tsx`: vi.mock + QueryClientProvider.
-// `useChannels` is the dependency, so we stub it; `usePrincipals` is also
-// stubbed because ChannelSidebar reads it to compute the fan-out input.
-// `useNavigate` / `useParams` from `@tanstack/react-router` are stubbed
-// so we don't need to instantiate the full router (only the active-row
-// match needs to work for the test).
+// `useChannels` / `usePrincipals` are stubbed; the router is stubbed so
+// only the active-tile match needs to work.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -67,13 +61,14 @@ vi.mock("@tanstack/react-router", () => ({
   useParams: () => ({ channelId: "chan_alpha" }),
 }));
 
-import ChannelSidebar from "../components/ChannelSidebar";
+import GroupRail from "../components/rail/GroupRail";
+import { groupMonogram } from "../lib/format";
 
 function renderSidebar() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <ChannelSidebar />
+      <GroupRail />
     </QueryClientProvider>,
   );
 }
@@ -91,7 +86,7 @@ const sampleRows = [
   },
 ];
 
-describe("ChannelSidebar", () => {
+describe("GroupRail", () => {
   beforeEach(() => {
     groupInvitationsMock.mockResolvedValue([]);
     personGroupsMock.mockResolvedValue([]);
@@ -103,16 +98,21 @@ describe("ChannelSidebar", () => {
     });
   });
 
-  it("renders the empty-state hint when no channels exist", () => {
+  it("shows no group tiles when there are none, but still offers Join", () => {
     useChannelsMock.mockReturnValue({ data: [], isLoading: false });
     renderSidebar();
-    expect(screen.getByTestId("channel-empty")).toBeInTheDocument();
-    expect(
-      screen.getByText(/No groups yet\./i),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId(/^channel-row-/)).toBeNull();
+    expect(screen.getByTestId("group-join-open")).toBeInTheDocument();
   });
 
-  it("renders a row per group, badging only remote ones", () => {
+  it("stands for a group by up to two letters of its name", () => {
+    expect(groupMonogram("launch-plan")).toBe("LP");
+    expect(groupMonogram("Reading")).toBe("RE");
+    expect(groupMonogram("book club 2")).toBe("BC");
+    expect(groupMonogram("—")).toBe("#");
+  });
+
+  it("renders a tile per group", () => {
     useChannelsMock.mockReturnValue({
       data: sampleRows,
       isLoading: false,
@@ -120,28 +120,12 @@ describe("ChannelSidebar", () => {
     renderSidebar();
     expect(screen.getByTestId("channel-row-chan_alpha")).toBeInTheDocument();
     expect(screen.getByTestId("channel-row-chan_bravo")).toBeInTheDocument();
-    expect(screen.queryByTestId("runtime-badge-local")).toBeNull();
-    expect(
-      screen.getByTestId("runtime-badge-hub:https://hub.example.com"),
-    ).toBeInTheDocument();
-  });
-
-  it("filters by channelId substring as the user types in the search box", () => {
-    useChannelsMock.mockReturnValue({
-      data: sampleRows,
-      isLoading: false,
-    });
-    renderSidebar();
-    const search = screen.getByTestId("channel-search");
-    fireEvent.change(search, { target: { value: "bravo" } });
-    expect(screen.queryByTestId("channel-row-chan_alpha")).toBeNull();
-    expect(screen.getByTestId("channel-row-chan_bravo")).toBeInTheDocument();
   });
 
   it("shows the loading spinner while useChannels is fetching", () => {
     useChannelsMock.mockReturnValue({ data: undefined, isLoading: true });
     renderSidebar();
-    expect(screen.queryByTestId("channel-empty")).toBeNull();
+    expect(screen.getByTestId("group-rail-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("channel-row-chan_alpha")).toBeNull();
   });
 
@@ -158,7 +142,7 @@ describe("ChannelSidebar", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
-        <ChannelSidebar onCreateClick={onCreate} />
+        <GroupRail onCreateClick={onCreate} />
       </QueryClientProvider>,
     );
     const cta = screen.getByTestId("channel-new") as HTMLButtonElement;
@@ -172,17 +156,16 @@ describe("ChannelSidebar", () => {
     useChannelsMock.mockReturnValue({ data: sampleRows, isLoading: false });
     groupNames.chan_alpha = "Launch crew";
     renderSidebar();
-    expect(screen.getByText("Launch crew")).toBeInTheDocument();
-    expect(screen.queryByText("chan_alpha")).toBeNull();
+    expect(screen.getByTestId("channel-row-chan_alpha")).toHaveAccessibleName("Launch crew");
+    expect(screen.getByTestId("channel-row-chan_alpha")).toHaveTextContent("LC");
     // Still loading: the id stands in.
-    expect(screen.getByText("chan_bravo")).toBeInTheDocument();
+    expect(screen.getByTestId("channel-row-chan_bravo")).toHaveAccessibleName("chan_bravo");
     delete groupNames.chan_alpha;
   });
 
-  it("names the section Groups and never points at the CLI", () => {
+  it("never points at the CLI", () => {
     useChannelsMock.mockReturnValue({ data: [], isLoading: false });
     renderSidebar();
-    expect(screen.getByText("Groups")).toBeInTheDocument();
     expect(screen.queryByText(/peko channel/)).toBeNull();
   });
 
@@ -197,19 +180,18 @@ describe("ChannelSidebar", () => {
     delete groupNames.chan_alpha;
   });
 
-  /** Before, every row rendered nothing and the list showed blank. */
-  it("says there are no groups when you have left them all", async () => {
+  it("shows no tiles when you have left every group", async () => {
     useChannelsMock.mockReturnValue({ data: sampleRows, isLoading: false });
     for (const row of sampleRows) leftGroups.add(row.channelId);
     renderSidebar();
-    expect(await screen.findByTestId("channel-empty")).toHaveTextContent("No groups yet.");
+    await waitFor(() => expect(screen.queryByTestId(/^channel-row-/)).toBeNull());
     leftGroups.clear();
   });
 });
 
 // Runtime ADR-092 D2: invitations from groups on other computers, and the
 // groups you joined, sit beside your pekos' groups.
-describe("ChannelSidebar — groups on other computers", () => {
+describe("GroupRail — groups on other computers", () => {
   beforeEach(() => {
     useChannelsMock.mockReturnValue({ data: [], isLoading: false });
     usePrincipalsMock.mockReturnValue({ data: [] });
@@ -222,13 +204,17 @@ describe("ChannelSidebar — groups on other computers", () => {
     ]);
     personGroupsMock.mockResolvedValue([]);
     renderSidebar();
+    fireEvent.click(await screen.findByTestId("invitation-tile-chan_book"));
     const card = await screen.findByTestId("invitation-chan_book");
     expect(card).toHaveTextContent("book club");
     expect(card).toHaveTextContent("3 members");
-    fireEvent.click(screen.getByRole("button", { name: "Join" }));
-    await waitFor(() => expect(groupInvitationAnswerMock).toHaveBeenCalledWith("chan_book", true));
     fireEvent.click(screen.getByRole("button", { name: "Decline" }));
     await waitFor(() => expect(groupInvitationAnswerMock).toHaveBeenCalledWith("chan_book", false));
+    // Declining closes it; open it again to join.
+    await waitFor(() => expect(screen.queryByTestId("invitation-chan_book")).toBeNull());
+    fireEvent.click(screen.getByTestId("invitation-tile-chan_book"));
+    fireEvent.click(await screen.findByRole("button", { name: "Join" }));
+    await waitFor(() => expect(groupInvitationAnswerMock).toHaveBeenCalledWith("chan_book", true));
   });
 
   it("lists a group you joined from another computer", async () => {
@@ -236,7 +222,7 @@ describe("ChannelSidebar — groups on other computers", () => {
     personGroupsMock.mockResolvedValue([{ channelId: "chan_book", name: "book club", home: "did:key:zH" }]);
     groupNames["chan_book"] = "book club";
     renderSidebar();
-    expect(await screen.findByTestId("channel-row-chan_book")).toHaveTextContent("book club");
+    expect(await screen.findByTestId("channel-row-chan_book")).toHaveAccessibleName("book club");
     expect(screen.queryByTestId("group-invitations")).toBeNull();
     fireEvent.click(screen.getByTestId("channel-row-chan_book"));
     expect(navigateMock).toHaveBeenCalledWith(

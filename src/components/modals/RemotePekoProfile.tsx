@@ -85,13 +85,13 @@ export default function RemotePekoProfile({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="modal-backdrop">
       <div
         role="dialog"
         aria-label={`${principalName}'s profile`}
-        className="flex max-h-[75vh] w-full max-w-lg flex-col rounded-xl border border-line bg-surface shadow-xl"
+        className="modal-panel flex max-h-[75vh] w-full max-w-lg flex-col"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4">
+        <div className="modal-header shrink-0 justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <PekoAvatar peko={identity} size="lg" />
             <div className="min-w-0">
@@ -104,7 +104,7 @@ export default function RemotePekoProfile({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-surface-sunken hover:text-fg-soft"
+            className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
           </button>
@@ -140,7 +140,7 @@ export default function RemotePekoProfile({
                     aria-label="Copy share link"
                     className="shrink-0 rounded p-1 text-fg-subtle hover:bg-surface-card hover:text-fg-soft"
                   >
-                    {copied ? <Check className="h-3.5 w-3.5 text-brand" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied ? <Check className="h-3.5 w-3.5 text-brand-text" /> : <Copy className="h-3.5 w-3.5" />}
                   </button>
                 </div>
               )}
@@ -179,7 +179,7 @@ export default function RemotePekoProfile({
                     type="button"
                     onClick={remove}
                     disabled={removeMut.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    className="btn-danger-solid"
                   >
                     {removeMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Remove
@@ -190,7 +190,7 @@ export default function RemotePekoProfile({
               <button
                 type="button"
                 onClick={() => setConfirmingRemove(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-fg-muted hover:bg-surface-sunken hover:text-red-600"
+                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-fg-muted hover:bg-surface-sunken hover:text-danger"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 Remove from your list
