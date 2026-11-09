@@ -24,11 +24,15 @@ import { useFileDrop } from "../hooks/useFileDrop";
 import { attachmentStage, pickAttachments } from "../lib/api";
 import { useModels, useRemotePekoModels } from "../hooks/useModels";
 import { saveModelChoice, savedModelChoice } from "../lib/modelChoice";
-import { useRemotePeko, useRemotePrincipals } from "../hooks/useRemotePrincipals";
+import {
+  useRemotePeko,
+  useRemotePrincipals,
+  useUndeliveredMessages,
+} from "../hooks/useRemotePrincipals";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
-import { shownAddress } from "../lib/format";
+import { shownAddress, timeAgo } from "../lib/format";
 import {
   Loader2,
   MessageCircle,
@@ -39,6 +43,8 @@ import {
   Copy,
   RotateCcw,
   Paperclip,
+  Clock,
+  Moon,
 } from "lucide-react";
 import Markdown from "../components/chat/Markdown";
 import { copyText } from "../components/chat/copy";
@@ -60,6 +66,41 @@ interface ChatItem {
   attachments?: ChatLogAttachment[];
   /** Replies the peko suggested with this message (runtime ADR-093). */
   options?: string[];
+  /** The post's own id (a remote peko's thread), to match undelivered ones. */
+  msgId?: string;
+}
+
+/**
+ * Over the composer while a peko's computer is offline: it can't work
+ * until that computer is back, and what you send waits for it (the
+ * runtime keeps it and delivers it then). Its answer arrives as a
+ * notification.
+ */
+function HostOfflineNotice({
+  peko,
+  computer,
+  lastSeenAt,
+}: {
+  peko: string;
+  computer: string;
+  lastSeenAt: string | null;
+}) {
+  const ago = lastSeenAt ? timeAgo(lastSeenAt) : "";
+  return (
+    <div
+      role="status"
+      data-testid="host-offline"
+      className="flex items-start gap-2 border-t border-line bg-surface-raised px-4 py-2 text-xs text-fg-muted"
+    >
+      <Moon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <p>
+        <span className="font-medium text-fg">{computer}</span> is offline
+        {ago && ` (last online ${ago})`}, so {peko} can&apos;t work right now. What you send
+        waits and reaches {peko} when that computer is back; you&apos;ll get a notification when{" "}
+        {peko} answers.
+      </p>
+    </div>
+  );
 }
 
 /** The error a stream ends with when the run was stopped (`peko stop`). */
@@ -81,8 +122,14 @@ function ChatMessage({
   peko,
   onRetry,
   onPick,
+  waitingFor,
 }: {
   item: ChatItem;
+  /**
+   * Set on your message that hasn't reached the peko yet: the computer it
+   * waits for (asleep or off), named as it names itself.
+   */
+  waitingFor?: string;
   /** The reply's author. */
   peko: PekoIdentity;
   /** Present on the latest reply: send the message before it again. */
@@ -139,6 +186,15 @@ function ChatMessage({
           )}
           {item.attachments && <MessageAttachments attachments={item.attachments} />}
         </div>
+        {waitingFor && (
+          <p
+            className="mt-0.5 flex items-center gap-1 text-[11px] text-fg-subtle"
+            data-testid="message-waiting"
+          >
+            <Clock className="h-3 w-3" />
+            Waiting for {waitingFor} to come online
+          </p>
+        )}
         {onPick && item.options && item.options.length > 0 && (
           <SuggestedReplies replies={item.options} onPick={onPick} />
         )}
@@ -393,6 +449,7 @@ export function chatLogMessagesToChatItems(
         timestamp: m.timestamp,
       } as StreamEvent,
       isUser,
+      ...(m.msgId && { msgId: m.msgId }),
       ...(attachments.length > 0 && { attachments }),
       ...(options.length > 0 && { options }),
     });
@@ -597,6 +654,12 @@ export default function Chat() {
   // A peko of yours on another computer runs on that computer's models
   // (runtime ADR-097); other people's pekos offer no pick.
   const ownRemote = runtimeId !== "local" && !!remotePeko?.fromAccount;
+  // A peko on another computer works only while that computer is on: say
+  // so while it is offline, and mark what you sent that hasn't reached it.
+  const hostLabel = remotePeko?.runtimeName || `${pekoFace.name}'s computer`;
+  const hostOffline = !!remotePeko && remote.status.data?.status === "offline";
+  const undelivered = useUndeliveredMessages(runtimeId, selectedPrincipal, !!remotePeko, hostOffline);
+  const waiting = useMemo(() => new Set(undelivered.data ?? []), [undelivered.data]);
   const { data: hostModels } = useRemotePekoModels(runtimeId, selectedPrincipal, ownRemote);
   const composerModels = useMemo<ComposerModel[]>(() => {
     if (runtimeId === "local") {
@@ -1023,6 +1086,11 @@ export default function Chat() {
                       : undefined
                   }
                   onPick={idx === pickIdx ? (reply) => void sendText(reply) : undefined}
+                  waitingFor={
+                    item.isUser && item.msgId && waiting.has(item.msgId)
+                      ? hostLabel
+                      : undefined
+                  }
                 />
               </Fragment>
             ))}
@@ -1061,6 +1129,14 @@ export default function Chat() {
         runtimeId={runtimeId}
         requests={ownsApprovals ? (approvals.data ?? []) : []}
       />
+
+      {hostOffline && (
+        <HostOfflineNotice
+          peko={pekoFace.name}
+          computer={hostLabel}
+          lastSeenAt={remote.status.data?.lastSeenAt ?? null}
+        />
+      )}
 
       <div className="border-t border-line bg-surface p-4">
         <Composer

@@ -1500,6 +1500,8 @@ export interface AccessiblePrincipal {
   exposure: string;
   /** The computer it runs on, as that computer names itself on PekoHub. */
   runtimeName?: string | null;
+  /** When that computer last connected to PekoHub (ISO); null if never. */
+  lastSeenAt?: string | null;
 }
 
 interface AccessiblePekoWire {
@@ -1515,6 +1517,7 @@ interface AccessiblePekoWire {
   description?: unknown;
   exposure?: unknown;
   runtimeName?: unknown;
+  lastSeenAt?: unknown;
 }
 
 const textOrNull = (v: unknown): string | null =>
@@ -1548,6 +1551,7 @@ export async function pekohubListAccessiblePekos(
     description: textOrNull(w.description),
     exposure: String(w.exposure ?? "private"),
     runtimeName: textOrNull(w.runtimeName),
+    lastSeenAt: textOrNull(w.lastSeenAt),
   }));
 }
 
@@ -1834,6 +1838,15 @@ export interface ChannelPerson {
 /** Read a channel's kind, members, and pekos' wake policies (members only). */
 export async function channelInfo(channelId: string): Promise<ChannelInfo> {
   return invoke<ChannelInfo>("channel_info", { channelId });
+}
+
+/**
+ * Your messages to a peko on another computer that haven't reached it
+ * yet (its computer has been asleep or off since), by message id. They
+ * go out when it is back. Empty for a peko on this computer.
+ */
+export async function remotePekoUndelivered(name: string, runtimeId: string): Promise<string[]> {
+  return invoke<string[]>("remote_peko_undelivered", { name, runtimeId });
 }
 
 /**

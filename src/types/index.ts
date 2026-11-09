@@ -157,6 +157,12 @@ export interface ChatLogMessage {
    * thread's latest message; they carry no authority.
    */
   options?: string[];
+  /**
+   * A remote peko's message: the post's own id, the same on every copy
+   * (row `id`s are this copy's line or a live stand-in). What the
+   * runtime names a message still waiting to be delivered by.
+   */
+  msgId?: string | null;
 }
 
 /**

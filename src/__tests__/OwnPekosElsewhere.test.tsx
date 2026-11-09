@@ -21,7 +21,8 @@ vi.mock("../hooks/useRuntimes", () => ({
   loadOAuthBundle: () => bundleMock(),
 }));
 
-import { ownPekosToAdopt, ownPekosToForget } from "../hooks/useRemotePrincipals";
+import { longAway, ownPekosToAdopt, ownPekosToForget } from "../hooks/useRemotePrincipals";
+import { timeAgo } from "../lib/format";
 import { usePrincipalStatus } from "../hooks/usePrincipalStatus";
 import { effectiveRegistration } from "../components/modals/PrincipalProfileModal";
 import type { AccessiblePrincipal, RemotePrincipalSummary } from "../lib/api";
@@ -190,5 +191,40 @@ describe("a remote peko's status", () => {
     );
     await waitFor(() => expect(result.current.data?.status).toBe("offline"));
     expect(listOwnMock).not.toHaveBeenCalled();
+  });
+});
+
+// 2026-11-09 field test: pekos of computers that never came back sat
+// beside the live one. Away 3+ days, they are set aside; back, they return.
+describe("longAway", () => {
+  const now = Date.parse("2026-11-09T12:00:00Z");
+  const saved = { hubId: "h1", principalName: "kit", fromAccount: true } as RemotePrincipalSummary;
+  const listed = (status: string, lastSeenAt: string | null) =>
+    [{ hubId: "h1", principalName: "kit", status, lastSeenAt }] as AccessiblePrincipal[];
+
+  it("sets aside a peko offline for over three days", () => {
+    expect(longAway(saved, listed("offline", "2026-11-05T12:00:00Z"), now)).toBe(true);
+  });
+
+  it("keeps one offline for a weekend, one online, and one never seen", () => {
+    expect(longAway(saved, listed("offline", "2026-11-07T12:00:00Z"), now)).toBe(false);
+    expect(longAway(saved, listed("online", "2026-11-01T12:00:00Z"), now)).toBe(false);
+    expect(longAway(saved, listed("offline", null), now)).toBe(false);
+  });
+
+  it("leaves pekos that aren't yours alone", () => {
+    const theirs = { ...saved, fromAccount: false };
+    expect(longAway(theirs, listed("offline", "2026-10-01T12:00:00Z"), now)).toBe(false);
+  });
+});
+
+describe("timeAgo", () => {
+  const now = Date.parse("2026-11-09T12:00:00Z");
+  it("says how long ago, in words", () => {
+    expect(timeAgo("2026-11-09T11:59:40Z", now)).toBe("just now");
+    expect(timeAgo("2026-11-09T11:59:00Z", now)).toBe("1 minute ago");
+    expect(timeAgo("2026-11-09T09:00:00Z", now)).toBe("3 hours ago");
+    expect(timeAgo("2026-11-07T12:00:00Z", now)).toBe("2 days ago");
+    expect(timeAgo("not a time", now)).toBe("");
   });
 });
