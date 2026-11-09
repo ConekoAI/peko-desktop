@@ -9,6 +9,7 @@ import {
   remotePrincipalList,
   remotePrincipalRemove,
   remotePrincipalResolve,
+  remotePekoUndelivered,
   type AccessiblePrincipal,
   type RemotePrincipalResolveResult,
   type RemotePrincipalSummary,
@@ -271,6 +272,49 @@ function sameNameCollapsed(
     }
   }
   return own.filter((p) => best.get(p.principalName) === p);
+}
+
+/**
+ * Your messages to the remote peko `name` that haven't reached it yet,
+ * by message id: its computer has been asleep or off since. Read often
+ * while that computer is `offline`, now and then otherwise (a link that
+ * just dropped holds messages too).
+ */
+export function useUndeliveredMessages(
+  runtimeId: string,
+  name: string,
+  remote: boolean,
+  offline: boolean,
+) {
+  return useQuery({
+    queryKey: ["remote-undelivered", runtimeId, name],
+    enabled: remote && !!name,
+    queryFn: () => remotePekoUndelivered(name, runtimeId),
+    refetchInterval: offline ? 5_000 : 30_000,
+  });
+}
+
+/** Days a computer can be away before its pekos are set aside. */
+export const AWAY_AFTER_DAYS = 3;
+
+/**
+ * Whether `remote`, one of your pekos on another computer, has been away
+ * long enough to set aside in the list: your account lists it offline,
+ * last seen over [`AWAY_AFTER_DAYS`] ago. Leftovers of wiped or retired
+ * computers stay there for good (2026-11-09 field test: kit, zed and ada
+ * sat beside the live peko); a computer that comes back brings its pekos
+ * back to the list.
+ */
+export function longAway(
+  remote: RemotePrincipalSummary,
+  own: AccessiblePrincipal[] | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (!remote.fromAccount || !remote.hubId) return false;
+  const listed = own?.find((p) => p.hubId === remote.hubId);
+  if (!listed || listed.status === "online" || !listed.lastSeenAt) return false;
+  const seen = Date.parse(listed.lastSeenAt);
+  return !isNaN(seen) && now - seen > AWAY_AFTER_DAYS * 24 * 3_600_000;
 }
 
 /**

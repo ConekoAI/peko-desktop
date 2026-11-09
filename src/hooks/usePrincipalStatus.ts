@@ -147,7 +147,7 @@ async function fetchRemoteStatus(
   if (mine) {
     return {
       status: normalizeStatus(mine.status),
-      lastSeenAt: null,
+      lastSeenAt: mine.lastSeenAt ?? null,
       source: "remote",
       profile: {
         avatar: mine.avatar,

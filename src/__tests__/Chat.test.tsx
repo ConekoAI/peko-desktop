@@ -51,16 +51,23 @@ const fetchOlderMock = vi.fn();
 
 const modelsState: { data: unknown } = { data: [] };
 // The pekos on other computers this desktop added, and the one open.
-const remoteState: { list: unknown[]; record: unknown; asked: string[] } = {
+const remoteState: {
+  list: unknown[];
+  record: unknown;
+  asked: string[];
+  status?: unknown;
+  undelivered?: string[];
+} = {
   list: [],
   record: undefined,
   asked: [],
 };
 vi.mock("../hooks/useRemotePrincipals", () => ({
   useRemotePrincipals: () => ({ data: remoteState.list }),
+  useUndeliveredMessages: () => ({ data: remoteState.undelivered }),
   useRemotePeko: (runtimeId: string, name: string) => ({
     record: (remoteState.asked.push(runtimeId), remoteState.record),
-    status: { data: undefined },
+    status: { data: remoteState.status },
     identity: { name, avatar: null, initials: name.slice(0, 1).toUpperCase(), accent: "emerald" },
     description: null,
   }),
@@ -107,6 +114,8 @@ describe("Chat ToS gate", () => {
     remoteState.list = [];
     remoteState.record = undefined;
     remoteState.asked = [];
+    remoteState.status = undefined;
+    remoteState.undelivered = undefined;
     routeState.pekoName = "alice";
     hostModelsState.data = undefined;
     hostModelsState.asked = [];
@@ -237,6 +246,46 @@ describe("Chat ToS gate", () => {
       /Waiting — the model provider can't be reached\. It continues on its own/,
     );
     expect(screen.queryByText(/error sending request/)).toBeNull();
+  });
+
+  // Use case 1: your peko's computer is asleep. The chat says so, and
+  // your message shows as waiting until that computer takes it.
+  it("says when your peko's computer is offline and marks what waits for it", () => {
+    principalsState.data = [];
+    const mine = {
+      runtimeId: "hub:https://pekohub.example",
+      principalName: "alice",
+      owner: "yumo",
+      hubUrl: "https://pekohub.example",
+      fromAccount: true,
+      runtimeName: "Mac mini",
+    };
+    remoteState.list = [mine];
+    remoteState.record = mine;
+    remoteState.status = { status: "offline", lastSeenAt: new Date(Date.now() - 2 * 3_600_000).toISOString() };
+    remoteState.undelivered = ["msg_2"];
+    searchState.runtimeId = mine.runtimeId;
+    logState.data = {
+      messages: [
+        { id: "12", msgId: "msg_1", sender: "user:local", text: "earlier", timestamp: "1" },
+        { id: "13", msgId: "msg_2", sender: "user:local", text: "run the tests", timestamp: "2" },
+      ],
+    };
+    const { unmount } = render(<Chat />);
+    expect(screen.getByTestId("host-offline")).toHaveTextContent(
+      /Mac mini is offline \(last online 2 hours ago\), so alice can't work right now/,
+    );
+    const waiting = screen.getAllByTestId("message-waiting");
+    expect(waiting).toHaveLength(1);
+    expect(waiting[0]).toHaveTextContent("Waiting for Mac mini to come online");
+    unmount();
+
+    // Back online, everything delivered: nothing to say.
+    remoteState.status = { status: "online", lastSeenAt: null };
+    remoteState.undelivered = [];
+    render(<Chat />);
+    expect(screen.queryByTestId("host-offline")).toBeNull();
+    expect(screen.queryByTestId("message-waiting")).toBeNull();
   });
 
   it("lets the owner approve or deny a waiting request", async () => {

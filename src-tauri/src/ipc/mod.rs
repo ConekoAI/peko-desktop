@@ -1989,6 +1989,19 @@ impl IpcClient {
 
     /// Mirror of `RequestPacket::ChannelSetWake`: set what starts a turn
     /// for `principal_name` in a group (`human` / `mention` / `off`).
+    /// Mirror of `RequestPacket::ChannelUndelivered`: the posts in
+    /// `channel` not yet delivered to a member on another computer.
+    pub async fn channel_undelivered(&self, channel: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_undelivered",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+        });
+        self.request_response(req).await
+    }
+
     /// Mirror of `RequestPacket::ChannelBoard` (runtime ADR-101): read a
     /// group's board, changing it with `op` first when given.
     pub async fn channel_board(

@@ -547,6 +547,21 @@ pub async fn remote_peko_models(
     }
 }
 
+/// Your messages to a peko on another computer that haven't reached it
+/// yet, by message id: its computer has been away (asleep or off) since.
+/// Empty for a peko on this computer.
+#[tauri::command]
+pub async fn remote_peko_undelivered(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: String,
+) -> Result<Vec<String>, String> {
+    match state.resolve_peko_runtime(Some(&runtime_id), &name).await {
+        crate::state::ResolvedRuntime::HubRemote(client) => client.undelivered().await,
+        crate::state::ResolvedRuntime::Local => Ok(Vec::new()),
+    }
+}
+
 /// Stop the running turn in the caller's thread with `name`
 /// (`principal_stop`). `peer = None` is the owner's thread. Returns the
 /// daemon's `done` envelope; `success: false` with "no running turn…"

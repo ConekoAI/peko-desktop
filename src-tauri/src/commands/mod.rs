@@ -35,6 +35,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_send_stream,
         principal::principal_stop,
         principal::remote_peko_models,
+        principal::remote_peko_undelivered,
         principal::principal_log_watch_start,
         principal::principal_log_watch_stop,
         principal::principal_log,

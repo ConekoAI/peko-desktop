@@ -69,28 +69,30 @@ const HUB = "hub:http://localhost:3000";
 const accessibleMock = vi.fn(() => ({ data: undefined as unknown, isSuccess: false }));
 const adoptMock = vi.fn();
 const removeMock = vi.fn();
+const REMY = {
+  hubUrl: "http://localhost:3000",
+  owner: "tester",
+  principalName: "remy",
+  displayName: "Remy",
+  exposure: "public",
+  status: "online",
+  runtimeId: "hub:http://localhost:3000",
+  addedAtUnixMs: 0,
+  hasInviteToken: false,
+};
+// The pekos on other computers this desktop keeps; a test adds more.
+const remoteList: { data: unknown[] } = { data: [REMY] };
+
 vi.mock("../hooks/useRemotePrincipals", async (importOriginal) => ({
+  longAway: (await importOriginal<typeof import("../hooks/useRemotePrincipals")>()).longAway,
+  AWAY_AFTER_DAYS: 3,
   ownPekosToAdopt: (await importOriginal<typeof import("../hooks/useRemotePrincipals")>())
     .ownPekosToAdopt,
   ownPekosToForget: (await importOriginal<typeof import("../hooks/useRemotePrincipals")>())
     .ownPekosToForget,
   useAdoptPekoDms: () => ({ data: 0 }),
   useRemotePrincipalRemove: () => ({ mutate: removeMock, isPending: false }),
-  useRemotePrincipals: () => ({
-    data: [
-      {
-        hubUrl: "http://localhost:3000",
-        owner: "tester",
-        principalName: "remy",
-        displayName: "Remy",
-        exposure: "public",
-        status: "online",
-        runtimeId: "hub:http://localhost:3000",
-        addedAtUnixMs: 0,
-        hasInviteToken: false,
-      },
-    ],
-  }),
+  useRemotePrincipals: () => remoteList,
   useRemotePeko: (_runtimeId: string, name: string) => ({
     record: undefined,
     status: { data: { status: "online", lastSeenAt: null, source: "remote" } },
@@ -127,6 +129,7 @@ describe("PrincipalSidebar", () => {
     personDmOpenMock.mockReset();
     bundleMock.mockReset().mockReturnValue({ data: null });
     accessibleMock.mockReset().mockReturnValue({ data: undefined, isSuccess: false });
+    remoteList.data = [REMY];
     adoptMock.mockReset();
     removeMock.mockReset();
   });
@@ -180,6 +183,41 @@ describe("PrincipalSidebar", () => {
     // A remote peko's unread replies show like a local peko's.
     expect(within(remy).getByTestId("unread-remy").textContent).toBe("2");
     expect(within(omni).queryByTestId("unread-omni")).toBeNull();
+  });
+
+  // 2026-11-09 field test: pekos of computers that never came back sat
+  // beside the live one. Away for days, they fold into their own group.
+  it("folds your pekos whose computer has been away for days", () => {
+    const kit = {
+      ...REMY,
+      principalName: "kit",
+      owner: "maya",
+      hubId: "h-kit",
+      fromAccount: true,
+      runtimeId: "hub:http://localhost:3000",
+    };
+    remoteList.data = [REMY, kit];
+    accessibleMock.mockReturnValue({
+      data: [
+        {
+          hubId: "h-kit",
+          principalName: "kit",
+          owner: "maya",
+          status: "offline",
+          lastSeenAt: new Date(Date.now() - 5 * 24 * 3_600_000).toISOString(),
+        },
+      ],
+      isSuccess: false,
+    });
+    render(<PrincipalSidebar />);
+    expect(screen.getByRole("button", { name: /remy/ })).toBeInTheDocument();
+    const kitRows = () =>
+      screen.queryAllByRole("button").filter((b) => /kit/.test(b.textContent ?? ""));
+    expect(kitRows()).toHaveLength(0);
+    const toggle = screen.getByTestId("away-pekos-toggle");
+    expect(toggle).toHaveTextContent("Not seen for 3+ days (1)");
+    fireEvent.click(toggle);
+    expect(kitRows()).toHaveLength(1);
   });
 
   it("opens a remote peko's chat and profile on its hub runtime", () => {

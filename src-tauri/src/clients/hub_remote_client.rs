@@ -142,6 +142,21 @@ impl HubRemoteClient {
         Ok(())
     }
 
+    /// Your messages in the DM not yet delivered to the peko's computer
+    /// (it has been away since: asleep, or off), by message id. They go
+    /// out when it is back.
+    pub async fn undelivered(&self) -> Result<Vec<String>, String> {
+        let channel = self.open_dm().await?;
+        let client = crate::ipc::IpcClient::new()
+            .await
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        let answer = client
+            .channel_undelivered(&channel)
+            .await
+            .map_err(|e| format!("channel_undelivered failed: {e}"))?;
+        undelivered_ids(&answer)
+    }
+
     /// The models this peko's host can answer you with (runtime ADR-097
     /// D1), as the model picker lists them: `{ id, displayName }`. Empty
     /// when the host offers you none (a peko that isn't yours).
@@ -359,6 +374,25 @@ fn error_message(answer: &serde_json::Value, fallback: &str) -> String {
         .to_string()
 }
 
+/// The ids in a `channel_undelivered_result`; a runtime error becomes `Err`.
+fn undelivered_ids(answer: &serde_json::Value) -> Result<Vec<String>, String> {
+    if crate::ipc::is_error_response(answer) {
+        return Err(error_message(
+            answer,
+            "Couldn't read what is still waiting to be sent.",
+        ));
+    }
+    Ok(answer
+        .get("msg_ids")
+        .and_then(|v| v.as_array())
+        .map(|ids| {
+            ids.iter()
+                .filter_map(|id| id.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
 /// A `posted` channel event as a `principal_log` row
 /// (`{ schemaVersion, id, sender, timestamp, text, attachments, options }`); other
 /// events (created, member changes) are not messages.
@@ -375,6 +409,9 @@ fn posted_row(id: String, event: &serde_json::Value) -> Option<serde_json::Value
         "attachments": event.get("attachments").cloned().unwrap_or_else(|| serde_json::json!([])),
         // Suggested replies (runtime ADR-093).
         "options": event.get("options").cloned().unwrap_or_else(|| serde_json::json!([])),
+        // The post's own id, the same on every copy: what the runtime's
+        // outbox names a message by (it is still waiting to be delivered).
+        "msgId": event.get("msg_id").cloned().unwrap_or(serde_json::Value::Null),
     }))
 }
 
@@ -473,6 +510,21 @@ fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn undelivered_reads_the_waiting_ids() {
+        let ids = super::undelivered_ids(&serde_json::json!({
+            "type": "channel_undelivered_result", "request_id": 1, "channel": "dm_x",
+            "msg_ids": ["msg_1", "msg_2"]
+        }))
+        .unwrap();
+        assert_eq!(ids, ["msg_1", "msg_2"]);
+        assert!(super::undelivered_ids(
+            &serde_json::json!({"type": "error", "request_id": 1, "message": "no"})
+        )
+        .is_err());
+    }
+
     use super::*;
 
     fn posted(author: &str, text: &str) -> serde_json::Value {
@@ -681,6 +733,8 @@ mod tests {
         let joined = serde_json::json!({"kind": "member_joined", "member": "x", "at": "t"});
         assert!(posted_row("live".into(), &joined).is_none());
         let row = posted_row("msg_m1".into(), &posted("user:local", "hey")).unwrap();
+        // The post's own id rides along for matching undelivered posts.
+        assert_eq!(row["msgId"], "m1");
         assert_eq!(row["attachments"], serde_json::json!([]));
         assert_eq!(row["options"], serde_json::json!([]));
     }

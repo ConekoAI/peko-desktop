@@ -57,3 +57,19 @@ export function shownAddress(address: string): string {
   // A local route is written bare (`principal:prin_x`); show its scope.
   return rest.startsWith("local:") || rest.startsWith("hub:") ? `peko:${rest}` : `peko:local:${rest}`;
 }
+
+/**
+ * How long ago `iso` was, in words: "just now", "5 minutes ago",
+ * "3 hours ago", "2 days ago". Empty for an unreadable time.
+ */
+export function timeAgo(iso: string, now: number = Date.now()): string {
+  const then = Date.parse(iso);
+  if (isNaN(then)) return "";
+  const mins = Math.floor((now - then) / 60_000);
+  if (mins < 1) return "just now";
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
+  if (mins < 60) return unit(mins, "minute");
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return unit(hours, "hour");
+  return unit(Math.floor(hours / 24), "day");
+}

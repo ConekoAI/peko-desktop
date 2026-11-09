@@ -61,6 +61,7 @@ describe("pekohubListAccessiblePekos", () => {
             status: "online",
             exposure: "private",
             runtimeName: "Alice's MacBook",
+            lastSeenAt: "2026-11-09T08:00:00.000Z",
           },
         ],
       }),
@@ -80,6 +81,7 @@ describe("pekohubListAccessiblePekos", () => {
         description: null,
         exposure: "private",
         runtimeName: "Alice's MacBook",
+        lastSeenAt: "2026-11-09T08:00:00.000Z",
       },
     ]);
   });

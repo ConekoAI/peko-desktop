@@ -4,6 +4,8 @@ import { isGenesisPending, usePrincipals } from "../hooks/usePrincipals";
 import { usePekohubBundle } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
 import {
+  AWAY_AFTER_DAYS,
+  longAway,
   ownPekosToAdopt,
   ownPekosToForget,
   useAccessiblePrincipals,
@@ -30,6 +32,8 @@ import {
   Circle,
   Package,
   MessageCircle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { configuredHubUrl, type RemotePrincipalSummary } from "../lib/api";
 import PekoAvatar from "./peko/PekoAvatar";
@@ -372,6 +376,17 @@ export default function PrincipalSidebar({
       (rp) => rp.principalName.toLowerCase().includes(q) || rp.owner.toLowerCase().includes(q),
     );
   }, [remotePrincipals, principals, search]);
+  // Pekos of computers away for days sit apart, folded, below the rest.
+  const [showAway, setShowAway] = useState(false);
+  const [presentRemote, awayRemote] = useMemo(() => {
+    const now = Date.now();
+    const present: RemotePrincipalSummary[] = [];
+    const away: RemotePrincipalSummary[] = [];
+    for (const rp of filteredRemote) {
+      (longAway(rp, accessiblePekos, now) ? away : present).push(rp);
+    }
+    return [present, away];
+  }, [filteredRemote, accessiblePekos]);
   const listed = filtered.length + filteredRemote.length;
   const people = usePeople(search);
 
@@ -479,7 +494,7 @@ export default function PrincipalSidebar({
                 </button>
               );
             })}
-            {filteredRemote.map((rp) => (
+            {presentRemote.map((rp) => (
               <RemotePekoRow
                 key={`${rp.runtimeId}-${rp.owner}-${rp.principalName}`}
                 remote={rp}
@@ -489,6 +504,31 @@ export default function PrincipalSidebar({
                 onContextMenu={(e) => openContextMenu(e, rp.principalName, rp.runtimeId)}
               />
             ))}
+            {awayRemote.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowAway((v) => !v)}
+                  aria-expanded={showAway}
+                  data-testid="away-pekos-toggle"
+                  className="mt-2 flex w-full items-center gap-1 px-2 py-1 text-left text-[11px] font-medium text-fg-subtle hover:text-fg-muted"
+                >
+                  {showAway ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  Not seen for {AWAY_AFTER_DAYS}+ days ({awayRemote.length})
+                </button>
+                {showAway &&
+                  awayRemote.map((rp) => (
+                    <RemotePekoRow
+                      key={`${rp.runtimeId}-${rp.owner}-${rp.principalName}`}
+                      remote={rp}
+                      active={rp.principalName === principalName && rp.runtimeId === currentRuntimeId}
+                      unread={unread[unreadKey(rp.principalName, rp.runtimeId)] ?? 0}
+                      onOpen={() => handleSelect(rp.principalName, rp.runtimeId)}
+                      onContextMenu={(e) => openContextMenu(e, rp.principalName, rp.runtimeId)}
+                    />
+                  ))}
+              </>
+            )}
           </div>
         ) : showFirstRunCTA ? (
           <div className="px-2 py-8 text-center text-xs text-fg-subtle">
