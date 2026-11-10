@@ -241,4 +241,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: .
+          # The repo carries pnpm-lock.yaml next to package-lock.json, so
+          # the action would pick pnpm, which the runner doesn't have
+          # (dependencies are installed with `npm ci` above).
+          tauriScript: npx tauri
           releaseId: ${{ needs.prepare.outputs.release_id }}
