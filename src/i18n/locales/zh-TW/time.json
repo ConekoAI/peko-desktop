@@ -1,0 +1,12 @@
+{
+  "justNow": "剛剛",
+  "minutesAgo_other": "{{count}} 分鐘前",
+  "hoursAgo_other": "{{count}} 小時前",
+  "daysAgo_other": "{{count}} 天前",
+  "duration": {
+    "seconds": "{{s}} 秒",
+    "minutes": "{{m}} 分 {{s}} 秒",
+    "hours": "{{h}} 小時 {{m}} 分",
+    "days": "{{d}} 天 {{h}} 小時"
+  }
+}

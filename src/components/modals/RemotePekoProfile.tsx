@@ -126,11 +126,9 @@ export default function RemotePekoProfile({
                   <span className="text-[10px] font-normal text-fg-subtle">{t("peko.remote.viaHub")}</span>
                 </span>
               </Row>
-              <Row label={t("peko.remote.runsOn")}>
-                {record.fromAccount
-                  ? t("peko.remote.yourOtherComputer")
-                  : t("peko.remote.ownersRuntime", { owner: record.owner })}
-              </Row>
+              {record.fromAccount && (
+                <Row label={t("peko.remote.runsOn")}>{t("peko.remote.yourOtherComputer")}</Row>
+              )}
               <Row label={t("peko.remote.reachedThrough")}>{hostOf(record.hubUrl)}</Row>
               <Row label={t("peko.remote.access")}>
                 {record.hasInviteToken
@@ -170,7 +168,7 @@ export default function RemotePekoProfile({
             {confirmingRemove ? (
               <div className="space-y-2">
                 <p className="text-sm text-fg-soft">
-                  {t("peko.remote.removeConfirm", { name: principalName, owner: record.owner })}
+                  {t("peko.remote.removeConfirm", { name: principalName })}
                 </p>
                 {removeError && <p className="text-xs text-danger">{removeError}</p>}
                 <div className="flex justify-end gap-2">

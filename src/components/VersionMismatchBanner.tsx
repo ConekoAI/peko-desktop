@@ -32,7 +32,6 @@ export default function VersionMismatchBanner({
   const parts = {
     running: <code className="font-mono">{actual}</code>,
     needed: <code className="font-mono">{expected}</code>,
-    code: <code className="font-mono" />,
   };
   return (
     <div

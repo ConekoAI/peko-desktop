@@ -55,24 +55,11 @@ export function engineStateLabel(state: EngineState | undefined): string {
 }
 
 /**
- * Long subtitle rendered under the badge / in the status footer.
- * Pulls the version / PID out of the Running variant; for non-Running
- * states returns null so callers can hide the subtitle entirely.
+ * The failure's own message, shown beside the badge. Every other state
+ * has nothing a person needs to read, so callers hide the subtitle.
  */
 export function engineStateSubtitle(state: EngineState | undefined): string | null {
-  if (!state) return null;
-  switch (state.kind) {
-    case "running":
-      return t("engine.subtitle.running", { version: state.version, pid: state.pid });
-    case "starting":
-      return t("engine.subtitle.starting");
-    case "restarting":
-      return t("engine.subtitle.restarting");
-    case "stopped":
-      return t("engine.subtitle.stopped");
-    case "failed":
-      return state.message;
-  }
+  return state?.kind === "failed" ? state.message : null;
 }
 
 /**

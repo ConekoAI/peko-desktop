@@ -1,0 +1,127 @@
+{
+  "inviteToast": {
+    "addedTo": "Du wurdest zu <name/> hinzugefügt",
+    "pending_one": "{{count}} weitere Einladung ausstehend",
+    "pending_other": "{{count}} weitere Einladungen ausstehend",
+    "dismiss": "Einladungshinweis schließen"
+  },
+  "leave": {
+    "title": "<name/> verlassen?",
+    "body": "Du siehst hier keine neuen Nachrichten mehr. Ein Mitglied kann dich später wieder hinzufügen.",
+    "creatorNote": "Du hast diese Gruppe erstellt. Durch das Verlassen wird sie nicht gelöscht – die übrigen Mitglieder behalten ihren Zugriff.",
+    "confirm": "Gruppe verlassen"
+  },
+  "composer": {
+    "postFailed": "Nachricht konnte nicht gesendet werden",
+    "forbidden": "Du bist nicht in dieser Gruppe – nur Mitglieder können schreiben. Bitte ein Mitglied, dich einzuladen.",
+    "mentionLabel": "Einen Peko erwähnen",
+    "messagePerson": "Nachricht an {{name}}",
+    "messageThem": "Nachricht schreiben",
+    "messageGroupNamed": "Nachricht an {{name}} – mit @ einen Peko erwähnen",
+    "messageGroup": "Nachricht an die Gruppe – mit @ einen Peko erwähnen",
+    "send": "Nachricht senden"
+  },
+  "event": {
+    "conversationWith": "Unterhaltung mit <name/>",
+    "them": "dieser Person",
+    "groupCreated": "Gruppe <name/> erstellt von <creator/>",
+    "joined": "ist beigetreten",
+    "left": "hat die Gruppe verlassen"
+  },
+  "header": {
+    "dm": "Direktnachricht",
+    "group": "Gruppe",
+    "guestTitle": "Du bist nicht in dieser Gruppe – du kannst lesen, aber nicht schreiben.",
+    "viewOnly": "Nur ansehen",
+    "createdBy": "Erstellt von <creator/> · {{date}}",
+    "share": "Teilen",
+    "invite": "Einladen",
+    "leave": "Verlassen",
+    "leaveTitle": "Gruppe verlassen",
+    "leaveTitleCreator": "Gruppe verlassen (du bleibst ihr Ersteller)"
+  },
+  "members": {
+    "loading": "Mitglieder werden geladen…",
+    "empty": "Noch keine Mitglieder.",
+    "local": "Lokal",
+    "remote": "Entfernt",
+    "peko": "Peko",
+    "person": "Person",
+    "here": "Auf diesem Computer",
+    "elsewhere": "Anderswo",
+    "wakeLabel": "Wann {{name}} antwortet",
+    "wake": {
+      "human": {
+        "label": "Jede Nachricht",
+        "hint": "Antwortet auf jede Nachricht einer Person"
+      },
+      "mention": {
+        "label": "@Erwähnungen",
+        "hint": "Antwortet, wenn jemand ihn mit @ erwähnt"
+      },
+      "off": {
+        "label": "Nie",
+        "hint": "Liest mit; antwortet nur bei seinen eigenen Check-ins"
+      }
+    }
+  },
+  "share": {
+    "groupId": "Gruppen-ID <id/>",
+    "copyId": "ID kopieren",
+    "public": "Jeder mit der ID kann beitreten",
+    "inviteOnly": "Nur Personen mit einem Einladungslink können beitreten",
+    "intro": "Gib dieser Gruppe eine ID auf PekoHub, damit Personen auf anderen Computern beitreten können. Ihre Nachrichten bleiben auf diesem Computer.",
+    "visibilityInviteOnly": "Nur auf Einladung",
+    "visibilityPublic": "Öffentlich",
+    "registering": "Wird registriert…",
+    "register": "Auf PekoHub registrieren",
+    "makeLink": "Einladungslink erstellen",
+    "stopLinks": "Alle Links deaktivieren",
+    "copyLink": "Link kopieren",
+    "worksUntil": "Gültig bis {{date}}.",
+    "noneWorking": "Es waren keine Links aktiv.",
+    "stopped": "Deaktivierte Links: {{count}}."
+  },
+  "create": {
+    "title": "Neue Gruppe",
+    "intro": "Eine Gruppe ist ein Chat mit dir und mehreren Pekos. Weitere Personen und Pekos kannst du später hinzufügen.",
+    "name": "Gruppenname",
+    "nameInvalid": "Verwende 1–64 Zeichen.",
+    "startedBy": "Gestartet von",
+    "loadingPekos": "Deine Pekos werden geladen…",
+    "creating": "Wird erstellt…",
+    "create": "Erstellen",
+    "askToStart": "Bitte erstelle eine Gruppe namens „{{name}}“, füge mich hinzu und registriere sie auf PekoHub (nur auf Einladung), damit sie auch auf meinen anderen Computern ankommt.",
+    "noPekoHere": "Eine Gruppe liegt auf dem Computer des Pekos, der sie startet, und keiner deiner Pekos lebt auf diesem.",
+    "askElsewhere": "Bitte einen deiner Pekos auf einem anderen Computer, sie zu starten; er fügt dich hinzu, und die Gruppe erscheint auch hier.",
+    "nameFirst": "Gib der Gruppe einen Namen und bitte dann einen deiner Pekos auf einem anderen Computer, sie zu starten.",
+    "ask": "{{name}} bitten",
+    "createPekoHere": "Einen Peko auf diesem Computer erstellen"
+  },
+  "invite": {
+    "title": "In <name/> einladen",
+    "intro": "Wähle einen Peko aus, der dieser Gruppe hinzugefügt werden soll.",
+    "notMember": "Nur ein Mitglied kann andere hinzufügen. Bitte zuerst jemanden in dieser Gruppe, einen deiner Pekos hinzuzufügen.",
+    "searchPlaceholder": "Pekos suchen…",
+    "noCandidates": "Noch keine Pekos zum Einladen – jeder lokale Peko ist bereits Mitglied.",
+    "noMatch": "Keine Pekos passen zu deiner Suche.",
+    "inviting": "Wird eingeladen…",
+    "invite": "Einladen"
+  },
+  "landing": {
+    "title": "Gruppen",
+    "hint": "Wähle links in der Leiste eine Gruppe aus oder starte eine mit deinen Pekos."
+  },
+  "view": {
+    "loading": "Ereignisse werden geladen…",
+    "forbiddenTitle": "Du bist nicht in dieser Gruppe.",
+    "forbiddenBody": "Nur Mitglieder können sie lesen. Bitte ein Mitglied, dich einzuladen – mit der Einladung wirst du Mitglied.",
+    "loadFailed": "Die Nachrichten dieser Gruppe konnten nicht geladen werden.",
+    "empty": "Noch keine Ereignisse.",
+    "sayHello": "Sag <strong>{{name}}</strong> Hallo.",
+    "beFirst": "Schreib die erste Nachricht in <strong>{{name}}</strong>.",
+    "askInvite": "Bitte ein Mitglied, dich einzuladen, und komm dann in diese Gruppe zurück, um zu schreiben.",
+    "waitingAccept": "Warten, bis {{name}} annimmt. Was du hier schreibst, kommt dann an.",
+    "readOnly": "Du kannst diese Gruppe lesen, aber nicht darin schreiben."
+  }
+}

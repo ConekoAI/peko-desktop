@@ -95,6 +95,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         settings::pekohub_logout,
         system::system_status,
         system::peko_home_dir,
+        crate::tray::tray_set_labels,
         attachments::attachment_preview,
         attachments::attachment_open,
         attachments::attachment_stage,

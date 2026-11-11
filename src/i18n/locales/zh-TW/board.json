@@ -1,0 +1,27 @@
+{
+  "title": "看板",
+  "empty": "看板上還沒有工作",
+  "open": "{{count}} 項待辦",
+  "blocked": "{{count}} 項受阻",
+  "pastCheckIn": "{{count}} 項已過檢查時間",
+  "for": "給 {{name}}",
+  "unclaimed": "無人認領",
+  "checkIn": "檢查時間 {{date}}",
+  "checkInPast": "已過檢查時間 {{date}}",
+  "blockPlaceholder": "它在等什麼？",
+  "block": "標為受阻",
+  "take": "我來做",
+  "unblock": "解除受阻",
+  "blockedAction": "受阻…",
+  "done": "完成",
+  "letGo": "放棄認領",
+  "markDone": "標為完成",
+  "addPlaceholder": "在看板上新增工作",
+  "newItem": "新的看板事項",
+  "state": {
+    "open": "待辦",
+    "doing": "進行中",
+    "blocked": "受阻",
+    "done": "完成"
+  }
+}

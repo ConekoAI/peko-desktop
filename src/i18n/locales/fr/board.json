@@ -1,0 +1,27 @@
+{
+  "title": "Tableau",
+  "empty": "Aucun travail sur le tableau pour l'instant",
+  "open": "{{count}} à faire",
+  "blocked": "{{count}} en attente",
+  "pastCheckIn": "{{count}} avec un point de suivi dépassé",
+  "for": "pour {{name}}",
+  "unclaimed": "non attribué",
+  "checkIn": "point de suivi {{date}}",
+  "checkInPast": "point de suivi dépassé {{date}}",
+  "blockPlaceholder": "Qu'est-ce qui bloque ?",
+  "block": "Mettre en attente",
+  "take": "Je m'en charge",
+  "unblock": "Débloquer",
+  "blockedAction": "En attente…",
+  "done": "Terminé",
+  "letGo": "Libérer",
+  "markDone": "Marquer comme terminé",
+  "addPlaceholder": "Ajouter un travail au tableau",
+  "newItem": "Nouvel élément du tableau",
+  "state": {
+    "open": "à faire",
+    "doing": "en cours",
+    "blocked": "en attente",
+    "done": "terminé"
+  }
+}

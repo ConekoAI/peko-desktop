@@ -1,0 +1,12 @@
+{
+  "justNow": "방금",
+  "minutesAgo_other": "{{count}}분 전",
+  "hoursAgo_other": "{{count}}시간 전",
+  "daysAgo_other": "{{count}}일 전",
+  "duration": {
+    "seconds": "{{s}}초",
+    "minutes": "{{m}}분 {{s}}초",
+    "hours": "{{h}}시간 {{m}}분",
+    "days": "{{d}}일 {{h}}시간"
+  }
+}

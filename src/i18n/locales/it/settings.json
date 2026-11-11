@@ -1,0 +1,73 @@
+{
+  "title": "Impostazioni",
+  "sectionsLabel": "Sezioni delle impostazioni",
+  "sections": {
+    "general": "Generali",
+    "models": "Modelli",
+    "advanced": "Avanzate",
+    "about": "Informazioni"
+  },
+  "appearance": {
+    "title": "Aspetto",
+    "hint": "Il tema scuro è uguale a quello di PekoHub.",
+    "theme": "Tema",
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "system": "Sistema"
+  },
+  "keys": {
+    "title": "Chiavi salvate",
+    "hint": "Tutti i segreti nel vault del motore. Le chiavi dei modelli si gestiscono in Modelli; questo elenco è per le chiavi usate da altri strumenti.",
+    "add": "Aggiungi una chiave",
+    "namespace": "Namespace",
+    "namePlaceholder": "ad es. github",
+    "kind": "Tipo",
+    "kinds": {
+      "api_key": "Chiave API",
+      "bearer_token": "Token Bearer",
+      "oauth_token": "Token OAuth",
+      "basic_auth": "Autenticazione Basic",
+      "private_key": "Chiave privata",
+      "generic_secret": "Altro segreto"
+    },
+    "secret": "Segreto",
+    "save": "Salva chiave",
+    "loading": "Caricamento delle credenziali…",
+    "empty": "Nessuna chiave salvata",
+    "emptyHint": "Le chiavi che aggiungi per modelli o strumenti compaiono qui.",
+    "hide": "Nascondi il segreto",
+    "reveal": "Mostra il segreto"
+  },
+  "models": {
+    "intro": "Gli endpoint con cui pensano i tuoi peko. Ogni modello conserva la propria chiave API; cambiala da Modifica.",
+    "add": "Aggiungi modello",
+    "loading": "Caricamento dei modelli…",
+    "empty": "Ancora nessun modello configurato",
+    "emptyHint": "Aggiungi un endpoint e la sua chiave API per iniziare a parlare con i tuoi peko.",
+    "addFirst": "Aggiungi il tuo primo modello",
+    "unavailable": "Catalogo dei modelli non disponibile",
+    "unavailableHint": "Impossibile caricare il catalogo dei modelli. Controlla che il motore sia in esecuzione e ricarica questa scheda."
+  },
+  "folder": {
+    "title": "Cartella di Peko",
+    "hint": "Dove il motore conserva i tuoi peko, i modelli e le chiavi.",
+    "unknown": "Sconosciuta",
+    "show": "Mostra cartella"
+  },
+  "about": {
+    "appVersion": "Versione dell'app",
+    "engineVersion": "Versione del motore",
+    "notRunning": "Non in esecuzione",
+    "help": "Aiuto",
+    "gettingStarted": "Per iniziare",
+    "report": "Segnala un problema",
+    "onboarding": "Configurazione iniziale",
+    "onboardingHint": "Ripeti i passaggi per collegare un modello e creare un peko.",
+    "replay": "Ripeti la configurazione iniziale"
+  },
+  "language": {
+    "title": "Lingua",
+    "hint": "La lingua in cui viene mostrato Peko Desktop.",
+    "system": "Predefinita di sistema"
+  }
+}

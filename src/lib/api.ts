@@ -1054,6 +1054,16 @@ export async function settingsSet(key: string, value: string): Promise<void> {
   return invoke("settings_set", { key, value });
 }
 
+/** Relabel the tray menu, so it follows the app's language. */
+export async function traySetLabels(labels: {
+  open: string;
+  startEngine: string;
+  stopEngine: string;
+  quit: string;
+}): Promise<void> {
+  await invoke("tray_set_labels", { labels });
+}
+
 /** The folder the engine keeps pekos, models, and keys in. */
 export async function pekoHomeDir(): Promise<string> {
   return invoke<string>("peko_home_dir");
@@ -1458,7 +1468,7 @@ export async function pekohubListRuntimes(
   const resp = await hubGet(baseUrl, "runtimes", { accessToken });
   if (!resp.ok) {
     const text = await resp.text().catch(() => t("errors.unknown"));
-    throw new Error(t("errors.listRuntimesFailed", { status: resp.status, text }));
+    throw new Error(t("errors.hubRequestFailed", { status: resp.status, text }));
   }
   const data = await hubJson(resp, baseUrl);
   // The endpoint may return { runtimes: [...] } or just [...]

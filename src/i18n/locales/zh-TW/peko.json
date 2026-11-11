@@ -1,0 +1,156 @@
+{
+  "new": {
+    "title": "新增 peko",
+    "seedTooBig": "種子檔案最大為 64 KB。",
+    "seedInvalid": "這看起來不是種子檔案：其中沒有 `name`。",
+    "noModel": "peko 需要一個模型來思考。請先在「設定 → 模型」中新增一個。",
+    "nameTaken": "你已經有一個同名的 peko。",
+    "nameInvalid": "請使用字母、數字、- 或 _。",
+    "avatar": "大頭貼",
+    "useAvatar": "使用 {{emoji}}",
+    "seedLabel": "從種子開始",
+    "chooseSeed": "選擇 .seed.toml 檔案",
+    "seedFile": "種子檔案",
+    "seedHint": "來自 PekoHub 的種子為你的 peko 提供定義；它仍會獲得全新的身分，並且歸你所有。",
+    "descriptionPlaceholder": "這個 peko 用來做什麼（選填）",
+    "waking": "正在喚醒 {{name}}…可能需要一分鐘",
+    "create": "建立 {{name}}",
+    "fallbackName": "peko"
+  },
+  "status": {
+    "online": "線上",
+    "busy": "忙碌",
+    "offline": "離線",
+    "error": "錯誤",
+    "unknown": "未知"
+  },
+  "usage": {
+    "period": {
+      "hourly": "本小時",
+      "daily": "今天",
+      "weekly": "本週",
+      "monthly": "本月"
+    },
+    "per": {
+      "hourly": "每小時",
+      "daily": "每天",
+      "weekly": "每週",
+      "monthly": "每月"
+    },
+    "loading": "正在載入用量…",
+    "title": "用量 · {{period}}",
+    "resets": "{{date}} 重設",
+    "spentOfBudget": "已用 <amount/>，預算 {{cap}}",
+    "spent": "已用 <amount/>",
+    "tokensIn": "輸入 {{n}}",
+    "cached": "（快取 {{n}}）",
+    "tokensOut": "輸出 {{n}}",
+    "requests_other": "{{count}} 次請求",
+    "over": "已超出預算——在預算重設或你提高預算之前，你的 peko 不會再呼叫模型。",
+    "unpriced": "為 peko 的模型設定價格後才會統計花費（設定 → 模型 → 編輯）。",
+    "budget": "預算",
+    "none": "無",
+    "budgetPeriod": "預算週期",
+    "budgetInvalid": "請輸入大於 $0 的金額。"
+  },
+  "import": {
+    "title": "匯入 .peko 套件",
+    "intro": "<code>.peko</code> 套件喚醒的是<strong>同一個</strong> peko——它的身分、記憶和私密金鑰都隨套件一起移動。如果想依據定義培養一個<strong>全新的</strong> peko，請改用它的種子來建立。",
+    "woke": "已喚醒 <name/>——它在你的側邊欄裡。",
+    "imported": "套件已匯入——peko 在你的側邊欄裡。",
+    "path": "套件路徑",
+    "rotate": "作為擁有全新身分的新 peko 匯入（當這個 peko 已在這台電腦上時需要這樣做）。",
+    "wake": "喚醒 {{name}}",
+    "review": "檢查",
+    "hook": "掛鉤 {{id}}",
+    "mcpServer": "MCP 伺服器 {{id}}",
+    "withDescription": " — {{description}}",
+    "files": "{{count}} 個檔案",
+    "skills": " · 技能：{{skills}}",
+    "runsCode": "這個套件可以在這台電腦上執行程式碼："
+  },
+  "addRemote": {
+    "title": "新增 peko",
+    "intro": "輸入他人公開 peko 的 ID，例如 <code>@alice/coding-assistant</code>，或貼上它在 PekoHub 上的連結。",
+    "label": "Peko ID 或連結",
+    "invalid": "這看起來不是 peko 的 ID 或連結。應為 <code>@owner/name</code> 或 <code>https://pekohub.ai/@owner/name</code>。",
+    "inviteToken": "偵測到邀請權杖——這個 peko 的擁有者把這個連結私下分享給了你。",
+    "ownedBy": "擁有者：<owner/>，位於 <hub/>",
+    "status": "狀態：{{status}}",
+    "checking": "正在檢查…",
+    "check": "檢查",
+    "adding": "正在新增…",
+    "add": "新增 peko"
+  },
+  "exposure": {
+    "public": "公開",
+    "unlisted": "不公開列出",
+    "private": "私人",
+    "unexposed": "未公開"
+  },
+  "remote": {
+    "profileLabel": "{{name}} 的個人檔案",
+    "gone": "這個 peko 已不在你的清單中。",
+    "viaHub": "透過 PekoHub",
+    "runsOn": "執行於",
+    "yourOtherComputer": "你的另一台電腦",
+    "reachedThrough": "連線途徑",
+    "access": "存取方式",
+    "accessInvite": "邀請連結",
+    "accessPrivate": "私人",
+    "accessPublic": "公開",
+    "copyShareLink": "複製分享連結",
+    "ownElsewhere": "這是你在另一台電腦上的 peko。只要它在 PekoHub 上，就會出現在你的清單裡；要讓它不再出現，請在那台電腦上移除它，或將它設為僅限本機。",
+    "removeConfirm": "從你的清單中移除 {{name}}？你可以用它的分享連結重新連線。",
+    "removeFromList": "從你的清單中移除"
+  },
+  "profile": {
+    "registration": {
+      "local_only": {
+        "label": "僅限本機",
+        "hint": "不在 PekoHub 上"
+      },
+      "private": {
+        "label": "私人",
+        "hint": "在 PekoHub 上；只有它的聯絡人可以聯絡它"
+      },
+      "public": {
+        "label": "公開",
+        "hint": "可在 PekoHub 上被找到"
+      }
+    },
+    "ownerLocal": "你（僅這台電腦）",
+    "ownerHubNamed": "你（PekoHub 上的 {{name}}）",
+    "ownerHub": "你（在 PekoHub 上）",
+    "notFound": "找不到 peko",
+    "hub": "PekoHub",
+    "preferredModel": "偏好的模型",
+    "owner": "擁有者",
+    "shareLink": "分享連結",
+    "copyLink": "複製連結",
+    "inviteLink": "邀請連結",
+    "inviteHint": "分享給一位朋友。撤銷後立即失效。",
+    "inviteMeta": "jti {{jti}}… · {{date}} 到期",
+    "burn": "銷毀",
+    "generateInvite": "產生邀請連結",
+    "exportTitle": "匯出 .peko 套件",
+    "exportWarning": "這個套件裡含有這個 peko 的<strong>私密金鑰</strong>——也就是它的全部存在。請像對待密碼一樣對待它：任何拿到它的人都可以喚醒並冒充這個 peko。",
+    "exportPath": "目的地路徑",
+    "exportPathInvalid": "目的地路徑必須以 <code>.peko</code> 結尾。",
+    "export": "匯出 .peko",
+    "exportedTo": "已匯出到 <path/>",
+    "dangerZone": "危險操作",
+    "removeConfirm": "移除 <strong>{{name}}</strong>？這會刪除它的工作區、記憶和對話，且無法復原。",
+    "keep": "保留 {{name}}",
+    "removeNamed": "移除 {{name}}",
+    "removeHint": "刪除這個 peko 及它所知道的一切。",
+    "removeEllipsis": "移除…",
+    "avatarPlaceholder": "一個表情符號或兩個字母",
+    "avatarSuggestions": "大頭貼建議",
+    "descriptionPlaceholder": "這個 peko 做什麼",
+    "quickStatus": "快速狀態",
+    "noModels": "沒有已設定的模型。請先在「設定 → 模型」中新增一個。",
+    "noneOption": "— 無 —",
+    "exposureConflict": "這個 peko 已經從另一台電腦登記——一個 peko 只能在一個地方上線。"
+  }
+}

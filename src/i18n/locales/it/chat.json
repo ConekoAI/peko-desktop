@@ -1,0 +1,65 @@
+{
+  "attachments": {
+    "listLabel": "File allegati",
+    "remove": "Rimuovi {{name}}",
+    "open": "Apri {{name}}",
+    "play": "Riproduci {{name}}",
+    "cantPlay": "Non si può riprodurre qui; apri il file",
+    "missingTitle": "{{name}} non è ancora arrivato dall'altro computer",
+    "missing": "non ancora ricevuto"
+  },
+  "composer": {
+    "label": "Messaggio",
+    "placeholder": "Scrivi al tuo peko…",
+    "attachTitle": "Allega file — oppure trascinali sulla finestra",
+    "modelLabel": "Modello per questo messaggio",
+    "pekosModel": "Modello del peko",
+    "hint": "↵ per inviare · ⇧↵ per andare a capo",
+    "sendTitle": "Invia (Invio)"
+  },
+  "markdown": {
+    "svgImage": "Immagine SVG",
+    "code": "codice",
+    "showImage": "Mostra immagine",
+    "showCode": "Mostra codice",
+    "image": "Immagine",
+    "codeLabel": "Codice",
+    "copyCode": "Copia codice"
+  },
+  "hostOffline": "<computer/> è offline, quindi {{peko}} non può lavorare in questo momento. Quello che invii resta in attesa e arriva a {{peko}} quando quel computer torna online; riceverai una notifica quando {{peko}} risponde.",
+  "hostOfflineSince": "<computer/> è offline (ultima volta online: {{ago}}), quindi {{peko}} non può lavorare in questo momento. Quello che invii resta in attesa e arriva a {{peko}} quando quel computer torna online; riceverai una notifica quando {{peko}} risponde.",
+  "waitingFor": "In attesa che {{name}} torni online",
+  "suggestedReplies": "Risposte suggerite",
+  "runFailure": {
+    "reason": {
+      "peko_limit": "ha raggiunto il limite di spesa",
+      "provider_quota": "la quota del fornitore del modello è esaurita",
+      "provider_unreachable": "il fornitore del modello non è raggiungibile"
+    },
+    "waiting": "In attesa: {{reason}}. Riprenderà da solo, prossimo tentativo {{when}}.",
+    "failed": "L'ultima risposta non è andata a buon fine: {{reason}}."
+  },
+  "approval": {
+    "asker": "{{name}} ({{address}})",
+    "ownerTask": "Hai chiesto a {{peko}} qualcosa {{where}} che richiede il tuo accesso completo. Se approvi, viene eseguito a tuo nome, fuori da quella conversazione, solo con queste istruzioni:",
+    "ownerTaskWhere": "in una conversazione condivisa",
+    "toolRequest": "<asker/> chiede a {{peko}} di eseguire <summary/>",
+    "approve": "Approva",
+    "alwaysTitle": "Approva e consenti sempre questa operazione a {{name}}",
+    "always": "Consenti sempre",
+    "deny": "Nega"
+  },
+  "yourPeko": "Il tuo peko",
+  "onComputer": "· su {{computer}}",
+  "ownersPeko": "Peko di {{owner}}",
+  "pekosComputer": "il computer di {{name}}",
+  "selectPeko": "Seleziona un peko dalla barra laterale",
+  "noPekos": "Ancora nessun peko",
+  "noPekosHint": "Crea il tuo primo peko per iniziare a chattare.",
+  "createPeko": "Crea un peko",
+  "signInPrompt": "Hai dei peko su un altro computer? <signIn>Accedi con PekoHub</signIn> per vederli qui.",
+  "dropFiles": "Rilascia i file per allegarli",
+  "begin": "Invia un messaggio per iniziare…",
+  "working": "{{name}} sta lavorando",
+  "workingFor": "{{name}} sta lavorando · {{seconds}} s"
+}

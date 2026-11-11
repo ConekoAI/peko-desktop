@@ -1,0 +1,73 @@
+{
+  "title": "Réglages",
+  "sectionsLabel": "Sections des réglages",
+  "sections": {
+    "general": "Général",
+    "models": "Modèles",
+    "advanced": "Avancé",
+    "about": "À propos"
+  },
+  "appearance": {
+    "title": "Apparence",
+    "hint": "Le thème sombre correspond à PekoHub.",
+    "theme": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
+  },
+  "keys": {
+    "title": "Clés enregistrées",
+    "hint": "Tous les secrets du coffre du moteur. Les clés des modèles se gèrent dans Modèles ; cette liste concerne les clés utilisées par d'autres outils.",
+    "add": "Ajouter une clé",
+    "namespace": "Espace de noms",
+    "namePlaceholder": "p. ex. github",
+    "kind": "Type",
+    "kinds": {
+      "api_key": "Clé d'API",
+      "bearer_token": "Jeton Bearer",
+      "oauth_token": "Jeton OAuth",
+      "basic_auth": "Authentification Basic",
+      "private_key": "Clé privée",
+      "generic_secret": "Autre secret"
+    },
+    "secret": "Secret",
+    "save": "Enregistrer la clé",
+    "loading": "Chargement des identifiants…",
+    "empty": "Aucune clé enregistrée",
+    "emptyHint": "Les clés que vous ajoutez pour des modèles ou des outils apparaissent ici.",
+    "hide": "Masquer le secret",
+    "reveal": "Afficher le secret"
+  },
+  "models": {
+    "intro": "Les points de terminaison avec lesquels vos pekos pensent. Chaque modèle conserve sa propre clé d'API ; changez-la dans Modifier.",
+    "add": "Ajouter un modèle",
+    "loading": "Chargement des modèles…",
+    "empty": "Aucun modèle configuré pour l'instant",
+    "emptyHint": "Ajoutez un point de terminaison et sa clé d'API pour commencer à parler à vos pekos.",
+    "addFirst": "Ajouter votre premier modèle",
+    "unavailable": "Catalogue de modèles indisponible",
+    "unavailableHint": "Impossible de charger le catalogue de modèles. Vérifiez que le moteur tourne, puis rechargez cet onglet."
+  },
+  "folder": {
+    "title": "Dossier Peko",
+    "hint": "L'endroit où le moteur conserve vos pekos, vos modèles et vos clés.",
+    "unknown": "Inconnu",
+    "show": "Afficher le dossier"
+  },
+  "about": {
+    "appVersion": "Version de l'application",
+    "engineVersion": "Version du moteur",
+    "notRunning": "À l'arrêt",
+    "help": "Aide",
+    "gettingStarted": "Premiers pas",
+    "report": "Signaler un problème",
+    "onboarding": "Configuration initiale",
+    "onboardingHint": "Refaire les étapes de connexion d'un modèle et de création d'un peko.",
+    "replay": "Relancer la configuration initiale"
+  },
+  "language": {
+    "title": "Langue",
+    "hint": "La langue d'affichage de Peko Desktop.",
+    "system": "Langue du système"
+  }
+}

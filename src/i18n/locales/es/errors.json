@@ -1,0 +1,15 @@
+{
+  "unknown": "Error desconocido",
+  "searchFailed": "La búsqueda falló: HTTP {{status}}",
+  "unsupportedLink": "Enlace no compatible: {{link}}",
+  "addRemotePekoFailed": "No se pudo añadir el peko remoto: {{message}}",
+  "hubNotifications": "Notificaciones de PekoHub: HTTP {{status}}",
+  "tokenExchangeFailed": "Falló el intercambio del token ({{status}}): {{text}}",
+  "tokenRefreshFailed": "Falló la renovación del token ({{status}}): {{text}}",
+  "listAccessiblePekosFailed": "No se pudieron listar los pekos accesibles ({{status}}): {{text}}",
+  "hubUnexpectedResponse": "PekoHub devolvió una respuesta con un formato inesperado",
+  "oauthNoActiveFlow": "No hay ningún flujo de OAuth activo. Inicia primero el inicio de sesión.",
+  "oauthStateMismatch": "El state de OAuth no coincide. Posible ataque CSRF.",
+  "oauthNoAccessToken": "El endpoint de tokens no devolvió ningún access_token",
+  "hubRequestFailed": "La solicitud a PekoHub falló ({{status}}): {{text}}"
+}

@@ -1,0 +1,18 @@
+{
+  "blocked": {
+    "title": "已屏蔽的人",
+    "hint": "他们无法给你发消息，也无法请求给你发消息。屏蔽操作在消息请求中进行。",
+    "empty": "你还没有屏蔽任何人。",
+    "unblock": "取消屏蔽"
+  },
+  "requests": {
+    "title": "消息请求",
+    "body": "想给你发消息。接受后你才能看到对方写的内容。"
+  },
+  "invited": "已邀请",
+  "accountPlaceholder": "对方的 PekoHub 账户 ID",
+  "namePlaceholder": "怎么称呼对方（可选）",
+  "opening": "正在打开…",
+  "message": "发消息",
+  "requestHint": "对方会收到一条消息请求。你写的内容会在对方接受后送达。"
+}

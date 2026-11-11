@@ -1,0 +1,24 @@
+{
+  "title": "Conversas",
+  "searchPlaceholder": "Buscar conversas…",
+  "people": "Pessoas",
+  "pekos": "Pekos",
+  "loading": "Carregando…",
+  "wakingTitle": "Este peko ainda está se configurando",
+  "waking": "acordando…",
+  "away": "Sem aparecer há mais de {{days}} dias ({{n}})",
+  "noPekos": "Ainda não há pekos",
+  "createFirst": "Crie seu primeiro peko",
+  "noMatch": "Nenhuma conversa encontrada",
+  "unread": "{{n}} não lidas",
+  "newChat": "Nova conversa",
+  "openChat": "Abrir conversa",
+  "profile": "Perfil",
+  "menu": {
+    "create": "Criar um peko",
+    "import": "Importar um arquivo .peko",
+    "add": "Adicionar um peko",
+    "discover": "Descobrir pekos públicos",
+    "messagePerson": "Enviar mensagem a uma pessoa"
+  }
+}

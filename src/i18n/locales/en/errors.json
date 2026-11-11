@@ -6,10 +6,10 @@
   "hubNotifications": "PekoHub notifications: HTTP {{status}}",
   "tokenExchangeFailed": "Token exchange failed ({{status}}): {{text}}",
   "tokenRefreshFailed": "Token refresh failed ({{status}}): {{text}}",
-  "listRuntimesFailed": "Failed to list runtimes ({{status}}): {{text}}",
   "listAccessiblePekosFailed": "Failed to list accessible pekos ({{status}}): {{text}}",
   "hubUnexpectedResponse": "Unexpected response format from PekoHub",
   "oauthNoActiveFlow": "No active OAuth flow. Start the flow first.",
   "oauthStateMismatch": "OAuth state mismatch. Possible CSRF attack.",
-  "oauthNoAccessToken": "No access_token received from token endpoint"
+  "oauthNoAccessToken": "No access_token received from token endpoint",
+  "hubRequestFailed": "PekoHub request failed ({{status}}): {{text}}"
 }

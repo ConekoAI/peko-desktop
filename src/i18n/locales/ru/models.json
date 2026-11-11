@@ -1,0 +1,110 @@
+{
+  "badge": {
+    "vision": "Зрение",
+    "audio": "Аудио",
+    "video": "Видео",
+    "json": "JSON",
+    "fullTools": "Все инструменты",
+    "tools": "Инструменты",
+    "thinking": "Размышление",
+    "thinkingRequired": "Размышление (обязательно)",
+    "thinkingBudget": "Размышление (бюджет)",
+    "pricing": "ввод {{input}} / вывод {{output}}"
+  },
+  "apiFormat": {
+    "openai": {
+      "label": "Совместимый с OpenAI (Chat Completions)",
+      "short": "Chat Completions",
+      "hint": "Большинство поставщиков и локальных серверов: POST {base URL}/chat/completions"
+    },
+    "anthropic": {
+      "label": "Совместимый с Anthropic (Messages)",
+      "short": "Anthropic Messages",
+      "hint": "Anthropic и совместимые шлюзы: POST {base URL}/v1/messages"
+    },
+    "responses": {
+      "label": "OpenAI Responses",
+      "short": "Responses",
+      "hint": "Более новый API OpenAI: POST {base URL}/responses"
+    }
+  },
+  "endpoint": {
+    "baseUrl": "Базовый URL",
+    "apiFormat": "Формат API",
+    "apiKey": "Ключ API",
+    "keyPlaceholder": "Вставьте ключ",
+    "keyHint": "Хранится в системной связке ключей, а не в файле.",
+    "modelId": "ID модели",
+    "modelIdPlaceholderPick": "Выберите ниже или введите ID",
+    "modelIdPlaceholder": "Название модели у поставщика, например gpt-5 или mimo-v2.6-flash",
+    "listing": "Запрашиваем у эндпоинта список моделей…",
+    "offeredLabel": "Модели, которые предлагает этот эндпоинт",
+    "offered_one": "Доступна {{count}} модель",
+    "offered_few": "Доступно {{count}} модели — выберите одну",
+    "offered_many": "Доступно {{count}} моделей — выберите одну",
+    "offered_other": "Доступно {{count}} модели — выберите одну",
+    "listFailed": "Не удалось получить список моделей: {{error}}. Введите ID модели из документации поставщика.",
+    "name": "Имя в Peko (необязательно)",
+    "namePlaceholder": "По умолчанию — ID модели",
+    "nameInvalid": "Используйте буквы, цифры, «.», «-» или «_».",
+    "noKey": "Ключ не нужен (например, локальный сервер)",
+    "storedCredential": "Использовать сохранённые учётные данные",
+    "pasteNewKey": "— Вставить новый ключ —"
+  },
+  "inputs": {
+    "legend": "Понимает",
+    "text": "Текст",
+    "image": "Изображения",
+    "audio": "Аудио",
+    "video": "Видео",
+    "hint": "Включите то, что модель принимает по словам поставщика. Прикреплённые файлы этих типов передаются самой модели."
+  },
+  "price": {
+    "legend": "Цена за миллион токенов",
+    "input": "Ввод",
+    "output": "Вывод",
+    "cacheRead": "Ввод из кэша",
+    "cacheWrite": "Запись в кэш",
+    "fieldAria": "Цена за миллион токенов: {{label}}",
+    "invalid": "Введите суммы от $0.",
+    "hint": "Со страницы цен вашего поставщика. Если цена указана, расходы peko на эту модель учитываются в их бюджетах. Оставьте цены кэша пустыми, чтобы ввод из кэша считался по цене ввода."
+  },
+  "add": {
+    "title": "Добавить модель",
+    "intro": "Возьмите базовый URL, формат API и название модели из документации поставщика. Поставщики с пометкой «совместимо с OpenAI» используют Chat Completions.",
+    "conflict": "Модель с именем <name/> уже есть — задайте другое имя в разделе «Дополнительно».",
+    "adding": "Добавление…"
+  },
+  "card": {
+    "testPassed": "Проверка пройдена",
+    "testPassedWith": "Проверка пройдена · {{model}}",
+    "testFailed": "Проверка не пройдена",
+    "disabled": "Отключена",
+    "noKey": "Нет ключа — добавьте его через «Изменить»",
+    "keySet": "Ключ задан",
+    "context": "контекст {{n}}",
+    "maxOutput": "вывод {{n}}",
+    "test": "Проверить модель",
+    "removeConfirm": "Убрать?"
+  },
+  "edit": {
+    "title": "Изменение модели",
+    "displayName": "Отображаемое имя",
+    "wireModelId": "ID модели в запросах",
+    "contextWindow": "Контекстное окно",
+    "maxOutputTokens": "Макс. токенов на выходе",
+    "replaceKey": "Заменить ключ API",
+    "replaceKeyKeep": "Оставьте пустым, чтобы сохранить текущий ключ",
+    "replaceKeyPaste": "Вставьте ключ API",
+    "storedKey": "Сохранённый ключ",
+    "none": "— Нет —",
+    "requiresKey": "Требуется ключ API",
+    "headers": "Заголовки",
+    "addHeader": "Добавить заголовок",
+    "noHeaders": "Дополнительных заголовков нет.",
+    "headerName": "Имя заголовка",
+    "headerValue": "Значение",
+    "saving": "Сохранение…",
+    "save": "Сохранить изменения"
+  }
+}

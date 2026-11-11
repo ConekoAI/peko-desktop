@@ -1,0 +1,15 @@
+{
+  "unknown": "Erreur inconnue",
+  "searchFailed": "Échec de la recherche : HTTP {{status}}",
+  "unsupportedLink": "Lien non pris en charge : {{link}}",
+  "addRemotePekoFailed": "Impossible d'ajouter le peko distant : {{message}}",
+  "hubNotifications": "Notifications PekoHub : HTTP {{status}}",
+  "tokenExchangeFailed": "Échec de l'échange du jeton ({{status}}) : {{text}}",
+  "tokenRefreshFailed": "Échec du renouvellement du jeton ({{status}}) : {{text}}",
+  "listAccessiblePekosFailed": "Impossible de lister les pekos accessibles ({{status}}) : {{text}}",
+  "hubUnexpectedResponse": "PekoHub a renvoyé une réponse au format inattendu",
+  "oauthNoActiveFlow": "Aucun flux OAuth en cours. Lancez d'abord la connexion.",
+  "oauthStateMismatch": "Le state OAuth ne correspond pas. Attaque CSRF possible.",
+  "oauthNoAccessToken": "Le point de terminaison des jetons n'a renvoyé aucun access_token",
+  "hubRequestFailed": "Échec de la requête PekoHub ({{status}}) : {{text}}"
+}

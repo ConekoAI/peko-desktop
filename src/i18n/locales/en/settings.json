@@ -46,32 +46,7 @@
     "emptyHint": "Add an endpoint and its API key to start talking to your pekos.",
     "addFirst": "Add your first model",
     "unavailable": "Model catalog unavailable",
-    "unavailableHint": "Couldn't load the model catalog from the runtime. Check that the engine is running and reload this tab."
-  },
-  "runtimes": {
-    "title": "Runtimes",
-    "hint": "This computer's engine, and remote engines you connect to by id.",
-    "addRemote": "Add Remote",
-    "addTitle": "Add Remote Runtime",
-    "id": "Runtime ID",
-    "idPlaceholder": "e.g. did:key:z6Mk...",
-    "displayName": "Display Name",
-    "displayNamePlaceholder": "e.g. Home Server",
-    "hubUrl": "PekoHub URL (optional)",
-    "loading": "Loading runtimes...",
-    "rename": "Rename",
-    "reconnect": "Reconnect",
-    "empty": "No runtimes configured",
-    "type": {
-      "local": "local",
-      "remote": "remote"
-    },
-    "status": {
-      "connected": "connected",
-      "disconnected": "disconnected",
-      "connecting": "connecting",
-      "error": "error"
-    }
+    "unavailableHint": "Couldn't load the model catalog. Check that the engine is running and reload this tab."
   },
   "folder": {
     "title": "Peko folder",
@@ -89,5 +64,10 @@
     "onboarding": "Onboarding",
     "onboardingHint": "Walk through connecting a model and creating a peko again.",
     "replay": "Replay onboarding"
+  },
+  "language": {
+    "title": "Language",
+    "hint": "The language Peko Desktop is shown in.",
+    "system": "System default"
   }
 }

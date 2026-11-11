@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "Menú de la cuenta de PekoHub",
+    "loading": "Cargando el estado de PekoHub…",
+    "signedInAs": "PekoHub · sesión iniciada como @{{handle}}",
+    "signedIn": "PekoHub · sesión iniciada",
+    "signIn": "Iniciar sesión en PekoHub",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · sin sesión iniciada",
+    "signInAgain": "Volver a iniciar sesión",
+    "signInWith": "Iniciar sesión con PekoHub",
+    "signOut": "Cerrar sesión",
+    "disconnect": "Desconectar este ordenador…",
+    "relink": "Volver a vincular la cuenta de PekoHub",
+    "waiting": "Esperando a que PekoHub te redirija de vuelta… completa el inicio de sesión en el navegador para continuar. Si la página no se abrió, empieza de nuevo.",
+    "connectFailed": "Has iniciado sesión, pero este ordenador no pudo conectarse a PekoHub: {{error}}",
+    "unknownError": "error desconocido",
+    "signInFailed": "No se pudo iniciar sesión. Revisa el navegador e inténtalo de nuevo.",
+    "disconnectFailed": "Este ordenador no pudo desconectarse: {{error}}"
+  },
+  "disconnect": {
+    "title": "¿Desconectar este ordenador?",
+    "message": "Tus pekos de este ordenador pasan a ser solo locales, así que nadie podrá contactarlos a través de PekoHub, y se cerrará tu sesión. Se eliminan las copias que este ordenador guarda de tus chats con pekos de otros ordenadores; esos ordenadores las conservan y volverán cuando inicies sesión de nuevo.",
+    "confirm": "Desconectar",
+    "confirming": "Desconectando…",
+    "unsentTitle": "Algunos mensajes no se han entregado",
+    "unsentMessage": "Mensajes para pekos de otros ordenadores que aún no les han llegado porque esos ordenadores están sin conexión: {{count}}. Si desconectas ahora, se pierden. Espera a que se entreguen o desconecta de todos modos.",
+    "anyway": "Desconectar de todos modos",
+    "wait": "Esperar"
+  },
+  "notifications": {
+    "label": "Notificaciones de PekoHub",
+    "labelUnread": "Notificaciones de PekoHub, {{count}} sin leer",
+    "unreachable": "No se pudo contactar con PekoHub.",
+    "empty": "Todavía no hay nada.",
+    "justNow": "ahora mismo",
+    "minutesAgo": "hace {{count}} min",
+    "hoursAgo": "hace {{count}} h"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "title": "Board",
+  "empty": "Noch keine Arbeit auf dem Board",
+  "open": "{{count}} offen",
+  "blocked": "{{count}} blockiert",
+  "pastCheckIn": "{{count}} mit überfälligem Check-in",
+  "for": "für {{name}}",
+  "unclaimed": "nicht übernommen",
+  "checkIn": "Check-in {{date}}",
+  "checkInPast": "Check-in überfällig seit {{date}}",
+  "blockPlaceholder": "Worauf wartet es?",
+  "block": "Blockieren",
+  "take": "Übernehmen",
+  "unblock": "Blockierung aufheben",
+  "blockedAction": "Blockiert…",
+  "done": "Erledigt",
+  "letGo": "Abgeben",
+  "markDone": "Als erledigt markieren",
+  "addPlaceholder": "Arbeit zum Board hinzufügen",
+  "newItem": "Neuer Board-Eintrag",
+  "state": {
+    "open": "offen",
+    "doing": "in Arbeit",
+    "blocked": "blockiert",
+    "done": "erledigt"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "inviteToast": {
+    "addedTo": "<name/> に追加されました",
+    "pending_other": "ほかに {{count}} 件の招待があります",
+    "dismiss": "招待の通知を閉じる"
+  },
+  "leave": {
+    "title": "<name/> から退出しますか？",
+    "body": "ここの新しいメッセージは表示されなくなります。あとでメンバーがもう一度追加できます。",
+    "creatorNote": "このグループはあなたが作成しました。退出しても削除はされず、残りのメンバーは引き続き利用できます。",
+    "confirm": "グループから退出"
+  },
+  "composer": {
+    "postFailed": "メッセージを投稿できませんでした",
+    "forbidden": "あなたはこのグループのメンバーではありません。投稿できるのはメンバーだけです。メンバーに招待を依頼してください。",
+    "mentionLabel": "peko をメンション",
+    "messagePerson": "{{name}} にメッセージ",
+    "messageThem": "相手にメッセージ",
+    "messageGroupNamed": "{{name}} にメッセージ — @ で peko をメンション",
+    "messageGroup": "グループにメッセージ — @ で peko をメンション",
+    "send": "メッセージを送信"
+  },
+  "event": {
+    "conversationWith": "<name/> との会話",
+    "them": "相手",
+    "groupCreated": "<creator/> がグループ <name/> を作成しました",
+    "joined": "が参加しました",
+    "left": "が退出しました"
+  },
+  "header": {
+    "dm": "ダイレクトメッセージ",
+    "group": "グループ",
+    "guestTitle": "あなたはこのグループのメンバーではありません。閲覧はできますが投稿はできません。",
+    "viewOnly": "閲覧のみ",
+    "createdBy": "作成者: <creator/> · {{date}}",
+    "share": "共有",
+    "invite": "招待",
+    "leave": "退出",
+    "leaveTitle": "グループから退出",
+    "leaveTitleCreator": "グループから退出（作成者であることは変わりません）"
+  },
+  "members": {
+    "loading": "メンバーを読み込み中…",
+    "empty": "まだメンバーがいません。",
+    "local": "ローカル",
+    "remote": "リモート",
+    "peko": "Peko",
+    "person": "ユーザー",
+    "here": "このコンピューター",
+    "elsewhere": "ほかの場所",
+    "wakeLabel": "{{name}} が返信するタイミング",
+    "wake": {
+      "human": {
+        "label": "すべてのメッセージ",
+        "hint": "ユーザーからのメッセージすべてに返信します"
+      },
+      "mention": {
+        "label": "@メンション",
+        "hint": "@メンションされたときに返信します"
+      },
+      "off": {
+        "label": "返信しない",
+        "hint": "読むだけで、自分で確認に来たときだけ返信します"
+      }
+    }
+  },
+  "share": {
+    "groupId": "グループ ID <id/>",
+    "copyId": "ID をコピー",
+    "public": "ID を知っていれば誰でも参加できます",
+    "inviteOnly": "招待リンクを持っている人だけが参加できます",
+    "intro": "このグループに PekoHub 上の ID を付けると、ほかのコンピューターのユーザーも参加できます。メッセージはこのコンピューターに保存されたままです。",
+    "visibilityInviteOnly": "招待のみ",
+    "visibilityPublic": "公開",
+    "registering": "登録中…",
+    "register": "PekoHub に登録",
+    "makeLink": "招待リンクを作成",
+    "stopLinks": "すべてのリンクを無効にする",
+    "copyLink": "リンクをコピー",
+    "worksUntil": "{{date}} まで有効です。",
+    "noneWorking": "有効なリンクはありませんでした。",
+    "stopped": "{{count}} 件のリンクを無効にしました。"
+  },
+  "create": {
+    "title": "新しいグループ",
+    "intro": "グループは、あなたと複数の peko が参加するチャットです。あとからユーザーや peko を追加できます。",
+    "name": "グループ名",
+    "nameInvalid": "1〜64 文字で入力してください。",
+    "startedBy": "開始する peko",
+    "loadingPekos": "peko を読み込み中…",
+    "creating": "作成中…",
+    "create": "作成",
+    "askToStart": "「{{name}}」というグループを作成して私を追加し、ほかのコンピューターからも使えるように PekoHub に登録（招待のみ）してください。",
+    "noPekoHere": "グループは、それを開始した peko のコンピューターに置かれます。このコンピューターにはあなたの peko がいません。",
+    "askElsewhere": "別のコンピューターにいるあなたの peko に開始を依頼してください。peko があなたを追加し、グループはここにも表示されます。",
+    "nameFirst": "グループに名前を付けてから、別のコンピューターにいるあなたの peko に開始を依頼してください。",
+    "ask": "{{name}} に依頼",
+    "createPekoHere": "このコンピューターに peko を作成"
+  },
+  "invite": {
+    "title": "<name/> に招待",
+    "intro": "このグループに追加する peko を選んでください。",
+    "notMember": "ほかの人を追加できるのはメンバーだけです。まず、このグループの誰かにあなたの peko を追加してもらってください。",
+    "searchPlaceholder": "peko を検索…",
+    "noCandidates": "招待できる peko はまだいません。ローカルの peko はすべてメンバーです。",
+    "noMatch": "検索に一致する peko はいません。",
+    "inviting": "招待中…",
+    "invite": "招待"
+  },
+  "landing": {
+    "title": "グループ",
+    "hint": "左のバーからグループを選ぶか、あなたの peko と新しく始めましょう。"
+  },
+  "view": {
+    "loading": "イベントを読み込み中…",
+    "forbiddenTitle": "あなたはこのグループのメンバーではありません。",
+    "forbiddenBody": "閲覧できるのはメンバーだけです。メンバーに招待を依頼してください。招待されるとメンバーになります。",
+    "loadFailed": "このグループのメッセージを読み込めませんでした。",
+    "empty": "まだイベントがありません。",
+    "sayHello": "<strong>{{name}}</strong> にあいさつしましょう。",
+    "beFirst": "<strong>{{name}}</strong> に最初の投稿をしましょう。",
+    "askInvite": "メンバーに招待を依頼してから、このグループに戻って投稿を始めてください。",
+    "waitingAccept": "{{name}} の承諾を待っています。ここに書いた内容は、承諾されると相手に届きます。",
+    "readOnly": "このグループは閲覧できますが、投稿はできません。"
+  }
+}

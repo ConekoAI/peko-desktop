@@ -537,7 +537,6 @@ function LocalPekoProfile({
                 }
               />
               <Row label={t("peko.profile.owner")} value={ownerLabel(principal.owner, linkedAccount)} />
-              {isRemote && <Row label={t("peko.profile.runtime")} value={principal.runtimeId} />}
               {!isRemote && <UsagePanel name={principal.name} priced={modelIsPriced} />}
               {/* Public share link (PR-D). Only meaningful when exposure
                   is `public` — otherwise the link would 404 on the

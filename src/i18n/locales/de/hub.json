@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "PekoHub-Kontomenü",
+    "loading": "PekoHub-Status wird geladen…",
+    "signedInAs": "PekoHub · angemeldet als @{{handle}}",
+    "signedIn": "PekoHub · angemeldet",
+    "signIn": "Bei PekoHub anmelden",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · nicht angemeldet",
+    "signInAgain": "Anmeldung neu starten",
+    "signInWith": "Mit PekoHub anmelden",
+    "signOut": "Abmelden",
+    "disconnect": "Diesen Computer trennen…",
+    "relink": "PekoHub-Konto neu verknüpfen",
+    "waiting": "Warten auf die Rückleitung von PekoHub… schließe die Anmeldung im Browser ab, um fortzufahren. Falls sich die Seite nicht geöffnet hat, starte neu.",
+    "connectFailed": "Angemeldet, aber dieser Computer konnte sich nicht mit PekoHub verbinden: {{error}}",
+    "unknownError": "unbekannter Fehler",
+    "signInFailed": "Anmeldung fehlgeschlagen. Prüfe deinen Browser und versuch es erneut.",
+    "disconnectFailed": "Dieser Computer konnte nicht getrennt werden: {{error}}"
+  },
+  "disconnect": {
+    "title": "Diesen Computer trennen?",
+    "message": "Deine Pekos auf diesem Computer werden rein lokal, sodass niemand sie mehr über PekoHub erreichen kann, und du wirst abgemeldet. Die Kopien deiner Chats mit Pekos auf anderen Computern werden auf diesem Computer gelöscht; jene Computer behalten sie, und sie kommen zurück, wenn du dich wieder anmeldest.",
+    "confirm": "Trennen",
+    "confirming": "Wird getrennt…",
+    "unsentTitle": "Einige Nachrichten wurden noch nicht zugestellt",
+    "unsentMessage": "Nachrichten an Pekos auf anderen Computern, die noch nicht angekommen sind, weil diese Computer offline sind: {{count}}. Wenn du jetzt trennst, gehen sie verloren. Warte, bis sie zugestellt sind, oder trenne trotzdem.",
+    "anyway": "Trotzdem trennen",
+    "wait": "Warten"
+  },
+  "notifications": {
+    "label": "PekoHub-Benachrichtigungen",
+    "labelUnread": "PekoHub-Benachrichtigungen, {{count}} ungelesen",
+    "unreachable": "PekoHub ist nicht erreichbar.",
+    "empty": "Noch nichts.",
+    "justNow": "gerade eben",
+    "minutesAgo": "vor {{count}} Min.",
+    "hoursAgo": "vor {{count}} Std."
+  }
+}

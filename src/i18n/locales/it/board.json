@@ -1,0 +1,27 @@
+{
+  "title": "Bacheca",
+  "empty": "Ancora nessun lavoro in bacheca",
+  "open": "{{count}} aperte",
+  "blocked": "{{count}} bloccate",
+  "pastCheckIn": "{{count}} con verifica scaduta",
+  "for": "per {{name}}",
+  "unclaimed": "non assegnata",
+  "checkIn": "verifica {{date}}",
+  "checkInPast": "verifica scaduta {{date}}",
+  "blockPlaceholder": "Da cosa dipende?",
+  "block": "Blocca",
+  "take": "La prendo io",
+  "unblock": "Sblocca",
+  "blockedAction": "Bloccata…",
+  "done": "Fatto",
+  "letGo": "Rilascia",
+  "markDone": "Segna come fatta",
+  "addPlaceholder": "Aggiungi lavoro alla bacheca",
+  "newItem": "Nuova voce in bacheca",
+  "state": {
+    "open": "aperta",
+    "doing": "in corso",
+    "blocked": "bloccata",
+    "done": "fatta"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "state": {
+    "connecting": "Verbindung wird hergestellt…",
+    "running": "Läuft",
+    "starting": "Startet",
+    "restarting": "Startet neu…",
+    "restartingAttempt": "Startet neu ({{attempt}})…",
+    "stopped": "Gestoppt",
+    "failed": "Fehlgeschlagen"
+  }
+}

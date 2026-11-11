@@ -1,0 +1,58 @@
+{
+  "rail": {
+    "chats": "Chat",
+    "groups": "Gruppi",
+    "settings": "Impostazioni",
+    "newGroup": "Nuovo gruppo",
+    "invitationLabel": "Invito: {{name}}",
+    "invitation": "Invito",
+    "invitationSummary_one": "{{count}} membro · da {{inviter}}",
+    "invitationSummary_many": "{{count}} membri · da {{inviter}}",
+    "invitationSummary_other": "{{count}} membri · da {{inviter}}",
+    "joining": "Ingresso in corso…",
+    "joinGroup": "Entra in un gruppo",
+    "joinHint": "Incolla un link di invito, oppure l'ID di un gruppo pubblico.",
+    "joinAsked": "Richiesta di ingresso in {{name}} inviata. Comparirà qui quando il computer del proprietario ti farà entrare.",
+    "asking": "Richiesta in corso…"
+  },
+  "titleBar": {
+    "minimize": "Riduci a icona",
+    "maximize": "Ingrandisci",
+    "restore": "Ripristina",
+    "close": "Chiudi"
+  },
+  "engineFailure": {
+    "title": "Il motore non è riuscito ad avviarsi",
+    "body": "La chat e le altre funzioni che dipendono dal motore non funzioneranno finché non sarà in esecuzione.",
+    "restart": "Riavvia il motore",
+    "restarting": "Riavvio…",
+    "hideDetails": "Nascondi dettagli",
+    "showDetails": "Mostra dettagli"
+  },
+  "statusBar": {
+    "failed": "{{label}}: {{detail}}",
+    "failedFallback": "il motore è in stato di errore"
+  },
+  "keepAwake": {
+    "title": "Tieni attivo questo computer mentre un peko lavora",
+    "hint": "Così i peko di questo computer possono finire quello che chiedi loro dagli altri tuoi computer. La sospensione viene impedita solo mentre un peko lavora e per un minuto dopo. Chiudendo il coperchio di un portatile, questo va comunque in sospensione."
+  },
+  "runtimeBadge": {
+    "local": "Locale"
+  },
+  "versionMismatch": {
+    "newerTitle": "Questa app è più vecchia del tuo Peko",
+    "newerBody": "È in esecuzione Peko <running/>, mentre questa app è stata realizzata per <needed/>. Alcune cose potrebbero non funzionare. Aggiorna Peko Desktop.",
+    "olderTitle": "Il tuo Peko è più vecchio di quanto serve a questa app",
+    "olderBody": "È in esecuzione Peko <running/>, mentre a questa app serve <needed/> o successivo. Alcune cose potrebbero non funzionare.",
+    "unknownTitle": "Impossibile capire se il tuo Peko è adatto a questa app",
+    "unknownBody": "Peko riporta la versione <running/>, mentre a questa app serve <needed/> o successivo. Alcune cose potrebbero non funzionare.",
+    "dismiss": "Chiudi l'avviso sulle versioni"
+  },
+  "tray": {
+    "open": "Apri",
+    "startEngine": "Avvia il motore",
+    "stopEngine": "Arresta il motore",
+    "quit": "Esci"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "title": "Configurações",
+  "sectionsLabel": "Seções das configurações",
+  "sections": {
+    "general": "Geral",
+    "models": "Modelos",
+    "advanced": "Avançado",
+    "about": "Sobre"
+  },
+  "appearance": {
+    "title": "Aparência",
+    "hint": "O tema escuro combina com o PekoHub.",
+    "theme": "Tema",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema"
+  },
+  "keys": {
+    "title": "Chaves salvas",
+    "hint": "Todos os segredos do cofre do motor. As chaves dos modelos são gerenciadas em Modelos; esta lista é para chaves usadas por outras ferramentas.",
+    "add": "Adicionar uma chave",
+    "namespace": "Namespace",
+    "namePlaceholder": "p. ex. github",
+    "kind": "Tipo",
+    "kinds": {
+      "api_key": "Chave de API",
+      "bearer_token": "Token Bearer",
+      "oauth_token": "Token OAuth",
+      "basic_auth": "Autenticação básica",
+      "private_key": "Chave privada",
+      "generic_secret": "Outro segredo"
+    },
+    "secret": "Segredo",
+    "save": "Salvar chave",
+    "loading": "Carregando credenciais…",
+    "empty": "Nenhuma chave salva",
+    "emptyHint": "As chaves que você adicionar para modelos ou ferramentas aparecem aqui.",
+    "hide": "Ocultar o segredo",
+    "reveal": "Mostrar o segredo"
+  },
+  "models": {
+    "intro": "Os endpoints com que seus pekos pensam. Cada modelo guarda a própria chave de API; altere-a em Editar.",
+    "add": "Adicionar modelo",
+    "loading": "Carregando modelos…",
+    "empty": "Ainda não há modelos configurados",
+    "emptyHint": "Adicione um endpoint e a chave de API dele para começar a conversar com seus pekos.",
+    "addFirst": "Adicione seu primeiro modelo",
+    "unavailable": "Catálogo de modelos indisponível",
+    "unavailableHint": "Não foi possível carregar o catálogo de modelos. Verifique se o motor está em execução e recarregue esta aba."
+  },
+  "folder": {
+    "title": "Pasta do Peko",
+    "hint": "Onde o motor guarda seus pekos, modelos e chaves.",
+    "unknown": "Desconhecida",
+    "show": "Mostrar pasta"
+  },
+  "about": {
+    "appVersion": "Versão do aplicativo",
+    "engineVersion": "Versão do motor",
+    "notRunning": "Fora de execução",
+    "help": "Ajuda",
+    "gettingStarted": "Primeiros passos",
+    "report": "Relatar um problema",
+    "onboarding": "Configuração inicial",
+    "onboardingHint": "Refaça os passos de conectar um modelo e criar um peko.",
+    "replay": "Refazer a configuração inicial"
+  },
+  "language": {
+    "title": "Idioma",
+    "hint": "O idioma em que o Peko Desktop é exibido.",
+    "system": "Padrão do sistema"
+  }
+}

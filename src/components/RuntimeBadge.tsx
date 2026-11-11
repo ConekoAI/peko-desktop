@@ -26,13 +26,12 @@ export default function RuntimeBadge({
   const isLocal = runtimeId === "local";
   const Icon = isLocal ? Monitor : Globe;
   const sizeClass = size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5";
-  const label = isLocal ? t("layout.runtimeBadge.localRuntime") : runtimeId;
 
   return (
     <span
       className="inline-flex items-center gap-1 text-fg-muted"
       data-testid={`runtime-badge-${runtimeId}`}
-      title={label}
+      title={isLocal ? undefined : runtimeId}
     >
       <Icon className={sizeClass} aria-hidden="true" />
       {showLabel && (

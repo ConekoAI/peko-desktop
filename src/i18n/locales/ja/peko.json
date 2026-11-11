@@ -1,0 +1,156 @@
+{
+  "new": {
+    "title": "新しい peko",
+    "seedTooBig": "シードは 64 KB までです。",
+    "seedInvalid": "シードではないようです。`name` がありません。",
+    "noModel": "peko には考えるためのモデルが必要です。先に「設定 → モデル」で追加してください。",
+    "nameTaken": "この名前の peko はすでにいます。",
+    "nameInvalid": "英数字、-、_ を使ってください。",
+    "avatar": "アバター",
+    "useAvatar": "{{emoji}} を使う",
+    "seedLabel": "シードから始める",
+    "chooseSeed": ".seed.toml を選択",
+    "seedFile": "シードファイル",
+    "seedHint": "PekoHub のシードは peko の定義を与えます。それでも新しいアイデンティティが作られ、所有者はあなたです。",
+    "descriptionPlaceholder": "この peko の役割（任意）",
+    "waking": "{{name}} を起こしています… 1 分ほどかかることがあります",
+    "create": "{{name}} を作成",
+    "fallbackName": "peko"
+  },
+  "status": {
+    "online": "オンライン",
+    "busy": "取り込み中",
+    "offline": "オフライン",
+    "error": "エラー",
+    "unknown": "不明"
+  },
+  "usage": {
+    "period": {
+      "hourly": "この 1 時間",
+      "daily": "今日",
+      "weekly": "今週",
+      "monthly": "今月"
+    },
+    "per": {
+      "hourly": "1 時間あたり",
+      "daily": "1 日あたり",
+      "weekly": "1 週間あたり",
+      "monthly": "1 か月あたり"
+    },
+    "loading": "利用状況を読み込み中…",
+    "title": "利用状況 · {{period}}",
+    "resets": "{{date}} にリセット",
+    "spentOfBudget": "<amount/> / 予算 {{cap}}",
+    "spent": "<amount/> 利用",
+    "tokensIn": "入力 {{n}}",
+    "cached": "（キャッシュ {{n}}）",
+    "tokensOut": "出力 {{n}}",
+    "requests_other": "リクエスト {{count}} 件",
+    "over": "予算超過 — 予算がリセットされるか引き上げられるまで、peko はモデルを呼び出しません。",
+    "unpriced": "peko のモデルに価格を設定すると、利用額が計上されます（設定 → モデル → 編集）。",
+    "budget": "予算",
+    "none": "なし",
+    "budgetPeriod": "予算の期間",
+    "budgetInvalid": "$0 より大きい金額を入力してください。"
+  },
+  "import": {
+    "title": ".peko パッケージを読み込む",
+    "intro": "<code>.peko</code> パッケージは<strong>同じ</strong> peko を目覚めさせます。アイデンティティ、記憶、秘密鍵がパッケージと一緒に移動します。定義から<strong>新しい</strong> peko を育てたい場合は、シードから作成してください。",
+    "woke": "<name/> を起こしました。サイドバーにいます。",
+    "imported": "パッケージを読み込みました。peko はサイドバーにいます。",
+    "path": "パッケージのパス",
+    "rotate": "新しいアイデンティティを持つ別の peko として読み込む（この peko がすでにこのコンピューターにいる場合に必要です）。",
+    "wake": "{{name}} を起こす",
+    "review": "確認",
+    "hook": "フック {{id}}",
+    "mcpServer": "MCP サーバー {{id}}",
+    "withDescription": " — {{description}}",
+    "files": "{{count}} ファイル",
+    "skills": " · スキル: {{skills}}",
+    "runsCode": "このパッケージは、このコンピューターでコードを実行できます:"
+  },
+  "addRemote": {
+    "title": "peko を追加",
+    "intro": "ほかの人の公開 peko の ID（<code>@alice/coding-assistant</code> など）を入力するか、PekoHub のリンクを貼り付けてください。",
+    "label": "Peko ID またはリンク",
+    "invalid": "peko の ID やリンクではないようです。<code>@owner/name</code> または <code>https://pekohub.ai/@owner/name</code> の形式で入力してください。",
+    "inviteToken": "招待トークンを検出しました。この peko の所有者が、このリンクをあなただけに共有しています。",
+    "ownedBy": "所有者: <owner/>（<hub/>）",
+    "status": "状態: {{status}}",
+    "checking": "確認中…",
+    "check": "確認",
+    "adding": "追加中…",
+    "add": "peko を追加"
+  },
+  "exposure": {
+    "public": "公開",
+    "unlisted": "限定公開",
+    "private": "非公開",
+    "unexposed": "未公開"
+  },
+  "remote": {
+    "profileLabel": "{{name}} のプロフィール",
+    "gone": "この peko はもうリストにありません。",
+    "viaHub": "PekoHub 経由",
+    "runsOn": "実行場所",
+    "yourOtherComputer": "あなたの別のコンピューター",
+    "reachedThrough": "接続経路",
+    "access": "アクセス",
+    "accessInvite": "招待リンク",
+    "accessPrivate": "非公開",
+    "accessPublic": "公開",
+    "copyShareLink": "共有リンクをコピー",
+    "ownElsewhere": "別のコンピューターにいるあなたの peko です。PekoHub 上にある間はリストに表示されます。外すには、そのコンピューターで削除するかローカル専用にしてください。",
+    "removeConfirm": "{{name}} をリストから削除しますか？ 共有リンクでもう一度接続できます。",
+    "removeFromList": "リストから削除"
+  },
+  "profile": {
+    "registration": {
+      "local_only": {
+        "label": "ローカル専用",
+        "hint": "PekoHub に登録しない"
+      },
+      "private": {
+        "label": "非公開",
+        "hint": "PekoHub に登録。連絡できるのは連絡先だけ"
+      },
+      "public": {
+        "label": "公開",
+        "hint": "PekoHub で見つけられる"
+      }
+    },
+    "ownerLocal": "あなた（このコンピューターのみ）",
+    "ownerHubNamed": "あなた（PekoHub の {{name}}）",
+    "ownerHub": "あなた（PekoHub）",
+    "notFound": "peko が見つかりません",
+    "hub": "PekoHub",
+    "preferredModel": "優先モデル",
+    "owner": "所有者",
+    "shareLink": "共有リンク",
+    "copyLink": "リンクをコピー",
+    "inviteLink": "招待リンク",
+    "inviteHint": "友だち 1 人と共有できます。取り消すとすぐに無効になります。",
+    "inviteMeta": "jti {{jti}}… · 有効期限 {{date}}",
+    "burn": "無効にする",
+    "generateInvite": "招待リンクを生成",
+    "exportTitle": ".peko パッケージを書き出す",
+    "exportWarning": "パッケージにはこの peko の<strong>秘密鍵</strong>、つまり存在そのものが含まれます。パスワードと同じように扱ってください。手に入れた人は誰でも、この peko を目覚めさせてなりすますことができます。",
+    "exportPath": "保存先のパス",
+    "exportPathInvalid": "保存先は <code>.peko</code> で終わる必要があります。",
+    "export": ".peko を書き出す",
+    "exportedTo": "<path/> に書き出しました",
+    "dangerZone": "危険な操作",
+    "removeConfirm": "<strong>{{name}}</strong> を削除しますか？ ワークスペース、記憶、会話が削除されます。元に戻すことはできません。",
+    "keep": "{{name}} を残す",
+    "removeNamed": "{{name}} を削除",
+    "removeHint": "この peko と、peko が知っているすべてを削除します。",
+    "removeEllipsis": "削除…",
+    "avatarPlaceholder": "絵文字 1 つ、または 2 文字",
+    "avatarSuggestions": "アバターの候補",
+    "descriptionPlaceholder": "この peko がすること",
+    "quickStatus": "クイックステータス",
+    "noModels": "設定済みのモデルがありません。先に「設定 → モデル」で追加してください。",
+    "noneOption": "— なし —",
+    "exposureConflict": "この peko はすでに別のコンピューターから登録されています。peko がオンラインになれるのは 1 か所だけです。"
+  }
+}

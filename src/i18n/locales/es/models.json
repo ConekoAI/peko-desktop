@@ -1,0 +1,109 @@
+{
+  "badge": {
+    "vision": "Visión",
+    "audio": "Audio",
+    "video": "Vídeo",
+    "json": "JSON",
+    "fullTools": "Herramientas completas",
+    "tools": "Herramientas",
+    "thinking": "Razonamiento",
+    "thinkingRequired": "Razonamiento (obligatorio)",
+    "thinkingBudget": "Razonamiento (presupuesto)",
+    "pricing": "{{input}} entrada / {{output}} salida"
+  },
+  "apiFormat": {
+    "openai": {
+      "label": "Compatible con OpenAI (Chat Completions)",
+      "short": "Chat Completions",
+      "hint": "La mayoría de proveedores y servidores locales: POST {base URL}/chat/completions"
+    },
+    "anthropic": {
+      "label": "Compatible con Anthropic (Messages)",
+      "short": "Anthropic Messages",
+      "hint": "Anthropic y pasarelas compatibles: POST {base URL}/v1/messages"
+    },
+    "responses": {
+      "label": "OpenAI Responses",
+      "short": "Responses",
+      "hint": "La API más reciente de OpenAI: POST {base URL}/responses"
+    }
+  },
+  "endpoint": {
+    "baseUrl": "URL base",
+    "apiFormat": "Formato de API",
+    "apiKey": "Clave de API",
+    "keyPlaceholder": "Pega tu clave",
+    "keyHint": "Se guarda en el llavero del sistema, no en un archivo.",
+    "modelId": "ID del modelo",
+    "modelIdPlaceholderPick": "Elige uno abajo o escribe un ID",
+    "modelIdPlaceholder": "El nombre del modelo del proveedor, p. ej. gpt-5 o mimo-v2.6-flash",
+    "listing": "Preguntando al endpoint por sus modelos…",
+    "offeredLabel": "Modelos que ofrece este endpoint",
+    "offered_one": "{{count}} modelo disponible",
+    "offered_many": "{{count}} modelos disponibles: elige uno",
+    "offered_other": "{{count}} modelos disponibles: elige uno",
+    "listFailed": "No se pudieron listar sus modelos: {{error}}. Escribe el ID del modelo que figura en la documentación del proveedor.",
+    "name": "Nombre en Peko (opcional)",
+    "namePlaceholder": "Por defecto, el ID del modelo",
+    "nameInvalid": "Usa letras, números, ., - o _.",
+    "noKey": "No hace falta clave (un servidor local, por ejemplo)",
+    "storedCredential": "Usar una credencial guardada",
+    "pasteNewKey": "— Pegar una clave nueva —"
+  },
+  "inputs": {
+    "legend": "Entiende",
+    "text": "Texto",
+    "image": "Imágenes",
+    "audio": "Audio",
+    "video": "Vídeo",
+    "hint": "Activa lo que tu proveedor indique que admite el modelo. Los archivos adjuntos de estos tipos se envían al propio modelo."
+  },
+  "price": {
+    "legend": "Precio por millón de tokens",
+    "input": "Entrada",
+    "output": "Salida",
+    "cacheRead": "Entrada en caché",
+    "cacheWrite": "Escritura en caché",
+    "fieldAria": "Precio por millón de tokens: {{label}}",
+    "invalid": "Introduce importes de $0 o más.",
+    "hint": "De la página de precios de tu proveedor. Con un precio, el gasto de los pekos en este modelo cuenta para sus presupuestos. Deja vacíos los precios de caché para contar la entrada en caché al precio de entrada."
+  },
+  "add": {
+    "title": "Añadir un modelo",
+    "intro": "Usa la URL base, el formato de API y el nombre del modelo de la documentación de tu proveedor. Los proveedores que dicen «compatible con OpenAI» usan Chat Completions.",
+    "conflict": "Ya existe un modelo llamado <name/>: indica otro nombre en Avanzado.",
+    "adding": "Añadiendo…"
+  },
+  "card": {
+    "testPassed": "Prueba superada",
+    "testPassedWith": "Prueba superada · {{model}}",
+    "testFailed": "La prueba falló",
+    "disabled": "Desactivado",
+    "noKey": "Sin clave: añade una en Editar",
+    "keySet": "Clave configurada",
+    "context": "{{n}} de contexto",
+    "maxOutput": "{{n}} de salida",
+    "test": "Probar el modelo",
+    "removeConfirm": "¿Quitar?"
+  },
+  "edit": {
+    "title": "Editar modelo",
+    "displayName": "Nombre visible",
+    "wireModelId": "ID del modelo en la API",
+    "contextWindow": "Ventana de contexto",
+    "maxOutputTokens": "Máximo de tokens de salida",
+    "replaceKey": "Cambiar la clave de API",
+    "replaceKeyKeep": "Déjalo vacío para conservar la clave actual",
+    "replaceKeyPaste": "Pega la clave de API",
+    "storedKey": "Clave guardada",
+    "none": "— Ninguna —",
+    "requiresKey": "Requiere clave de API",
+    "headers": "Cabeceras",
+    "addHeader": "Añadir cabecera",
+    "noHeaders": "Sin cabeceras adicionales.",
+    "headerName": "Nombre de la cabecera",
+    "headerValue": "Valor",
+    "saving": "Guardando…",
+    "save": "Guardar cambios"
+  }
+}

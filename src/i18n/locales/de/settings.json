@@ -1,0 +1,73 @@
+{
+  "title": "Einstellungen",
+  "sectionsLabel": "Einstellungsbereiche",
+  "sections": {
+    "general": "Allgemein",
+    "models": "Modelle",
+    "advanced": "Erweitert",
+    "about": "Info"
+  },
+  "appearance": {
+    "title": "Erscheinungsbild",
+    "hint": "Dunkel entspricht PekoHub.",
+    "theme": "Design",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
+  },
+  "keys": {
+    "title": "Gespeicherte Schlüssel",
+    "hint": "Alle Geheimnisse im Tresor der Engine. Modellschlüssel verwaltest du unter Modelle; diese Liste ist für Schlüssel, die andere Tools nutzen.",
+    "add": "Schlüssel hinzufügen",
+    "namespace": "Namensraum",
+    "namePlaceholder": "z. B. github",
+    "kind": "Art",
+    "kinds": {
+      "api_key": "API-Schlüssel",
+      "bearer_token": "Bearer-Token",
+      "oauth_token": "OAuth-Token",
+      "basic_auth": "Basic-Authentifizierung",
+      "private_key": "Privater Schlüssel",
+      "generic_secret": "Anderes Geheimnis"
+    },
+    "secret": "Geheimnis",
+    "save": "Schlüssel speichern",
+    "loading": "Zugangsdaten werden geladen…",
+    "empty": "Keine gespeicherten Schlüssel",
+    "emptyHint": "Schlüssel, die du für Modelle oder Tools hinzufügst, erscheinen hier.",
+    "hide": "Geheimnis ausblenden",
+    "reveal": "Geheimnis anzeigen"
+  },
+  "models": {
+    "intro": "Die Endpunkte, mit denen deine Pekos denken. Jedes Modell hat seinen eigenen API-Schlüssel; ändere ihn unter „Bearbeiten“.",
+    "add": "Modell hinzufügen",
+    "loading": "Modelle werden geladen…",
+    "empty": "Noch keine Modelle eingerichtet",
+    "emptyHint": "Füge einen Endpunkt und seinen API-Schlüssel hinzu, um mit deinen Pekos zu sprechen.",
+    "addFirst": "Dein erstes Modell hinzufügen",
+    "unavailable": "Modellkatalog nicht verfügbar",
+    "unavailableHint": "Der Modellkatalog konnte nicht geladen werden. Prüfe, ob die Engine läuft, und lade diesen Tab neu."
+  },
+  "folder": {
+    "title": "Peko-Ordner",
+    "hint": "Hier bewahrt die Engine deine Pekos, Modelle und Schlüssel auf.",
+    "unknown": "Unbekannt",
+    "show": "Ordner anzeigen"
+  },
+  "about": {
+    "appVersion": "App-Version",
+    "engineVersion": "Engine-Version",
+    "notRunning": "Läuft nicht",
+    "help": "Hilfe",
+    "gettingStarted": "Erste Schritte",
+    "report": "Problem melden",
+    "onboarding": "Einrichtung",
+    "onboardingHint": "Geh das Verbinden eines Modells und das Erstellen eines Pekos noch einmal durch.",
+    "replay": "Einrichtung wiederholen"
+  },
+  "language": {
+    "title": "Sprache",
+    "hint": "Die Sprache, in der Peko Desktop angezeigt wird.",
+    "system": "Systemstandard"
+  }
+}

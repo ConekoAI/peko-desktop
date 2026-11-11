@@ -13,12 +13,49 @@ pub enum TrayError {
 
 pub type Result<T> = std::result::Result<T, TrayError>;
 
+/// The menu's items, kept so their labels can follow the app's language.
+pub struct TrayItems {
+    open: MenuItem<tauri::Wry>,
+    start_engine: MenuItem<tauri::Wry>,
+    stop_engine: MenuItem<tauri::Wry>,
+    quit: MenuItem<tauri::Wry>,
+}
+
+/// The menu's labels in the language the app is shown in.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayLabels {
+    open: String,
+    start_engine: String,
+    stop_engine: String,
+    quit: String,
+}
+
+/// Relabel the tray menu. The page owns the app's text (`src/i18n`), so it
+/// sends the labels at start and whenever the language changes; until then
+/// the menu shows the English it was built with.
+#[tauri::command]
+pub fn tray_set_labels(app: AppHandle, labels: TrayLabels) -> std::result::Result<(), String> {
+    let Some(items) = app.try_state::<TrayItems>() else {
+        return Ok(());
+    };
+    for (item, text) in [
+        (&items.open, &labels.open),
+        (&items.start_engine, &labels.start_engine),
+        (&items.stop_engine, &labels.stop_engine),
+        (&items.quit, &labels.quit),
+    ] {
+        item.set_text(text).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
     let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
-    let start_daemon_i = MenuItem::with_id(app, "start_daemon", "Start Daemon", true, None::<&str>)
+    let start_daemon_i = MenuItem::with_id(app, "start_daemon", "Start engine", true, None::<&str>)
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
-    let stop_daemon_i = MenuItem::with_id(app, "stop_daemon", "Stop Daemon", true, None::<&str>)
+    let stop_daemon_i = MenuItem::with_id(app, "stop_daemon", "Stop engine", true, None::<&str>)
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
     let separator =
         PredefinedMenuItem::separator(app).map_err(|e| TrayError::BuildFailed(e.to_string()))?;
@@ -37,6 +74,13 @@ pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
     )
     .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
 
+    app.manage(TrayItems {
+        open: open_i.clone(),
+        start_engine: start_daemon_i.clone(),
+        stop_engine: stop_daemon_i.clone(),
+        quit: quit_i.clone(),
+    });
+
     let tray = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .tooltip("Peko Desktop")
@@ -49,7 +93,7 @@ pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
                 }
             }
             // ADR-043: route through the supervisor so the tray's
-            // "Start Daemon" / "Stop Daemon" buttons share the same
+            // "Start engine" / "Stop engine" items share the same
             // child handle as the Tauri commands. The previous
             // `crate::daemon::start()`/`stop()` path spawned a
             // separate `peko daemon start` child and tracked it in

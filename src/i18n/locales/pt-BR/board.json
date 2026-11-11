@@ -1,0 +1,27 @@
+{
+  "title": "Quadro",
+  "empty": "Ainda não há trabalho no quadro",
+  "open": "{{count}} em aberto",
+  "blocked": "{{count}} bloqueadas",
+  "pastCheckIn": "{{count}} com a verificação vencida",
+  "for": "para {{name}}",
+  "unclaimed": "sem responsável",
+  "checkIn": "verificação {{date}}",
+  "checkInPast": "verificação vencida {{date}}",
+  "blockPlaceholder": "Do que depende?",
+  "block": "Bloquear",
+  "take": "Eu assumo",
+  "unblock": "Desbloquear",
+  "blockedAction": "Bloqueada…",
+  "done": "Concluir",
+  "letGo": "Liberar",
+  "markDone": "Marcar como concluída",
+  "addPlaceholder": "Adicione trabalho ao quadro",
+  "newItem": "Novo item do quadro",
+  "state": {
+    "open": "em aberto",
+    "doing": "em andamento",
+    "blocked": "bloqueada",
+    "done": "concluída"
+  }
+}

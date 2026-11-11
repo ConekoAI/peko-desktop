@@ -95,7 +95,6 @@
     "viaHub": "via PekoHub",
     "runsOn": "Runs on",
     "yourOtherComputer": "Your other computer",
-    "ownersRuntime": "{{owner}}'s runtime",
     "reachedThrough": "Reached through",
     "access": "Access",
     "accessInvite": "Invite link",
@@ -103,7 +102,7 @@
     "accessPublic": "Public",
     "copyShareLink": "Copy share link",
     "ownElsewhere": "One of your pekos on another computer. It's in your list while it's on PekoHub; to take it off, remove it or make it local only on that computer.",
-    "removeConfirm": "Remove {{name}} from your list? The peko keeps running on {{owner}}'s runtime; you can connect again with its share link.",
+    "removeConfirm": "Remove {{name}} from your list? You can connect again with its share link.",
     "removeFromList": "Remove from your list"
   },
   "profile": {
@@ -128,7 +127,6 @@
     "hub": "PekoHub",
     "preferredModel": "Preferred model",
     "owner": "Owner",
-    "runtime": "Runtime",
     "shareLink": "Share link",
     "copyLink": "Copy link",
     "inviteLink": "Invite link",

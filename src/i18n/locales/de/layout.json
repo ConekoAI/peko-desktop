@@ -1,0 +1,57 @@
+{
+  "rail": {
+    "chats": "Chats",
+    "groups": "Gruppen",
+    "settings": "Einstellungen",
+    "newGroup": "Neue Gruppe",
+    "invitationLabel": "Einladung: {{name}}",
+    "invitation": "Einladung",
+    "invitationSummary_one": "{{count}} Mitglied · von {{inviter}}",
+    "invitationSummary_other": "{{count}} Mitglieder · von {{inviter}}",
+    "joining": "Beitritt läuft…",
+    "joinGroup": "Einer Gruppe beitreten",
+    "joinHint": "Füge einen Einladungslink oder die ID einer öffentlichen Gruppe ein.",
+    "joinAsked": "Beitritt zu {{name}} angefragt. Sie erscheint hier, sobald der Computer des Besitzers dich hereinlässt.",
+    "asking": "Wird angefragt…"
+  },
+  "titleBar": {
+    "minimize": "Minimieren",
+    "maximize": "Maximieren",
+    "restore": "Wiederherstellen",
+    "close": "Schließen"
+  },
+  "engineFailure": {
+    "title": "Die Engine konnte nicht starten",
+    "body": "Der Chat und andere Funktionen, die die Engine brauchen, funktionieren erst, wenn sie läuft.",
+    "restart": "Engine neu starten",
+    "restarting": "Startet neu…",
+    "hideDetails": "Details ausblenden",
+    "showDetails": "Details anzeigen"
+  },
+  "statusBar": {
+    "failed": "{{label}}: {{detail}}",
+    "failedFallback": "die Engine ist in einem Fehlerzustand"
+  },
+  "keepAwake": {
+    "title": "Diesen Computer wach halten, solange ein Peko arbeitet",
+    "hint": "Damit die Pekos auf diesem Computer erledigen können, worum du sie von deinen anderen Computern aus bittest. Der Ruhezustand wird nur verhindert, solange ein Peko arbeitet, und eine Minute danach. Wird der Laptop zugeklappt, geht er trotzdem in den Ruhezustand."
+  },
+  "runtimeBadge": {
+    "local": "Lokal"
+  },
+  "versionMismatch": {
+    "newerTitle": "Diese App ist älter als dein Peko",
+    "newerBody": "Peko <running/> läuft, und diese App wurde für <needed/> gemacht. Manches funktioniert vielleicht nicht. Aktualisiere Peko Desktop.",
+    "olderTitle": "Dein Peko ist älter, als diese App es braucht",
+    "olderBody": "Peko <running/> läuft, und diese App braucht <needed/> oder neuer. Manches funktioniert vielleicht nicht.",
+    "unknownTitle": "Unklar, ob dein Peko zu dieser App passt",
+    "unknownBody": "Peko meldet Version <running/>, und diese App braucht <needed/> oder neuer. Manches funktioniert vielleicht nicht.",
+    "dismiss": "Hinweis zur Versionsabweichung schließen"
+  },
+  "tray": {
+    "open": "Öffnen",
+    "startEngine": "Engine starten",
+    "stopEngine": "Engine stoppen",
+    "quit": "Beenden"
+  }
+}

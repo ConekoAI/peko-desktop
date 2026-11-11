@@ -1,0 +1,28 @@
+{
+  "steps": {
+    "1": "Conecte um modelo",
+    "2": "Dê um nome ao seu peko",
+    "3": "Diga oi"
+  },
+  "firstMessages": {
+    "hello": "Oi! Em que você pode me ajudar?",
+    "stretch": "Me lembre de alongar daqui a 30 minutos.",
+    "plan": "Me ajude a planejar minha semana."
+  },
+  "welcome": "Boas-vindas ao Peko",
+  "skip": "Pular",
+  "progress": "Progresso da configuração inicial",
+  "pickModel": "Um modelo é a mente de um peko. Você já tem alguns: escolha o que seu primeiro peko vai usar.",
+  "addAnother": "Adicionar outro modelo",
+  "continue": "Continuar",
+  "noAnswer": "O modelo não respondeu.",
+  "addModelIntro": "Um modelo é a mente de um peko. Informe a URL base da documentação do seu provedor (a maioria diz “compatível com OpenAI”, que é Chat Completions) e a sua chave; o Peko então lista os modelos oferecidos.",
+  "unreachable": "Não foi possível acessar o modelo.",
+  "continueAnyway": "Continuar mesmo assim",
+  "adding": "Adicionando…",
+  "checking": "Verificando…",
+  "connect": "Conectar",
+  "awake": "{{name}} acordou. O que você quer dizer primeiro?",
+  "firstMessage": "Primeira mensagem",
+  "skipMessage": "Ir para a conversa sem enviar mensagem"
+}

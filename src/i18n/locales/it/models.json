@@ -1,0 +1,109 @@
+{
+  "badge": {
+    "vision": "Visione",
+    "audio": "Audio",
+    "video": "Video",
+    "json": "JSON",
+    "fullTools": "Strumenti completi",
+    "tools": "Strumenti",
+    "thinking": "Ragionamento",
+    "thinkingRequired": "Ragionamento (obbligatorio)",
+    "thinkingBudget": "Ragionamento (budget)",
+    "pricing": "{{input}} input / {{output}} output"
+  },
+  "apiFormat": {
+    "openai": {
+      "label": "Compatibile con OpenAI (Chat Completions)",
+      "short": "Chat Completions",
+      "hint": "La maggior parte dei fornitori e dei server locali: POST {base URL}/chat/completions"
+    },
+    "anthropic": {
+      "label": "Compatibile con Anthropic (Messages)",
+      "short": "Anthropic Messages",
+      "hint": "Anthropic e gateway compatibili: POST {base URL}/v1/messages"
+    },
+    "responses": {
+      "label": "OpenAI Responses",
+      "short": "Responses",
+      "hint": "L'API più recente di OpenAI: POST {base URL}/responses"
+    }
+  },
+  "endpoint": {
+    "baseUrl": "URL di base",
+    "apiFormat": "Formato dell'API",
+    "apiKey": "Chiave API",
+    "keyPlaceholder": "Incolla la tua chiave",
+    "keyHint": "Conservata nel portachiavi di sistema, non in un file.",
+    "modelId": "ID del modello",
+    "modelIdPlaceholderPick": "Scegline uno qui sotto, oppure digita un ID",
+    "modelIdPlaceholder": "Il nome del modello presso il fornitore, ad es. gpt-5 o mimo-v2.6-flash",
+    "listing": "Richiesta dei modelli all'endpoint…",
+    "offeredLabel": "Modelli offerti da questo endpoint",
+    "offered_one": "{{count}} modello disponibile",
+    "offered_many": "{{count}} modelli disponibili: scegline uno",
+    "offered_other": "{{count}} modelli disponibili: scegline uno",
+    "listFailed": "Impossibile elencare i modelli: {{error}}. Digita l'ID del modello indicato nella documentazione del fornitore.",
+    "name": "Nome in Peko (facoltativo)",
+    "namePlaceholder": "Per impostazione predefinita, l'ID del modello",
+    "nameInvalid": "Usa lettere, numeri, ., - o _.",
+    "noKey": "Nessuna chiave necessaria (un server locale, per esempio)",
+    "storedCredential": "Usa invece una credenziale salvata",
+    "pasteNewKey": "— Incolla una nuova chiave —"
+  },
+  "inputs": {
+    "legend": "Comprende",
+    "text": "Testo",
+    "image": "Immagini",
+    "audio": "Audio",
+    "video": "Video",
+    "hint": "Attiva ciò che il tuo fornitore indica come accettato dal modello. I file allegati di questi tipi vanno direttamente al modello."
+  },
+  "price": {
+    "legend": "Prezzo per milione di token",
+    "input": "Input",
+    "output": "Output",
+    "cacheRead": "Input in cache",
+    "cacheWrite": "Scrittura in cache",
+    "fieldAria": "Prezzo per milione di token: {{label}}",
+    "invalid": "Inserisci importi pari o superiori a $0.",
+    "hint": "Dalla pagina dei prezzi del tuo fornitore. Con un prezzo, la spesa dei peko su questo modello viene conteggiata nei loro budget. Lascia vuoti i prezzi della cache per conteggiare l'input in cache al prezzo dell'input."
+  },
+  "add": {
+    "title": "Aggiungi un modello",
+    "intro": "Usa l'URL di base, il formato dell'API e il nome del modello indicati nella documentazione del tuo fornitore. I fornitori che scrivono «compatibile con OpenAI» usano Chat Completions.",
+    "conflict": "Esiste già un modello chiamato <name/>: imposta un altro nome in Avanzate.",
+    "adding": "Aggiunta…"
+  },
+  "card": {
+    "testPassed": "Test superato",
+    "testPassedWith": "Test superato · {{model}}",
+    "testFailed": "Test non riuscito",
+    "disabled": "Disattivato",
+    "noKey": "Nessuna chiave: aggiungine una in Modifica",
+    "keySet": "Chiave impostata",
+    "context": "{{n}} di contesto",
+    "maxOutput": "{{n}} di output",
+    "test": "Prova il modello",
+    "removeConfirm": "Rimuovere?"
+  },
+  "edit": {
+    "title": "Modifica modello",
+    "displayName": "Nome visualizzato",
+    "wireModelId": "ID del modello nelle richieste",
+    "contextWindow": "Finestra di contesto",
+    "maxOutputTokens": "Token di output massimi",
+    "replaceKey": "Sostituisci la chiave API",
+    "replaceKeyKeep": "Lascia vuoto per mantenere la chiave attuale",
+    "replaceKeyPaste": "Incolla la chiave API",
+    "storedKey": "Chiave salvata",
+    "none": "— Nessuna —",
+    "requiresKey": "Richiede una chiave API",
+    "headers": "Intestazioni",
+    "addHeader": "Aggiungi intestazione",
+    "noHeaders": "Nessuna intestazione aggiuntiva.",
+    "headerName": "Nome dell'intestazione",
+    "headerValue": "Valore",
+    "saving": "Salvataggio…",
+    "save": "Salva le modifiche"
+  }
+}

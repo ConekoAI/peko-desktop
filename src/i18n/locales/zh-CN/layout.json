@@ -1,0 +1,56 @@
+{
+  "rail": {
+    "chats": "聊天",
+    "groups": "群组",
+    "settings": "设置",
+    "newGroup": "新建群组",
+    "invitationLabel": "邀请：{{name}}",
+    "invitation": "邀请",
+    "invitationSummary_other": "{{count}} 位成员 · 来自 {{inviter}}",
+    "joining": "正在加入…",
+    "joinGroup": "加入群组",
+    "joinHint": "粘贴邀请链接，或公开群组的 ID。",
+    "joinAsked": "已申请加入 {{name}}。群主的电脑放行后，它会出现在这里。",
+    "asking": "正在申请…"
+  },
+  "titleBar": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "还原",
+    "close": "关闭"
+  },
+  "engineFailure": {
+    "title": "引擎无法启动",
+    "body": "在引擎运行之前，聊天和其他依赖引擎的功能都无法使用。",
+    "restart": "重启引擎",
+    "restarting": "正在重启…",
+    "hideDetails": "隐藏详情",
+    "showDetails": "显示详情"
+  },
+  "statusBar": {
+    "failed": "{{label}}：{{detail}}",
+    "failedFallback": "引擎处于失败状态"
+  },
+  "keepAwake": {
+    "title": "peko 工作时保持这台电脑唤醒",
+    "hint": "这样这台电脑上的 peko 就能完成你从其他电脑交给它们的事。只有在 peko 工作期间及之后一分钟内才会阻止休眠。合上笔记本电脑的盖子仍会让它休眠。"
+  },
+  "runtimeBadge": {
+    "local": "本机"
+  },
+  "versionMismatch": {
+    "newerTitle": "这个应用比你的 Peko 旧",
+    "newerBody": "正在运行的是 Peko <running/>，而这个应用是为 <needed/> 制作的。部分功能可能无法使用。请更新 Peko Desktop。",
+    "olderTitle": "你的 Peko 版本低于这个应用的要求",
+    "olderBody": "正在运行的是 Peko <running/>，而这个应用需要 <needed/> 或更高版本。部分功能可能无法使用。",
+    "unknownTitle": "无法判断你的 Peko 是否适用于这个应用",
+    "unknownBody": "Peko 报告的版本是 <running/>，而这个应用需要 <needed/> 或更高版本。部分功能可能无法使用。",
+    "dismiss": "关闭版本不匹配提示"
+  },
+  "tray": {
+    "open": "打开",
+    "startEngine": "启动引擎",
+    "stopEngine": "停止引擎",
+    "quit": "退出"
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "new": {
+    "title": "Nouveau peko",
+    "seedTooBig": "Une graine fait au maximum 64 Ko.",
+    "seedInvalid": "Ceci ne ressemble pas à une graine : il n'y a pas de `name`.",
+    "noModel": "Un peko a besoin d'un modèle pour penser. Ajoutez-en d'abord un dans Réglages → Modèles.",
+    "nameTaken": "Vous avez déjà un peko portant ce nom.",
+    "nameInvalid": "Utilisez des lettres, des chiffres, - ou _.",
+    "avatar": "Avatar",
+    "useAvatar": "Utiliser {{emoji}}",
+    "seedLabel": "Partir d'une graine",
+    "chooseSeed": "Choisir un .seed.toml",
+    "seedFile": "Fichier de graine",
+    "seedHint": "Les graines de PekoHub donnent sa définition à votre peko ; il reçoit tout de même une nouvelle identité, et il vous appartient.",
+    "descriptionPlaceholder": "À quoi sert ce peko (facultatif)",
+    "waking": "Réveil de {{name}}… cela peut prendre une minute",
+    "create": "Créer {{name}}",
+    "fallbackName": "le peko"
+  },
+  "status": {
+    "online": "En ligne",
+    "busy": "Occupé",
+    "offline": "Hors ligne",
+    "error": "Erreur",
+    "unknown": "Inconnu"
+  },
+  "usage": {
+    "period": {
+      "hourly": "Cette heure",
+      "daily": "Aujourd'hui",
+      "weekly": "Cette semaine",
+      "monthly": "Ce mois-ci"
+    },
+    "per": {
+      "hourly": "par heure",
+      "daily": "par jour",
+      "weekly": "par semaine",
+      "monthly": "par mois"
+    },
+    "loading": "Chargement de l'utilisation…",
+    "title": "Utilisation · {{period}}",
+    "resets": "réinitialisation le {{date}}",
+    "spentOfBudget": "<amount/> sur un budget de {{cap}}",
+    "spent": "<amount/> dépensés",
+    "tokensIn": "{{n}} en entrée",
+    "cached": "({{n}} en cache)",
+    "tokensOut": "{{n}} en sortie",
+    "requests_one": "{{count}} requête",
+    "requests_many": "{{count}} requêtes",
+    "requests_other": "{{count}} requêtes",
+    "over": "Budget dépassé : votre peko n'appellera plus son modèle tant que le budget n'est pas réinitialisé ou augmenté.",
+    "unpriced": "Les dépenses sont comptées dès que le modèle du peko a un prix (Réglages → Modèles → Modifier).",
+    "budget": "Budget",
+    "none": "aucun",
+    "budgetPeriod": "Période du budget",
+    "budgetInvalid": "Saisissez un montant supérieur à 0 $."
+  },
+  "import": {
+    "title": "Importer un paquet .peko",
+    "intro": "Un paquet <code>.peko</code> réveille le <strong>même</strong> peko : son identité, sa mémoire et ses clés privées voyagent avec le paquet. Pour faire grandir un <strong>nouveau</strong> peko à partir d'une définition, créez-le plutôt depuis sa graine.",
+    "woke": "<name/> est réveillé : il se trouve dans votre barre latérale.",
+    "imported": "Paquet importé : le peko se trouve dans votre barre latérale.",
+    "path": "Chemin du paquet",
+    "rotate": "Importer comme un nouveau peko avec une nouvelle identité (nécessaire quand ce peko réside déjà sur cet ordinateur).",
+    "wake": "Réveiller {{name}}",
+    "review": "Vérifier",
+    "hook": "hook {{id}}",
+    "mcpServer": "serveur MCP {{id}}",
+    "withDescription": " — {{description}}",
+    "files": "{{count}} fichiers",
+    "skills": " · compétences : {{skills}}",
+    "runsCode": "Ce paquet peut exécuter du code sur cet ordinateur :"
+  },
+  "addRemote": {
+    "title": "Ajouter un peko",
+    "intro": "Saisissez l'ID du peko public de quelqu'un, comme <code>@alice/coding-assistant</code>, ou collez son lien PekoHub.",
+    "label": "ID ou lien du peko",
+    "invalid": "Cela ne ressemble pas à l'ID ou au lien d'un peko. Format attendu : <code>@owner/name</code> ou <code>https://pekohub.ai/@owner/name</code>.",
+    "inviteToken": "Jeton d'invitation détecté : le propriétaire du peko vous a transmis ce lien en privé.",
+    "ownedBy": "Appartient à <owner/> sur <hub/>",
+    "status": "État : {{status}}",
+    "checking": "Vérification…",
+    "check": "Vérifier",
+    "adding": "Ajout…",
+    "add": "Ajouter le peko"
+  },
+  "exposure": {
+    "public": "public",
+    "unlisted": "non répertorié",
+    "private": "privé",
+    "unexposed": "non exposé"
+  },
+  "remote": {
+    "profileLabel": "Profil de {{name}}",
+    "gone": "Ce peko ne figure plus dans votre liste.",
+    "viaHub": "via PekoHub",
+    "runsOn": "S'exécute sur",
+    "yourOtherComputer": "Votre autre ordinateur",
+    "reachedThrough": "Joint via",
+    "access": "Accès",
+    "accessInvite": "Lien d'invitation",
+    "accessPrivate": "Privé",
+    "accessPublic": "Public",
+    "copyShareLink": "Copier le lien de partage",
+    "ownElsewhere": "L'un de vos pekos sur un autre ordinateur. Il figure dans votre liste tant qu'il est sur PekoHub ; pour l'en retirer, supprimez-le ou rendez-le uniquement local sur cet ordinateur-là.",
+    "removeConfirm": "Retirer {{name}} de votre liste ? Vous pourrez vous reconnecter avec son lien de partage.",
+    "removeFromList": "Retirer de votre liste"
+  },
+  "profile": {
+    "registration": {
+      "local_only": {
+        "label": "Local uniquement",
+        "hint": "Absent de PekoHub"
+      },
+      "private": {
+        "label": "Privé",
+        "hint": "Sur PekoHub ; seuls ses contacts peuvent le joindre"
+      },
+      "public": {
+        "label": "Public",
+        "hint": "Visible sur PekoHub"
+      }
+    },
+    "ownerLocal": "Vous (cet ordinateur uniquement)",
+    "ownerHubNamed": "Vous ({{name}} sur PekoHub)",
+    "ownerHub": "Vous (sur PekoHub)",
+    "notFound": "Peko introuvable",
+    "hub": "PekoHub",
+    "preferredModel": "Modèle préféré",
+    "owner": "Propriétaire",
+    "shareLink": "Lien de partage",
+    "copyLink": "Copier le lien",
+    "inviteLink": "Lien d'invitation",
+    "inviteHint": "À partager avec une seule personne. Cesse de fonctionner dès sa révocation.",
+    "inviteMeta": "jti {{jti}}… · expire le {{date}}",
+    "burn": "Révoquer",
+    "generateInvite": "Générer un lien d'invitation",
+    "exportTitle": "Exporter un paquet .peko",
+    "exportWarning": "Le paquet contient les <strong>clés privées</strong> de ce peko : toute son existence. Traitez-le comme un mot de passe : quiconque le détient peut réveiller ce peko et se faire passer pour lui.",
+    "exportPath": "Chemin de destination",
+    "exportPathInvalid": "La destination doit se terminer par <code>.peko</code>.",
+    "export": "Exporter le .peko",
+    "exportedTo": "Exporté vers <path/>",
+    "dangerZone": "Zone de danger",
+    "removeConfirm": "Supprimer <strong>{{name}}</strong> ? Son espace de travail, sa mémoire et ses conversations seront effacés. Cette action est irréversible.",
+    "keep": "Conserver {{name}}",
+    "removeNamed": "Supprimer {{name}}",
+    "removeHint": "Supprimer ce peko et tout ce qu'il sait.",
+    "removeEllipsis": "Supprimer…",
+    "avatarPlaceholder": "Un emoji ou deux lettres",
+    "avatarSuggestions": "Suggestions d'avatar",
+    "descriptionPlaceholder": "Ce que fait ce peko",
+    "quickStatus": "État rapide",
+    "noModels": "Aucun modèle configuré. Ajoutez-en d'abord un dans Réglages → Modèles.",
+    "noneOption": "— Aucun —",
+    "exposureConflict": "Ce peko est déjà enregistré depuis un autre ordinateur : un peko ne peut être en ligne qu'à un seul endroit."
+  }
+}

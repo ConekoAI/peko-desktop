@@ -94,7 +94,7 @@ peko-desktop/
 │   │   ├── commands/       # Tauri command handlers (one per CLI subcommand)
 │   │   ├── daemon/         # Daemon lifecycle & auto-restart
 │   │   ├── vault/          # OS keyring integration for tokens
-│   │   └── tray/           # System tray icon
+│   │   └── tray/           # System tray icon: opens the app, starts and stops the engine
 │   ├── capabilities/       # Tauri permission allowlist
 │   └── tauri.conf.json     # Tauri config (CSP, window, bundle)
 ├── docs/
@@ -120,12 +120,22 @@ A sentence with markup inside it uses `<Trans>`, so a translation can
 reorder the pieces. Counts pass `count`, which lets a language add its own
 plural forms (`key_one`, `key_other`).
 
-To add a language, copy `locales/en/` to `locales/<code>/`, translate the
-values, and list it in `resources` in `src/i18n/index.ts`. A key missing
-from a language shows the English text. English is the only language so
-far, and the app does not yet pick a language from the system or offer a
-setting for it. The tray menu (`src-tauri/src/tray/`) and text that comes
-from the runtime (its error messages, a peko's replies) are not covered.
+The app ships in English, Simplified and Traditional Chinese, Japanese,
+Korean, Spanish, French, German, Brazilian Portuguese, Russian and Italian
+(`src/i18n/languages.ts`). It follows the system's language, and Settings →
+General → Language picks another. English is bundled; any other language is
+loaded when it is first shown.
+
+To add a language, copy `locales/en/*.json` to `locales/<code>/`, translate
+the values, and add it to `LANGUAGES`. `I18nLanguages.test.ts` then holds it
+to English: the same keys, the same `{{values}}` and `<tags>` in each
+string, and every plural form the language uses. A string added to English
+must be added to every language, or that test fails.
+
+The translations were machine-drafted and have not been reviewed by native
+speakers. Right-to-left languages are not supported yet (the layout is not
+mirrored). Text that comes from the runtime (its error messages, a peko's
+replies) is not translated.
 
 ## Architecture
 

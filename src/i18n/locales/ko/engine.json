@@ -1,0 +1,11 @@
+{
+  "state": {
+    "connecting": "연결 중…",
+    "running": "실행 중",
+    "starting": "시작 중",
+    "restarting": "다시 시작하는 중…",
+    "restartingAttempt": "다시 시작하는 중 ({{attempt}})…",
+    "stopped": "중지됨",
+    "failed": "실패"
+  }
+}

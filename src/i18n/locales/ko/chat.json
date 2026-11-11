@@ -1,0 +1,65 @@
+{
+  "attachments": {
+    "listLabel": "첨부한 파일",
+    "remove": "{{name}} 제거",
+    "open": "{{name}} 열기",
+    "play": "{{name}} 재생",
+    "cantPlay": "여기서는 재생할 수 없습니다. 파일을 열어 주세요",
+    "missingTitle": "{{name}}이(가) 아직 다른 컴퓨터에서 도착하지 않았습니다",
+    "missing": "아직 받지 못함"
+  },
+  "composer": {
+    "label": "메시지",
+    "placeholder": "peko에게 메시지 보내기…",
+    "attachTitle": "파일 첨부 — 또는 창에 끌어다 놓기",
+    "modelLabel": "이 메시지에 사용할 모델",
+    "pekosModel": "Peko의 모델",
+    "hint": "↵ 보내기 · ⇧↵ 줄바꿈",
+    "sendTitle": "보내기 (Enter)"
+  },
+  "markdown": {
+    "svgImage": "SVG 이미지",
+    "code": "코드",
+    "showImage": "이미지 보기",
+    "showCode": "코드 보기",
+    "image": "이미지",
+    "codeLabel": "코드",
+    "copyCode": "코드 복사"
+  },
+  "hostOffline": "<computer/>이(가) 오프라인이라 {{peko}}이(가) 지금은 작업할 수 없습니다. 보낸 내용은 대기했다가 그 컴퓨터가 돌아오면 {{peko}}에게 전달됩니다. {{peko}}이(가) 답하면 알림을 받습니다.",
+  "hostOfflineSince": "<computer/>이(가) 오프라인(마지막 접속: {{ago}})이라 {{peko}}이(가) 지금은 작업할 수 없습니다. 보낸 내용은 대기했다가 그 컴퓨터가 돌아오면 {{peko}}에게 전달됩니다. {{peko}}이(가) 답하면 알림을 받습니다.",
+  "waitingFor": "{{name}}이(가) 온라인이 되기를 기다리는 중",
+  "suggestedReplies": "추천 답장",
+  "runFailure": {
+    "reason": {
+      "peko_limit": "지출 한도에 도달했습니다",
+      "provider_quota": "모델 제공업체의 할당량을 모두 사용했습니다",
+      "provider_unreachable": "모델 제공업체에 연결할 수 없습니다"
+    },
+    "waiting": "대기 중 — {{reason}}. 자동으로 이어서 진행하며, 다음 시도는 {{when}}입니다.",
+    "failed": "마지막 답장이 완료되지 않았습니다 — {{reason}}."
+  },
+  "approval": {
+    "asker": "{{name}} ({{address}})",
+    "ownerTask": "{{where}} {{peko}}에게 내 전체 권한이 필요한 일을 요청했습니다. 승인하면 그 대화 밖에서, 아래 지시만 가지고 나의 자격으로 실행됩니다:",
+    "ownerTaskWhere": "공유 대화에서",
+    "toolRequest": "<asker/> 님이 {{peko}}에게 <summary/> 실행을 요청합니다",
+    "approve": "승인",
+    "alwaysTitle": "승인하고, {{name}}에게는 이 작업을 항상 허용",
+    "always": "항상 허용",
+    "deny": "거부"
+  },
+  "yourPeko": "내 peko",
+  "onComputer": "· {{computer}}에서",
+  "ownersPeko": "{{owner}}의 peko",
+  "pekosComputer": "{{name}}의 컴퓨터",
+  "selectPeko": "사이드바에서 peko를 선택하세요",
+  "noPekos": "아직 peko가 없습니다",
+  "noPekosHint": "첫 peko를 만들어 대화를 시작하세요.",
+  "createPeko": "peko 만들기",
+  "signInPrompt": "다른 컴퓨터에 peko가 있나요? <signIn>PekoHub로 로그인</signIn>하면 여기에서 볼 수 있습니다.",
+  "dropFiles": "놓아서 첨부",
+  "begin": "메시지를 보내 시작하세요…",
+  "working": "{{name}} 작업 중",
+  "workingFor": "{{name}} 작업 중 · {{seconds}}초"
+}

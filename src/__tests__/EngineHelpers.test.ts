@@ -71,30 +71,16 @@ describe("engineStateLabel", () => {
 });
 
 describe("engineStateSubtitle", () => {
-  it("includes version and PID for running", () => {
-    expect(engineStateSubtitle(running)).toBe("v0.1.0 · PID 4242");
-  });
-
-  it("returns human strings for transient states", () => {
-    expect(engineStateSubtitle(starting)).toBe(
-      "Waiting for engine handshake",
-    );
-    expect(engineStateSubtitle(restarting)).toBe(
-      "Engine exited unexpectedly; supervisor is restarting it",
-    );
-  });
-
   it("returns the failure message for failed", () => {
     expect(engineStateSubtitle(failed)).toBe("boom");
   });
 
-  it("returns 'Engine is not running' for stopped and null only for undefined", () => {
-    // We surface a friendly copy for `stopped` so the badge isn't
-    // empty after the supervisor reports Stopped (e.g., after an
-    // app exit). Undefined is the pre-fetch case where the helper
-    // explicitly hides its subtitle to avoid an empty row.
-    expect(engineStateSubtitle(stopped)).toBe("Engine is not running");
-    expect(engineStateSubtitle(undefined)).toBeNull();
+  it("says nothing in every other state", () => {
+    // Version, process and restart details are the engine's business,
+    // not something to show a person.
+    for (const state of [running, starting, restarting, stopped, undefined]) {
+      expect(engineStateSubtitle(state)).toBeNull();
+    }
   });
 });
 

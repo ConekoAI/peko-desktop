@@ -1,0 +1,107 @@
+{
+  "badge": {
+    "vision": "画像認識",
+    "audio": "音声",
+    "video": "動画",
+    "json": "JSON",
+    "fullTools": "ツール（完全）",
+    "tools": "ツール",
+    "thinking": "思考",
+    "thinkingRequired": "思考（必須）",
+    "thinkingBudget": "思考（予算）",
+    "pricing": "入力 {{input}} / 出力 {{output}}"
+  },
+  "apiFormat": {
+    "openai": {
+      "label": "OpenAI 互換（Chat Completions）",
+      "short": "Chat Completions",
+      "hint": "多くのプロバイダーとローカルサーバー: POST {base URL}/chat/completions"
+    },
+    "anthropic": {
+      "label": "Anthropic 互換（Messages）",
+      "short": "Anthropic Messages",
+      "hint": "Anthropic と互換ゲートウェイ: POST {base URL}/v1/messages"
+    },
+    "responses": {
+      "label": "OpenAI Responses",
+      "short": "Responses",
+      "hint": "OpenAI の新しい API: POST {base URL}/responses"
+    }
+  },
+  "endpoint": {
+    "baseUrl": "Base URL",
+    "apiFormat": "API 形式",
+    "apiKey": "API キー",
+    "keyPlaceholder": "キーを貼り付け",
+    "keyHint": "ファイルではなく、システムのキーチェーンに保存されます。",
+    "modelId": "モデル ID",
+    "modelIdPlaceholderPick": "下から選ぶか、ID を入力",
+    "modelIdPlaceholder": "プロバイダーのモデル名（例: gpt-5、mimo-v2.6-flash）",
+    "listing": "エンドポイントにモデルを問い合わせ中…",
+    "offeredLabel": "このエンドポイントが提供するモデル",
+    "offered_other": "{{count}} 個のモデルがあります — 1 つ選んでください",
+    "listFailed": "モデルを一覧表示できませんでした: {{error}}。プロバイダーのドキュメントにあるモデル ID を入力してください。",
+    "name": "Peko での名前（任意）",
+    "namePlaceholder": "既定ではモデル ID",
+    "nameInvalid": "英数字、.、-、_ を使ってください。",
+    "noKey": "キー不要（ローカルサーバーなど）",
+    "storedCredential": "保存済みの資格情報を使う",
+    "pasteNewKey": "— 新しいキーを貼り付け —"
+  },
+  "inputs": {
+    "legend": "理解できる入力",
+    "text": "テキスト",
+    "image": "画像",
+    "audio": "音声",
+    "video": "動画",
+    "hint": "プロバイダーがモデルの対応を明記しているものをオンにしてください。これらの種類の添付ファイルはモデルに直接渡されます。"
+  },
+  "price": {
+    "legend": "100 万トークンあたりの価格",
+    "input": "入力",
+    "output": "出力",
+    "cacheRead": "キャッシュ入力",
+    "cacheWrite": "キャッシュ書き込み",
+    "fieldAria": "{{label}}の 100 万トークンあたりの価格",
+    "invalid": "$0 以上の金額を入力してください。",
+    "hint": "プロバイダーの料金ページを参照してください。価格を設定すると、このモデルでの peko の利用額が予算に計上されます。キャッシュの価格を空にすると、キャッシュ入力は入力価格で計算されます。"
+  },
+  "add": {
+    "title": "モデルを追加",
+    "intro": "プロバイダーのドキュメントにある Base URL、API 形式、モデル名を使ってください。「OpenAI 互換」と書かれたプロバイダーは Chat Completions を使います。",
+    "conflict": "<name/> という名前のモデルはすでにあります。「詳細設定」で別の名前を指定してください。",
+    "adding": "追加中…"
+  },
+  "card": {
+    "testPassed": "テスト成功",
+    "testPassedWith": "テスト成功 · {{model}}",
+    "testFailed": "テスト失敗",
+    "disabled": "無効",
+    "noKey": "キーなし —「編集」で追加してください",
+    "keySet": "キー設定済み",
+    "context": "コンテキスト {{n}}",
+    "maxOutput": "出力 {{n}}",
+    "test": "モデルをテスト",
+    "removeConfirm": "削除しますか？"
+  },
+  "edit": {
+    "title": "モデルを編集",
+    "displayName": "表示名",
+    "wireModelId": "送信時のモデル ID",
+    "contextWindow": "コンテキストウィンドウ",
+    "maxOutputTokens": "最大出力トークン数",
+    "replaceKey": "API キーを置き換え",
+    "replaceKeyKeep": "空のままにすると現在のキーを使います",
+    "replaceKeyPaste": "API キーを貼り付け",
+    "storedKey": "保存済みのキー",
+    "none": "— なし —",
+    "requiresKey": "API キーが必要",
+    "headers": "ヘッダー",
+    "addHeader": "ヘッダーを追加",
+    "noHeaders": "追加のヘッダーはありません。",
+    "headerName": "ヘッダー名",
+    "headerValue": "値",
+    "saving": "保存中…",
+    "save": "変更を保存"
+  }
+}

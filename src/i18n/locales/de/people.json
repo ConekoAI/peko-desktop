@@ -1,0 +1,18 @@
+{
+  "blocked": {
+    "title": "Blockierte Personen",
+    "hint": "Sie können dir weder schreiben noch darum bitten. Blockiert wird über eine Nachrichtenanfrage.",
+    "empty": "Du hast niemanden blockiert.",
+    "unblock": "Blockierung aufheben"
+  },
+  "requests": {
+    "title": "Nachrichtenanfragen",
+    "body": "möchte dir schreiben. Du siehst die Nachricht, sobald du annimmst."
+  },
+  "invited": "eingeladen",
+  "accountPlaceholder": "PekoHub-Konto-ID der Person",
+  "namePlaceholder": "Wie du sie nennen möchtest (optional)",
+  "opening": "Wird geöffnet…",
+  "message": "Schreiben",
+  "requestHint": "Die Person erhält eine Nachrichtenanfrage. Was du schreibst, kommt an, sobald sie annimmt."
+}

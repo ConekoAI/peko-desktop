@@ -1,0 +1,18 @@
+{
+  "blocked": {
+    "title": "已封鎖的人",
+    "hint": "他們無法傳訊息給你，也無法提出訊息請求。封鎖操作在訊息請求中進行。",
+    "empty": "你還沒有封鎖任何人。",
+    "unblock": "解除封鎖"
+  },
+  "requests": {
+    "title": "訊息請求",
+    "body": "想傳訊息給你。接受後你才能看到對方寫的內容。"
+  },
+  "invited": "已邀請",
+  "accountPlaceholder": "對方的 PekoHub 帳號 ID",
+  "namePlaceholder": "怎麼稱呼對方（選填）",
+  "opening": "正在開啟…",
+  "message": "傳訊息",
+  "requestHint": "對方會收到一則訊息請求。你寫的內容會在對方接受後送達。"
+}

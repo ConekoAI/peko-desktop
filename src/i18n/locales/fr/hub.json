@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "Menu du compte PekoHub",
+    "loading": "Chargement de l'état PekoHub…",
+    "signedInAs": "PekoHub · connecté en tant que @{{handle}}",
+    "signedIn": "PekoHub · connecté",
+    "signIn": "Se connecter à PekoHub",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · non connecté",
+    "signInAgain": "Relancer la connexion",
+    "signInWith": "Se connecter avec PekoHub",
+    "signOut": "Se déconnecter",
+    "disconnect": "Dissocier cet ordinateur…",
+    "relink": "Réassocier le compte PekoHub",
+    "waiting": "En attente de la redirection depuis PekoHub… terminez la connexion dans votre navigateur pour continuer. Si la page ne s'est pas ouverte, recommencez.",
+    "connectFailed": "Vous êtes connecté, mais cet ordinateur n'a pas pu se connecter à PekoHub : {{error}}",
+    "unknownError": "erreur inconnue",
+    "signInFailed": "Échec de la connexion. Vérifiez votre navigateur et réessayez.",
+    "disconnectFailed": "Impossible de dissocier cet ordinateur : {{error}}"
+  },
+  "disconnect": {
+    "title": "Dissocier cet ordinateur ?",
+    "message": "Vos pekos sur cet ordinateur deviennent uniquement locaux : plus personne ne pourra les joindre via PekoHub, et vous serez déconnecté. Les copies, sur cet ordinateur, de vos discussions avec des pekos situés sur d'autres ordinateurs sont supprimées ; ces ordinateurs les conservent, et elles reviendront à votre prochaine connexion.",
+    "confirm": "Dissocier",
+    "confirming": "Dissociation…",
+    "unsentTitle": "Certains messages n'ont pas été remis",
+    "unsentMessage": "Messages destinés à des pekos sur d'autres ordinateurs et pas encore remis, car ces ordinateurs sont hors ligne : {{count}}. Si vous dissociez maintenant, ils seront perdus. Attendez qu'ils soient remis, ou dissociez quand même.",
+    "anyway": "Dissocier quand même",
+    "wait": "Attendre"
+  },
+  "notifications": {
+    "label": "Notifications PekoHub",
+    "labelUnread": "Notifications PekoHub, {{count}} non lues",
+    "unreachable": "Impossible de joindre PekoHub.",
+    "empty": "Rien pour l'instant.",
+    "justNow": "à l'instant",
+    "minutesAgo": "il y a {{count}} min",
+    "hoursAgo": "il y a {{count}} h"
+  }
+}

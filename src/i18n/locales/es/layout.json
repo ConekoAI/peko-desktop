@@ -1,0 +1,58 @@
+{
+  "rail": {
+    "chats": "Chats",
+    "groups": "Grupos",
+    "settings": "Ajustes",
+    "newGroup": "Nuevo grupo",
+    "invitationLabel": "Invitación: {{name}}",
+    "invitation": "Invitación",
+    "invitationSummary_one": "{{count}} miembro · de {{inviter}}",
+    "invitationSummary_many": "{{count}} miembros · de {{inviter}}",
+    "invitationSummary_other": "{{count}} miembros · de {{inviter}}",
+    "joining": "Uniéndote…",
+    "joinGroup": "Unirse a un grupo",
+    "joinHint": "Pega un enlace de invitación o el ID de un grupo público.",
+    "joinAsked": "Has pedido unirte a {{name}}. Aparecerá aquí cuando el ordenador de su propietario te deje entrar.",
+    "asking": "Solicitando…"
+  },
+  "titleBar": {
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "restore": "Restaurar",
+    "close": "Cerrar"
+  },
+  "engineFailure": {
+    "title": "El motor no pudo iniciarse",
+    "body": "El chat y las demás funciones que dependen del motor no funcionarán hasta que esté en ejecución.",
+    "restart": "Reiniciar el motor",
+    "restarting": "Reiniciando…",
+    "hideDetails": "Ocultar detalles",
+    "showDetails": "Mostrar detalles"
+  },
+  "statusBar": {
+    "failed": "{{label}}: {{detail}}",
+    "failedFallback": "el motor está en estado de error"
+  },
+  "keepAwake": {
+    "title": "Mantener este ordenador activo mientras un peko trabaja",
+    "hint": "Así los pekos de este ordenador pueden terminar lo que les pidas desde tus otros ordenadores. Solo se impide la suspensión mientras un peko trabaja y un minuto después. Cerrar la tapa de un portátil lo sigue suspendiendo."
+  },
+  "runtimeBadge": {
+    "local": "Local"
+  },
+  "versionMismatch": {
+    "newerTitle": "Esta app es más antigua que tu Peko",
+    "newerBody": "Se está ejecutando Peko <running/> y esta app se hizo para <needed/>. Puede que algunas cosas no funcionen. Actualiza Peko Desktop.",
+    "olderTitle": "Tu Peko es más antiguo de lo que esta app necesita",
+    "olderBody": "Se está ejecutando Peko <running/> y esta app necesita <needed/> o posterior. Puede que algunas cosas no funcionen.",
+    "unknownTitle": "No se puede saber si tu Peko es compatible con esta app",
+    "unknownBody": "Peko indica la versión <running/> y esta app necesita <needed/> o posterior. Puede que algunas cosas no funcionen.",
+    "dismiss": "Cerrar el aviso de versiones incompatibles"
+  },
+  "tray": {
+    "open": "Abrir",
+    "startEngine": "Iniciar el motor",
+    "stopEngine": "Detener el motor",
+    "quit": "Salir"
+  }
+}

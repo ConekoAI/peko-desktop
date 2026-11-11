@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "Menu dell'account PekoHub",
+    "loading": "Caricamento dello stato di PekoHub…",
+    "signedInAs": "PekoHub · accesso come @{{handle}}",
+    "signedIn": "PekoHub · accesso effettuato",
+    "signIn": "Accedi a PekoHub",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · accesso non effettuato",
+    "signInAgain": "Ricomincia l'accesso",
+    "signInWith": "Accedi con PekoHub",
+    "signOut": "Esci",
+    "disconnect": "Scollega questo computer…",
+    "relink": "Ricollega l'account PekoHub",
+    "waiting": "In attesa che PekoHub ti riporti qui… completa l'accesso nel browser per continuare. Se la pagina non si è aperta, ricomincia.",
+    "connectFailed": "Accesso effettuato, ma questo computer non è riuscito a collegarsi a PekoHub: {{error}}",
+    "unknownError": "errore sconosciuto",
+    "signInFailed": "Accesso non riuscito. Controlla il browser e riprova.",
+    "disconnectFailed": "Impossibile scollegare questo computer: {{error}}"
+  },
+  "disconnect": {
+    "title": "Scollegare questo computer?",
+    "message": "I tuoi peko su questo computer diventano solo locali, quindi nessuno potrà raggiungerli tramite PekoHub, e verrai disconnesso. Le copie, su questo computer, delle tue chat con peko su altri computer vengono eliminate; quei computer le conservano e torneranno quando accederai di nuovo.",
+    "confirm": "Scollega",
+    "confirming": "Scollegamento…",
+    "unsentTitle": "Alcuni messaggi non sono stati consegnati",
+    "unsentMessage": "Messaggi per peko su altri computer non ancora arrivati perché quei computer sono offline: {{count}}. Se scolleghi ora andranno persi. Aspetta che vengano consegnati, oppure scollega comunque.",
+    "anyway": "Scollega comunque",
+    "wait": "Aspetta"
+  },
+  "notifications": {
+    "label": "Notifiche di PekoHub",
+    "labelUnread": "Notifiche di PekoHub, {{count}} non lette",
+    "unreachable": "Impossibile raggiungere PekoHub.",
+    "empty": "Ancora niente.",
+    "justNow": "proprio ora",
+    "minutesAgo": "{{count}} min fa",
+    "hoursAgo": "{{count}} h fa"
+  }
+}

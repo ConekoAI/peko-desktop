@@ -11,10 +11,15 @@ import {
 } from "../hooks/useSettings";
 import { useModels } from "../hooks/useModels";
 import { useEngineStatus } from "../hooks/useEngine";
-import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime } from "../hooks/useRuntimes";
 import { getTheme, setTheme } from "../lib/theme";
 import { pekoHomeDir } from "../lib/api";
-import { currentLocale } from "../i18n";
+import {
+  LANGUAGES,
+  currentLocale,
+  getLanguageChoice,
+  setLanguage,
+  type LanguageChoice,
+} from "../i18n";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddModelModal from "../components/modals/AddModelModal";
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
@@ -24,19 +29,13 @@ import {
   Save,
   Key,
   Info,
-  Check,
   Trash2,
   Loader2,
   Sun,
   Moon,
   Monitor,
   FolderOpen,
-  Globe,
-  Monitor as MonitorIcon,
   Plus,
-  X,
-  RefreshCw,
-  Edit3,
   Cpu,
   Eye,
   EyeOff,
@@ -44,7 +43,7 @@ import {
   Wrench,
   ExternalLink,
 } from "lucide-react";
-import type { RuntimeConnection, CredentialDetail, CredentialKind } from "../types";
+import type { CredentialDetail, CredentialKind } from "../types";
 
 type Section = "general" | "models" | "advanced" | "about";
 
@@ -53,6 +52,7 @@ const CARD = "card p-5";
 function GeneralSection() {
   const { t } = useTranslation();
   const [theme, setThemeState] = useState(getTheme);
+  const [language, setLanguageState] = useState<LanguageChoice>(getLanguageChoice);
 
   function choose(next: "light" | "dark" | "system") {
     setThemeState(next);
@@ -84,6 +84,32 @@ function GeneralSection() {
             );
           })}
         </div>
+        </div>
+      </div>
+      <div className={CARD}>
+        <div className="flex items-center justify-between gap-4">
+          <label htmlFor="settings-language">
+            <span className="h-section block">{t("settings.language.title")}</span>
+            <span className="field-hint mt-0.5 block">{t("settings.language.hint")}</span>
+          </label>
+          <select
+            id="settings-language"
+            value={language}
+            onChange={(e) => {
+              const next = e.target.value as LanguageChoice;
+              setLanguageState(next);
+              void setLanguage(next);
+            }}
+            className="select w-auto"
+            data-testid="settings-language"
+          >
+            <option value="system">{t("settings.language.system")}</option>
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code} lang={l.code}>
+                {l.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       <KeepAwakeSetting className={CARD} />
@@ -400,249 +426,6 @@ function ModelsSection() {
   );
 }
 
-function Runtimes() {
-  const { t } = useTranslation();
-  const { data: runtimes, isLoading } = useRuntimes();
-  const addRuntime = useAddRuntime();
-  const removeRuntime = useRemoveRuntime();
-  const reconnectRuntime = useReconnectRuntime();
-  const renameRuntime = useRenameRuntime();
-
-  const [showAdd, setShowAdd] = useState(false);
-  const [newRuntimeId, setNewRuntimeId] = useState("");
-  const [newRuntimeName, setNewRuntimeName] = useState("");
-  const [newRuntimeUrl, setNewRuntimeUrl] = useState("");
-  const [editingName, setEditingName] = useState<string | null>(null);
-  const [editNameValue, setEditNameValue] = useState("");
-
-  // PekoHub OAuth sign-in / sign-out now lives in the AppRail's
-  // ProfileMenu component (chrome-level, accessible from any route).
-  // The base URL / scope settings are read there; this tab only
-  // needs the runtime list + add/remove flows.
-
-  function handleAdd() {
-    if (!newRuntimeId.trim() || !newRuntimeName.trim()) return;
-    addRuntime.mutate(
-      {
-        id: newRuntimeId.trim(),
-        name: newRuntimeName.trim(),
-        pekohubUrl: newRuntimeUrl.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          setShowAdd(false);
-          setNewRuntimeId("");
-          setNewRuntimeName("");
-          setNewRuntimeUrl("");
-        },
-      }
-    );
-  }
-
-  function startRename(runtime: RuntimeConnection) {
-    setEditingName(runtime.id);
-    setEditNameValue(runtime.name);
-  }
-
-  function commitRename(id: string) {
-    if (editNameValue.trim()) {
-      renameRuntime.mutate({ id, name: editNameValue.trim() });
-    }
-    setEditingName(null);
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="h-section">{t("settings.runtimes.title")}</h3>
-          <p className="text-xs text-fg-muted">
-            {t("settings.runtimes.hint")}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowAdd(true)}
-            className="btn-secondary"
-          >
-            <Plus className="h-4 w-4" />
-            {t("settings.runtimes.addRemote")}
-          </button>
-        </div>
-      </div>
-
-      {/* Manual add form */}
-      {showAdd && (
-        <div className="card p-5">
-          <h4 className="h-section mb-3">{t("settings.runtimes.addTitle")}</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="field-label mb-1.5 block">{t("settings.runtimes.id")}</label>
-              <input
-                type="text"
-                value={newRuntimeId}
-                onChange={(e) => setNewRuntimeId(e.target.value)}
-                placeholder={t("settings.runtimes.idPlaceholder")}
-                className="input"
-              />
-            </div>
-            <div>
-              <label className="field-label mb-1.5 block">{t("settings.runtimes.displayName")}</label>
-              <input
-                type="text"
-                value={newRuntimeName}
-                onChange={(e) => setNewRuntimeName(e.target.value)}
-                placeholder={t("settings.runtimes.displayNamePlaceholder")}
-                className="input"
-              />
-            </div>
-            <div>
-              <label className="field-label mb-1.5 block">
-                {t("settings.runtimes.hubUrl")}
-              </label>
-              <input
-                type="text"
-                value={newRuntimeUrl}
-                onChange={(e) => setNewRuntimeUrl(e.target.value)}
-                placeholder="https://api.pekohub.ai"
-                className="input"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleAdd}
-                disabled={addRuntime.isPending || !newRuntimeId.trim() || !newRuntimeName.trim()}
-                className="btn-primary"
-              >
-                {addRuntime.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                {t("common.add")}
-              </button>
-              <button
-                onClick={() => setShowAdd(false)}
-                className="btn-secondary"
-              >
-                <X className="h-4 w-4" />
-                {t("common.cancel")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {isLoading ? (
-          <div className="flex items-center gap-2 py-4 text-sm text-fg-muted">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {t("settings.runtimes.loading")}
-          </div>
-        ) : runtimes && runtimes.length > 0 ? (
-          runtimes.map((runtime) => (
-            <div
-              key={runtime.id}
-              className="card group flex items-center justify-between p-4"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={[
-                    "flex h-8 w-8 items-center justify-center rounded-lg",
-                    runtime.connectionType === "local"
-                      ? "bg-surface-sunken"
-                      : "bg-brand-soft",
-                  ].join(" ")}
-                >
-                  {runtime.connectionType === "local" ? (
-                    <MonitorIcon className="h-4 w-4 text-fg-muted" />
-                  ) : (
-                    <Globe className="h-4 w-4 text-brand-text" />
-                  )}
-                </div>
-                <div>
-                  {editingName === runtime.id ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={editNameValue}
-                        onChange={(e) => setEditNameValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") commitRename(runtime.id);
-                          if (e.key === "Escape") setEditingName(null);
-                        }}
-                        autoFocus
-                        className="input px-2 py-1"
-                      />
-                      <button
-                        onClick={() => commitRename(runtime.id)}
-                        className="rounded p-1 text-brand-text hover:bg-brand-soft"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-fg">
-                        {runtime.name}
-                      </span>
-                      <button
-                        onClick={() => startRename(runtime)}
-                        className="rounded p-0.5 text-fg-subtle opacity-0 transition-opacity hover:text-fg-soft group-hover:opacity-100"
-                        title={t("settings.runtimes.rename")}
-                      >
-                        <Edit3 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-xs text-fg-muted">
-                    <span className="capitalize">{t(`settings.runtimes.type.${runtime.connectionType}`)}</span>
-                    <span>·</span>
-                    <span
-                      className={[
-                        runtime.status === "connected"
-                          ? "text-brand-text"
-                          : runtime.status === "error"
-                            ? "text-danger"
-                            : runtime.status === "connecting"
-                              ? "text-warn"
-                              : "text-fg-subtle",
-                      ].join(" ")}
-                    >
-                      {t(`settings.runtimes.status.${runtime.status}`)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => reconnectRuntime.mutate(runtime.id)}
-                  disabled={reconnectRuntime.isPending}
-                  className="btn-icon"
-                  title={t("settings.runtimes.reconnect")}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-                {runtime.id !== "local" && (
-                  <button
-                    onClick={() => removeRuntime.mutate(runtime.id)}
-                    disabled={removeRuntime.isPending}
-                    className="btn-icon hover:bg-danger-soft hover:text-danger"
-                    title={t("common.remove")}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="py-8 text-center text-sm text-fg-subtle">
-            {t("settings.runtimes.empty")}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function PekoFolder() {
   const { t } = useTranslation();
   const { data: dir, error } = useQuery({ queryKey: ["peko-home-dir"], queryFn: pekoHomeDir });
@@ -678,9 +461,6 @@ function AdvancedSection() {
     <div className="space-y-4">
       <PekoFolder />
       <StoredKeys />
-      <div className={CARD}>
-        <Runtimes />
-      </div>
     </div>
   );
 }

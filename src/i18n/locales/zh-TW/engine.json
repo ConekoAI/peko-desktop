@@ -1,0 +1,11 @@
+{
+  "state": {
+    "connecting": "正在連線…",
+    "running": "執行中",
+    "starting": "正在啟動",
+    "restarting": "正在重新啟動…",
+    "restartingAttempt": "正在重新啟動（{{attempt}}）…",
+    "stopped": "已停止",
+    "failed": "失敗"
+  }
+}

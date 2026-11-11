@@ -1,0 +1,73 @@
+{
+  "title": "設定",
+  "sectionsLabel": "設定のセクション",
+  "sections": {
+    "general": "一般",
+    "models": "モデル",
+    "advanced": "詳細",
+    "about": "このアプリについて"
+  },
+  "appearance": {
+    "title": "外観",
+    "hint": "ダークは PekoHub と同じ見た目です。",
+    "theme": "テーマ",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム"
+  },
+  "keys": {
+    "title": "保存済みのキー",
+    "hint": "エンジンのボールトにあるすべてのシークレットです。モデルのキーは「モデル」で管理します。ここはほかのツールが使うキーの一覧です。",
+    "add": "キーを追加",
+    "namespace": "名前空間",
+    "namePlaceholder": "例: github",
+    "kind": "種類",
+    "kinds": {
+      "api_key": "API キー",
+      "bearer_token": "Bearer トークン",
+      "oauth_token": "OAuth トークン",
+      "basic_auth": "Basic 認証",
+      "private_key": "秘密鍵",
+      "generic_secret": "その他のシークレット"
+    },
+    "secret": "シークレット",
+    "save": "キーを保存",
+    "loading": "資格情報を読み込み中…",
+    "empty": "保存済みのキーはありません",
+    "emptyHint": "モデルやツール用に追加したキーがここに表示されます。",
+    "hide": "シークレットを隠す",
+    "reveal": "シークレットを表示"
+  },
+  "models": {
+    "intro": "peko が考えるために使うエンドポイントです。モデルごとに API キーを持ち、「編集」で変更できます。",
+    "add": "モデルを追加",
+    "loading": "モデルを読み込み中…",
+    "empty": "モデルがまだ設定されていません",
+    "emptyHint": "エンドポイントと API キーを追加して、peko と話し始めましょう。",
+    "addFirst": "最初のモデルを追加",
+    "unavailable": "モデルカタログを利用できません",
+    "unavailableHint": "モデルカタログを読み込めませんでした。エンジンが動いていることを確認して、このタブを再読み込みしてください。"
+  },
+  "folder": {
+    "title": "Peko フォルダー",
+    "hint": "エンジンが peko、モデル、キーを保存する場所です。",
+    "unknown": "不明",
+    "show": "フォルダーを表示"
+  },
+  "about": {
+    "appVersion": "アプリのバージョン",
+    "engineVersion": "エンジンのバージョン",
+    "notRunning": "実行されていません",
+    "help": "ヘルプ",
+    "gettingStarted": "はじめに",
+    "report": "問題を報告",
+    "onboarding": "初期セットアップ",
+    "onboardingHint": "モデルの接続と peko の作成をもう一度たどります。",
+    "replay": "セットアップをやり直す"
+  },
+  "language": {
+    "title": "言語",
+    "hint": "Peko Desktop の表示言語です。",
+    "system": "システムの既定"
+  }
+}
