@@ -1,0 +1,24 @@
+{
+  "title": "Чаты",
+  "searchPlaceholder": "Поиск по чатам…",
+  "people": "Люди",
+  "pekos": "Peko",
+  "loading": "Загрузка…",
+  "wakingTitle": "Этот peko ещё настраивается",
+  "waking": "просыпается…",
+  "away": "Не в сети больше {{days}} дн. ({{n}})",
+  "noPekos": "Пока нет ни одного peko",
+  "createFirst": "Создайте первого peko",
+  "noMatch": "Подходящих чатов нет",
+  "unread": "Непрочитанных: {{n}}",
+  "newChat": "Новый чат",
+  "openChat": "Открыть чат",
+  "profile": "Профиль",
+  "menu": {
+    "create": "Создать peko",
+    "import": "Импортировать файл .peko",
+    "add": "Добавить peko",
+    "discover": "Найти публичных peko",
+    "messagePerson": "Написать человеку"
+  }
+}

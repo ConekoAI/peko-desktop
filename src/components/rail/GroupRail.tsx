@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Hash, Link2, Loader2, Mail, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   channelInfoQuery,
   hasLeftGroup,
@@ -29,6 +30,7 @@ export const JOIN_POLL_MS = 1_500;
  * buttons to start a group or join one by link.
  */
 export default function GroupRail({ onCreateClick }: { onCreateClick?: () => void }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const params = useParams({ strict: false });
   const channelId = (params as Record<string, string | undefined>).channelId ?? "";
@@ -99,7 +101,7 @@ export default function GroupRail({ onCreateClick }: { onCreateClick?: () => voi
       {(visible.length > 0 || (invitations ?? []).length > 0) && <RailDivider />}
 
       {onCreateClick && (
-        <RailItem label="New group" variant="action" onClick={onCreateClick} testId="channel-new">
+        <RailItem label={t("layout.rail.newGroup")} variant="action" onClick={onCreateClick} testId="channel-new">
           <Plus className="h-5 w-5" />
         </RailItem>
       )}
@@ -138,6 +140,7 @@ function GroupTile({
 
 /** A group on another computer inviting you: Join or Decline beside it. */
 function InvitationTile({ invitation: i }: { invitation: GroupInvitation }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const anchor = useRef<HTMLButtonElement | null>(null);
@@ -170,7 +173,7 @@ function InvitationTile({ invitation: i }: { invitation: GroupInvitation }) {
   return (
     <div data-testid="group-invitations" className="contents">
       <RailItem
-        label={`Invitation: ${i.name}`}
+        label={t("layout.rail.invitationLabel", { name: i.name })}
         unread
         buttonRef={anchor}
         onClick={() => setOpen((v) => !v)}
@@ -182,14 +185,14 @@ function InvitationTile({ invitation: i }: { invitation: GroupInvitation }) {
       {open && (
         <RailPopover anchor={anchor.current} onClose={() => setOpen(false)}>
           <div data-testid={`invitation-${i.channelId}`}>
-            <div className="eyebrow">Invitation</div>
+            <div className="eyebrow">{t("layout.rail.invitation")}</div>
             <div className="mt-1.5 truncate text-sm font-semibold text-fg">{i.name}</div>
             <div className="mt-0.5 truncate text-xs text-fg-muted">
-              {i.members} {i.members === 1 ? "member" : "members"} · from {i.inviter}
+              {t("layout.rail.invitationSummary", { count: i.members, inviter: i.inviter })}
             </div>
             {accepted && !arrived && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-fg-muted">
-                <Loader2 className="h-3 w-3 animate-spin" /> Joining…
+                <Loader2 className="h-3 w-3 animate-spin" /> {t("layout.rail.joining")}
               </div>
             )}
             {answer.error && (
@@ -204,7 +207,7 @@ function InvitationTile({ invitation: i }: { invitation: GroupInvitation }) {
                 onClick={() => answer.mutate(true)}
                 className="btn-primary btn-sm flex-1"
               >
-                Join
+                {t("common.join")}
               </button>
               <button
                 type="button"
@@ -212,7 +215,7 @@ function InvitationTile({ invitation: i }: { invitation: GroupInvitation }) {
                 onClick={() => answer.mutate(false)}
                 className="btn-secondary btn-sm flex-1"
               >
-                Decline
+                {t("common.decline")}
               </button>
             </div>
           </div>
@@ -227,6 +230,7 @@ function InvitationTile({ invitation: i }: { invitation: GroupInvitation }) {
  * ADR-092 D5). The group appears in the rail once its home lets you in.
  */
 function JoinGroup() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const anchor = useRef<HTMLButtonElement | null>(null);
@@ -270,7 +274,7 @@ function JoinGroup() {
   return (
     <>
       <RailItem
-        label="Join a group"
+        label={t("layout.rail.joinGroup")}
         variant="action"
         buttonRef={anchor}
         onClick={() => (open ? close() : setOpen(true))}
@@ -287,8 +291,8 @@ function JoinGroup() {
               if (link.trim()) join.mutate(link);
             }}
           >
-            <div className="text-sm font-semibold text-fg">Join a group</div>
-            <p className="field-hint mt-0.5">Paste an invite link, or a public group&apos;s ID.</p>
+            <div className="text-sm font-semibold text-fg">{t("layout.rail.joinGroup")}</div>
+            <p className="field-hint mt-0.5">{t("layout.rail.joinHint")}</p>
             <input
               type="text"
               value={link}
@@ -300,7 +304,7 @@ function JoinGroup() {
             />
             {join.data && (
               <div className="note-info mt-3 text-xs" data-testid="group-join-asked">
-                Asked to join {join.data.name}. It appears here when its owner&apos;s computer lets you in.
+                {t("layout.rail.joinAsked", { name: join.data.name })}
               </div>
             )}
             {join.error && (
@@ -310,14 +314,14 @@ function JoinGroup() {
             )}
             <div className="mt-3 flex justify-end gap-2">
               <button type="button" onClick={close} className="btn-ghost btn-sm">
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={!link.trim() || join.isPending}
                 className="btn-primary btn-sm"
               >
-                {join.isPending ? "Asking…" : "Join"}
+                {join.isPending ? t("layout.rail.asking") : t("common.join")}
               </button>
             </div>
           </form>

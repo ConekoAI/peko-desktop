@@ -1,0 +1,17 @@
+{
+  "title": "peko 찾기",
+  "intro": "사용자와 peko는 <code>@alice/ada</code> 같은 정확한 ID로 찾습니다. 시드는 이름으로 검색할 수 있습니다. 연결 대상: <hub/>",
+  "placeholder": "@alice/ada 또는 시드 검색…",
+  "label": "Peko ID 또는 검색",
+  "empty": "PekoHub는 peko 목록을 보여 주지 않습니다. 상대에게 ID(<code>@owner/name</code>)를 물어본 뒤 여기에서 찾아보세요.",
+  "unreachable": "Hub에 연결하지 못했습니다.",
+  "noOne": "공개된 {{id}}이(가) 없습니다. 철자를 확인하거나, 소유자에게 공개 상태인지 물어보세요.",
+  "noSeeds": "일치하는 시드가 없습니다. peko는 @alice/ada 같은 정확한 ID로만 찾을 수 있습니다.",
+  "kind": {
+    "person": "사용자",
+    "peko": "peko",
+    "seed": "시드"
+  },
+  "openInBrowser": "브라우저에서 열기",
+  "addToDesktop": "데스크톱에 추가"
+}

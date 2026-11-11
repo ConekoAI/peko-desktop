@@ -1,4 +1,5 @@
 import { X, AlertTriangle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ConfirmModalProps {
   open: boolean;
@@ -15,12 +16,13 @@ export default function ConfirmModal({
   open,
   title,
   message,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
   variant = "warning",
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { t } = useTranslation();
   if (!open) return null;
 
   const confirmClass = variant === "danger" ? "btn-danger-solid" : "btn-primary";
@@ -42,17 +44,17 @@ export default function ConfirmModal({
             <h2 id="confirm-title" className="modal-title">{title}</h2>
             <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{message}</p>
           </div>
-          <button onClick={onCancel} aria-label="Close" className="btn-icon -mr-2 -mt-2">
+          <button onClick={onCancel} aria-label={t("common.close")} className="btn-icon -mr-2 -mt-2">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onCancel} className="btn-secondary">
-            {cancelText}
+            {cancelText ?? t("common.cancel")}
           </button>
           <button onClick={onConfirm} className={confirmClass}>
-            {confirmText}
+            {confirmText ?? t("common.confirm")}
           </button>
         </div>
       </div>

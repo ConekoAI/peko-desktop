@@ -1,0 +1,56 @@
+{
+  "rail": {
+    "chats": "Conversas",
+    "groups": "Grupos",
+    "settings": "Configurações",
+    "newGroup": "Novo grupo",
+    "invitationLabel": "Convite: {{name}}",
+    "invitation": "Convite",
+    "invitationSummary_one": "{{count}} membro · de {{inviter}}",
+    "invitationSummary_many": "{{count}} membros · de {{inviter}}",
+    "invitationSummary_other": "{{count}} membros · de {{inviter}}",
+    "joining": "Entrando…",
+    "joinGroup": "Entrar em um grupo",
+    "joinHint": "Cole um link de convite ou o ID de um grupo público.",
+    "joinAsked": "Pedido para entrar em {{name}} enviado. Ele aparece aqui quando o computador do dono liberar sua entrada.",
+    "asking": "Pedindo…"
+  },
+  "titleBar": {
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "restore": "Restaurar",
+    "close": "Fechar"
+  },
+  "engineFailure": {
+    "title": "O motor não conseguiu iniciar",
+    "body": "A conversa e outros recursos que dependem do motor não funcionam até que ele esteja em execução.",
+    "restart": "Reiniciar o motor",
+    "restarting": "Reiniciando…",
+    "hideDetails": "Ocultar detalhes",
+    "showDetails": "Mostrar detalhes"
+  },
+  "statusBar": {
+    "failed": "{{label}}: {{detail}}",
+    "failedFallback": "o motor está em estado de falha"
+  },
+  "keepAwake": {
+    "title": "Manter este computador ativo enquanto um peko trabalha",
+    "hint": "Assim os pekos deste computador conseguem terminar o que você pede a partir dos seus outros computadores. O repouso só é impedido enquanto um peko trabalha e por um minuto depois. Fechar a tampa de um notebook ainda o coloca em repouso."
+  },
+  "runtimeBadge": {
+    "local": "Local"
+  },
+  "versionMismatch": {
+    "newerTitle": "Este aplicativo é mais antigo que o seu Peko",
+    "newerBody": "O Peko <running/> está em execução, e este aplicativo foi feito para <needed/>. Algumas coisas podem não funcionar. Atualize o Peko Desktop.",
+    "olderTitle": "O seu Peko é mais antigo do que este aplicativo precisa",
+    "olderBody": "O Peko <running/> está em execução, e este aplicativo precisa de <needed/> ou posterior. Algumas coisas podem não funcionar.",
+    "unknownTitle": "Não dá para saber se o seu Peko serve para este aplicativo",
+    "unknownBody": "O Peko informa a versão <running/>, e este aplicativo precisa de <needed/> ou posterior. Algumas coisas podem não funcionar.",
+    "dismiss": "Fechar o aviso de versões incompatíveis"
+  },
+  "tray": {
+    "open": "Abrir",
+    "quit": "Sair"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "title": "보드",
+  "empty": "보드에 아직 작업이 없습니다",
+  "open": "진행 전 {{count}}개",
+  "blocked": "보류 {{count}}개",
+  "pastCheckIn": "확인 기한 지남 {{count}}개",
+  "for": "{{name}} 앞",
+  "unclaimed": "담당자 없음",
+  "checkIn": "확인 예정 {{date}}",
+  "checkInPast": "확인 기한 지남 {{date}}",
+  "blockPlaceholder": "무엇을 기다리고 있나요?",
+  "block": "보류로 표시",
+  "take": "내가 맡기",
+  "unblock": "보류 해제",
+  "blockedAction": "보류…",
+  "done": "완료",
+  "letGo": "담당 내려놓기",
+  "markDone": "완료로 표시",
+  "addPlaceholder": "보드에 작업 추가",
+  "newItem": "새 보드 항목",
+  "state": {
+    "open": "대기",
+    "doing": "진행 중",
+    "blocked": "보류",
+    "done": "완료"
+  }
+}

@@ -383,7 +383,8 @@ describe("Settings sections", () => {
       expect(await screen.findByText("/Users/me/.peko")).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: /show folder/i }));
       expect(revealMock).toHaveBeenCalledWith("/Users/me/.peko");
-      expect(screen.getByText("Runtimes")).toBeInTheDocument();
+      // Engines and how they connect are not shown to people.
+      expect(screen.queryByText("Runtimes")).toBeNull();
     });
   });
 

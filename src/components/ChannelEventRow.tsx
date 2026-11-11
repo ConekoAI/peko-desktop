@@ -6,6 +6,8 @@ import Markdown from "./chat/Markdown";
 import type { ActorDisplay } from "../hooks/usePekoDirectory";
 import { useChannelDirectory } from "../hooks/useChannelDirectory";
 import { shownAddress } from "../lib/format";
+import { Trans, useTranslation } from "react-i18next";
+import { currentLocale } from "../i18n";
 
 /**
  * PR-2a: per-event row, extracted from `ChannelView.tsx` so the
@@ -38,6 +40,7 @@ export default function ChannelEventRow({
    */
   people?: Record<string, string>;
 }) {
+  const { t } = useTranslation();
   const directory = useChannelDirectory(channelId ?? event.channel, people);
   switch (event.kind) {
     case "posted": {
@@ -54,7 +57,7 @@ export default function ChannelEventRow({
             <span className="min-w-0 break-words" title={shownAddress(event.author)}>
               {directory.named(boardLine(event.text, who.label))}
             </span>
-            <span className="shrink-0 text-fg-subtle">· {new Date(event.at).toLocaleString()}</span>
+            <span className="shrink-0 text-fg-subtle">· {new Date(event.at).toLocaleString(currentLocale())}</span>
           </div>
         );
       }
@@ -66,7 +69,7 @@ export default function ChannelEventRow({
               <span className="text-sm font-semibold text-fg" title={shownAddress(event.author)}>
                 {who.label}
               </span>
-              <span className="text-[11px] text-fg-subtle">{new Date(event.at).toLocaleString()}</span>
+              <span className="text-[11px] text-fg-subtle">{new Date(event.at).toLocaleString(currentLocale())}</span>
             </div>
             <div className="mt-0.5 text-sm text-fg-soft">
               {who.isYou ? (
@@ -88,17 +91,26 @@ export default function ChannelEventRow({
           {people ? (
             // Either side's copy starts when they open or accept it, so
             // who "created" it here says nothing; name the conversation.
-            <>
-              Conversation with{" "}
-              <span className="font-semibold text-fg">{Object.values(people)[0] ?? "them"}</span>
-            </>
+            <Trans
+              i18nKey="channel.event.conversationWith"
+              components={{
+                name: (
+                  <span className="font-semibold text-fg">
+                    {Object.values(people)[0] ?? t("channel.event.them")}
+                  </span>
+                ),
+              }}
+            />
           ) : (
-            <>
-              Group <span className="font-semibold text-fg">{event.name}</span> created by{" "}
-              <span title={event.creator}>{directory.resolve(event.creator).label}</span>
-            </>
+            <Trans
+              i18nKey="channel.event.groupCreated"
+              components={{
+                name: <span className="font-semibold text-fg">{event.name}</span>,
+                creator: <span title={event.creator}>{directory.resolve(event.creator).label}</span>,
+              }}
+            />
           )}{" "}
-          · {new Date((!people && directory.createdAt) || event.at).toLocaleString()}
+          · {new Date((!people && directory.createdAt) || event.at).toLocaleString(currentLocale())}
         </div>
       );
     case "member_joined":
@@ -109,9 +121,9 @@ export default function ChannelEventRow({
         >
           <Plus className="h-3.5 w-3.5 text-ok" />
           <span className="font-medium text-fg-muted" title={shownAddress(event.member)}>{directory.resolve(event.member).label}</span>
-          <span>joined</span>
+          <span>{t("channel.event.joined")}</span>
           {showRuntimeBadge && <RuntimeBadge runtimeId="local" />}
-          <span>· {new Date(event.at).toLocaleString()}</span>
+          <span>· {new Date(event.at).toLocaleString(currentLocale())}</span>
         </div>
       );
     case "member_left":
@@ -122,8 +134,8 @@ export default function ChannelEventRow({
         >
           <Minus className="h-3.5 w-3.5" />
           <span className="font-medium text-fg-muted" title={shownAddress(event.member)}>{directory.resolve(event.member).label}</span>
-          <span>left</span>
-          <span>· {new Date(event.at).toLocaleString()}</span>
+          <span>{t("channel.event.left")}</span>
+          <span>· {new Date(event.at).toLocaleString(currentLocale())}</span>
         </div>
       );
   }

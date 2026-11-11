@@ -1,0 +1,108 @@
+{
+  "badge": {
+    "vision": "Vision",
+    "audio": "Audio",
+    "video": "Video",
+    "json": "JSON",
+    "fullTools": "Full tools",
+    "tools": "Tools",
+    "thinking": "Thinking",
+    "thinkingRequired": "Thinking (required)",
+    "thinkingBudget": "Thinking (budget)",
+    "pricing": "{{input}} in / {{output}} out"
+  },
+  "apiFormat": {
+    "openai": {
+      "label": "OpenAI-compatible (Chat Completions)",
+      "short": "Chat Completions",
+      "hint": "Most providers and local servers: POST {base URL}/chat/completions"
+    },
+    "anthropic": {
+      "label": "Anthropic-compatible (Messages)",
+      "short": "Anthropic Messages",
+      "hint": "Anthropic and compatible gateways: POST {base URL}/v1/messages"
+    },
+    "responses": {
+      "label": "OpenAI Responses",
+      "short": "Responses",
+      "hint": "OpenAI's newer API: POST {base URL}/responses"
+    }
+  },
+  "endpoint": {
+    "baseUrl": "Base URL",
+    "apiFormat": "API format",
+    "apiKey": "API key",
+    "keyPlaceholder": "Paste your key",
+    "keyHint": "Stored in your system keychain, not in a file.",
+    "modelId": "Model id",
+    "modelIdPlaceholderPick": "Pick one below, or type an id",
+    "modelIdPlaceholder": "The provider's model name, e.g. gpt-5 or mimo-v2.6-flash",
+    "listing": "Asking the endpoint for its models…",
+    "offeredLabel": "Models this endpoint offers",
+    "offered_one": "{{count}} model offered",
+    "offered_other": "{{count}} models offered — choose one",
+    "listFailed": "Couldn't list its models: {{error}}. Type the model id from the provider's docs.",
+    "name": "Name in Peko (optional)",
+    "namePlaceholder": "Defaults to the model id",
+    "nameInvalid": "Use letters, numbers, ., - or _.",
+    "noKey": "No key needed (a local server, for example)",
+    "storedCredential": "Use a stored credential instead",
+    "pasteNewKey": "— Paste a new key —"
+  },
+  "inputs": {
+    "legend": "Understands",
+    "text": "Text",
+    "image": "Images",
+    "audio": "Audio",
+    "video": "Video",
+    "hint": "Turn on what your provider says the model takes. Attached files of these kinds go to the model itself."
+  },
+  "price": {
+    "legend": "Price per million tokens",
+    "input": "Input",
+    "output": "Output",
+    "cacheRead": "Cached input",
+    "cacheWrite": "Cache write",
+    "fieldAria": "{{label}} price per million tokens",
+    "invalid": "Enter amounts of $0 or more.",
+    "hint": "From your provider's pricing page. With a price, pekos' spend on this model counts toward their budgets. Leave the cache prices empty to count cached input at the input price."
+  },
+  "add": {
+    "title": "Add a model",
+    "intro": "Use the base URL, API format, and model name from your provider's docs. Providers that say \"OpenAI-compatible\" use Chat Completions.",
+    "conflict": "A model named <name/> already exists — set another name under Advanced.",
+    "adding": "Adding…"
+  },
+  "card": {
+    "testPassed": "Test passed",
+    "testPassedWith": "Test passed · {{model}}",
+    "testFailed": "Test failed",
+    "disabled": "Disabled",
+    "noKey": "No key — add one under Edit",
+    "keySet": "Key set",
+    "context": "{{n}} ctx",
+    "maxOutput": "{{n}} out",
+    "test": "Test model",
+    "removeConfirm": "Remove?"
+  },
+  "edit": {
+    "title": "Edit Model",
+    "displayName": "Display name",
+    "wireModelId": "Wire model ID",
+    "contextWindow": "Context window",
+    "maxOutputTokens": "Max output tokens",
+    "replaceKey": "Replace API key",
+    "replaceKeyKeep": "Leave empty to keep the current key",
+    "replaceKeyPaste": "Paste the API key",
+    "storedKey": "Stored key",
+    "none": "— None —",
+    "requiresKey": "Requires API key",
+    "headers": "Headers",
+    "addHeader": "Add header",
+    "noHeaders": "No extra headers.",
+    "headerName": "Header name",
+    "headerValue": "Value",
+    "saving": "Saving…",
+    "save": "Save changes"
+  }
+}

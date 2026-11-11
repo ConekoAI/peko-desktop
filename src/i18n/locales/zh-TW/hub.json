@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "PekoHub 帳號選單",
+    "loading": "正在載入 PekoHub 狀態…",
+    "signedInAs": "PekoHub · 已登入為 @{{handle}}",
+    "signedIn": "PekoHub · 已登入",
+    "signIn": "登入 PekoHub",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · 未登入",
+    "signInAgain": "重新開始登入",
+    "signInWith": "使用 PekoHub 登入",
+    "signOut": "登出",
+    "disconnect": "中斷這台電腦的連線…",
+    "relink": "重新連結 PekoHub 帳號",
+    "waiting": "正在等待 PekoHub 將你導回…請在瀏覽器中完成登入以繼續。如果頁面沒有開啟，請重新開始。",
+    "connectFailed": "已登入，但這台電腦無法連線到 PekoHub：{{error}}",
+    "unknownError": "未知的錯誤",
+    "signInFailed": "登入失敗。請檢查瀏覽器後再試一次。",
+    "disconnectFailed": "這台電腦無法中斷連線：{{error}}"
+  },
+  "disconnect": {
+    "title": "中斷這台電腦的連線？",
+    "message": "這台電腦上的 peko 將變為僅限本機，任何人都無法再透過 PekoHub 聯絡它們，你也會登出。這台電腦上保存的、你與其他電腦上的 peko 的聊天副本會被刪除；那些電腦會保留它們，你再次登入後會恢復。",
+    "confirm": "中斷連線",
+    "confirming": "正在中斷連線…",
+    "unsentTitle": "有些訊息尚未送達",
+    "unsentMessage": "有 {{count}} 則傳給其他電腦上的 peko 的訊息尚未送達，因為那些電腦處於離線狀態。現在中斷連線會遺失這些訊息。可以等它們送達，或仍要中斷連線。",
+    "anyway": "仍要中斷連線",
+    "wait": "等待"
+  },
+  "notifications": {
+    "label": "PekoHub 通知",
+    "labelUnread": "PekoHub 通知，{{count}} 則未讀",
+    "unreachable": "無法連線到 PekoHub。",
+    "empty": "目前沒有通知。",
+    "justNow": "剛剛",
+    "minutesAgo": "{{count}} 分鐘前",
+    "hoursAgo": "{{count}} 小時前"
+  }
+}

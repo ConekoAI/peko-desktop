@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Link2 } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
+import { currentLocale } from "../i18n";
 import { groupLink, groupRegister } from "../lib/api";
 import type { ChannelInfo } from "../lib/api";
 
@@ -19,6 +21,7 @@ export default function GroupSharePanel({
   channelId: string;
   group: NonNullable<ChannelInfo["group"]>;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [visibility, setVisibility] = useState<Visibility>(group.visibility ?? "invite_only");
   const register = useMutation({
@@ -36,16 +39,20 @@ export default function GroupSharePanel({
       {registered ? (
         <div className="flex flex-wrap items-center gap-2 text-fg-soft">
           <span>
-            Group ID <span className="font-mono text-fg" data-testid="group-share-id">{group.hubId}</span>
+            <Trans
+              i18nKey="channel.share.groupId"
+              components={{
+                id: <span className="font-mono text-fg" data-testid="group-share-id">{group.hubId}</span>,
+              }}
+            />
           </span>
-          <CopyButton value={group.hubId!} label="Copy ID" />
+          <CopyButton value={group.hubId!} label={t("channel.share.copyId")} />
           <span className="text-fg-subtle">·</span>
-          <span>{group.visibility === "public" ? "Anyone with the ID can join" : "Only people with an invite link can join"}</span>
+          <span>{group.visibility === "public" ? t("channel.share.public") : t("channel.share.inviteOnly")}</span>
         </div>
       ) : (
         <p className="text-fg-soft">
-          Give this group an ID on PekoHub, so people on other computers can join it. Its messages stay on this
-          computer.
+          {t("channel.share.intro")}
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
@@ -55,8 +62,8 @@ export default function GroupSharePanel({
           className="select input-sm w-auto pr-7"
           data-testid="group-share-visibility"
         >
-          <option value="invite_only">Invite only</option>
-          <option value="public">Public</option>
+          <option value="invite_only">{t("channel.share.visibilityInviteOnly")}</option>
+          <option value="public">{t("channel.share.visibilityPublic")}</option>
         </select>
         <button
           type="button"
@@ -65,7 +72,11 @@ export default function GroupSharePanel({
           className="btn-primary btn-sm"
           data-testid="group-share-register"
         >
-          {registered ? "Save" : register.isPending ? "Registering…" : "Register on PekoHub"}
+          {registered
+            ? t("common.save")
+            : register.isPending
+              ? t("channel.share.registering")
+              : t("channel.share.register")}
         </button>
         {registered && (
           <>
@@ -77,7 +88,7 @@ export default function GroupSharePanel({
               data-testid="group-share-link"
             >
               <Link2 className="h-3.5 w-3.5" />
-              Make an invite link
+              {t("channel.share.makeLink")}
             </button>
             <button
               type="button"
@@ -86,7 +97,7 @@ export default function GroupSharePanel({
               className="btn-ghost btn-xs"
               data-testid="group-share-revoke"
             >
-              Stop all links
+              {t("channel.share.stopLinks")}
             </button>
           </>
         )}
@@ -96,15 +107,21 @@ export default function GroupSharePanel({
           <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg" data-testid="group-share-link-value">
             {link.data.link}
           </code>
-          <CopyButton value={link.data.link} label="Copy link" />
+          <CopyButton value={link.data.link} label={t("channel.share.copyLink")} />
         </div>
       )}
       {link.data?.link && link.data.expires && (
-        <div className="text-xs text-fg-subtle">Works until {new Date(link.data.expires).toLocaleString()}.</div>
+        <div className="text-xs text-fg-subtle">
+          {t("channel.share.worksUntil", {
+            date: new Date(link.data.expires).toLocaleString(currentLocale()),
+          })}
+        </div>
       )}
       {link.data?.revoked != null && (
         <div className="text-xs text-fg-subtle" data-testid="group-share-revoked">
-          {link.data.revoked === 0 ? "No links were working." : `Stopped ${link.data.revoked} link(s).`}
+          {link.data.revoked === 0
+            ? t("channel.share.noneWorking")
+            : t("channel.share.stopped", { count: link.data.revoked })}
         </div>
       )}
       {error && (

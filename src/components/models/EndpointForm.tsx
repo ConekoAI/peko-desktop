@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useEndpointModels } from "../../hooks/useEndpointModels";
-import { API_FORMATS, type ApiFormat } from "../../lib/apiFormats";
+import { API_FORMATS, apiFormatHint, apiFormatLabel, type ApiFormat } from "../../lib/apiFormats";
 import type { ModelAddArgs } from "../../types";
 
 /**
@@ -88,9 +89,10 @@ export default function EndpointForm({
   credentialOptions?: { value: string; label: string }[];
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const [advanced, setAdvanced] = useState(false);
   const set = (patch: Partial<EndpointDraft>) => onChange({ ...value, ...patch });
-  const format = API_FORMATS.find((f) => f.value === value.apiFormat);
+  const formatHint = apiFormatHint(value.apiFormat);
   const nameBad = !!value.name.trim() && !NAME_RE.test(value.name.trim());
   const canList =
     URL_RE.test(value.baseUrl.trim()) &&
@@ -112,7 +114,7 @@ export default function EndpointForm({
   return (
     <fieldset disabled={disabled} className="space-y-3">
       <label className="block">
-        <span className={LABEL}>Base URL</span>
+        <span className={LABEL}>{t("models.endpoint.baseUrl")}</span>
         <input
           autoCapitalize="off"
           autoCorrect="off"
@@ -126,26 +128,26 @@ export default function EndpointForm({
 
       <div>
         <label className="block">
-          <span className={LABEL}>API format</span>
+          <span className={LABEL}>{t("models.endpoint.apiFormat")}</span>
           <select
             value={value.apiFormat}
             onChange={(e) => set({ apiFormat: e.target.value as ApiFormat })}
             className={INPUT}
           >
             {API_FORMATS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
+              <option key={f} value={f}>
+                {apiFormatLabel(f)}
               </option>
             ))}
           </select>
         </label>
-        {format && <p className="mt-1 text-[11px] text-fg-subtle">{format.hint}</p>}
+        {formatHint && <p className="mt-1 text-[11px] text-fg-subtle">{formatHint}</p>}
       </div>
 
       {value.needsKey && !value.credentialId && (
         <div>
           <label className="block">
-            <span className={LABEL}>API key</span>
+            <span className={LABEL}>{t("models.endpoint.apiKey")}</span>
             <input
               autoCapitalize="off"
               autoCorrect="off"
@@ -154,19 +156,19 @@ export default function EndpointForm({
               autoComplete="off"
               value={value.key}
               onChange={(e) => set({ key: e.target.value })}
-              placeholder="Paste your key"
+              placeholder={t("models.endpoint.keyPlaceholder")}
               className={`${INPUT} font-mono`}
             />
           </label>
           <p className="mt-1 text-[11px] text-fg-subtle">
-            Stored in your system keychain, not in a file.
+            {t("models.endpoint.keyHint")}
           </p>
         </div>
       )}
 
       <div>
         <label className="block">
-          <span className={LABEL}>Model id</span>
+          <span className={LABEL}>{t("models.endpoint.modelId")}</span>
           <input
             autoCapitalize="off"
             autoCorrect="off"
@@ -175,20 +177,20 @@ export default function EndpointForm({
             onChange={(e) => set({ modelId: e.target.value })}
             placeholder={
               listed.data?.length
-                ? "Pick one below, or type an id"
-                : "The provider's model name, e.g. gpt-5 or mimo-v2.6-flash"
+                ? t("models.endpoint.modelIdPlaceholderPick")
+                : t("models.endpoint.modelIdPlaceholder")
             }
             className={`${INPUT} font-mono`}
           />
         </label>
         {listed.isFetching && (
           <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-fg-subtle">
-            <Loader2 className="h-3 w-3 animate-spin" /> Asking the endpoint for its models…
+            <Loader2 className="h-3 w-3 animate-spin" /> {t("models.endpoint.listing")}
           </p>
         )}
         {!listed.isFetching && listed.data && listed.data.length > 0 && (
           <label className="mt-2 block">
-            <span className="sr-only">Models this endpoint offers</span>
+            <span className="sr-only">{t("models.endpoint.offeredLabel")}</span>
             <select
               data-testid="endpoint-models"
               value={listed.data.includes(value.modelId.trim()) ? value.modelId.trim() : ""}
@@ -196,9 +198,7 @@ export default function EndpointForm({
               className={INPUT}
             >
               <option value="">
-                {listed.data.length === 1
-                  ? "1 model offered"
-                  : `${listed.data.length} models offered — choose one`}
+                {t("models.endpoint.offered", { count: listed.data.length })}
               </option>
               {listed.data.map((m) => (
                 <option key={m} value={m}>
@@ -210,9 +210,9 @@ export default function EndpointForm({
         )}
         {!listed.isFetching && listed.error && (
           <p data-testid="endpoint-models-error" className="mt-1 text-[11px] text-fg-subtle">
-            Couldn&apos;t list its models:{" "}
-            {listed.error instanceof Error ? listed.error.message : String(listed.error)}. Type the
-            model id from the provider&apos;s docs.
+            {t("models.endpoint.listFailed", {
+              error: listed.error instanceof Error ? listed.error.message : String(listed.error),
+            })}
           </p>
         )}
       </div>
@@ -225,26 +225,26 @@ export default function EndpointForm({
           className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted hover:text-fg-soft"
         >
           <ChevronRight className={`h-3.5 w-3.5 transition-transform ${advanced ? "rotate-90" : ""}`} />
-          Advanced
+          {t("common.advanced")}
         </button>
         {advanced && (
           <div className="mt-2 space-y-3 border-l-2 border-line pl-3">
             <div>
               <label className="block">
-                <span className={LABEL}>Name in Peko (optional)</span>
+                <span className={LABEL}>{t("models.endpoint.name")}</span>
                 <input
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}
                   value={value.name}
                   onChange={(e) => set({ name: e.target.value })}
-                  placeholder={value.modelId.trim() || "Defaults to the model id"}
+                  placeholder={value.modelId.trim() || t("models.endpoint.namePlaceholder")}
                   aria-invalid={nameBad}
                   className={INPUT}
                 />
               </label>
               {nameBad && (
-                <p className="mt-1 text-[11px] text-danger">Use letters, numbers, ., - or _.</p>
+                <p className="mt-1 text-[11px] text-danger">{t("models.endpoint.nameInvalid")}</p>
               )}
             </div>
             <label className="flex items-center gap-2 text-xs text-fg-soft">
@@ -253,17 +253,17 @@ export default function EndpointForm({
                 checked={!value.needsKey}
                 onChange={(e) => set({ needsKey: !e.target.checked, key: "", credentialId: "" })}
               />
-              No key needed (a local server, for example)
+              {t("models.endpoint.noKey")}
             </label>
             {value.needsKey && credentialOptions.length > 0 && (
               <label className="block">
-                <span className={LABEL}>Use a stored credential instead</span>
+                <span className={LABEL}>{t("models.endpoint.storedCredential")}</span>
                 <select
                   value={value.credentialId}
                   onChange={(e) => set({ credentialId: e.target.value, key: "" })}
                   className={INPUT}
                 >
-                  <option value="">— Paste a new key —</option>
+                  <option value="">{t("models.endpoint.pasteNewKey")}</option>
                   {credentialOptions.map((c) => (
                     <option key={c.value} value={c.value}>
                       {c.label}

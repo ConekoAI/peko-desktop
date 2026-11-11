@@ -1,0 +1,128 @@
+{
+  "inviteToast": {
+    "addedTo": "Você foi adicionado a <name/>",
+    "pending_one": "Mais {{count}} convite pendente",
+    "pending_many": "Mais {{count}} convites pendentes",
+    "pending_other": "Mais {{count}} convites pendentes",
+    "dismiss": "Fechar o aviso de convite"
+  },
+  "leave": {
+    "title": "Sair de <name/>?",
+    "body": "Você deixará de ver as novas mensagens daqui. Um membro pode adicionar você de volta depois.",
+    "creatorNote": "Você criou este grupo. Sair não o exclui: os demais membros mantêm o acesso.",
+    "confirm": "Sair do grupo"
+  },
+  "composer": {
+    "postFailed": "Não foi possível publicar a mensagem",
+    "forbidden": "Você não está neste grupo: só membros podem publicar. Peça a um membro para convidar você.",
+    "mentionLabel": "Mencionar um peko",
+    "messagePerson": "Mensagem para {{name}}",
+    "messageThem": "Enviar mensagem",
+    "messageGroupNamed": "Mensagem para {{name}} — @ para mencionar um peko",
+    "messageGroup": "Mensagem para o grupo — @ para mencionar um peko",
+    "send": "Enviar mensagem"
+  },
+  "event": {
+    "conversationWith": "Conversa com <name/>",
+    "them": "essa pessoa",
+    "groupCreated": "Grupo <name/> criado por <creator/>",
+    "joined": "entrou",
+    "left": "saiu"
+  },
+  "header": {
+    "dm": "Mensagem direta",
+    "group": "Grupo",
+    "guestTitle": "Você não está neste grupo: pode ler, mas não publicar.",
+    "viewOnly": "Somente leitura",
+    "createdBy": "Criado por <creator/> · {{date}}",
+    "share": "Compartilhar",
+    "invite": "Convidar",
+    "leave": "Sair",
+    "leaveTitle": "Sair do grupo",
+    "leaveTitleCreator": "Sair do grupo (você continuará sendo quem o criou)"
+  },
+  "members": {
+    "loading": "Carregando membros…",
+    "empty": "Ainda não há membros.",
+    "local": "Local",
+    "remote": "Remoto",
+    "peko": "Peko",
+    "person": "Pessoa",
+    "here": "Neste computador",
+    "elsewhere": "Em outro lugar",
+    "wakeLabel": "Quando {{name}} responde",
+    "wake": {
+      "human": {
+        "label": "Toda mensagem",
+        "hint": "Responde a toda mensagem de uma pessoa"
+      },
+      "mention": {
+        "label": "@menções",
+        "hint": "Responde quando alguém o @menciona"
+      },
+      "off": {
+        "label": "Nunca",
+        "hint": "Acompanha a conversa; só responde quando faz a própria verificação"
+      }
+    }
+  },
+  "share": {
+    "groupId": "ID do grupo <id/>",
+    "copyId": "Copiar ID",
+    "public": "Qualquer pessoa com o ID pode entrar",
+    "inviteOnly": "Só quem tem um link de convite pode entrar",
+    "intro": "Dê a este grupo um ID no PekoHub para que pessoas em outros computadores possam entrar. As mensagens continuam neste computador.",
+    "visibilityInviteOnly": "Somente por convite",
+    "visibilityPublic": "Público",
+    "registering": "Registrando…",
+    "register": "Registrar no PekoHub",
+    "makeLink": "Criar um link de convite",
+    "stopLinks": "Desativar todos os links",
+    "copyLink": "Copiar link",
+    "worksUntil": "Válido até {{date}}.",
+    "noneWorking": "Não havia nenhum link ativo.",
+    "stopped": "Links desativados: {{count}}."
+  },
+  "create": {
+    "title": "Novo grupo",
+    "intro": "Um grupo é uma conversa com você e vários pekos. Você pode adicionar mais pessoas e pekos depois.",
+    "name": "Nome do grupo",
+    "nameInvalid": "Use de 1 a 64 caracteres.",
+    "startedBy": "Iniciado por",
+    "loadingPekos": "Carregando seus pekos…",
+    "creating": "Criando…",
+    "create": "Criar",
+    "askToStart": "Por favor, crie um grupo chamado “{{name}}”, me adicione e registre-o no PekoHub (somente por convite) para que ele chegue aos meus outros computadores.",
+    "noPekoHere": "Um grupo fica no computador do peko que o inicia, e nenhum dos seus pekos fica neste.",
+    "askElsewhere": "Peça a um dos seus, em outro computador, para iniciá-lo; ele adiciona você e o grupo também aparece aqui.",
+    "nameFirst": "Dê um nome ao grupo e depois peça a um dos seus, em outro computador, para iniciá-lo.",
+    "ask": "Pedir a {{name}}",
+    "createPekoHere": "Criar um peko neste computador"
+  },
+  "invite": {
+    "title": "Convidar para <name/>",
+    "intro": "Escolha um peko para adicionar a este grupo.",
+    "notMember": "Só um membro pode adicionar outros. Peça primeiro a alguém do grupo que adicione um dos seus pekos.",
+    "searchPlaceholder": "Buscar pekos…",
+    "noCandidates": "Ainda não há pekos para convidar: todos os pekos locais já são membros.",
+    "noMatch": "Nenhum peko corresponde à sua busca.",
+    "inviting": "Convidando…",
+    "invite": "Convidar"
+  },
+  "landing": {
+    "title": "Grupos",
+    "hint": "Escolha um grupo na barra à esquerda ou inicie um com seus pekos."
+  },
+  "view": {
+    "loading": "Carregando eventos…",
+    "forbiddenTitle": "Você não está neste grupo.",
+    "forbiddenBody": "Só membros podem ler. Peça a um membro para convidar você: o convite torna você membro.",
+    "loadFailed": "Não foi possível carregar as mensagens deste grupo.",
+    "empty": "Ainda não há eventos.",
+    "sayHello": "Diga oi para <strong>{{name}}</strong>.",
+    "beFirst": "Seja a primeira pessoa a publicar em <strong>{{name}}</strong>.",
+    "askInvite": "Peça a um membro para convidar você e volte a este grupo para começar a publicar.",
+    "waitingAccept": "Aguardando {{name}} aceitar. O que você escrever aqui chegará quando isso acontecer.",
+    "readOnly": "Você pode ler este grupo, mas não publicar nele."
+  }
+}

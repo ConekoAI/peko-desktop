@@ -1,0 +1,65 @@
+{
+  "attachments": {
+    "listLabel": "Arquivos anexados",
+    "remove": "Remover {{name}}",
+    "open": "Abrir {{name}}",
+    "play": "Reproduzir {{name}}",
+    "cantPlay": "Não dá para reproduzir aqui; abra o arquivo",
+    "missingTitle": "{{name}} ainda não chegou do outro computador",
+    "missing": "ainda não recebido"
+  },
+  "composer": {
+    "label": "Mensagem",
+    "placeholder": "Escreva para o seu peko…",
+    "attachTitle": "Anexar arquivos — ou solte-os na janela",
+    "modelLabel": "Modelo para esta mensagem",
+    "pekosModel": "Modelo do peko",
+    "hint": "↵ para enviar · ⇧↵ para nova linha",
+    "sendTitle": "Enviar (Enter)"
+  },
+  "markdown": {
+    "svgImage": "Imagem SVG",
+    "code": "código",
+    "showImage": "Mostrar imagem",
+    "showCode": "Mostrar código",
+    "image": "Imagem",
+    "codeLabel": "Código",
+    "copyCode": "Copiar código"
+  },
+  "hostOffline": "<computer/> está offline, então {{peko}} não pode trabalhar agora. O que você enviar fica aguardando e chega a {{peko}} quando esse computador voltar; você receberá uma notificação quando {{peko}} responder.",
+  "hostOfflineSince": "<computer/> está offline (última vez online: {{ago}}), então {{peko}} não pode trabalhar agora. O que você enviar fica aguardando e chega a {{peko}} quando esse computador voltar; você receberá uma notificação quando {{peko}} responder.",
+  "waitingFor": "Aguardando {{name}} ficar online",
+  "suggestedReplies": "Respostas sugeridas",
+  "runFailure": {
+    "reason": {
+      "peko_limit": "o limite de gastos dele foi atingido",
+      "provider_quota": "a cota do provedor do modelo acabou",
+      "provider_unreachable": "não foi possível contatar o provedor do modelo"
+    },
+    "waiting": "Aguardando: {{reason}}. Ele continua sozinho; próxima tentativa: {{when}}.",
+    "failed": "A última resposta não foi concluída: {{reason}}."
+  },
+  "approval": {
+    "asker": "{{name}} ({{address}})",
+    "ownerTask": "Você pediu a {{peko}} algo {{where}} que precisa do seu acesso completo. Se aprovado, é executado como você, fora daquela conversa, apenas com estas instruções:",
+    "ownerTaskWhere": "em uma conversa compartilhada",
+    "toolRequest": "<asker/> pede que {{peko}} execute <summary/>",
+    "approve": "Aprovar",
+    "alwaysTitle": "Aprovar e sempre permitir isso para {{name}}",
+    "always": "Sempre permitir",
+    "deny": "Negar"
+  },
+  "yourPeko": "Seu peko",
+  "onComputer": "· em {{computer}}",
+  "ownersPeko": "Peko de {{owner}}",
+  "pekosComputer": "o computador de {{name}}",
+  "selectPeko": "Selecione um peko na barra lateral",
+  "noPekos": "Ainda não há pekos",
+  "noPekosHint": "Crie seu primeiro peko para começar a conversar.",
+  "createPeko": "Criar um peko",
+  "signInPrompt": "Tem pekos em outro computador? <signIn>Entre com o PekoHub</signIn> para vê-los aqui.",
+  "dropFiles": "Solte os arquivos para anexar",
+  "begin": "Envie uma mensagem para começar…",
+  "working": "{{name}} está trabalhando",
+  "workingFor": "{{name}} está trabalhando · {{seconds}} s"
+}

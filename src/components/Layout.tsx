@@ -17,6 +17,8 @@ import { useEngineVersionMismatch } from "../hooks/useEngine";
 import { applyTheme } from "../lib/theme";
 import { installDeepLinkHandler } from "../lib/deepLink";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import { traySetLabels } from "../lib/api";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   // Engine state is invisible on the happy path (ADR-043 §adoption).
@@ -53,6 +55,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // after 5s so a one-off mistyped URL doesn't leave a banner up
   // forever.
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
+
+  // The tray menu is drawn by the system, outside the page: hand it its
+  // labels at start and whenever the language changes.
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
+  useEffect(() => {
+    void traySetLabels({
+      open: t("layout.tray.open"),
+      quit: t("layout.tray.quit"),
+    }).catch(() => {
+      // No tray (browser preview, or a desktop without one): nothing to relabel.
+    });
+  }, [language, t]);
 
   useEffect(() => {
     applyTheme();

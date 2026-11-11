@@ -1,0 +1,28 @@
+{
+  "steps": {
+    "1": "連接一個模型",
+    "2": "為你的 peko 取名",
+    "3": "打個招呼"
+  },
+  "firstMessages": {
+    "hello": "嗨！你能幫我做些什麼？",
+    "stretch": "30 分鐘後提醒我起來伸展一下。",
+    "plan": "幫我規劃一下這週。"
+  },
+  "welcome": "歡迎使用 Peko",
+  "skip": "略過",
+  "progress": "導覽進度",
+  "pickModel": "模型是 peko 的大腦。你已經有一些模型了——選一個給你的第一個 peko 用。",
+  "addAnother": "改為新增其他模型",
+  "continue": "繼續",
+  "noAnswer": "模型沒有回應。",
+  "addModelIntro": "模型是 peko 的大腦。填入供應商文件裡的 Base URL（多數寫著「OpenAI 相容」，也就是 Chat Completions）和你的金鑰；Peko 隨後會列出它提供的模型。",
+  "unreachable": "無法連線到模型。",
+  "continueAnyway": "仍要繼續",
+  "adding": "正在新增…",
+  "checking": "正在檢查…",
+  "connect": "連接",
+  "awake": "{{name}} 醒來了。你想先說點什麼？",
+  "firstMessage": "第一則訊息",
+  "skipMessage": "不傳訊息，直接進入聊天"
+}

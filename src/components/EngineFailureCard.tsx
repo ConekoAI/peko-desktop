@@ -1,6 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { useEngineRestart } from "../hooks/useEngine";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * Layout-level recovery surface for the engine. Renders ONLY when
@@ -16,6 +17,7 @@ import { useState } from "react";
  * - The version mismatch banner lives here too, for the same reason.
  */
 export default function EngineFailureCard({ message }: { message: string }) {
+  const { t } = useTranslation();
   const restart = useEngineRestart();
   const [showDetails, setShowDetails] = useState(false);
 
@@ -28,13 +30,10 @@ export default function EngineFailureCard({ message }: { message: string }) {
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-danger">
-            The engine couldn't start
+            {t("layout.engineFailure.title")}
           </p>
           <p className="mt-1 text-xs text-danger">
-            This usually means another peko daemon is using the IPC
-            socket, or the bundled engine binary failed to launch.
-            Chat and other engine-backed features won't work until
-            the engine is running.
+            {t("layout.engineFailure.body")}
           </p>
           {showDetails && (
             <pre
@@ -52,13 +51,13 @@ export default function EngineFailureCard({ message }: { message: string }) {
           disabled={restart.isPending}
           className="btn-danger-solid btn-sm"
         >
-          {restart.isPending ? "Restarting…" : "Restart engine"}
+          {restart.isPending ? t("layout.engineFailure.restarting") : t("layout.engineFailure.restart")}
         </button>
         <button
           onClick={() => setShowDetails((s) => !s)}
           className="text-xs font-medium text-danger underline-offset-2 hover:underline"
         >
-          {showDetails ? "Hide details" : "Show details"}
+          {showDetails ? t("layout.engineFailure.hideDetails") : t("layout.engineFailure.showDetails")}
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEngineStatus } from "../hooks/useEngine";
 import {
   engineStateLabel,
@@ -13,6 +14,7 @@ import {
  * component is mounted directly.
  */
 export default function StatusBar() {
+  const { t } = useTranslation();
   const { data: engine } = useEngineStatus();
 
   if (engine?.kind !== "failed") {
@@ -26,7 +28,10 @@ export default function StatusBar() {
       <div className="flex items-center gap-2">
         <span className="inline-block h-2 w-2 rounded-full bg-danger" />
         <span className="font-medium">
-          {engineStateLabel(engine)}: {subtitle ?? "engine is in a failed state"}
+          {t("layout.statusBar.failed", {
+            label: engineStateLabel(engine),
+            detail: subtitle ?? t("layout.statusBar.failedFallback"),
+          })}
         </span>
       </div>
       <span>v—</span>

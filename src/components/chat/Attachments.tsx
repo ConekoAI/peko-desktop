@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { File, FileText, Film, Image as ImageIcon, Music, Play, X } from "lucide-react";
 
@@ -78,9 +79,10 @@ export function PendingAttachments({
   paths: string[];
   onRemove: (path: string) => void;
 }) {
+  const { t } = useTranslation();
   if (paths.length === 0) return null;
   return (
-    <ul aria-label="Attached files" className="flex flex-wrap gap-1.5 px-3 pt-3">
+    <ul aria-label={t("chat.attachments.listLabel")} className="flex flex-wrap gap-1.5 px-3 pt-3">
       {paths.map((path) => {
         const name = baseName(path);
         const Icon = ICONS[attachmentKind(name)];
@@ -91,7 +93,7 @@ export function PendingAttachments({
             <button
               type="button"
               onClick={() => onRemove(path)}
-              aria-label={`Remove ${name}`}
+              aria-label={t("chat.attachments.remove", { name })}
               className="-mr-0.5 rounded p-0.5 text-fg-subtle hover:bg-surface-sunken hover:text-fg-soft"
             >
               <X className="h-3 w-3" />
@@ -111,13 +113,14 @@ function Thumbnail({ attachment }: { attachment: ChatLogAttachment }) {
     retry: false,
   });
   // An image the webview cannot decode shows as a file instead.
+  const { t } = useTranslation();
   const [broken, setBroken] = useState(false);
   if (!preview.data || broken) return <FileChip attachment={attachment} />;
   return (
     <button
       type="button"
       onClick={() => void attachmentOpen(attachment.path)}
-      title={`Open ${attachment.name}`}
+      title={t("chat.attachments.open", { name: attachment.name })}
       className="overflow-hidden rounded-lg border border-line hover:opacity-90"
     >
       <img
@@ -131,12 +134,13 @@ function Thumbnail({ attachment }: { attachment: ChatLogAttachment }) {
 }
 
 function FileChip({ attachment }: { attachment: ChatLogAttachment }) {
+  const { t } = useTranslation();
   const Icon = ICONS[attachmentKind(attachment.name, attachment.mime)];
   return (
     <button
       type="button"
       onClick={() => void attachmentOpen(attachment.path)}
-      title={`Open ${attachment.name}`}
+      title={t("chat.attachments.open", { name: attachment.name })}
       className={`${CHIP} hover:bg-surface-sunken`}
     >
       <Icon className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
@@ -153,6 +157,7 @@ function FileChip({ attachment }: { attachment: ChatLogAttachment }) {
  * an inline player (loaded only on demand; files can be large).
  */
 function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "audio" | "video" }) {
+  const { t } = useTranslation();
   const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
   if (playing && !failed) {
@@ -171,8 +176,8 @@ function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "
         type="button"
         onClick={() => setPlaying(true)}
         disabled={failed}
-        aria-label={`Play ${attachment.name}`}
-        title={failed ? "Can't play this here; open it instead" : `Play ${attachment.name}`}
+        aria-label={t("chat.attachments.play", { name: attachment.name })}
+        title={failed ? t("chat.attachments.cantPlay") : t("chat.attachments.play", { name: attachment.name })}
         className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand text-brand-fg hover:bg-brand-hover disabled:opacity-40"
       >
         <Play className="h-3.5 w-3.5" />
@@ -184,12 +189,13 @@ function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "
 
 /** A file from another computer that did not arrive (runtime ADR-094). */
 function MissingChip({ attachment }: { attachment: ChatLogAttachment }) {
+  const { t } = useTranslation();
   const Icon = ICONS[attachmentKind(attachment.name, attachment.mime)];
   return (
-    <span title={`${attachment.name} didn't arrive from the other computer yet`} className={`${CHIP} opacity-60`}>
+    <span title={t("chat.attachments.missingTitle", { name: attachment.name })} className={`${CHIP} opacity-60`}>
       <Icon className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
       <span className="truncate">{attachment.name}</span>
-      <span className="shrink-0 text-fg-subtle">not received yet</span>
+      <span className="shrink-0 text-fg-subtle">{t("chat.attachments.missing")}</span>
     </span>
   );
 }

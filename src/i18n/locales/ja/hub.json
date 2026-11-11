@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "PekoHub アカウントメニュー",
+    "loading": "PekoHub の状態を読み込み中…",
+    "signedInAs": "PekoHub · @{{handle}} としてサインイン中",
+    "signedIn": "PekoHub · サインイン中",
+    "signIn": "PekoHub にサインイン",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · 未サインイン",
+    "signInAgain": "サインインをやり直す",
+    "signInWith": "PekoHub でサインイン",
+    "signOut": "サインアウト",
+    "disconnect": "このコンピューターの接続を解除…",
+    "relink": "PekoHub アカウントを再リンク",
+    "waiting": "PekoHub からのリダイレクトを待っています… ブラウザーでサインインを完了してください。ページが開かなかった場合は、やり直してください。",
+    "connectFailed": "サインインしましたが、このコンピューターは PekoHub に接続できませんでした: {{error}}",
+    "unknownError": "不明なエラー",
+    "signInFailed": "サインインに失敗しました。ブラウザーを確認して、もう一度お試しください。",
+    "disconnectFailed": "このコンピューターの接続を解除できませんでした: {{error}}"
+  },
+  "disconnect": {
+    "title": "このコンピューターの接続を解除しますか？",
+    "message": "このコンピューターの peko はローカル専用になり、PekoHub 経由では誰も連絡できなくなります。あなたもサインアウトされます。ほかのコンピューターにいる peko とのチャットのうち、このコンピューターにあるコピーは削除されます。相手のコンピューターには残り、もう一度サインインすると戻ります。",
+    "confirm": "接続を解除",
+    "confirming": "接続を解除中…",
+    "unsentTitle": "まだ届いていないメッセージがあります",
+    "unsentMessage": "ほかのコンピューターにいる peko 宛てのメッセージ {{count}} 件が、相手のコンピューターがオフラインのためまだ届いていません。今接続を解除すると失われます。届くまで待つか、このまま解除してください。",
+    "anyway": "このまま解除",
+    "wait": "待つ"
+  },
+  "notifications": {
+    "label": "PekoHub の通知",
+    "labelUnread": "PekoHub の通知、未読 {{count}} 件",
+    "unreachable": "PekoHub に接続できませんでした。",
+    "empty": "まだ何もありません。",
+    "justNow": "たった今",
+    "minutesAgo": "{{count}} 分前",
+    "hoursAgo": "{{count}} 時間前"
+  }
+}

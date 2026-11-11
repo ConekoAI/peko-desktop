@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { currentLocale } from "../i18n";
 import { ChevronDown, ChevronRight, ClipboardList, Loader2, Plus } from "lucide-react";
 import { useChangeBoard, useChannelBoard, useChannelInfo } from "../hooks/useChannels";
 import { useChannelDirectory } from "../hooks/useChannelDirectory";
@@ -13,6 +15,7 @@ import type { BoardItem, BoardOp } from "../types";
  * in front; a check-in that came due shows in the summary.
  */
 export default function BoardPanel({ channelId }: { channelId: string }) {
+  const { t } = useTranslation();
   const { data: info } = useChannelInfo(channelId);
   const isGroup = info?.kind === "group";
   const { data: items } = useChannelBoard(channelId, isGroup);
@@ -36,11 +39,11 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
   }
 
   const summary = all.length === 0
-    ? "No work on the board yet"
+    ? t("board.empty")
     : [
-        `${active.length} open`,
-        blocked.length > 0 ? `${blocked.length} blocked` : null,
-        due.length > 0 ? `${due.length} past check-in` : null,
+        t("board.open", { count: active.length }),
+        blocked.length > 0 ? t("board.blocked", { count: blocked.length }) : null,
+        due.length > 0 ? t("board.pastCheckIn", { count: due.length }) : null,
       ]
         .filter(Boolean)
         .join(" · ");
@@ -56,7 +59,7 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
       >
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         <ClipboardList className="h-3.5 w-3.5 text-brand-text" />
-        <span className="font-semibold text-fg">Board</span>
+        <span className="font-semibold text-fg">{t("board.title")}</span>
         <span data-testid="board-summary">{summary}</span>
       </button>
       {open && (
@@ -75,8 +78,8 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
                     {holder
                       ? holder.label
                       : item.for
-                        ? `for ${directory.resolve(item.for).label}`
-                        : "unclaimed"}
+                        ? t("board.for", { name: directory.resolve(item.for).label })
+                        : t("board.unclaimed")}
                   </span>
                 </div>
                 {(item.note || item.check_at) && (
@@ -84,8 +87,9 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
                     {item.note}
                     {item.check_at && item.state !== "done" && (
                       <span className={pastCheckIn ? "ml-1 text-warn" : "ml-1"}>
-                        {pastCheckIn ? "past its check-in" : "check-in"}{" "}
-                        {new Date(item.check_at).toLocaleString()}
+                        {t(pastCheckIn ? "board.checkInPast" : "board.checkIn", {
+                          date: new Date(item.check_at).toLocaleString(currentLocale()),
+                        })}
                       </span>
                     )}
                   </div>
@@ -108,39 +112,39 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
                       autoFocus
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="What does it wait on?"
+                      placeholder={t("board.blockPlaceholder")}
                       maxLength={500}
                       className="input input-sm min-w-0 flex-1"
                     />
                     <button type="submit" className="btn-secondary btn-xs">
-                      Block
+                      {t("board.block")}
                     </button>
                     <button type="button" onClick={() => setBlocking(null)} className="btn-ghost btn-xs">
-                      Cancel
+                      {t("common.cancel")}
                     </button>
                   </form>
                 ) : (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {!item.claimant && item.state !== "done" && (
-                      <Action label="Take it" onClick={() => run({ op: "claim", item: item.id })} />
+                      <Action label={t("board.take")} onClick={() => run({ op: "claim", item: item.id })} />
                     )}
                     {mine && item.state !== "done" && (
                       <>
                         {item.state === "blocked" && (
-                          <Action label="Unblock" onClick={() => run({ op: "update", item: item.id, state: "doing" })} />
+                          <Action label={t("board.unblock")} onClick={() => run({ op: "update", item: item.id, state: "doing" })} />
                         )}
                         {item.state !== "blocked" && (
-                          <Action label="Blocked…" onClick={() => setBlocking(item.id)} />
+                          <Action label={t("board.blockedAction")} onClick={() => setBlocking(item.id)} />
                         )}
-                        <Action label="Done" onClick={() => run({ op: "update", item: item.id, state: "done" })} />
-                        <Action label="Let go" onClick={() => run({ op: "release", item: item.id })} />
+                        <Action label={t("board.done")} onClick={() => run({ op: "update", item: item.id, state: "done" })} />
+                        <Action label={t("board.letGo")} onClick={() => run({ op: "release", item: item.id })} />
                       </>
                     )}
                     {!mine && addedByMe && item.state !== "done" && (
-                      <Action label="Mark done" onClick={() => run({ op: "update", item: item.id, state: "done" })} />
+                      <Action label={t("board.markDone")} onClick={() => run({ op: "update", item: item.id, state: "done" })} />
                     )}
                     {addedByMe && (
-                      <Action label="Remove" onClick={() => run({ op: "drop", item: item.id })} />
+                      <Action label={t("common.remove")} onClick={() => run({ op: "drop", item: item.id })} />
                     )}
                   </div>
                 )}
@@ -151,18 +155,18 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
             className="flex gap-1.5 pt-1"
             onSubmit={(e) => {
               e.preventDefault();
-              const t = title.trim();
-              if (!t) return;
-              run({ op: "add", title: t }, () => setTitle(""));
+              const text = title.trim();
+              if (!text) return;
+              run({ op: "add", title: text }, () => setTitle(""));
             }}
           >
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Add work to the board"
+              placeholder={t("board.addPlaceholder")}
               maxLength={120}
               className="input input-sm min-w-0 flex-1"
-              aria-label="New board item"
+              aria-label={t("board.newItem")}
             />
             <button
               type="submit"
@@ -170,7 +174,7 @@ export default function BoardPanel({ channelId }: { channelId: string }) {
               className="btn-primary btn-sm"
             >
               {change.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-              Add
+              {t("common.add")}
             </button>
           </form>
           {change.error && (
@@ -204,9 +208,10 @@ const STATE_STYLE: Record<BoardItem["state"], string> = {
 };
 
 function StateChip({ state }: { state: BoardItem["state"] }) {
+  const { t } = useTranslation();
   return (
     <span className={`badge shrink-0 uppercase tracking-wide ${STATE_STYLE[state]}`}>
-      {state}
+      {t(`board.state.${state}`)}
     </span>
   );
 }

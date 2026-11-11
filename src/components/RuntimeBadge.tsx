@@ -1,4 +1,5 @@
 import { Monitor, Globe } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 /**
  * PR-1 channel UI primitive. Visual reuse of the runtime
@@ -21,21 +22,21 @@ export default function RuntimeBadge({
   size?: "sm" | "md";
   showLabel?: boolean;
 }) {
+  const { t } = useTranslation();
   const isLocal = runtimeId === "local";
   const Icon = isLocal ? Monitor : Globe;
   const sizeClass = size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5";
-  const label = isLocal ? "Local runtime" : runtimeId;
 
   return (
     <span
       className="inline-flex items-center gap-1 text-fg-muted"
       data-testid={`runtime-badge-${runtimeId}`}
-      title={label}
+      title={isLocal ? undefined : runtimeId}
     >
       <Icon className={sizeClass} aria-hidden="true" />
       {showLabel && (
         <span className="text-[10px] font-medium uppercase tracking-wider">
-          {isLocal ? "Local" : runtimeId}
+          {isLocal ? t("layout.runtimeBadge.local") : runtimeId}
         </span>
       )}
     </span>

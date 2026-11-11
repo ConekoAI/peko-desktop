@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { MessageCircle, Settings } from "lucide-react";
 import ProfileMenu from "./ProfileMenu";
 import HubNotificationBell from "./HubNotificationBell";
@@ -11,6 +12,7 @@ import { useUnreadCounts } from "../lib/unread";
  * tile, then account and settings at the foot.
  */
 export default function AppRail({ onCreateGroup }: { onCreateGroup?: () => void } = {}) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const unread = Object.values(useUnreadCounts()).reduce((sum, n) => sum + n, 0);
@@ -28,7 +30,7 @@ export default function AppRail({ onCreateGroup }: { onCreateGroup?: () => void 
   return (
     <aside className="flex h-full w-[72px] shrink-0 flex-col items-center bg-surface-rail pb-3 pt-3">
       <RailItem
-        label="Chats"
+        label={t("layout.rail.chats")}
         active={isHome}
         ariaCurrent={isHome}
         unread={unread > 0}
@@ -42,7 +44,7 @@ export default function AppRail({ onCreateGroup }: { onCreateGroup?: () => void 
       <RailDivider />
 
       <nav
-        aria-label="Groups"
+        aria-label={t("layout.rail.groups")}
         className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         data-testid="app-rail-groups"
       >
@@ -52,7 +54,7 @@ export default function AppRail({ onCreateGroup }: { onCreateGroup?: () => void 
       <div className="mt-2 flex w-full flex-col items-center gap-2 pt-2">
         <HubNotificationBell />
         <RailItem
-          label="Settings"
+          label={t("layout.rail.settings")}
           active={isSettings}
           ariaCurrent={isSettings}
           onClick={() => navigate({ to: "/settings" })}

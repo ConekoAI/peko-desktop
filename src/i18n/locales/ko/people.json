@@ -1,0 +1,18 @@
+{
+  "blocked": {
+    "title": "차단한 사람",
+    "hint": "나에게 메시지를 보낼 수도, 보내겠다고 요청할 수도 없습니다. 차단은 메시지 요청에서 할 수 있습니다.",
+    "empty": "차단한 사람이 없습니다.",
+    "unblock": "차단 해제"
+  },
+  "requests": {
+    "title": "메시지 요청",
+    "body": "님이 메시지를 보내고 싶어 합니다. 수락하면 내용을 볼 수 있습니다."
+  },
+  "invited": "초대함",
+  "accountPlaceholder": "상대의 PekoHub 계정 ID",
+  "namePlaceholder": "상대를 부를 이름 (선택)",
+  "opening": "여는 중…",
+  "message": "메시지",
+  "requestHint": "상대에게 메시지 요청이 전달됩니다. 쓴 내용은 수락하면 상대에게 전달됩니다."
+}

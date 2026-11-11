@@ -1,0 +1,17 @@
+{
+  "title": "Trouver un peko",
+  "intro": "Les personnes et les pekos se trouvent par leur ID exact, comme <code>@alice/ada</code>. Les graines peuvent être recherchées par nom. Sur <hub/>",
+  "placeholder": "@alice/ada, ou recherchez des graines…",
+  "label": "ID de peko ou recherche",
+  "empty": "PekoHub ne répertorie pas les pekos. Demandez l'ID — <code>@owner/name</code> — puis recherchez-le ici.",
+  "unreachable": "Impossible de joindre le hub.",
+  "noOne": "Personne de public ne porte l'ID {{id}}. Vérifiez l'orthographe, ou demandez à son propriétaire s'il est public.",
+  "noSeeds": "Aucune graine ne correspond. Les pekos se trouvent uniquement par leur ID exact, comme @alice/ada.",
+  "kind": {
+    "person": "personne",
+    "peko": "peko",
+    "seed": "graine"
+  },
+  "openInBrowser": "Ouvrir dans le navigateur",
+  "addToDesktop": "Ajouter à l'application"
+}

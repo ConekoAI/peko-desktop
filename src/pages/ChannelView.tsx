@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import ChannelHeader from "../components/ChannelHeader";
 import ChannelComposer from "../components/ChannelComposer";
 import ChannelEventRow from "../components/ChannelEventRow";
@@ -46,6 +47,7 @@ import type { ChannelEvent } from "../types";
  * user back to `/channels`.
  */
 export default function ChannelView() {
+  const { t } = useTranslation();
   const params = useParams({ strict: false });
   const search = useSearch({ strict: false }) as {
     runtimeId?: string;
@@ -209,7 +211,7 @@ export default function ChannelView() {
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-xs text-fg-subtle">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading events…
+            {t("channel.view.loading")}
           </div>
         ) : eventsError ? (
           isChannelForbidden(eventsError) ? (
@@ -223,11 +225,10 @@ export default function ChannelView() {
                 <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="flex-1">
                   <p className="font-medium">
-                    You aren&apos;t in this group.
+                    {t("channel.view.forbiddenTitle")}
                   </p>
                   <p className="mt-1 opacity-80">
-                    Only members can read it. Ask a current
-                    member to invite you — the invite mints your membership.
+                    {t("channel.view.forbiddenBody")}
                   </p>
                 </div>
               </div>
@@ -242,7 +243,7 @@ export default function ChannelView() {
             <div className="flex items-start gap-2">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <div className="flex-1">
-                <p className="font-medium">Couldn't load this group's messages.</p>
+                <p className="font-medium">{t("channel.view.loadFailed")}</p>
                 <p className="mt-1 opacity-80">
                   {eventsErrorMessage}
                 </p>
@@ -253,7 +254,7 @@ export default function ChannelView() {
                   data-testid="channel-events-retry"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  Retry
+                  {t("common.retry")}
                 </button>
               </div>
             </div>
@@ -270,7 +271,7 @@ export default function ChannelView() {
                   className="btn-secondary btn-xs rounded-full px-3"
                 >
                   {loadingOlder && <Loader2 className="h-3 w-3 animate-spin" />}
-                  Load earlier messages
+                  {t("common.loadEarlier")}
                 </button>
                 {olderError && <span className="text-xs text-danger">{olderError}</span>}
               </div>
@@ -289,23 +290,30 @@ export default function ChannelView() {
             data-testid="channel-events-empty"
           >
             <div className="mb-2 text-sm text-fg-muted">
-              No events yet.
+              {t("channel.view.empty")}
             </div>
             {person ? (
               <div className="text-xs text-fg-subtle">
-                Say hello to <strong>{personLabel(person)}</strong>.
+                <Trans
+                  i18nKey="channel.view.sayHello"
+                  values={{ name: personLabel(person) }}
+                  components={{ strong: <strong /> }}
+                />
               </div>
             ) : (
               detail?.name && (
                 <div className="text-xs text-fg-subtle">
-                  Be the first to post in <strong>{detail.name}</strong>.
+                  <Trans
+                    i18nKey="channel.view.beFirst"
+                    values={{ name: detail.name }}
+                    components={{ strong: <strong /> }}
+                  />
                 </div>
               )
             )}
             {!isMember && !person && (
               <div className="mt-3 text-xs text-fg-subtle">
-                Ask a current member to invite you, then return to
-                this group to start posting.
+                {t("channel.view.askInvite")}
               </div>
             )}
           </div>
@@ -317,7 +325,7 @@ export default function ChannelView() {
           className="border-t border-line bg-surface-raised px-5 py-2 text-xs text-fg-subtle"
           data-testid="person-dm-waiting"
         >
-          Waiting for {personLabel(person)} to accept. What you write here reaches them when they do.
+          {t("channel.view.waitingAccept", { name: personLabel(person) })}
         </div>
       )}
       {isMember || person ? (
@@ -332,7 +340,7 @@ export default function ChannelView() {
           className="m-4 mt-2 rounded-xl border border-line bg-surface-raised px-4 py-3 text-center text-xs text-fg-muted"
           data-testid="channel-composer-no-sender"
         >
-          You can read this group but not post in it.
+          {t("channel.view.readOnly")}
         </div>
       )}
 

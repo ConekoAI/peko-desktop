@@ -1,0 +1,15 @@
+{
+  "unknown": "알 수 없는 오류",
+  "searchFailed": "검색 실패: HTTP {{status}}",
+  "unsupportedLink": "지원하지 않는 링크: {{link}}",
+  "addRemotePekoFailed": "원격 peko를 추가하지 못했습니다: {{message}}",
+  "hubNotifications": "PekoHub 알림: HTTP {{status}}",
+  "tokenExchangeFailed": "토큰 교환 실패 ({{status}}): {{text}}",
+  "tokenRefreshFailed": "토큰 갱신 실패 ({{status}}): {{text}}",
+  "listAccessiblePekosFailed": "접근 가능한 peko 목록을 가져오지 못했습니다 ({{status}}): {{text}}",
+  "hubUnexpectedResponse": "PekoHub에서 예상치 못한 형식의 응답을 받았습니다",
+  "oauthNoActiveFlow": "진행 중인 OAuth 흐름이 없습니다. 먼저 로그인을 시작하세요.",
+  "oauthStateMismatch": "OAuth state가 일치하지 않습니다. CSRF 공격일 수 있습니다.",
+  "oauthNoAccessToken": "토큰 엔드포인트에서 access_token을 받지 못했습니다",
+  "hubRequestFailed": "PekoHub 요청 실패 ({{status}}): {{text}}"
+}

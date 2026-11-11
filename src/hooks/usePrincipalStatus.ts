@@ -7,6 +7,7 @@ import {
   type RuntimeId,
 } from "../lib/api";
 import { loadOAuthBundle } from "./useRuntimes";
+import { t } from "../i18n";
 
 /**
  * PR #9: live status polling. The decorative `STATUS_OPTIONS`
@@ -208,15 +209,15 @@ export function statusBadge(value: PrincipalStatusValue): {
 } {
   switch (value) {
     case "online":
-      return { label: "Online", color: "text-ok", icon: "circle" };
+      return { label: t("peko.status.online"), color: "text-ok", icon: "circle" };
     case "busy":
-      return { label: "Busy", color: "text-warn", icon: "dot" };
+      return { label: t("peko.status.busy"), color: "text-warn", icon: "dot" };
     case "offline":
-      return { label: "Offline", color: "text-fg-subtle", icon: "off" };
+      return { label: t("peko.status.offline"), color: "text-fg-subtle", icon: "off" };
     case "error":
-      return { label: "Error", color: "text-danger", icon: "alert" };
+      return { label: t("peko.status.error"), color: "text-danger", icon: "alert" };
     case "unknown":
     default:
-      return { label: "Unknown", color: "text-fg-subtle", icon: "dot" };
+      return { label: t("peko.status.unknown"), color: "text-fg-subtle", icon: "dot" };
   }
 }

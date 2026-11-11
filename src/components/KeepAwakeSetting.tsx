@@ -1,4 +1,5 @@
 import { Coffee } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useSetSetting, useSettings } from "../hooks/useSettings";
 
 /** The engine's setting (`config.toml` `[power] keep_awake`, on by default). */
@@ -11,6 +12,7 @@ export const KEEP_AWAKE_KEY = "power.keep_awake";
  * halfway. Only idle sleep is held off, and only while a peko works.
  */
 export default function KeepAwakeSetting({ className }: { className?: string }) {
+  const { t } = useTranslation();
   const { data: settings } = useSettings();
   const setSetting = useSetSetting();
   const stored = settings?.find((s) => s.key === KEEP_AWAKE_KEY)?.value;
@@ -34,12 +36,10 @@ export default function KeepAwakeSetting({ className }: { className?: string }) 
         <span>
           <span className="h-section flex items-center gap-1.5">
             <Coffee className="h-4 w-4 text-brand-text" />
-            Keep this computer awake while a peko works
+            {t("layout.keepAwake.title")}
           </span>
           <span className="field-hint mt-0.5 block">
-            So the pekos on this computer can finish what you ask them from your other
-            computers. Sleep is held off only while a peko is working, and a minute after.
-            Closing a laptop&apos;s lid still puts it to sleep.
+            {t("layout.keepAwake.hint")}
           </span>
         </span>
       </label>

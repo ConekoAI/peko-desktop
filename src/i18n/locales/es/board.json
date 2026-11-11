@@ -1,0 +1,27 @@
+{
+  "title": "Tablero",
+  "empty": "Todavía no hay trabajo en el tablero",
+  "open": "{{count}} abiertas",
+  "blocked": "{{count}} bloqueadas",
+  "pastCheckIn": "{{count}} con la revisión vencida",
+  "for": "para {{name}}",
+  "unclaimed": "sin asignar",
+  "checkIn": "revisión {{date}}",
+  "checkInPast": "revisión vencida {{date}}",
+  "blockPlaceholder": "¿De qué depende?",
+  "block": "Bloquear",
+  "take": "Me encargo",
+  "unblock": "Desbloquear",
+  "blockedAction": "Bloqueada…",
+  "done": "Hecho",
+  "letGo": "Soltar",
+  "markDone": "Marcar como hecha",
+  "addPlaceholder": "Añade trabajo al tablero",
+  "newItem": "Nueva tarea del tablero",
+  "state": {
+    "open": "abierta",
+    "doing": "en curso",
+    "blocked": "bloqueada",
+    "done": "hecha"
+  }
+}

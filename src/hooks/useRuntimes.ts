@@ -24,6 +24,7 @@ import {
   buildAuthorizeUrl,
 } from "../lib/oauth";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { t } from "../i18n";
 
 export function useRuntimes() {
   return useQuery({
@@ -317,12 +318,12 @@ export async function exchangeOAuthCode(
 ): Promise<OAuthConnectResult> {
   const activeFlow = readActiveFlow();
   if (!activeFlow) {
-    throw new Error("No active OAuth flow. Start the flow first.");
+    throw new Error(t("errors.oauthNoActiveFlow"));
   }
   const { verifier, state, redirectUri, baseUrl } = activeFlow;
 
   if (returnedState !== state) {
-    throw new Error("OAuth state mismatch. Possible CSRF attack.");
+    throw new Error(t("errors.oauthStateMismatch"));
   }
 
   const tokenResp = await oauthTokenExchange({
@@ -335,7 +336,7 @@ export async function exchangeOAuthCode(
 
   const accessToken = tokenResp.access_token;
   if (!accessToken) {
-    throw new Error("No access_token received from token endpoint");
+    throw new Error(t("errors.oauthNoAccessToken"));
   }
 
   // Store full token bundle (access + refresh + expiry) in OS keychain

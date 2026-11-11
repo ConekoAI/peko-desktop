@@ -1,0 +1,17 @@
+{
+  "title": "查找 peko",
+  "intro": "用户和 peko 需要通过准确的 ID 查找，例如 <code>@alice/ada</code>。种子可以按名称搜索。当前使用 <hub/>",
+  "placeholder": "@alice/ada，或搜索种子…",
+  "label": "Peko ID 或搜索",
+  "empty": "PekoHub 不会列出 peko。请向对方要到 ID——<code>@owner/name</code>——再在这里查找。",
+  "unreachable": "无法连接 Hub。",
+  "noOne": "没有公开的 {{id}}。请检查拼写，或向其所有者确认它是否公开。",
+  "noSeeds": "没有匹配的种子。Peko 只能通过准确的 ID 查找，例如 @alice/ada。",
+  "kind": {
+    "person": "用户",
+    "peko": "peko",
+    "seed": "种子"
+  },
+  "openInBrowser": "在浏览器中打开",
+  "addToDesktop": "添加到桌面端"
+}

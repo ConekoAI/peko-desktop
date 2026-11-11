@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, Globe, Link as LinkIcon, X } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 
 import {
   parseShareUrl,
@@ -40,6 +41,7 @@ export default function AddRemotePrincipalModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { data: settings } = useSettings();
   const hubUrl = configuredHubUrl(settings);
   const [shareUrl, setShareUrl] = useState("");
@@ -110,7 +112,7 @@ export default function AddRemotePrincipalModal({
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-ok" />
             <h2 className="modal-title">
-              Add a peko
+              {t("peko.addRemote.title")}
             </h2>
           </div>
           <button
@@ -123,9 +125,7 @@ export default function AddRemotePrincipalModal({
 
         <div className="space-y-4 p-5 text-sm text-fg-soft">
           <p className="text-xs text-fg-muted">
-            Type the ID of someone&apos;s public peko, like{" "}
-            <code className="font-mono">@alice/coding-assistant</code>, or paste its
-            link from PekoHub.
+            <Trans i18nKey="peko.addRemote.intro" components={{ code: <code className="font-mono" /> }} />
           </p>
 
           <div>
@@ -133,7 +133,7 @@ export default function AddRemotePrincipalModal({
               htmlFor="remote-share-url"
               className="field-label mb-1.5 block"
             >
-              Peko ID or link
+              {t("peko.addRemote.label")}
             </label>
             <div className="relative">
               <LinkIcon className="absolute left-2.5 top-2 h-3.5 w-3.5 text-fg-subtle" />
@@ -148,15 +148,12 @@ export default function AddRemotePrincipalModal({
             </div>
             {shareUrl.trim() && !parsed && (
               <p className="mt-1 text-xs text-danger">
-                That doesn&apos;t look like a peko&apos;s ID or link. Expected{" "}
-                <code className="font-mono">@owner/name</code> or{" "}
-                <code className="font-mono">https://pekohub.ai/@owner/name</code>.
+                <Trans i18nKey="peko.addRemote.invalid" components={{ code: <code className="font-mono" /> }} />
               </p>
             )}
             {parsed && parsed.inviteToken && (
               <p className="mt-1 text-xs text-ok">
-                Invite token detected — the peko&apos;s owner shared this
-                link privately with you.
+                {t("peko.addRemote.inviteToken")}
               </p>
             )}
           </div>
@@ -170,8 +167,13 @@ export default function AddRemotePrincipalModal({
                 <ExposureBadge exposure={resolved.exposure} />
               </div>
               <p className="mt-1 text-xs text-fg-muted">
-                Owned by <span className="font-mono">{resolved.owner}</span> on{" "}
-                <span className="font-mono">{resolved.hubUrl}</span>
+                <Trans
+                  i18nKey="peko.addRemote.ownedBy"
+                  components={{
+                    owner: <span className="font-mono">{resolved.owner}</span>,
+                    hub: <span className="font-mono">{resolved.hubUrl}</span>,
+                  }}
+                />
               </p>
               {resolved.description && (
                 <p className="mt-2 text-xs text-fg-muted">
@@ -179,7 +181,7 @@ export default function AddRemotePrincipalModal({
                 </p>
               )}
               <p className="mt-2 text-[10px] uppercase tracking-wider text-fg-subtle">
-                Status: {resolved.status}
+                {t("peko.addRemote.status", { status: resolved.status })}
               </p>
             </div>
           )}
@@ -196,7 +198,7 @@ export default function AddRemotePrincipalModal({
             onClick={onClose}
             className="btn-secondary"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           {!resolved && (
             <button
@@ -204,7 +206,7 @@ export default function AddRemotePrincipalModal({
               disabled={!canCheck}
               className="btn-secondary"
             >
-              {resolveMut.isPending ? "Checking…" : "Check"}
+              {resolveMut.isPending ? t("peko.addRemote.checking") : t("peko.addRemote.check")}
             </button>
           )}
           {resolved && (
@@ -214,7 +216,7 @@ export default function AddRemotePrincipalModal({
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
             >
               <Check className="h-3.5 w-3.5" />
-              {addMut.isPending ? "Adding…" : "Add peko"}
+              {addMut.isPending ? t("peko.addRemote.adding") : t("peko.addRemote.add")}
             </button>
           )}
         </div>
@@ -224,7 +226,16 @@ export default function AddRemotePrincipalModal({
 }
 
 /** Color-coded badge for the four exposure values (PR #2 + PR #4). */
+const EXPOSURE_KEYS = {
+  public: "peko.exposure.public",
+  unlisted: "peko.exposure.unlisted",
+  private: "peko.exposure.private",
+  unexposed: "peko.exposure.unexposed",
+} as const;
+
 function ExposureBadge({ exposure }: { exposure: string }) {
+  const { t } = useTranslation();
+  const key = EXPOSURE_KEYS[exposure as keyof typeof EXPOSURE_KEYS];
   const palette: Record<string, string> = {
     public:
       "bg-ok-soft text-ok",
@@ -239,7 +250,7 @@ function ExposureBadge({ exposure }: { exposure: string }) {
     <span
       className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}
     >
-      {exposure}
+      {key ? t(key) : exposure}
     </span>
   );
 }

@@ -1,0 +1,18 @@
+{
+  "blocked": {
+    "title": "Pessoas bloqueadas",
+    "hint": "Elas não podem enviar mensagens a você nem pedir para enviar. O bloqueio é feito a partir de um pedido de mensagem.",
+    "empty": "Você não bloqueou ninguém.",
+    "unblock": "Desbloquear"
+  },
+  "requests": {
+    "title": "Pedidos de mensagem",
+    "body": "quer enviar uma mensagem a você. Você verá o que foi escrito depois de aceitar."
+  },
+  "invited": "convidado",
+  "accountPlaceholder": "ID da conta PekoHub da pessoa",
+  "namePlaceholder": "Como chamar a pessoa (opcional)",
+  "opening": "Abrindo…",
+  "message": "Enviar mensagem",
+  "requestHint": "A pessoa recebe um pedido de mensagem. O que você escrever chega quando ela aceitar."
+}

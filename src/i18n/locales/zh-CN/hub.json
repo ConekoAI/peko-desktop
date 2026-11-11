@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "PekoHub 账户菜单",
+    "loading": "正在加载 PekoHub 状态…",
+    "signedInAs": "PekoHub · 已登录为 @{{handle}}",
+    "signedIn": "PekoHub · 已登录",
+    "signIn": "登录 PekoHub",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · 未登录",
+    "signInAgain": "重新开始登录",
+    "signInWith": "使用 PekoHub 登录",
+    "signOut": "退出登录",
+    "disconnect": "断开这台电脑…",
+    "relink": "重新关联 PekoHub 账户",
+    "waiting": "正在等待 PekoHub 跳转回来…请在浏览器中完成登录以继续。如果页面没有打开，请重新开始。",
+    "connectFailed": "已登录，但这台电脑无法连接到 PekoHub：{{error}}",
+    "unknownError": "未知错误",
+    "signInFailed": "登录失败。请检查浏览器后重试。",
+    "disconnectFailed": "这台电脑无法断开连接：{{error}}"
+  },
+  "disconnect": {
+    "title": "断开这台电脑？",
+    "message": "这台电脑上的 peko 将变为仅限本机，任何人都无法再通过 PekoHub 联系它们，你也会退出登录。这台电脑上保存的、你与其他电脑上的 peko 的聊天副本会被删除；那些电脑会保留它们，你再次登录后会恢复。",
+    "confirm": "断开",
+    "confirming": "正在断开…",
+    "unsentTitle": "有些消息尚未送达",
+    "unsentMessage": "有 {{count}} 条发给其他电脑上的 peko 的消息尚未送达，因为那些电脑处于离线状态。现在断开会丢失这些消息。可以等它们送达，或仍然断开。",
+    "anyway": "仍然断开",
+    "wait": "等待"
+  },
+  "notifications": {
+    "label": "PekoHub 通知",
+    "labelUnread": "PekoHub 通知，{{count}} 条未读",
+    "unreachable": "无法连接 PekoHub。",
+    "empty": "暂时没有通知。",
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}} 分钟前",
+    "hoursAgo": "{{count}} 小时前"
+  }
+}

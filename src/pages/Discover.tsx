@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Trans, useTranslation } from "react-i18next";
 import {
   Search as SearchIcon,
   Loader2,
@@ -22,6 +23,7 @@ import { hubWebOrigin } from "../lib/api";
  * People and seeds open on the hub's website.
  */
 export default function Discover() {
+  const { t } = useTranslation();
   const { data: settings } = useSettings();
   const hubUrl = resolveHubUrl(settings?.find((s) => s.key === "pekohub.base_url")?.value);
   const [input, setInput] = useState("");
@@ -40,11 +42,12 @@ export default function Discover() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header className="border-b border-line bg-surface px-8 pb-5 pt-8">
-        <h1 className="h-page">Find a peko</h1>
+        <h1 className="h-page">{t("discover.title")}</h1>
         <p className="mt-1 text-sm text-fg-muted">
-          People and pekos are found by their exact ID, like <code>@alice/ada</code>. Seeds can be
-          searched by name. On{" "}
-          <code className="code-inline">{hubUrl}</code>
+          <Trans
+            i18nKey="discover.intro"
+            components={{ code: <code />, hub: <code className="code-inline">{hubUrl}</code> }}
+          />
         </p>
       </header>
 
@@ -61,8 +64,8 @@ export default function Discover() {
             type="search"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="@alice/ada, or search seeds…"
-            aria-label="Peko ID or search"
+            placeholder={t("discover.placeholder")}
+            aria-label={t("discover.label")}
             className="input pl-10 pr-3"
           />
         </div>
@@ -71,8 +74,7 @@ export default function Discover() {
       <section className="flex-1 overflow-y-auto px-8 py-6">
         {!q ? (
           <div className="rounded-xl border border-dashed border-line-strong p-12 text-center text-sm text-fg-muted">
-            PekoHub doesn&apos;t list pekos. Ask for one&apos;s ID — <code>@owner/name</code> — and
-            look it up here.
+            <Trans i18nKey="discover.empty" components={{ code: <code /> }} />
           </div>
         ) : search.isLoading ? (
           <div className="flex min-h-[30vh] items-center justify-center text-fg-muted">
@@ -83,9 +85,9 @@ export default function Discover() {
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <div>
-                Couldn&apos;t reach the hub.
+                {t("discover.unreachable")}
                 <p className="mt-1 text-xs">
-                  {search.error instanceof Error ? search.error.message : "Unknown error"}
+                  {search.error instanceof Error ? search.error.message : t("errors.unknown")}
                 </p>
               </div>
             </div>
@@ -93,8 +95,8 @@ export default function Discover() {
         ) : !data || (data.exact.length === 0 && data.items.length === 0) ? (
           <div className="rounded-xl border border-dashed border-line-strong p-12 text-center text-sm text-fg-muted">
             {byId
-              ? `No one public is ${q}. Check the spelling, or ask its owner whether it is public.`
-              : "No seeds matched. Pekos are found only by their exact ID, like @alice/ada."}
+              ? t("discover.noOne", { id: q })
+              : t("discover.noSeeds")}
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -161,6 +163,7 @@ function ResultCard({
   href: string;
   addLink?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <article className="card card-hover flex flex-col p-5">
       <header className="flex items-start justify-between gap-2">
@@ -176,7 +179,7 @@ function ResultCard({
           <p className="mt-0.5 truncate font-mono text-xs text-fg-muted">{id}</p>
         </div>
         <span className="badge-neutral shrink-0">
-          {kind}
+          {t(`discover.kind.${kind}`)}
         </span>
       </header>
 
@@ -192,7 +195,7 @@ function ResultCard({
           className="link inline-flex items-center gap-1 text-xs font-medium"
         >
           <ExternalLink className="h-3 w-3" />
-          Open in browser
+          {t("discover.openInBrowser")}
         </a>
         {addLink && (
           <a
@@ -200,7 +203,7 @@ function ResultCard({
             className="btn-secondary btn-sm"
           >
             <Plus className="h-3 w-3" />
-            Add to desktop
+            {t("discover.addToDesktop")}
           </a>
         )}
       </footer>

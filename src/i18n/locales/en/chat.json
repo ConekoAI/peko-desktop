@@ -1,0 +1,65 @@
+{
+  "attachments": {
+    "listLabel": "Attached files",
+    "remove": "Remove {{name}}",
+    "open": "Open {{name}}",
+    "play": "Play {{name}}",
+    "cantPlay": "Can't play this here; open it instead",
+    "missingTitle": "{{name}} didn't arrive from the other computer yet",
+    "missing": "not received yet"
+  },
+  "composer": {
+    "label": "Message",
+    "placeholder": "Message your peko…",
+    "attachTitle": "Attach files — or drop them on the window",
+    "modelLabel": "Model for this message",
+    "pekosModel": "Peko's model",
+    "hint": "↵ to send · ⇧↵ for a new line",
+    "sendTitle": "Send (Enter)"
+  },
+  "markdown": {
+    "svgImage": "SVG image",
+    "code": "code",
+    "showImage": "Show image",
+    "showCode": "Show code",
+    "image": "Image",
+    "codeLabel": "Code",
+    "copyCode": "Copy code"
+  },
+  "hostOffline": "<computer/> is offline, so {{peko}} can't work right now. What you send waits and reaches {{peko}} when that computer is back; you'll get a notification when {{peko}} answers.",
+  "hostOfflineSince": "<computer/> is offline (last online {{ago}}), so {{peko}} can't work right now. What you send waits and reaches {{peko}} when that computer is back; you'll get a notification when {{peko}} answers.",
+  "waitingFor": "Waiting for {{name}} to come online",
+  "suggestedReplies": "Suggested replies",
+  "runFailure": {
+    "reason": {
+      "peko_limit": "its spending limit is reached",
+      "provider_quota": "the model provider's quota is used up",
+      "provider_unreachable": "the model provider can't be reached"
+    },
+    "waiting": "Waiting — {{reason}}. It continues on its own, next try {{when}}.",
+    "failed": "The last reply didn't go through — {{reason}}."
+  },
+  "approval": {
+    "asker": "{{name}} ({{address}})",
+    "ownerTask": "You asked {{peko}} for something {{where}} that needs your full access. Approved, it runs as you, outside that conversation, with only this brief:",
+    "ownerTaskWhere": "in a shared conversation",
+    "toolRequest": "<asker/> asks {{peko}} to run <summary/>",
+    "approve": "Approve",
+    "alwaysTitle": "Approve, and always allow this for {{name}}",
+    "always": "Always allow",
+    "deny": "Deny"
+  },
+  "yourPeko": "Your peko",
+  "onComputer": "· on {{computer}}",
+  "ownersPeko": "{{owner}}'s peko",
+  "pekosComputer": "{{name}}'s computer",
+  "selectPeko": "Select a peko from the sidebar",
+  "noPekos": "No pekos yet",
+  "noPekosHint": "Create your first peko to start chatting.",
+  "createPeko": "Create a peko",
+  "signInPrompt": "Have pekos on another computer? <signIn>Sign in with PekoHub</signIn> to see them here.",
+  "dropFiles": "Drop files to attach",
+  "begin": "Send a message to begin...",
+  "working": "{{name}} is working",
+  "workingFor": "{{name}} is working · {{seconds}}s"
+}

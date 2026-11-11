@@ -1,0 +1,56 @@
+{
+  "rail": {
+    "chats": "Discussions",
+    "groups": "Groupes",
+    "settings": "Réglages",
+    "newGroup": "Nouveau groupe",
+    "invitationLabel": "Invitation : {{name}}",
+    "invitation": "Invitation",
+    "invitationSummary_one": "{{count}} membre · de la part de {{inviter}}",
+    "invitationSummary_many": "{{count}} membres · de la part de {{inviter}}",
+    "invitationSummary_other": "{{count}} membres · de la part de {{inviter}}",
+    "joining": "Adhésion en cours…",
+    "joinGroup": "Rejoindre un groupe",
+    "joinHint": "Collez un lien d'invitation, ou l'ID d'un groupe public.",
+    "joinAsked": "Demande envoyée pour rejoindre {{name}}. Il apparaîtra ici quand l'ordinateur de son propriétaire vous aura laissé entrer.",
+    "asking": "Demande en cours…"
+  },
+  "titleBar": {
+    "minimize": "Réduire",
+    "maximize": "Agrandir",
+    "restore": "Restaurer",
+    "close": "Fermer"
+  },
+  "engineFailure": {
+    "title": "Le moteur n'a pas pu démarrer",
+    "body": "La discussion et les autres fonctions qui dépendent du moteur ne fonctionneront pas tant qu'il ne tourne pas.",
+    "restart": "Redémarrer le moteur",
+    "restarting": "Redémarrage…",
+    "hideDetails": "Masquer les détails",
+    "showDetails": "Afficher les détails"
+  },
+  "statusBar": {
+    "failed": "{{label}} : {{detail}}",
+    "failedFallback": "le moteur est en échec"
+  },
+  "keepAwake": {
+    "title": "Garder cet ordinateur éveillé pendant qu'un peko travaille",
+    "hint": "Pour que les pekos de cet ordinateur puissent terminer ce que vous leur demandez depuis vos autres ordinateurs. La mise en veille n'est empêchée que pendant qu'un peko travaille, et une minute après. Fermer le capot d'un portable le met toujours en veille."
+  },
+  "runtimeBadge": {
+    "local": "Local"
+  },
+  "versionMismatch": {
+    "newerTitle": "Cette application est plus ancienne que votre Peko",
+    "newerBody": "Peko <running/> est en cours d'exécution, et cette application a été conçue pour <needed/>. Certaines fonctions peuvent ne pas marcher. Mettez à jour Peko Desktop.",
+    "olderTitle": "Votre Peko est plus ancien que ce dont cette application a besoin",
+    "olderBody": "Peko <running/> est en cours d'exécution, et cette application a besoin de <needed/> ou d'une version ultérieure. Certaines fonctions peuvent ne pas marcher.",
+    "unknownTitle": "Impossible de savoir si votre Peko convient à cette application",
+    "unknownBody": "Peko indique la version <running/>, et cette application a besoin de <needed/> ou d'une version ultérieure. Certaines fonctions peuvent ne pas marcher.",
+    "dismiss": "Fermer l'avertissement de version"
+  },
+  "tray": {
+    "open": "Ouvrir",
+    "quit": "Quitter"
+  }
+}

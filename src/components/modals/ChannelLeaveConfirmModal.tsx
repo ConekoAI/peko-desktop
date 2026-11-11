@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { LogOut, X } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { useModalA11y } from "../../hooks/useModalA11y";
 
 /**
@@ -31,6 +32,7 @@ export default function ChannelLeaveConfirmModal({
   // Escape cancels and focus stays inside. Hooks run on every render,
   // open or not: called after the early return, they crashed the app
   // the first time the dialog opened (React #310).
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement | null>(null);
   useModalA11y(open, containerRef, onCancel);
 
@@ -56,11 +58,16 @@ export default function ChannelLeaveConfirmModal({
             id="channel-leave-modal-title"
             className="modal-title"
           >
-            Leave {channelName || <span className="font-mono">{channelId}</span>}?
+            <Trans
+              i18nKey="channel.leave.title"
+              components={{
+                name: <>{channelName || <span className="font-mono">{channelId}</span>}</>,
+              }}
+            />
           </h2>
           <button
             onClick={onCancel}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="btn-icon -mr-2 ml-auto"
           >
             <X className="h-4 w-4" />
@@ -68,14 +75,12 @@ export default function ChannelLeaveConfirmModal({
         </div>
 
         <p className="mb-3 text-sm text-fg-muted">
-          You&apos;ll stop seeing new messages here. A member can add you
-          back later.
+          {t("channel.leave.body")}
         </p>
 
         {isCreator && (
           <p className="note-warn mb-6 text-xs">
-            You created this group. Leaving doesn&apos;t delete it — the
-            remaining members keep their access.
+            {t("channel.leave.creatorNote")}
           </p>
         )}
 
@@ -84,14 +89,14 @@ export default function ChannelLeaveConfirmModal({
             onClick={onCancel}
             className="btn-secondary"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={onConfirm}
             className="btn-danger-solid"
             data-testid="channel-leave-confirm"
           >
-            Leave group
+            {t("channel.leave.confirm")}
           </button>
         </div>
       </div>

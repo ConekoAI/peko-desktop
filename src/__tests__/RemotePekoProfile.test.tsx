@@ -43,7 +43,8 @@ describe("RemotePekoProfile", () => {
     );
     expect(screen.getByText("Finds things")).toBeTruthy();
     expect(screen.getByTestId("remote-status-label").textContent).toBe("Online");
-    expect(screen.getByText("tester's runtime")).toBeTruthy();
+    // Whose engine runs it is not shown; only where it is reached.
+    expect(screen.queryByText(/runtime/i)).toBeNull();
     expect(screen.getByText("localhost:3000")).toBeTruthy();
     expect(screen.getByText("http://localhost:3000/@tester/remy")).toBeTruthy();
 

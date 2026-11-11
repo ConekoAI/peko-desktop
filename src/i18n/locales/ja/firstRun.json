@@ -1,0 +1,28 @@
+{
+  "steps": {
+    "1": "モデルを接続",
+    "2": "peko に名前を付ける",
+    "3": "あいさつする"
+  },
+  "firstMessages": {
+    "hello": "こんにちは！どんなことを手伝ってもらえますか？",
+    "stretch": "30 分後にストレッチするようリマインドして。",
+    "plan": "今週の計画を立てるのを手伝って。"
+  },
+  "welcome": "Peko へようこそ",
+  "skip": "スキップ",
+  "progress": "セットアップの進行状況",
+  "pickModel": "モデルは peko の頭脳です。すでにいくつかあります。最初の peko が使うものを選んでください。",
+  "addAnother": "別のモデルを追加する",
+  "continue": "続ける",
+  "noAnswer": "モデルから応答がありませんでした。",
+  "addModelIntro": "モデルは peko の頭脳です。プロバイダーのドキュメントにある Base URL（多くは「OpenAI 互換」と書かれており、Chat Completions のことです）とキーを入力してください。Peko が提供されているモデルを一覧表示します。",
+  "unreachable": "モデルに接続できませんでした。",
+  "continueAnyway": "このまま続ける",
+  "adding": "追加中…",
+  "checking": "確認中…",
+  "connect": "接続",
+  "awake": "{{name}} が目を覚ましました。最初に何を伝えますか？",
+  "firstMessage": "最初のメッセージ",
+  "skipMessage": "メッセージを送らずにチャットへ"
+}

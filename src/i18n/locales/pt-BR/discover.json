@@ -1,0 +1,17 @@
+{
+  "title": "Encontrar um peko",
+  "intro": "Pessoas e pekos são encontrados pelo ID exato, como <code>@alice/ada</code>. Sementes podem ser buscadas por nome. Em <hub/>",
+  "placeholder": "@alice/ada, ou busque sementes…",
+  "label": "ID do peko ou busca",
+  "empty": "O PekoHub não lista pekos. Peça o ID — <code>@owner/name</code> — e procure por ele aqui.",
+  "unreachable": "Não foi possível acessar o hub.",
+  "noOne": "Ninguém público tem o ID {{id}}. Confira a grafia ou pergunte ao dono se ele é público.",
+  "noSeeds": "Nenhuma semente encontrada. Pekos só são encontrados pelo ID exato, como @alice/ada.",
+  "kind": {
+    "person": "pessoa",
+    "peko": "peko",
+    "seed": "semente"
+  },
+  "openInBrowser": "Abrir no navegador",
+  "addToDesktop": "Adicionar ao aplicativo"
+}

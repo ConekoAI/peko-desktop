@@ -1,0 +1,15 @@
+{
+  "unknown": "Неизвестная ошибка",
+  "searchFailed": "Поиск не удался: HTTP {{status}}",
+  "unsupportedLink": "Неподдерживаемая ссылка: {{link}}",
+  "addRemotePekoFailed": "Не удалось добавить удалённого peko: {{message}}",
+  "hubNotifications": "Уведомления PekoHub: HTTP {{status}}",
+  "tokenExchangeFailed": "Не удалось обменять токен ({{status}}): {{text}}",
+  "tokenRefreshFailed": "Не удалось обновить токен ({{status}}): {{text}}",
+  "listAccessiblePekosFailed": "Не удалось получить список доступных peko ({{status}}): {{text}}",
+  "hubUnexpectedResponse": "PekoHub вернул ответ в неожиданном формате",
+  "oauthNoActiveFlow": "Нет активного процесса OAuth. Сначала начните вход.",
+  "oauthStateMismatch": "Значение state в OAuth не совпадает. Возможна CSRF-атака.",
+  "oauthNoAccessToken": "Сервер токенов не вернул access_token",
+  "hubRequestFailed": "Запрос к PekoHub не выполнен ({{status}}): {{text}}"
+}

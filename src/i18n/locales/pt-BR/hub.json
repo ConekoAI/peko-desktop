@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "Menu da conta PekoHub",
+    "loading": "Carregando o status do PekoHub…",
+    "signedInAs": "PekoHub · conectado como @{{handle}}",
+    "signedIn": "PekoHub · conectado",
+    "signIn": "Entrar no PekoHub",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · não conectado",
+    "signInAgain": "Recomeçar o login",
+    "signInWith": "Entrar com o PekoHub",
+    "signOut": "Sair",
+    "disconnect": "Desconectar este computador…",
+    "relink": "Vincular novamente a conta PekoHub",
+    "waiting": "Aguardando o PekoHub redirecionar você de volta… conclua o login no navegador para continuar. Se a página não abriu, recomece.",
+    "connectFailed": "Login feito, mas este computador não conseguiu se conectar ao PekoHub: {{error}}",
+    "unknownError": "erro desconhecido",
+    "signInFailed": "Falha no login. Verifique o navegador e tente novamente.",
+    "disconnectFailed": "Este computador não conseguiu se desconectar: {{error}}"
+  },
+  "disconnect": {
+    "title": "Desconectar este computador?",
+    "message": "Seus pekos neste computador passam a ser apenas locais, então ninguém poderá alcançá-los pelo PekoHub, e você será desconectado. As cópias, neste computador, das suas conversas com pekos de outros computadores são excluídas; esses computadores as mantêm, e elas voltam quando você entrar de novo.",
+    "confirm": "Desconectar",
+    "confirming": "Desconectando…",
+    "unsentTitle": "Algumas mensagens não foram entregues",
+    "unsentMessage": "Mensagens para pekos em outros computadores que ainda não chegaram, porque esses computadores estão offline: {{count}}. Desconectar agora faz com que se percam. Espere serem entregues ou desconecte mesmo assim.",
+    "anyway": "Desconectar mesmo assim",
+    "wait": "Esperar"
+  },
+  "notifications": {
+    "label": "Notificações do PekoHub",
+    "labelUnread": "Notificações do PekoHub, {{count}} não lidas",
+    "unreachable": "Não foi possível acessar o PekoHub.",
+    "empty": "Nada por enquanto.",
+    "justNow": "agora mesmo",
+    "minutesAgo": "há {{count}} min",
+    "hoursAgo": "há {{count}} h"
+  }
+}

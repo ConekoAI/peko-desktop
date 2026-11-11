@@ -1,0 +1,73 @@
+{
+  "title": "設定",
+  "sectionsLabel": "設定分區",
+  "sections": {
+    "general": "一般",
+    "models": "模型",
+    "advanced": "進階",
+    "about": "關於"
+  },
+  "appearance": {
+    "title": "外觀",
+    "hint": "深色與 PekoHub 一致。",
+    "theme": "主題",
+    "light": "淺色",
+    "dark": "深色",
+    "system": "跟隨系統"
+  },
+  "keys": {
+    "title": "已儲存的金鑰",
+    "hint": "引擎保險庫中的所有機密。模型金鑰在「模型」中管理；這個清單用於其他工具使用的金鑰。",
+    "add": "新增金鑰",
+    "namespace": "命名空間",
+    "namePlaceholder": "例如 github",
+    "kind": "類型",
+    "kinds": {
+      "api_key": "API 金鑰",
+      "bearer_token": "Bearer 權杖",
+      "oauth_token": "OAuth 權杖",
+      "basic_auth": "Basic 驗證",
+      "private_key": "私密金鑰",
+      "generic_secret": "其他機密"
+    },
+    "secret": "機密內容",
+    "save": "儲存金鑰",
+    "loading": "正在載入憑證…",
+    "empty": "沒有已儲存的金鑰",
+    "emptyHint": "你為模型或工具新增的金鑰會顯示在這裡。",
+    "hide": "隱藏機密",
+    "reveal": "顯示機密"
+  },
+  "models": {
+    "intro": "你的 peko 用來思考的端點。每個模型各自保存 API 金鑰；可在「編輯」中變更。",
+    "add": "新增模型",
+    "loading": "正在載入模型…",
+    "empty": "還沒有設定模型",
+    "emptyHint": "新增一個端點及其 API 金鑰，開始和你的 peko 對話。",
+    "addFirst": "新增你的第一個模型",
+    "unavailable": "模型目錄無法使用",
+    "unavailableHint": "無法載入模型目錄。請確認引擎正在執行，然後重新載入這個頁面。"
+  },
+  "folder": {
+    "title": "Peko 資料夾",
+    "hint": "引擎存放你的 peko、模型和金鑰的位置。",
+    "unknown": "未知",
+    "show": "顯示資料夾"
+  },
+  "about": {
+    "appVersion": "應用程式版本",
+    "engineVersion": "引擎版本",
+    "notRunning": "未執行",
+    "help": "說明",
+    "gettingStarted": "入門指南",
+    "report": "回報問題",
+    "onboarding": "新手導覽",
+    "onboardingHint": "重新走一遍連接模型和建立 peko 的流程。",
+    "replay": "重新進行導覽"
+  },
+  "language": {
+    "title": "語言",
+    "hint": "Peko Desktop 的顯示語言。",
+    "system": "跟隨系統"
+  }
+}

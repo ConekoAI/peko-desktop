@@ -1,0 +1,24 @@
+{
+  "title": "聊天",
+  "searchPlaceholder": "搜尋聊天…",
+  "people": "使用者",
+  "pekos": "Peko",
+  "loading": "正在載入…",
+  "wakingTitle": "這個 peko 還在進行初始設定",
+  "waking": "喚醒中…",
+  "away": "已有 {{days}} 天以上未上線（{{n}}）",
+  "noPekos": "還沒有 peko",
+  "createFirst": "建立你的第一個 peko",
+  "noMatch": "沒有符合的聊天",
+  "unread": "{{n}} 則未讀",
+  "newChat": "新增聊天",
+  "openChat": "開啟聊天",
+  "profile": "個人檔案",
+  "menu": {
+    "create": "建立 peko",
+    "import": "匯入 .peko 檔案",
+    "add": "新增 peko",
+    "discover": "探索公開的 peko",
+    "messagePerson": "傳訊息給某人"
+  }
+}

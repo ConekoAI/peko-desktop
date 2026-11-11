@@ -1,0 +1,159 @@
+{
+  "new": {
+    "title": "Новый peko",
+    "seedTooBig": "Размер семени — не больше 64 КБ.",
+    "seedInvalid": "Это не похоже на семя: в нём нет `name`.",
+    "noModel": "Чтобы думать, peko нужна модель. Сначала добавьте её в разделе «Настройки → Модели».",
+    "nameTaken": "У вас уже есть peko с таким именем.",
+    "nameInvalid": "Используйте буквы, цифры, «-» или «_».",
+    "avatar": "Аватар",
+    "useAvatar": "Использовать {{emoji}}",
+    "seedLabel": "Начать с семени",
+    "chooseSeed": "Выбрать .seed.toml",
+    "seedFile": "Файл семени",
+    "seedHint": "Семена из PekoHub задают определение вашего peko; при этом он получает новую личность и принадлежит вам.",
+    "descriptionPlaceholder": "Для чего нужен этот peko (необязательно)",
+    "waking": "Будим {{name}}… это может занять около минуты",
+    "create": "Создать {{name}}",
+    "fallbackName": "peko"
+  },
+  "status": {
+    "online": "В сети",
+    "busy": "Занят",
+    "offline": "Не в сети",
+    "error": "Ошибка",
+    "unknown": "Неизвестно"
+  },
+  "usage": {
+    "period": {
+      "hourly": "Этот час",
+      "daily": "Сегодня",
+      "weekly": "Эта неделя",
+      "monthly": "Этот месяц"
+    },
+    "per": {
+      "hourly": "в час",
+      "daily": "в день",
+      "weekly": "в неделю",
+      "monthly": "в месяц"
+    },
+    "loading": "Загрузка данных об использовании…",
+    "title": "Использование · {{period}}",
+    "resets": "сброс {{date}}",
+    "spentOfBudget": "<amount/> из бюджета {{cap}}",
+    "spent": "Потрачено <amount/>",
+    "tokensIn": "ввод {{n}}",
+    "cached": "(из кэша {{n}})",
+    "tokensOut": "вывод {{n}}",
+    "requests_one": "{{count}} запрос",
+    "requests_few": "{{count}} запроса",
+    "requests_many": "{{count}} запросов",
+    "requests_other": "{{count}} запроса",
+    "over": "Бюджет превышен — ваш peko не будет обращаться к модели, пока бюджет не сбросится или вы его не увеличите.",
+    "unpriced": "Расходы начнут учитываться, когда у модели peko появится цена («Настройки → Модели → Изменить»).",
+    "budget": "Бюджет",
+    "none": "нет",
+    "budgetPeriod": "Период бюджета",
+    "budgetInvalid": "Введите сумму больше $0."
+  },
+  "import": {
+    "title": "Импорт пакета .peko",
+    "intro": "Пакет <code>.peko</code> пробуждает <strong>того же</strong> peko — его личность, память и закрытые ключи переносятся вместе с пакетом. Чтобы вырастить <strong>нового</strong> peko из определения, создайте его из семени.",
+    "woke": "Peko <name/> проснулся — он на боковой панели.",
+    "imported": "Пакет импортирован — peko на боковой панели.",
+    "path": "Путь к пакету",
+    "rotate": "Импортировать как нового peko с новой личностью (нужно, если этот peko уже живёт на этом компьютере).",
+    "wake": "Разбудить {{name}}",
+    "review": "Проверить",
+    "hook": "хук {{id}}",
+    "mcpServer": "MCP-сервер {{id}}",
+    "withDescription": " — {{description}}",
+    "files": "Файлов: {{count}}",
+    "skills": " · навыки: {{skills}}",
+    "runsCode": "Этот пакет может выполнять код на этом компьютере:"
+  },
+  "addRemote": {
+    "title": "Добавить peko",
+    "intro": "Введите ID чужого публичного peko, например <code>@alice/coding-assistant</code>, или вставьте ссылку на него в PekoHub.",
+    "label": "ID peko или ссылка",
+    "invalid": "Это не похоже на ID или ссылку peko. Ожидается <code>@owner/name</code> или <code>https://pekohub.ai/@owner/name</code>.",
+    "inviteToken": "Обнаружен токен приглашения — владелец peko поделился этой ссылкой лично с вами.",
+    "ownedBy": "Владелец: <owner/>, хаб: <hub/>",
+    "status": "Статус: {{status}}",
+    "checking": "Проверка…",
+    "check": "Проверить",
+    "adding": "Добавление…",
+    "add": "Добавить peko"
+  },
+  "exposure": {
+    "public": "публичный",
+    "unlisted": "не в списке",
+    "private": "приватный",
+    "unexposed": "не опубликован"
+  },
+  "remote": {
+    "profileLabel": "Профиль: {{name}}",
+    "gone": "Этого peko больше нет в вашем списке.",
+    "viaHub": "через PekoHub",
+    "runsOn": "Где работает",
+    "yourOtherComputer": "Другой ваш компьютер",
+    "reachedThrough": "Связь через",
+    "access": "Доступ",
+    "accessInvite": "Ссылка-приглашение",
+    "accessPrivate": "Приватный",
+    "accessPublic": "Публичный",
+    "copyShareLink": "Скопировать ссылку для общего доступа",
+    "ownElsewhere": "Один из ваших peko на другом компьютере. Он остаётся в списке, пока есть в PekoHub; чтобы убрать его, удалите его или сделайте только локальным на том компьютере.",
+    "removeConfirm": "Убрать {{name}} из вашего списка? Подключиться снова можно по его ссылке для общего доступа.",
+    "removeFromList": "Убрать из списка"
+  },
+  "profile": {
+    "registration": {
+      "local_only": {
+        "label": "Только локально",
+        "hint": "Нет в PekoHub"
+      },
+      "private": {
+        "label": "Приватный",
+        "hint": "Есть в PekoHub; связаться с ним могут только его контакты"
+      },
+      "public": {
+        "label": "Публичный",
+        "hint": "Можно найти в PekoHub"
+      }
+    },
+    "ownerLocal": "Вы (только этот компьютер)",
+    "ownerHubNamed": "Вы ({{name}} в PekoHub)",
+    "ownerHub": "Вы (в PekoHub)",
+    "notFound": "Peko не найден",
+    "hub": "PekoHub",
+    "preferredModel": "Предпочитаемая модель",
+    "owner": "Владелец",
+    "shareLink": "Ссылка для общего доступа",
+    "copyLink": "Скопировать ссылку",
+    "inviteLink": "Ссылка-приглашение",
+    "inviteHint": "Поделитесь с одним человеком. После отзыва сразу перестаёт работать.",
+    "inviteMeta": "jti {{jti}}… · истекает {{date}}",
+    "burn": "Отозвать",
+    "generateInvite": "Создать ссылку-приглашение",
+    "exportTitle": "Экспорт пакета .peko",
+    "exportWarning": "В пакете находятся <strong>закрытые ключи</strong> этого peko — всё его существование. Обращайтесь с ним как с паролем: любой, у кого он есть, может разбудить этого peko и выдать себя за него.",
+    "exportPath": "Путь назначения",
+    "exportPathInvalid": "Путь должен оканчиваться на <code>.peko</code>.",
+    "export": "Экспортировать .peko",
+    "exportedTo": "Экспортировано в <path/>",
+    "dangerZone": "Опасная зона",
+    "removeConfirm": "Удалить <strong>{{name}}</strong>? Будут удалены его рабочая область, память и переписка. Это действие нельзя отменить.",
+    "keep": "Оставить {{name}}",
+    "removeNamed": "Удалить {{name}}",
+    "removeHint": "Удалить этого peko и всё, что он знает.",
+    "removeEllipsis": "Удалить…",
+    "avatarPlaceholder": "Эмодзи или две буквы",
+    "avatarSuggestions": "Варианты аватара",
+    "descriptionPlaceholder": "Чем занимается этот peko",
+    "quickStatus": "Быстрый статус",
+    "noModels": "Нет настроенных моделей. Сначала добавьте модель в разделе «Настройки → Модели».",
+    "noneOption": "— Нет —",
+    "exposureConflict": "Этот peko уже зарегистрирован с другого компьютера — peko может быть в сети только в одном месте."
+  }
+}

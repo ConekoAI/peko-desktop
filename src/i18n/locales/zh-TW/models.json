@@ -1,0 +1,107 @@
+{
+  "badge": {
+    "vision": "視覺",
+    "audio": "音訊",
+    "video": "影片",
+    "json": "JSON",
+    "fullTools": "完整工具",
+    "tools": "工具",
+    "thinking": "思考",
+    "thinkingRequired": "思考（必要）",
+    "thinkingBudget": "思考（預算）",
+    "pricing": "輸入 {{input}} / 輸出 {{output}}"
+  },
+  "apiFormat": {
+    "openai": {
+      "label": "OpenAI 相容（Chat Completions）",
+      "short": "Chat Completions",
+      "hint": "多數供應商和本機伺服器：POST {base URL}/chat/completions"
+    },
+    "anthropic": {
+      "label": "Anthropic 相容（Messages）",
+      "short": "Anthropic Messages",
+      "hint": "Anthropic 及相容閘道：POST {base URL}/v1/messages"
+    },
+    "responses": {
+      "label": "OpenAI Responses",
+      "short": "Responses",
+      "hint": "OpenAI 較新的 API：POST {base URL}/responses"
+    }
+  },
+  "endpoint": {
+    "baseUrl": "Base URL",
+    "apiFormat": "API 格式",
+    "apiKey": "API 金鑰",
+    "keyPlaceholder": "貼上你的金鑰",
+    "keyHint": "儲存在系統鑰匙圈中，而不是檔案裡。",
+    "modelId": "模型 ID",
+    "modelIdPlaceholderPick": "從下方選擇，或輸入 ID",
+    "modelIdPlaceholder": "供應商的模型名稱，例如 gpt-5 或 mimo-v2.6-flash",
+    "listing": "正在向端點查詢它提供的模型…",
+    "offeredLabel": "這個端點提供的模型",
+    "offered_other": "提供 {{count}} 個模型——請選擇一個",
+    "listFailed": "無法列出它的模型：{{error}}。請依供應商文件填寫模型 ID。",
+    "name": "在 Peko 中的名稱（選填）",
+    "namePlaceholder": "預設使用模型 ID",
+    "nameInvalid": "請使用字母、數字、.、- 或 _。",
+    "noKey": "不需要金鑰（例如本機伺服器）",
+    "storedCredential": "改用已儲存的憑證",
+    "pasteNewKey": "— 貼上新金鑰 —"
+  },
+  "inputs": {
+    "legend": "可理解",
+    "text": "文字",
+    "image": "圖片",
+    "audio": "音訊",
+    "video": "影片",
+    "hint": "依供應商說明，開啟模型支援的輸入類型。這些類型的附加檔案會直接交給模型。"
+  },
+  "price": {
+    "legend": "每百萬 token 的價格",
+    "input": "輸入",
+    "output": "輸出",
+    "cacheRead": "快取輸入",
+    "cacheWrite": "快取寫入",
+    "fieldAria": "{{label}}每百萬 token 的價格",
+    "invalid": "請輸入不小於 $0 的金額。",
+    "hint": "來自供應商的定價頁面。設定價格後，peko 在這個模型上的花費會計入它們的預算。快取價格留空時，快取輸入依輸入價格計算。"
+  },
+  "add": {
+    "title": "新增模型",
+    "intro": "請使用供應商文件裡的 Base URL、API 格式和模型名稱。寫著「OpenAI 相容」的供應商使用 Chat Completions。",
+    "conflict": "已存在名為 <name/> 的模型——請在「進階」中設定其他名稱。",
+    "adding": "正在新增…"
+  },
+  "card": {
+    "testPassed": "測試通過",
+    "testPassedWith": "測試通過 · {{model}}",
+    "testFailed": "測試失敗",
+    "disabled": "已停用",
+    "noKey": "沒有金鑰——請在「編輯」中新增",
+    "keySet": "已設定金鑰",
+    "context": "上下文 {{n}}",
+    "maxOutput": "輸出 {{n}}",
+    "test": "測試模型",
+    "removeConfirm": "移除？"
+  },
+  "edit": {
+    "title": "編輯模型",
+    "displayName": "顯示名稱",
+    "wireModelId": "請求中使用的模型 ID",
+    "contextWindow": "上下文視窗",
+    "maxOutputTokens": "最大輸出 token 數",
+    "replaceKey": "更換 API 金鑰",
+    "replaceKeyKeep": "留空則保留目前的金鑰",
+    "replaceKeyPaste": "貼上 API 金鑰",
+    "storedKey": "已儲存的金鑰",
+    "none": "— 無 —",
+    "requiresKey": "需要 API 金鑰",
+    "headers": "標頭",
+    "addHeader": "新增標頭",
+    "noHeaders": "沒有額外的標頭。",
+    "headerName": "標頭名稱",
+    "headerValue": "值",
+    "saving": "正在儲存…",
+    "save": "儲存變更"
+  }
+}

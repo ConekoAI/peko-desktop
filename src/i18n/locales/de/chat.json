@@ -1,0 +1,65 @@
+{
+  "attachments": {
+    "listLabel": "Angehängte Dateien",
+    "remove": "{{name}} entfernen",
+    "open": "{{name}} öffnen",
+    "play": "{{name}} abspielen",
+    "cantPlay": "Lässt sich hier nicht abspielen; öffne die Datei stattdessen",
+    "missingTitle": "{{name}} ist noch nicht vom anderen Computer angekommen",
+    "missing": "noch nicht empfangen"
+  },
+  "composer": {
+    "label": "Nachricht",
+    "placeholder": "Schreib deinem Peko…",
+    "attachTitle": "Dateien anhängen – oder auf das Fenster ziehen",
+    "modelLabel": "Modell für diese Nachricht",
+    "pekosModel": "Modell des Pekos",
+    "hint": "↵ zum Senden · ⇧↵ für eine neue Zeile",
+    "sendTitle": "Senden (Eingabetaste)"
+  },
+  "markdown": {
+    "svgImage": "SVG-Bild",
+    "code": "Code",
+    "showImage": "Bild anzeigen",
+    "showCode": "Code anzeigen",
+    "image": "Bild",
+    "codeLabel": "Code",
+    "copyCode": "Code kopieren"
+  },
+  "hostOffline": "<computer/> ist offline, daher kann {{peko}} gerade nicht arbeiten. Was du sendest, wartet und erreicht {{peko}}, sobald dieser Computer wieder da ist; du bekommst eine Benachrichtigung, wenn {{peko}} antwortet.",
+  "hostOfflineSince": "<computer/> ist offline (zuletzt online: {{ago}}), daher kann {{peko}} gerade nicht arbeiten. Was du sendest, wartet und erreicht {{peko}}, sobald dieser Computer wieder da ist; du bekommst eine Benachrichtigung, wenn {{peko}} antwortet.",
+  "waitingFor": "Warten, bis {{name}} online ist",
+  "suggestedReplies": "Antwortvorschläge",
+  "runFailure": {
+    "reason": {
+      "peko_limit": "sein Ausgabenlimit ist erreicht",
+      "provider_quota": "das Kontingent beim Modellanbieter ist aufgebraucht",
+      "provider_unreachable": "der Modellanbieter ist nicht erreichbar"
+    },
+    "waiting": "Wartet – {{reason}}. Es geht von selbst weiter, nächster Versuch {{when}}.",
+    "failed": "Die letzte Antwort kam nicht durch – {{reason}}."
+  },
+  "approval": {
+    "asker": "{{name}} ({{address}})",
+    "ownerTask": "Du hast {{peko}} {{where}} um etwas gebeten, das deinen vollen Zugriff braucht. Nach der Genehmigung läuft es in deinem Namen, außerhalb dieser Unterhaltung, nur mit diesem Auftrag:",
+    "ownerTaskWhere": "in einer geteilten Unterhaltung",
+    "toolRequest": "<asker/> bittet {{peko}}, <summary/> auszuführen",
+    "approve": "Genehmigen",
+    "alwaysTitle": "Genehmigen und dies für {{name}} immer erlauben",
+    "always": "Immer erlauben",
+    "deny": "Ablehnen"
+  },
+  "yourPeko": "Dein Peko",
+  "onComputer": "· auf {{computer}}",
+  "ownersPeko": "Peko von {{owner}}",
+  "pekosComputer": "Computer von {{name}}",
+  "selectPeko": "Wähle einen Peko in der Seitenleiste aus",
+  "noPekos": "Noch keine Pekos",
+  "noPekosHint": "Erstelle deinen ersten Peko, um loszuchatten.",
+  "createPeko": "Peko erstellen",
+  "signInPrompt": "Hast du Pekos auf einem anderen Computer? <signIn>Melde dich mit PekoHub an</signIn>, um sie hier zu sehen.",
+  "dropFiles": "Dateien zum Anhängen hier ablegen",
+  "begin": "Sende eine Nachricht, um zu beginnen…",
+  "working": "{{name}} arbeitet",
+  "workingFor": "{{name}} arbeitet · {{seconds}} s"
+}

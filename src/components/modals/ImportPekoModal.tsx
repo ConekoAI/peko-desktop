@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Loader2, Package, X } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { usePrincipalImport, usePrincipalImportPreview } from "../../hooks/usePrincipals";
 import type { ImportPreview } from "../../lib/api";
@@ -29,6 +30,7 @@ export default function ImportPekoModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [path, setPath] = useState("");
   const [rotateKeys, setRotateKeys] = useState(false);
   const previewMut = usePrincipalImportPreview();
@@ -79,12 +81,12 @@ export default function ImportPekoModal({
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5 text-ok" />
             <h2 className="modal-title">
-              Import a .peko package
+              {t("peko.import.title")}
             </h2>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
@@ -93,10 +95,7 @@ export default function ImportPekoModal({
 
         <div className="space-y-4 overflow-y-auto p-5 text-sm text-fg-soft">
           <p className="text-xs text-fg-muted">
-            A <code>.peko</code> package wakes the <strong>same</strong> peko —
-            its identity, memory, and private keys travel with the package.
-            To grow a <strong>fresh</strong> peko from a definition instead,
-            create one from its seed.
+            <Trans i18nKey="peko.import.intro" components={{ code: <code />, strong: <strong /> }} />
           </p>
 
           {importMut.isSuccess ? (
@@ -107,12 +106,12 @@ export default function ImportPekoModal({
               <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <p>
                 {importedName ? (
-                  <>
-                    Woke <span className="font-mono font-medium">{importedName}</span>{" "}
-                    — it&apos;s in your sidebar.
-                  </>
+                  <Trans
+                    i18nKey="peko.import.woke"
+                    components={{ name: <span className="font-mono font-medium">{importedName}</span> }}
+                  />
                 ) : (
-                  "Package imported — the peko is in your sidebar."
+                  t("peko.import.imported")
                 )}
               </p>
             </div>
@@ -123,7 +122,7 @@ export default function ImportPekoModal({
                   htmlFor="peko-import-path"
                   className="field-label mb-1.5 block"
                 >
-                  Package path <span className="text-danger">*</span>
+                  {t("peko.import.path")} <span className="text-danger">*</span>
                 </label>
                 <input
                   id="peko-import-path"
@@ -148,8 +147,7 @@ export default function ImportPekoModal({
                   className="mt-0.5"
                 />
                 <span>
-                  Import as a new peko with a fresh identity (needed when this
-                  peko already lives on this computer).
+                  {t("peko.import.rotate")}
                 </span>
               </label>
               {preview && <PreviewSummary preview={preview} />}
@@ -172,7 +170,7 @@ export default function ImportPekoModal({
               onClick={onClose}
               className="rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover"
             >
-              Done
+              {t("common.done")}
             </button>
           ) : (
             <>
@@ -180,7 +178,7 @@ export default function ImportPekoModal({
                 onClick={onClose}
                 className="btn-secondary"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               {preview ? (
                 <button
@@ -190,7 +188,7 @@ export default function ImportPekoModal({
                   className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
                 >
                   {importMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Wake {preview.name}
+                  {t("peko.import.wake", { name: preview.name })}
                 </button>
               ) : (
                 <button
@@ -200,7 +198,7 @@ export default function ImportPekoModal({
                   className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
                 >
                   {previewMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Review
+                  {t("peko.import.review")}
                 </button>
               )}
             </>
@@ -213,10 +211,11 @@ export default function ImportPekoModal({
 
 /** What the package is, and everything in it that can run. */
 function PreviewSummary({ preview }: { preview: ImportPreview }) {
+  const { t } = useTranslation();
   const inv = preview.inventory;
   const runnable = [
-    ...inv.hooks.map((h) => `hook ${h.id}`),
-    ...inv.mcp_servers.map((m) => `MCP server ${m.id}`),
+    ...inv.hooks.map((h) => t("peko.import.hook", { id: h.id })),
+    ...inv.mcp_servers.map((m) => t("peko.import.mcpServer", { id: m.id })),
     ...inv.executable_files,
   ];
   return (
@@ -227,17 +226,17 @@ function PreviewSummary({ preview }: { preview: ImportPreview }) {
       <p>
         <span className="font-mono font-medium">{preview.name}</span>{" "}
         <span className="text-fg-subtle">v{preview.version}</span>
-        {preview.description ? ` — ${preview.description}` : ""}
+        {preview.description ? t("peko.import.withDescription", { description: preview.description }) : ""}
       </p>
       <p className="text-fg-muted">
-        {inv.file_count} files
-        {inv.skills.length > 0 ? ` · skills: ${inv.skills.join(", ")}` : ""}
+        {t("peko.import.files", { count: inv.file_count })}
+        {inv.skills.length > 0 ? t("peko.import.skills", { skills: inv.skills.join(", ") }) : ""}
       </p>
       {runnable.length > 0 && (
         <div className="rounded-md bg-warn-soft p-2 text-warn">
           <p className="flex items-center gap-1 font-medium">
             <AlertTriangle className="h-3.5 w-3.5" />
-            This package can run code on this computer:
+            {t("peko.import.runsCode")}
           </p>
           <ul className="mt-1 list-disc pl-5">
             {runnable.map((r) => (

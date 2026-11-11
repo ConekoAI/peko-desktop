@@ -1,0 +1,65 @@
+{
+  "attachments": {
+    "listLabel": "已添加的附件",
+    "remove": "移除 {{name}}",
+    "open": "打开 {{name}}",
+    "play": "播放 {{name}}",
+    "cantPlay": "无法在此播放；请直接打开文件",
+    "missingTitle": "{{name}} 尚未从另一台电脑传到",
+    "missing": "尚未收到"
+  },
+  "composer": {
+    "label": "消息",
+    "placeholder": "给你的 peko 发消息…",
+    "attachTitle": "添加附件——或把文件拖到窗口上",
+    "modelLabel": "这条消息使用的模型",
+    "pekosModel": "Peko 的模型",
+    "hint": "↵ 发送 · ⇧↵ 换行",
+    "sendTitle": "发送（Enter）"
+  },
+  "markdown": {
+    "svgImage": "SVG 图像",
+    "code": "代码",
+    "showImage": "显示图像",
+    "showCode": "显示代码",
+    "image": "图像",
+    "codeLabel": "代码",
+    "copyCode": "复制代码"
+  },
+  "hostOffline": "<computer/> 已离线，所以 {{peko}} 现在无法工作。你发送的内容会先等待，等那台电脑恢复后送达 {{peko}}；{{peko}} 回复时你会收到通知。",
+  "hostOfflineSince": "<computer/> 已离线（上次在线：{{ago}}），所以 {{peko}} 现在无法工作。你发送的内容会先等待，等那台电脑恢复后送达 {{peko}}；{{peko}} 回复时你会收到通知。",
+  "waitingFor": "正在等待 {{name}} 上线",
+  "suggestedReplies": "建议回复",
+  "runFailure": {
+    "reason": {
+      "peko_limit": "已达到它的支出上限",
+      "provider_quota": "模型服务商的配额已用完",
+      "provider_unreachable": "无法连接模型服务商"
+    },
+    "waiting": "等待中——{{reason}}。它会自行继续，下次尝试时间：{{when}}。",
+    "failed": "上一条回复未能完成——{{reason}}。"
+  },
+  "approval": {
+    "asker": "{{name}}（{{address}}）",
+    "ownerTask": "你{{where}}向 {{peko}} 提出了一项需要你完整权限的请求。批准后，它会以你的身份在那个对话之外执行，并且只依据以下说明：",
+    "ownerTaskWhere": "在一个共享对话中",
+    "toolRequest": "<asker/> 请 {{peko}} 运行 <summary/>",
+    "approve": "批准",
+    "alwaysTitle": "批准，并始终允许 {{name}} 这样做",
+    "always": "始终允许",
+    "deny": "拒绝"
+  },
+  "yourPeko": "你的 peko",
+  "onComputer": "· 在 {{computer}} 上",
+  "ownersPeko": "{{owner}} 的 peko",
+  "pekosComputer": "{{name}} 所在的电脑",
+  "selectPeko": "从侧边栏选择一个 peko",
+  "noPekos": "还没有 peko",
+  "noPekosHint": "创建你的第一个 peko，开始聊天。",
+  "createPeko": "创建 peko",
+  "signInPrompt": "在另一台电脑上有 peko？<signIn>登录 PekoHub</signIn>即可在这里看到它们。",
+  "dropFiles": "松开即可添加附件",
+  "begin": "发一条消息开始吧…",
+  "working": "{{name}} 正在工作",
+  "workingFor": "{{name}} 正在工作 · {{seconds}} 秒"
+}

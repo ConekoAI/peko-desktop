@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { MessageCircle, User } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { dmRequestAnswer, dmRequests, personDmOpen, personDms } from "../lib/api";
 import { personLabel } from "../lib/people";
 
@@ -30,6 +31,7 @@ export function ChatSectionLabel({ children }: { children: React.ReactNode }) {
  * who asks; what they wrote arrives once you accept, which opens the DM.
  */
 export function DmRequests() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const open = usePersonDmNavigate();
   const { data: requests } = useQuery({
@@ -55,7 +57,7 @@ export function DmRequests() {
   if (!requests || requests.length === 0) return null;
   return (
     <div className="mb-2 space-y-1" data-testid="dm-requests">
-      <ChatSectionLabel>Message requests</ChatSectionLabel>
+      <ChatSectionLabel>{t("people.requests.title")}</ChatSectionLabel>
       {requests.map((r) => (
         <div
           key={r.channelId}
@@ -69,7 +71,7 @@ export function DmRequests() {
             </span>
           </div>
           <div className="mt-0.5 text-xs text-fg-subtle">
-            wants to message you. You&apos;ll see what they wrote once you accept.
+            {t("people.requests.body")}
           </div>
           <div className="mt-2 flex gap-2">
             <button
@@ -78,7 +80,7 @@ export function DmRequests() {
               onClick={() => answer.mutate({ channelId: r.channelId, answer: "accept" })}
               className="btn-primary btn-sm"
             >
-              Accept
+              {t("common.accept")}
             </button>
             <button
               type="button"
@@ -86,7 +88,7 @@ export function DmRequests() {
               onClick={() => answer.mutate({ channelId: r.channelId, answer: "decline" })}
               className="btn-ghost btn-xs"
             >
-              Decline
+              {t("common.decline")}
             </button>
             <button
               type="button"
@@ -94,7 +96,7 @@ export function DmRequests() {
               onClick={() => answer.mutate({ channelId: r.channelId, answer: "block" })}
               className="btn-danger btn-xs ml-auto"
             >
-              Block
+              {t("common.block")}
             </button>
           </div>
         </div>
@@ -133,6 +135,7 @@ export function PersonRow({
   active: boolean;
   rowClass: string;
 }) {
+  const { t } = useTranslation();
   const open = usePersonDmNavigate();
   return (
     <button
@@ -145,7 +148,7 @@ export function PersonRow({
         <User className="h-3.5 w-3.5 text-fg-muted" />
       </span>
       <span className="min-w-0 flex-1 truncate font-medium">{personLabel(person)}</span>
-      {person.waiting && <span className="shrink-0 text-xs text-fg-subtle">invited</span>}
+      {person.waiting && <span className="shrink-0 text-xs text-fg-subtle">{t("people.invited")}</span>}
     </button>
   );
 }
@@ -156,6 +159,7 @@ export function PersonRow({
  * reaches them when they accept.
  */
 export function MessagePersonForm({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const open = usePersonDmNavigate();
   const [account, setAccount] = useState("");
@@ -183,7 +187,7 @@ export function MessagePersonForm({ onClose }: { onClose: () => void }) {
         value={account}
         autoFocus
         onChange={(e) => setAccount(e.target.value)}
-        placeholder="Their PekoHub account ID"
+        placeholder={t("people.accountPlaceholder")}
         className="input input-sm"
         data-testid="person-dm-account"
       />
@@ -191,7 +195,7 @@ export function MessagePersonForm({ onClose }: { onClose: () => void }) {
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="What to call them (optional)"
+        placeholder={t("people.namePlaceholder")}
         className="input input-sm"
         data-testid="person-dm-name"
       />
@@ -201,18 +205,18 @@ export function MessagePersonForm({ onClose }: { onClose: () => void }) {
           disabled={!account.trim() || start.isPending}
           className="btn-primary btn-sm"
         >
-          {start.isPending ? "Opening…" : "Message"}
+          {start.isPending ? t("people.opening") : t("people.message")}
         </button>
         <button
           type="button"
           onClick={onClose}
           className="btn-ghost btn-xs"
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
       <div className="text-xs text-fg-subtle">
-        They get a message request. What you write reaches them once they accept.
+        {t("people.requestHint")}
       </div>
       {start.error && (
         <div className="text-xs text-danger" data-testid="person-dm-error">

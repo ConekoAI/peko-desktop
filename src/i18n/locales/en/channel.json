@@ -1,0 +1,127 @@
+{
+  "inviteToast": {
+    "addedTo": "Added to <name/>",
+    "pending_one": "{{count}} more invite pending",
+    "pending_other": "{{count}} more invites pending",
+    "dismiss": "Dismiss invite toast"
+  },
+  "leave": {
+    "title": "Leave <name/>?",
+    "body": "You'll stop seeing new messages here. A member can add you back later.",
+    "creatorNote": "You created this group. Leaving doesn't delete it — the remaining members keep their access.",
+    "confirm": "Leave group"
+  },
+  "composer": {
+    "postFailed": "Failed to post message",
+    "forbidden": "You aren't in this group — only members can post. Ask a current member to invite you.",
+    "mentionLabel": "Mention a peko",
+    "messagePerson": "Message {{name}}",
+    "messageThem": "Message them",
+    "messageGroupNamed": "Message {{name}} — @ to mention a peko",
+    "messageGroup": "Message the group — @ to mention a peko",
+    "send": "Send message"
+  },
+  "event": {
+    "conversationWith": "Conversation with <name/>",
+    "them": "them",
+    "groupCreated": "Group <name/> created by <creator/>",
+    "joined": "joined",
+    "left": "left"
+  },
+  "header": {
+    "dm": "Direct message",
+    "group": "Group",
+    "guestTitle": "You aren't in this group — you can read but not post.",
+    "viewOnly": "View only",
+    "createdBy": "Created by <creator/> · {{date}}",
+    "share": "Share",
+    "invite": "Invite",
+    "leave": "Leave",
+    "leaveTitle": "Leave group",
+    "leaveTitleCreator": "Leave group (you'll stay its creator)"
+  },
+  "members": {
+    "loading": "Loading members…",
+    "empty": "No members yet.",
+    "local": "Local",
+    "remote": "Remote",
+    "peko": "Peko",
+    "person": "Person",
+    "here": "On this computer",
+    "elsewhere": "Elsewhere",
+    "wakeLabel": "When {{name}} replies",
+    "wake": {
+      "human": {
+        "label": "Every message",
+        "hint": "Replies to every message from a person"
+      },
+      "mention": {
+        "label": "@mentions",
+        "hint": "Replies when someone @mentions it"
+      },
+      "off": {
+        "label": "Never",
+        "hint": "Reads along; replies only when it checks in"
+      }
+    }
+  },
+  "share": {
+    "groupId": "Group ID <id/>",
+    "copyId": "Copy ID",
+    "public": "Anyone with the ID can join",
+    "inviteOnly": "Only people with an invite link can join",
+    "intro": "Give this group an ID on PekoHub, so people on other computers can join it. Its messages stay on this computer.",
+    "visibilityInviteOnly": "Invite only",
+    "visibilityPublic": "Public",
+    "registering": "Registering…",
+    "register": "Register on PekoHub",
+    "makeLink": "Make an invite link",
+    "stopLinks": "Stop all links",
+    "copyLink": "Copy link",
+    "worksUntil": "Works until {{date}}.",
+    "noneWorking": "No links were working.",
+    "stopped": "Stopped {{count}} link(s)."
+  },
+  "create": {
+    "title": "New group",
+    "intro": "A group is a chat with you and several pekos. You can add more people and pekos later.",
+    "name": "Group name",
+    "nameInvalid": "Use 1–64 characters.",
+    "startedBy": "Started by",
+    "loadingPekos": "Loading your pekos…",
+    "creating": "Creating…",
+    "create": "Create",
+    "askToStart": "Please start a group called \"{{name}}\", add me to it, and register it on PekoHub (invite only) so it reaches my other computers.",
+    "noPekoHere": "A group lives on the computer of the peko that starts it, and none of your pekos live on this one.",
+    "askElsewhere": "Ask one of yours on another computer to start it; it adds you, and the group shows up here too.",
+    "nameFirst": "Name the group, then ask one of yours on another computer to start it.",
+    "ask": "Ask {{name}}",
+    "createPekoHere": "Create a peko on this computer"
+  },
+  "invite": {
+    "title": "Invite to <name/>",
+    "intro": "Pick a peko to add to this group.",
+    "notMember": "Only a member can add others. Ask someone in this group to add one of your pekos first.",
+    "searchPlaceholder": "Search pekos…",
+    "noCandidates": "No inviteable pekos yet — every local peko is already a member.",
+    "noMatch": "No pekos match your search.",
+    "inviting": "Inviting…",
+    "invite": "Invite"
+  },
+  "landing": {
+    "title": "Groups",
+    "hint": "Pick a group in the bar on the left, or start one with your pekos."
+  },
+  "view": {
+    "loading": "Loading events…",
+    "forbiddenTitle": "You aren't in this group.",
+    "forbiddenBody": "Only members can read it. Ask a current member to invite you — the invite mints your membership.",
+    "loadFailed": "Couldn't load this group's messages.",
+    "empty": "No events yet.",
+    "sayHello": "Say hello to <strong>{{name}}</strong>.",
+    "beFirst": "Be the first to post in <strong>{{name}}</strong>.",
+    "askInvite": "Ask a current member to invite you, then return to this group to start posting.",
+    "waitingAccept": "Waiting for {{name}} to accept. What you write here reaches them when they do.",
+    "readOnly": "You can read this group but not post in it."
+  }
+}

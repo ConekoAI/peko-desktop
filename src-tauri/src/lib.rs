@@ -22,11 +22,21 @@ fn expected_engine_version() -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // One copy of the app. Its window can be hidden while the engine
+        // keeps running (see the close handling in `run` below), so opening
+        // the app again must bring that window back, not start a second
+        // copy with its own tray and supervisor. Registered first, as the
+        // plugin requires; with `deep-link` it also hands a link that
+        // launched the second copy to this one.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_main_window(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
-        // Size, position, and the like are restored; decorations are
-        // not. They come from the window config (`tauri.macos.conf.json`
+        // Size, position, and the like are restored; decorations and
+        // visibility are not. A window hidden to the tray when the app
+        // quit must still appear at the next start. They come from the window config (`tauri.macos.conf.json`
         // gives macOS its native buttons), and a state file saved by an
         // older build with `decorated: false` would otherwise hide them
         // for good.
@@ -34,7 +44,8 @@ pub fn run() {
             tauri_plugin_window_state::Builder::new()
                 .with_state_flags(
                     tauri_plugin_window_state::StateFlags::all()
-                        - tauri_plugin_window_state::StateFlags::DECORATIONS,
+                        - tauri_plugin_window_state::StateFlags::DECORATIONS
+                        - tauri_plugin_window_state::StateFlags::VISIBLE,
                 )
                 .build(),
         )
@@ -111,8 +122,11 @@ pub fn run() {
                 });
             }
 
-            // Build system tray
-            let _ = tray::build_tray(app.handle())?;
+            // The tray icon: it brings the window back and quits the app. A desktop without a tray still
+            // gets the app; there, closing the window quits it.
+            if let Err(e) = tray::build_tray(app.handle()) {
+                eprintln!("[peko-desktop] no tray icon: {e}");
+            }
 
             // Install the sidecar supervisor (ADR-043). This is the
             // canonical owner of the engine lifecycle from now on —
@@ -189,22 +203,35 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
-            // macOS: clicking the window's red close button fires
-            // `WindowEvent::CloseRequested`, NOT `RunEvent::Exit`.
-            // By default Tauri closes just the window and the app
-            // stays in the dock — which leaves our owned peko
-            // daemon running. Force the app to quit on window
-            // close so `Exit` fires below and `sup.stop()` runs.
-            // This makes T-104 (close desktop → engine exits)
-            // work for both X-click and Cmd+Q paths. Cmd+Q is
-            // unaffected: it goes through `ExitRequested → Exit`
-            // without invoking CloseRequested.
+            // The window is the front end; the tray is the app. Closing
+            // the window hides it and leaves the engine running, so pekos
+            // keep working and notifications keep coming. The tray's
+            // "Quit" (and Cmd+Q on macOS) is what ends the app: it goes
+            // through `Exit` below, which stops the engine.
+            //
+            // Without a tray icon there would be no way back to a hidden
+            // window, so there closing the window quits, as it used to.
             if let tauri::RunEvent::WindowEvent {
-                event: tauri::WindowEvent::CloseRequested { .. },
+                label,
+                event: tauri::WindowEvent::CloseRequested { api, .. },
                 ..
-            } = event
+            } = &event
             {
-                app_handle.exit(0);
+                if tray::is_present(app_handle) {
+                    api.prevent_close();
+                    if let Some(window) = tauri::Manager::get_webview_window(app_handle, label) {
+                        let _ = window.hide();
+                    }
+                } else {
+                    app_handle.exit(0);
+                }
+                return;
+            }
+
+            // macOS: clicking the Dock icon while the window is hidden.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = &event {
+                tray::show_main_window(app_handle);
                 return;
             }
 

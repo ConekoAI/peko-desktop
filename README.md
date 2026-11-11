@@ -86,6 +86,7 @@ peko-desktop/
 │   ├── components/         # Shared UI components
 │   ├── hooks/              # React hooks (IPC, auth, etc.)
 │   ├── lib/                # Frontend helpers
+│   ├── i18n/               # The app's text, one folder per language
 │   └── pages/              # Page-level components
 ├── src-tauri/              # Rust backend (Tauri 2)
 │   ├── src/
@@ -93,13 +94,57 @@ peko-desktop/
 │   │   ├── commands/       # Tauri command handlers (one per CLI subcommand)
 │   │   ├── daemon/         # Daemon lifecycle & auto-restart
 │   │   ├── vault/          # OS keyring integration for tokens
-│   │   └── tray/           # System tray icon
+│   │   └── tray/           # System tray icon: opens the app and quits it
 │   ├── capabilities/       # Tauri permission allowlist
 │   └── tauri.conf.json     # Tauri config (CSP, window, bundle)
 ├── docs/
 │   └── architecture/adr/   # Architecture Decision Records
 └── public/                 # Static assets
 ```
+
+## Window and tray
+
+The window is the front end; the tray icon is the app. Closing the window
+hides it and leaves the engine running, so pekos keep working and
+notifications keep coming. The tray menu brings the window back (**Open**)
+and ends the app (**Quit**), which stops the engine. Opening the app again while it is hidden shows the same window:
+only one copy runs. On a desktop with no tray icon, closing the window
+quits the app.
+
+## Text and languages
+
+Every string a person reads lives in `src/i18n/locales/en/`, one JSON file
+per area of the app (`chat.json`, `settings.json`, …). Components read it
+with `useTranslation()` from `react-i18next`; other modules import `t` from
+`src/i18n`. Keys are type-checked against the English files, and a test
+(`I18nNoHardcodedText.test.ts`) fails on text written straight into the
+markup.
+
+```tsx
+const { t } = useTranslation();
+<button title={t("common.close")}>{t("chat.working", { name })}</button>
+```
+
+A sentence with markup inside it uses `<Trans>`, so a translation can
+reorder the pieces. Counts pass `count`, which lets a language add its own
+plural forms (`key_one`, `key_other`).
+
+The app ships in English, Simplified and Traditional Chinese, Japanese,
+Korean, Spanish, French, German, Brazilian Portuguese, Russian and Italian
+(`src/i18n/languages.ts`). It follows the system's language, and Settings →
+General → Language picks another. English is bundled; any other language is
+loaded when it is first shown.
+
+To add a language, copy `locales/en/*.json` to `locales/<code>/`, translate
+the values, and add it to `LANGUAGES`. `I18nLanguages.test.ts` then holds it
+to English: the same keys, the same `{{values}}` and `<tags>` in each
+string, and every plural form the language uses. A string added to English
+must be added to every language, or that test fails.
+
+The translations were machine-drafted and have not been reviewed by native
+speakers. Right-to-left languages are not supported yet (the layout is not
+mirrored). Text that comes from the runtime (its error messages, a peko's
+replies) is not translated.
 
 ## Architecture
 

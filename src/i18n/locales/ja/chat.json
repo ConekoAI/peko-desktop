@@ -1,0 +1,65 @@
+{
+  "attachments": {
+    "listLabel": "添付ファイル",
+    "remove": "{{name}} を削除",
+    "open": "{{name}} を開く",
+    "play": "{{name}} を再生",
+    "cantPlay": "ここでは再生できません。ファイルを開いてください",
+    "missingTitle": "{{name}} はまだ別のコンピューターから届いていません",
+    "missing": "未受信"
+  },
+  "composer": {
+    "label": "メッセージ",
+    "placeholder": "peko にメッセージ…",
+    "attachTitle": "ファイルを添付 — またはウィンドウにドロップ",
+    "modelLabel": "このメッセージに使うモデル",
+    "pekosModel": "Peko のモデル",
+    "hint": "↵ で送信 · ⇧↵ で改行",
+    "sendTitle": "送信（Enter）"
+  },
+  "markdown": {
+    "svgImage": "SVG 画像",
+    "code": "コード",
+    "showImage": "画像を表示",
+    "showCode": "コードを表示",
+    "image": "画像",
+    "codeLabel": "コード",
+    "copyCode": "コードをコピー"
+  },
+  "hostOffline": "<computer/> がオフラインのため、{{peko}} は今は作業できません。送信した内容は保留され、そのコンピューターが復帰すると {{peko}} に届きます。{{peko}} が返信すると通知が届きます。",
+  "hostOfflineSince": "<computer/> がオフライン（最終オンライン: {{ago}}）のため、{{peko}} は今は作業できません。送信した内容は保留され、そのコンピューターが復帰すると {{peko}} に届きます。{{peko}} が返信すると通知が届きます。",
+  "waitingFor": "{{name}} がオンラインになるのを待っています",
+  "suggestedReplies": "返信の候補",
+  "runFailure": {
+    "reason": {
+      "peko_limit": "利用上限額に達しました",
+      "provider_quota": "モデルプロバイダーの割り当てを使い切りました",
+      "provider_unreachable": "モデルプロバイダーに接続できません"
+    },
+    "waiting": "待機中 — {{reason}}。自動的に再開します。次回の試行: {{when}}。",
+    "failed": "前回の返信は完了しませんでした — {{reason}}。"
+  },
+  "approval": {
+    "asker": "{{name}}（{{address}}）",
+    "ownerTask": "あなたは{{where}} {{peko}} に、あなたの完全な権限が必要な依頼をしました。承認すると、その会話の外で、次の指示だけをもとに、あなたとして実行されます:",
+    "ownerTaskWhere": "共有の会話で",
+    "toolRequest": "<asker/> が {{peko}} に <summary/> の実行を求めています",
+    "approve": "承認",
+    "alwaysTitle": "承認し、今後 {{name}} にはこれを常に許可する",
+    "always": "常に許可",
+    "deny": "拒否"
+  },
+  "yourPeko": "あなたの peko",
+  "onComputer": "· {{computer}} 上",
+  "ownersPeko": "{{owner}} の peko",
+  "pekosComputer": "{{name}} のコンピューター",
+  "selectPeko": "サイドバーから peko を選んでください",
+  "noPekos": "まだ peko がいません",
+  "noPekosHint": "最初の peko を作成してチャットを始めましょう。",
+  "createPeko": "peko を作成",
+  "signInPrompt": "別のコンピューターに peko がいますか？<signIn>PekoHub でサインイン</signIn>すると、ここに表示されます。",
+  "dropFiles": "ドロップして添付",
+  "begin": "メッセージを送って始めましょう…",
+  "working": "{{name}} が作業中",
+  "workingFor": "{{name}} が作業中 · {{seconds}} 秒"
+}

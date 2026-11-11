@@ -1,0 +1,15 @@
+{
+  "unknown": "未知的錯誤",
+  "searchFailed": "搜尋失敗：HTTP {{status}}",
+  "unsupportedLink": "不支援的連結：{{link}}",
+  "addRemotePekoFailed": "新增遠端 peko 失敗：{{message}}",
+  "hubNotifications": "PekoHub 通知：HTTP {{status}}",
+  "tokenExchangeFailed": "權杖交換失敗（{{status}}）：{{text}}",
+  "tokenRefreshFailed": "權杖更新失敗（{{status}}）：{{text}}",
+  "listAccessiblePekosFailed": "取得可存取的 peko 清單失敗（{{status}}）：{{text}}",
+  "hubUnexpectedResponse": "PekoHub 傳回了非預期的回應格式",
+  "oauthNoActiveFlow": "沒有進行中的 OAuth 流程。請先開始登入。",
+  "oauthStateMismatch": "OAuth state 不相符。可能是 CSRF 攻擊。",
+  "oauthNoAccessToken": "權杖端點沒有傳回 access_token",
+  "hubRequestFailed": "PekoHub 請求失敗（{{status}}）：{{text}}"
+}

@@ -1,23 +1,14 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Wallet } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
+
+import { currentLocale } from "../../i18n";
 
 import { principalSetLimits, principalUsage } from "../../lib/api";
 import type { UsageCycle, UsageLimits } from "../../types";
 
-const PERIOD: Record<UsageCycle, string> = {
-  hourly: "This hour",
-  daily: "Today",
-  weekly: "This week",
-  monthly: "This month",
-};
-
-const PER: Record<UsageCycle, string> = {
-  hourly: "per hour",
-  daily: "per day",
-  weekly: "per week",
-  monthly: "per month",
-};
+const CYCLES: UsageCycle[] = ["hourly", "daily", "weekly", "monthly"];
 
 /** `$0.09`, or more places for small amounts (`$0.0042`). */
 export function formatUsd(usd: number): string {
@@ -46,6 +37,7 @@ export default function UsagePanel({
   /** Whether the peko's model has a price, so spend is counted. */
   priced: boolean;
 }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const usage = useQuery({
     queryKey: ["principal-usage", name],
@@ -69,7 +61,7 @@ export default function UsagePanel({
   if (usage.isLoading) {
     return (
       <div className="flex items-center gap-2 text-xs text-fg-subtle">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading usage…
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("peko.usage.loading")}
       </div>
     );
   }
@@ -100,16 +92,30 @@ export default function UsagePanel({
       <div className="flex items-baseline justify-between">
         <h3 id="peko-usage" className="flex items-center gap-1.5 text-xs font-semibold text-fg">
           <Wallet className="h-3.5 w-3.5 text-fg-muted" />
-          Usage · {PERIOD[state.cycle]}
+          {t("peko.usage.title", { period: t(`peko.usage.period.${state.cycle}`) })}
         </h3>
         <span className="text-[11px] text-fg-subtle">
-          resets {new Date(state.window_end).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+          {t("peko.usage.resets", {
+            date: new Date(state.window_end).toLocaleString(currentLocale(), {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
+          })}
         </span>
       </div>
 
       <p className="mt-2 text-sm text-fg" data-testid="usage-spend">
-        <span className={over ? "font-semibold text-danger" : "font-semibold"}>{formatUsd(spent)}</span>
-        {cap != null ? ` of ${formatUsd(cap)} budget` : " spent"}
+        <Trans
+          i18nKey={cap != null ? "peko.usage.spentOfBudget" : "peko.usage.spent"}
+          values={{ cap: cap != null ? formatUsd(cap) : "" }}
+          components={{
+            amount: (
+              <span className={over ? "font-semibold text-danger" : "font-semibold"}>
+                {formatUsd(spent)}
+              </span>
+            ),
+          }}
+        />
       </p>
       {cap != null && (
         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-sunken" aria-hidden>
@@ -120,49 +126,51 @@ export default function UsagePanel({
         </div>
       )}
       <p className="mt-1.5 text-[11px] text-fg-muted">
-        {formatTokens(state.input_tokens)} in
+        {t("peko.usage.tokensIn", { n: formatTokens(state.input_tokens) })}
         {(state.cache_read_tokens ?? 0) > 0 && (
-          <span data-testid="usage-cached"> ({formatTokens(state.cache_read_tokens ?? 0)} cached)</span>
+          <span data-testid="usage-cached">
+            {" "}
+            {t("peko.usage.cached", { n: formatTokens(state.cache_read_tokens ?? 0) })}
+          </span>
         )}{" "}
-        · {formatTokens(state.output_tokens)} out ·{" "}
-        {state.request_count} {state.request_count === 1 ? "request" : "requests"}
+        · {t("peko.usage.tokensOut", { n: formatTokens(state.output_tokens) })} ·{" "}
+        {t("peko.usage.requests", { count: state.request_count })}
       </p>
       {over && (
         <p className="mt-1.5 text-[11px] text-danger" data-testid="usage-over-budget">
-          Over budget — your peko won&apos;t call its model again until the budget resets or you
-          raise it.
+          {t("peko.usage.over")}
         </p>
       )}
       {!priced && (
         <p className="mt-1.5 text-[11px] text-fg-subtle">
-          Spend counts once the peko&apos;s model has a price (Settings → Models → Edit).
+          {t("peko.usage.unpriced")}
         </p>
       )}
 
       <form onSubmit={submit} className="mt-3 flex flex-wrap items-center gap-2">
         <label htmlFor="usage-budget" className="text-[11px] text-fg-muted">
-          Budget
+          {t("peko.usage.budget")}
         </label>
         <div className="flex items-center rounded-md border border-line-strong bg-surface-card transition-colors focus-within:border-peko-500 focus-within:ring-2 focus-within:ring-peko-500/20">
           <span className="pl-2 text-xs text-fg-subtle">$</span>
           <input
             id="usage-budget"
             inputMode="decimal"
-            placeholder="none"
+            placeholder={t("peko.usage.none")}
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
             className="w-20 bg-transparent px-1.5 py-1 text-xs text-fg outline-none"
           />
         </div>
         <select
-          aria-label="Budget period"
+          aria-label={t("peko.usage.budgetPeriod")}
           value={cycle}
           onChange={(e) => setCycle(e.target.value as UsageCycle)}
           className="select input-sm w-auto pr-7"
         >
-          {(Object.keys(PER) as UsageCycle[]).map((c) => (
+          {CYCLES.map((c) => (
             <option key={c} value={c}>
-              {PER[c]}
+              {t(`peko.usage.per.${c}`)}
             </option>
           ))}
         </select>
@@ -171,9 +179,9 @@ export default function UsagePanel({
           disabled={!budgetValid || !changed || save.isPending}
           className="btn-primary btn-sm"
         >
-          {save.isPending ? "Saving…" : "Save"}
+          {save.isPending ? t("common.saving") : t("common.save")}
         </button>
-        {!budgetValid && <span className="text-[11px] text-danger">Enter an amount above $0.</span>}
+        {!budgetValid && <span className="text-[11px] text-danger">{t("peko.usage.budgetInvalid")}</span>}
       </form>
       {save.error && (
         <p className="mt-1 text-[11px] text-danger">

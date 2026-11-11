@@ -1,0 +1,73 @@
+{
+  "title": "Settings",
+  "sectionsLabel": "Settings sections",
+  "sections": {
+    "general": "General",
+    "models": "Models",
+    "advanced": "Advanced",
+    "about": "About"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "hint": "Dark matches PekoHub.",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "keys": {
+    "title": "Stored keys",
+    "hint": "Every secret in the engine's vault. Model keys are managed from Models; this list is for keys other tools use.",
+    "add": "Add a key",
+    "namespace": "Namespace",
+    "namePlaceholder": "e.g. github",
+    "kind": "Kind",
+    "kinds": {
+      "api_key": "API key",
+      "bearer_token": "Bearer token",
+      "oauth_token": "OAuth token",
+      "basic_auth": "Basic auth",
+      "private_key": "Private key",
+      "generic_secret": "Other secret"
+    },
+    "secret": "Secret",
+    "save": "Save key",
+    "loading": "Loading credentials…",
+    "empty": "No stored keys",
+    "emptyHint": "Keys you add for models or tools appear here.",
+    "hide": "Hide secret",
+    "reveal": "Reveal secret"
+  },
+  "models": {
+    "intro": "The endpoints your pekos think with. Each model keeps its own API key; change it under Edit.",
+    "add": "Add model",
+    "loading": "Loading models…",
+    "empty": "No models configured yet",
+    "emptyHint": "Add an endpoint and its API key to start talking to your pekos.",
+    "addFirst": "Add your first model",
+    "unavailable": "Model catalog unavailable",
+    "unavailableHint": "Couldn't load the model catalog. Check that the engine is running and reload this tab."
+  },
+  "folder": {
+    "title": "Peko folder",
+    "hint": "Where the engine keeps your pekos, models, and keys.",
+    "unknown": "Unknown",
+    "show": "Show folder"
+  },
+  "about": {
+    "appVersion": "App version",
+    "engineVersion": "Engine version",
+    "notRunning": "Not running",
+    "help": "Help",
+    "gettingStarted": "Getting started",
+    "report": "Report a problem",
+    "onboarding": "Onboarding",
+    "onboardingHint": "Walk through connecting a model and creating a peko again.",
+    "replay": "Replay onboarding"
+  },
+  "language": {
+    "title": "Language",
+    "hint": "The language Peko Desktop is shown in.",
+    "system": "System default"
+  }
+}

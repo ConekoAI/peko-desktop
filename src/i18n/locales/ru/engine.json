@@ -1,0 +1,11 @@
+{
+  "state": {
+    "connecting": "Подключение…",
+    "running": "Работает",
+    "starting": "Запускается",
+    "restarting": "Перезапуск…",
+    "restartingAttempt": "Перезапуск ({{attempt}})…",
+    "stopped": "Остановлен",
+    "failed": "Сбой"
+  }
+}

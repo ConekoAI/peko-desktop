@@ -1,0 +1,18 @@
+{
+  "blocked": {
+    "title": "Personas bloqueadas",
+    "hint": "No pueden escribirte ni pedirlo. Se bloquea desde una solicitud de mensaje.",
+    "empty": "No has bloqueado a nadie.",
+    "unblock": "Desbloquear"
+  },
+  "requests": {
+    "title": "Solicitudes de mensaje",
+    "body": "quiere escribirte. Verás lo que escribió cuando aceptes."
+  },
+  "invited": "invitado",
+  "accountPlaceholder": "Su ID de cuenta de PekoHub",
+  "namePlaceholder": "Cómo llamarle (opcional)",
+  "opening": "Abriendo…",
+  "message": "Escribir",
+  "requestHint": "Recibirá una solicitud de mensaje. Lo que escribas le llegará cuando acepte."
+}

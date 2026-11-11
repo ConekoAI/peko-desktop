@@ -1,0 +1,18 @@
+{
+  "blocked": {
+    "title": "Blocked people",
+    "hint": "They can't message you or ask to. Blocking is done from a message request.",
+    "empty": "You haven't blocked anyone.",
+    "unblock": "Unblock"
+  },
+  "requests": {
+    "title": "Message requests",
+    "body": "wants to message you. You'll see what they wrote once you accept."
+  },
+  "invited": "invited",
+  "accountPlaceholder": "Their PekoHub account ID",
+  "namePlaceholder": "What to call them (optional)",
+  "opening": "Opening…",
+  "message": "Message",
+  "requestHint": "They get a message request. What you write reaches them once they accept."
+}

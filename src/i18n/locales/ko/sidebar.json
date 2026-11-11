@@ -1,0 +1,24 @@
+{
+  "title": "채팅",
+  "searchPlaceholder": "채팅 검색…",
+  "people": "사용자",
+  "pekos": "Peko",
+  "loading": "불러오는 중…",
+  "wakingTitle": "이 peko는 아직 초기 설정 중입니다",
+  "waking": "깨어나는 중…",
+  "away": "{{days}}일 넘게 접속 없음 ({{n}})",
+  "noPekos": "아직 peko가 없습니다",
+  "createFirst": "첫 peko 만들기",
+  "noMatch": "일치하는 채팅이 없습니다",
+  "unread": "읽지 않음 {{n}}개",
+  "newChat": "새 채팅",
+  "openChat": "채팅 열기",
+  "profile": "프로필",
+  "menu": {
+    "create": "peko 만들기",
+    "import": ".peko 파일 가져오기",
+    "add": "peko 추가",
+    "discover": "공개 peko 둘러보기",
+    "messagePerson": "사용자에게 메시지 보내기"
+  }
+}

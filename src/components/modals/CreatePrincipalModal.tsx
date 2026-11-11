@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { usePrincipals } from "../../hooks/usePrincipals";
 import NewPekoForm from "../peko/NewPekoForm";
@@ -18,6 +19,7 @@ export default function CreatePrincipalModal({
   /** The new peko exists: open its chat. */
   onCreated?: (name: string) => void;
 }) {
+  const { t } = useTranslation();
   const { data: principals } = usePrincipals();
   if (!open) return null;
 
@@ -30,12 +32,12 @@ export default function CreatePrincipalModal({
       >
         <div className="modal-header justify-between">
           <h2 id="new-peko-title" className="modal-title">
-            New peko
+            {t("peko.new.title")}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
@@ -54,7 +56,7 @@ export default function CreatePrincipalModal({
                 onClick={onClose}
                 className="btn-secondary"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             }
           />

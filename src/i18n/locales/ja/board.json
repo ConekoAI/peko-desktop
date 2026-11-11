@@ -1,0 +1,27 @@
+{
+  "title": "ボード",
+  "empty": "ボードにはまだ作業がありません",
+  "open": "未完了 {{count}} 件",
+  "blocked": "保留中 {{count}} 件",
+  "pastCheckIn": "確認期限切れ {{count}} 件",
+  "for": "{{name}} 宛て",
+  "unclaimed": "担当者なし",
+  "checkIn": "確認予定 {{date}}",
+  "checkInPast": "確認期限切れ {{date}}",
+  "blockPlaceholder": "何を待っていますか？",
+  "block": "保留にする",
+  "take": "引き受ける",
+  "unblock": "保留を解除",
+  "blockedAction": "保留…",
+  "done": "完了",
+  "letGo": "担当を外れる",
+  "markDone": "完了にする",
+  "addPlaceholder": "ボードに作業を追加",
+  "newItem": "新しいボード項目",
+  "state": {
+    "open": "未着手",
+    "doing": "作業中",
+    "blocked": "保留中",
+    "done": "完了"
+  }
+}

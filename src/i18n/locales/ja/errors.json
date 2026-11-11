@@ -1,0 +1,15 @@
+{
+  "unknown": "不明なエラー",
+  "searchFailed": "検索に失敗しました: HTTP {{status}}",
+  "unsupportedLink": "対応していないリンクです: {{link}}",
+  "addRemotePekoFailed": "リモートの peko を追加できませんでした: {{message}}",
+  "hubNotifications": "PekoHub の通知: HTTP {{status}}",
+  "tokenExchangeFailed": "トークンの交換に失敗しました（{{status}}）: {{text}}",
+  "tokenRefreshFailed": "トークンの更新に失敗しました（{{status}}）: {{text}}",
+  "listAccessiblePekosFailed": "アクセスできる peko の一覧を取得できませんでした（{{status}}）: {{text}}",
+  "hubUnexpectedResponse": "PekoHub から予期しない形式の応答がありました",
+  "oauthNoActiveFlow": "進行中の OAuth フローがありません。先にサインインを開始してください。",
+  "oauthStateMismatch": "OAuth の state が一致しません。CSRF 攻撃の可能性があります。",
+  "oauthNoAccessToken": "トークンエンドポイントから access_token を受け取れませんでした",
+  "hubRequestFailed": "PekoHub へのリクエストに失敗しました（{{status}}）: {{text}}"
+}

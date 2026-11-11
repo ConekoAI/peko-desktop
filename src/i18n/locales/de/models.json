@@ -1,0 +1,108 @@
+{
+  "badge": {
+    "vision": "Bilderkennung",
+    "audio": "Audio",
+    "video": "Video",
+    "json": "JSON",
+    "fullTools": "Alle Tools",
+    "tools": "Tools",
+    "thinking": "Denken",
+    "thinkingRequired": "Denken (erforderlich)",
+    "thinkingBudget": "Denken (Budget)",
+    "pricing": "{{input}} Eingabe / {{output}} Ausgabe"
+  },
+  "apiFormat": {
+    "openai": {
+      "label": "OpenAI-kompatibel (Chat Completions)",
+      "short": "Chat Completions",
+      "hint": "Die meisten Anbieter und lokalen Server: POST {base URL}/chat/completions"
+    },
+    "anthropic": {
+      "label": "Anthropic-kompatibel (Messages)",
+      "short": "Anthropic Messages",
+      "hint": "Anthropic und kompatible Gateways: POST {base URL}/v1/messages"
+    },
+    "responses": {
+      "label": "OpenAI Responses",
+      "short": "Responses",
+      "hint": "Die neuere API von OpenAI: POST {base URL}/responses"
+    }
+  },
+  "endpoint": {
+    "baseUrl": "Basis-URL",
+    "apiFormat": "API-Format",
+    "apiKey": "API-Schlüssel",
+    "keyPlaceholder": "Schlüssel einfügen",
+    "keyHint": "Wird im Schlüsselbund des Systems gespeichert, nicht in einer Datei.",
+    "modelId": "Modell-ID",
+    "modelIdPlaceholderPick": "Unten auswählen oder eine ID eingeben",
+    "modelIdPlaceholder": "Der Modellname des Anbieters, z. B. gpt-5 oder mimo-v2.6-flash",
+    "listing": "Der Endpunkt wird nach seinen Modellen gefragt…",
+    "offeredLabel": "Modelle, die dieser Endpunkt anbietet",
+    "offered_one": "{{count}} Modell verfügbar",
+    "offered_other": "{{count}} Modelle verfügbar – wähle eines",
+    "listFailed": "Die Modelle konnten nicht aufgelistet werden: {{error}}. Gib die Modell-ID aus der Dokumentation des Anbieters ein.",
+    "name": "Name in Peko (optional)",
+    "namePlaceholder": "Standardmäßig die Modell-ID",
+    "nameInvalid": "Verwende Buchstaben, Ziffern, ., - oder _.",
+    "noKey": "Kein Schlüssel nötig (zum Beispiel ein lokaler Server)",
+    "storedCredential": "Stattdessen gespeicherte Zugangsdaten verwenden",
+    "pasteNewKey": "— Neuen Schlüssel einfügen —"
+  },
+  "inputs": {
+    "legend": "Versteht",
+    "text": "Text",
+    "image": "Bilder",
+    "audio": "Audio",
+    "video": "Video",
+    "hint": "Aktiviere, was das Modell laut deinem Anbieter annimmt. Angehängte Dateien dieser Arten gehen direkt an das Modell."
+  },
+  "price": {
+    "legend": "Preis pro Million Tokens",
+    "input": "Eingabe",
+    "output": "Ausgabe",
+    "cacheRead": "Eingabe aus dem Cache",
+    "cacheWrite": "Cache-Schreiben",
+    "fieldAria": "Preis pro Million Tokens: {{label}}",
+    "invalid": "Gib Beträge ab $0 ein.",
+    "hint": "Von der Preisseite deines Anbieters. Mit einem Preis zählen die Ausgaben der Pekos für dieses Modell zu ihren Budgets. Lass die Cache-Preise leer, um Eingaben aus dem Cache zum Eingabepreis zu zählen."
+  },
+  "add": {
+    "title": "Modell hinzufügen",
+    "intro": "Verwende die Basis-URL, das API-Format und den Modellnamen aus der Dokumentation deines Anbieters. Anbieter, die „OpenAI-kompatibel“ angeben, nutzen Chat Completions.",
+    "conflict": "Ein Modell namens <name/> gibt es schon – lege unter „Erweitert“ einen anderen Namen fest.",
+    "adding": "Wird hinzugefügt…"
+  },
+  "card": {
+    "testPassed": "Test bestanden",
+    "testPassedWith": "Test bestanden · {{model}}",
+    "testFailed": "Test fehlgeschlagen",
+    "disabled": "Deaktiviert",
+    "noKey": "Kein Schlüssel – füge unter „Bearbeiten“ einen hinzu",
+    "keySet": "Schlüssel hinterlegt",
+    "context": "{{n}} Kontext",
+    "maxOutput": "{{n}} Ausgabe",
+    "test": "Modell testen",
+    "removeConfirm": "Entfernen?"
+  },
+  "edit": {
+    "title": "Modell bearbeiten",
+    "displayName": "Anzeigename",
+    "wireModelId": "Modell-ID in der Anfrage",
+    "contextWindow": "Kontextfenster",
+    "maxOutputTokens": "Max. Ausgabe-Tokens",
+    "replaceKey": "API-Schlüssel ersetzen",
+    "replaceKeyKeep": "Leer lassen, um den aktuellen Schlüssel zu behalten",
+    "replaceKeyPaste": "API-Schlüssel einfügen",
+    "storedKey": "Gespeicherter Schlüssel",
+    "none": "— Keiner —",
+    "requiresKey": "API-Schlüssel erforderlich",
+    "headers": "Header",
+    "addHeader": "Header hinzufügen",
+    "noHeaders": "Keine zusätzlichen Header.",
+    "headerName": "Header-Name",
+    "headerValue": "Wert",
+    "saving": "Wird gespeichert…",
+    "save": "Änderungen speichern"
+  }
+}

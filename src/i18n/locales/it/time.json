@@ -1,0 +1,18 @@
+{
+  "justNow": "proprio ora",
+  "minutesAgo_one": "{{count}} minuto fa",
+  "minutesAgo_many": "{{count}} minuti fa",
+  "minutesAgo_other": "{{count}} minuti fa",
+  "hoursAgo_one": "{{count}} ora fa",
+  "hoursAgo_many": "{{count}} ore fa",
+  "hoursAgo_other": "{{count}} ore fa",
+  "daysAgo_one": "{{count}} giorno fa",
+  "daysAgo_many": "{{count}} giorni fa",
+  "daysAgo_other": "{{count}} giorni fa",
+  "duration": {
+    "seconds": "{{s}} s",
+    "minutes": "{{m}} min {{s}} s",
+    "hours": "{{h}} h {{m}} min",
+    "days": "{{d}} g {{h}} h"
+  }
+}

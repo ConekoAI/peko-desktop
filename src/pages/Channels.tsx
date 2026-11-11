@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Plus, Users } from "lucide-react";
 import { useSearch } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 /**
  * Groups landing page. Every group is a tile in the app rail
@@ -18,6 +19,7 @@ import { useSearch } from "@tanstack/react-router";
  * workflows (tests, automation).
  */
 export default function Channels() {
+  const { t } = useTranslation();
   const search = useSearch({ strict: false }) as { newChannel?: string };
 
   useEffect(() => {
@@ -39,9 +41,9 @@ export default function Channels() {
         <div className="tile mb-4 h-14 w-14 rounded-2xl">
           <Users className="h-6 w-6" />
         </div>
-        <h2 className="h-section">Groups</h2>
+        <h2 className="h-section">{t("channel.landing.title")}</h2>
         <p className="mt-1.5 text-sm text-fg-muted">
-          Pick a group in the bar on the left, or start one with your pekos.
+          {t("channel.landing.hint")}
         </p>
         <button
           type="button"
@@ -52,7 +54,7 @@ export default function Channels() {
           data-testid="channels-empty-new-button"
         >
           <Plus className="h-4 w-4" />
-          New group
+          {t("layout.rail.newGroup")}
         </button>
       </div>
     </div>

@@ -1,0 +1,24 @@
+{
+  "title": "Chat",
+  "searchPlaceholder": "Cerca nelle chat…",
+  "people": "Persone",
+  "pekos": "Peko",
+  "loading": "Caricamento…",
+  "wakingTitle": "Questo peko si sta ancora configurando",
+  "waking": "si sveglia…",
+  "away": "Non visti da più di {{days}} giorni ({{n}})",
+  "noPekos": "Ancora nessun peko",
+  "createFirst": "Crea il tuo primo peko",
+  "noMatch": "Nessuna chat corrisponde",
+  "unread": "{{n}} non letti",
+  "newChat": "Nuova chat",
+  "openChat": "Apri chat",
+  "profile": "Profilo",
+  "menu": {
+    "create": "Crea un peko",
+    "import": "Importa un file .peko",
+    "add": "Aggiungi un peko",
+    "discover": "Scopri i peko pubblici",
+    "messagePerson": "Scrivi a una persona"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "title": "チャット",
+  "searchPlaceholder": "チャットを検索…",
+  "people": "ユーザー",
+  "pekos": "Peko",
+  "loading": "読み込み中…",
+  "wakingTitle": "この peko はまだ初期設定中です",
+  "waking": "起動中…",
+  "away": "{{days}} 日以上オフライン（{{n}}）",
+  "noPekos": "まだ peko がいません",
+  "createFirst": "最初の peko を作成",
+  "noMatch": "一致するチャットはありません",
+  "unread": "未読 {{n}} 件",
+  "newChat": "新しいチャット",
+  "openChat": "チャットを開く",
+  "profile": "プロフィール",
+  "menu": {
+    "create": "peko を作成",
+    "import": ".peko ファイルを読み込む",
+    "add": "peko を追加",
+    "discover": "公開 peko を探す",
+    "messagePerson": "ユーザーにメッセージ"
+  }
+}

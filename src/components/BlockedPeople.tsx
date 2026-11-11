@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { blockedPeople, setPersonBlocked } from "../lib/api";
 
 /**
@@ -8,6 +9,7 @@ import { blockedPeople, setPersonBlocked } from "../lib/api";
  * list reaches your other computers. Unblock one here.
  */
 export default function BlockedPeople({ className }: { className?: string }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { data: people, isLoading } = useQuery({
     queryKey: ["blocked-people"],
@@ -20,18 +22,18 @@ export default function BlockedPeople({ className }: { className?: string }) {
 
   return (
     <div className={className} data-testid="blocked-people">
-      <h3 className="h-section">Blocked people</h3>
+      <h3 className="h-section">{t("people.blocked.title")}</h3>
       <p className="field-hint mt-0.5">
-        They can&apos;t message you or ask to. Blocking is done from a message request.
+        {t("people.blocked.hint")}
       </p>
       {isLoading ? (
         <div className="mt-3 flex items-center gap-2 text-xs text-fg-subtle">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading…
+          {t("common.loading")}
         </div>
       ) : (people ?? []).length === 0 ? (
         <div className="mt-3 text-xs text-fg-subtle" data-testid="blocked-people-empty">
-          You haven&apos;t blocked anyone.
+          {t("people.blocked.empty")}
         </div>
       ) : (
         <ul className="rows mt-3">
@@ -51,7 +53,7 @@ export default function BlockedPeople({ className }: { className?: string }) {
                 onClick={() => unblock.mutate(account)}
                 className="btn-secondary btn-xs shrink-0"
               >
-                Unblock
+                {t("people.blocked.unblock")}
               </button>
             </li>
           ))}

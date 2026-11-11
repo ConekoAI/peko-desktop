@@ -1,0 +1,126 @@
+{
+  "inviteToast": {
+    "addedTo": "已加入 <name/>",
+    "pending_other": "還有 {{count}} 個邀請待處理",
+    "dismiss": "關閉邀請提示"
+  },
+  "leave": {
+    "title": "退出 <name/>？",
+    "body": "你將不再看到這裡的新訊息。之後成員可以再把你加回來。",
+    "creatorNote": "這個群組是你建立的。退出不會刪除它——其餘成員仍可繼續使用。",
+    "confirm": "退出群組"
+  },
+  "composer": {
+    "postFailed": "訊息傳送失敗",
+    "forbidden": "你不在這個群組裡——只有成員可以發言。請現有成員邀請你。",
+    "mentionLabel": "提及一個 peko",
+    "messagePerson": "傳訊息給 {{name}}",
+    "messageThem": "傳訊息給對方",
+    "messageGroupNamed": "傳訊息到 {{name}}——輸入 @ 提及 peko",
+    "messageGroup": "傳訊息到群組——輸入 @ 提及 peko",
+    "send": "傳送訊息"
+  },
+  "event": {
+    "conversationWith": "與 <name/> 的對話",
+    "them": "對方",
+    "groupCreated": "<creator/> 建立了群組 <name/>",
+    "joined": "加入了",
+    "left": "退出了"
+  },
+  "header": {
+    "dm": "私人訊息",
+    "group": "群組",
+    "guestTitle": "你不在這個群組裡——可以閱讀，但不能發言。",
+    "viewOnly": "僅供檢視",
+    "createdBy": "由 <creator/> 建立 · {{date}}",
+    "share": "分享",
+    "invite": "邀請",
+    "leave": "退出",
+    "leaveTitle": "退出群組",
+    "leaveTitleCreator": "退出群組（你仍是建立者）"
+  },
+  "members": {
+    "loading": "正在載入成員…",
+    "empty": "還沒有成員。",
+    "local": "本機",
+    "remote": "遠端",
+    "peko": "Peko",
+    "person": "使用者",
+    "here": "在這台電腦上",
+    "elsewhere": "在其他地方",
+    "wakeLabel": "{{name}} 何時回覆",
+    "wake": {
+      "human": {
+        "label": "每則訊息",
+        "hint": "回覆使用者傳來的每則訊息"
+      },
+      "mention": {
+        "label": "@提及",
+        "hint": "有人 @提及它時回覆"
+      },
+      "off": {
+        "label": "永不",
+        "hint": "只旁觀；僅在它自行查看時回覆"
+      }
+    }
+  },
+  "share": {
+    "groupId": "群組 ID <id/>",
+    "copyId": "複製 ID",
+    "public": "任何知道 ID 的人都可以加入",
+    "inviteOnly": "只有持邀請連結的人可以加入",
+    "intro": "在 PekoHub 上為這個群組登記一個 ID，其他電腦上的人就能加入。群組的訊息仍保存在這台電腦上。",
+    "visibilityInviteOnly": "僅限邀請",
+    "visibilityPublic": "公開",
+    "registering": "正在登記…",
+    "register": "在 PekoHub 上登記",
+    "makeLink": "產生邀請連結",
+    "stopLinks": "停用所有連結",
+    "copyLink": "複製連結",
+    "worksUntil": "有效期限至 {{date}}。",
+    "noneWorking": "沒有正在生效的連結。",
+    "stopped": "已停用 {{count}} 個連結。"
+  },
+  "create": {
+    "title": "新增群組",
+    "intro": "群組是你和多個 peko 一起的聊天。之後可以再加入其他人和 peko。",
+    "name": "群組名稱",
+    "nameInvalid": "請使用 1–64 個字元。",
+    "startedBy": "發起者",
+    "loadingPekos": "正在載入你的 peko…",
+    "creating": "正在建立…",
+    "create": "建立",
+    "askToStart": "請建立一個名為「{{name}}」的群組，把我加進去，並在 PekoHub 上登記（僅限邀請），這樣我的其他電腦也能看到它。",
+    "noPekoHere": "群組存放在發起它的 peko 所在的電腦上，而你沒有 peko 在這台電腦上。",
+    "askElsewhere": "請你在另一台電腦上的 peko 來發起；它會把你加進去，群組也會出現在這裡。",
+    "nameFirst": "先為群組取個名字，再請你在另一台電腦上的 peko 來發起。",
+    "ask": "請 {{name}} 發起",
+    "createPekoHere": "在這台電腦上建立一個 peko"
+  },
+  "invite": {
+    "title": "邀請加入 <name/>",
+    "intro": "選擇一個 peko 加入這個群組。",
+    "notMember": "只有成員才能新增其他人。請先讓群組裡的人把你的一個 peko 加進來。",
+    "searchPlaceholder": "搜尋 peko…",
+    "noCandidates": "目前沒有可邀請的 peko——本機的每個 peko 都已是成員。",
+    "noMatch": "沒有符合搜尋的 peko。",
+    "inviting": "正在邀請…",
+    "invite": "邀請"
+  },
+  "landing": {
+    "title": "群組",
+    "hint": "在左側列中選擇一個群組，或和你的 peko 一起新增一個。"
+  },
+  "view": {
+    "loading": "正在載入動態…",
+    "forbiddenTitle": "你不在這個群組裡。",
+    "forbiddenBody": "只有成員可以閱讀。請現有成員邀請你——受邀後你就成為成員。",
+    "loadFailed": "無法載入這個群組的訊息。",
+    "empty": "還沒有動態。",
+    "sayHello": "向 <strong>{{name}}</strong> 打個招呼吧。",
+    "beFirst": "來當第一個在 <strong>{{name}}</strong> 發言的人。",
+    "askInvite": "請現有成員邀請你，然後回到這個群組開始發言。",
+    "waitingAccept": "正在等待 {{name}} 接受。你在這裡寫的內容會在對方接受後送達。",
+    "readOnly": "你可以閱讀這個群組，但不能在其中發言。"
+  }
+}

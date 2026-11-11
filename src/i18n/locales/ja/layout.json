@@ -1,0 +1,54 @@
+{
+  "rail": {
+    "chats": "チャット",
+    "groups": "グループ",
+    "settings": "設定",
+    "newGroup": "新しいグループ",
+    "invitationLabel": "招待: {{name}}",
+    "invitation": "招待",
+    "invitationSummary_other": "メンバー {{count}} 人 · {{inviter}} から",
+    "joining": "参加中…",
+    "joinGroup": "グループに参加",
+    "joinHint": "招待リンク、または公開グループの ID を貼り付けてください。",
+    "joinAsked": "{{name}} への参加を申請しました。所有者のコンピューターが承認すると、ここに表示されます。",
+    "asking": "申請中…"
+  },
+  "titleBar": {
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "元に戻す",
+    "close": "閉じる"
+  },
+  "engineFailure": {
+    "title": "エンジンを起動できませんでした",
+    "body": "エンジンが動くまで、チャットなどエンジンを使う機能は利用できません。",
+    "restart": "エンジンを再起動",
+    "restarting": "再起動中…",
+    "hideDetails": "詳細を隠す",
+    "showDetails": "詳細を表示"
+  },
+  "statusBar": {
+    "failed": "{{label}}: {{detail}}",
+    "failedFallback": "エンジンが失敗状態です"
+  },
+  "keepAwake": {
+    "title": "peko の作業中はこのコンピューターをスリープさせない",
+    "hint": "ほかのコンピューターから頼んだ作業を、このコンピューターの peko が最後まで終えられるようにします。スリープを止めるのは peko の作業中とその後 1 分間だけです。ノートパソコンのふたを閉じた場合はスリープします。"
+  },
+  "runtimeBadge": {
+    "local": "ローカル"
+  },
+  "versionMismatch": {
+    "newerTitle": "このアプリはお使いの Peko より古いバージョンです",
+    "newerBody": "Peko <running/> が実行中ですが、このアプリは <needed/> 向けに作られています。一部の機能が動作しない可能性があります。Peko Desktop を更新してください。",
+    "olderTitle": "お使いの Peko はこのアプリに必要なバージョンより古いです",
+    "olderBody": "Peko <running/> が実行中ですが、このアプリには <needed/> 以降が必要です。一部の機能が動作しない可能性があります。",
+    "unknownTitle": "お使いの Peko がこのアプリに合うか判断できません",
+    "unknownBody": "Peko はバージョン <running/> と報告していますが、このアプリには <needed/> 以降が必要です。一部の機能が動作しない可能性があります。",
+    "dismiss": "バージョン不一致の通知を閉じる"
+  },
+  "tray": {
+    "open": "開く",
+    "quit": "終了"
+  }
+}

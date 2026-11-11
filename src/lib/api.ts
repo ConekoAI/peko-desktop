@@ -15,6 +15,7 @@
 //! runtime's `RequestPacket`/`ResponsePacket` enums.
 
 import { invoke, Channel } from "@tauri-apps/api/core";
+import { t } from "../i18n";
 
 import type {
   ApprovalRequest,
@@ -538,7 +539,7 @@ export async function principalDecideApproval(params: {
 /** Ask for files to attach; resolves to their paths (none if cancelled). */
 export async function pickAttachments(): Promise<string[]> {
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const picked = await open({ multiple: true, directory: false, title: "Attach files" });
+  const picked = await open({ multiple: true, directory: false, title: t("common.attachFiles") });
   if (!picked) return [];
   return Array.isArray(picked) ? picked : [picked];
 }
@@ -1053,6 +1054,14 @@ export async function settingsSet(key: string, value: string): Promise<void> {
   return invoke("settings_set", { key, value });
 }
 
+/** Relabel the tray menu, so it follows the app's language. */
+export async function traySetLabels(labels: {
+  open: string;
+  quit: string;
+}): Promise<void> {
+  await invoke("tray_set_labels", { labels });
+}
+
 /** The folder the engine keeps pekos, models, and keys in. */
 export async function pekoHomeDir(): Promise<string> {
   return invoke<string>("peko_home_dir");
@@ -1387,14 +1396,14 @@ export interface HubNotificationList {
 /** The signed-in account's PekoHub notifications, newest first. */
 export async function hubNotifications(hub: string): Promise<HubNotificationList> {
   const resp = await hubAnswer(invoke<HubAnswer>("hub_notifications", { hub }));
-  if (!resp.ok) throw new Error(`PekoHub notifications: HTTP ${resp.status}`);
+  if (!resp.ok) throw new Error(t("errors.hubNotifications", { status: resp.status }));
   return hubJson(resp, hub);
 }
 
 /** Mark PekoHub notifications read: `ids`, or all of them. */
 export async function markHubNotificationsRead(hub: string, ids?: string[]): Promise<void> {
   const resp = await hubAnswer(invoke<HubAnswer>("hub_notifications_read", { hub, ids: ids ?? null }));
-  if (!resp.ok) throw new Error(`PekoHub notifications: HTTP ${resp.status}`);
+  if (!resp.ok) throw new Error(t("errors.hubNotifications", { status: resp.status }));
 }
 
 /** `POST /oauth/token` on a hub, through the backend (see `hubGet`). */
@@ -1421,8 +1430,8 @@ export async function oauthTokenExchange(params: {
     code_verifier: params.codeVerifier,
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "Unknown error");
-    throw new Error(`Token exchange failed (${resp.status}): ${text}`);
+    const text = await resp.text().catch(() => t("errors.unknown"));
+    throw new Error(t("errors.tokenExchangeFailed", { status: resp.status, text }));
   }
   return hubJson(resp, params.baseUrl);
 }
@@ -1441,8 +1450,8 @@ export async function oauthTokenRefresh(params: {
     refresh_token: params.refreshToken,
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "Unknown error");
-    throw new Error(`Token refresh failed (${resp.status}): ${text}`);
+    const text = await resp.text().catch(() => t("errors.unknown"));
+    throw new Error(t("errors.tokenRefreshFailed", { status: resp.status, text }));
   }
   return hubJson(resp, params.baseUrl);
 }
@@ -1456,14 +1465,14 @@ export async function pekohubListRuntimes(
 ): Promise<PekohubRuntime[]> {
   const resp = await hubGet(baseUrl, "runtimes", { accessToken });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "Unknown error");
-    throw new Error(`Failed to list runtimes (${resp.status}): ${text}`);
+    const text = await resp.text().catch(() => t("errors.unknown"));
+    throw new Error(t("errors.hubRequestFailed", { status: resp.status, text }));
   }
   const data = await hubJson(resp, baseUrl);
   // The endpoint may return { runtimes: [...] } or just [...]
   const arr = Array.isArray(data) ? data : data.runtimes;
   if (!Array.isArray(arr)) {
-    throw new Error("Unexpected response format from PekoHub");
+    throw new Error(t("errors.hubUnexpectedResponse"));
   }
   return arr.map((r: Record<string, unknown>) => ({
     id: String(r.id ?? r.runtime_id ?? ""),
@@ -1529,14 +1538,14 @@ export async function pekohubListAccessiblePekos(
 ): Promise<AccessiblePrincipal[]> {
   const resp = await hubGet(baseUrl, "accessible_pekos", { accessToken });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "Unknown error");
-    throw new Error(`Failed to list accessible pekos (${resp.status}): ${text}`);
+    const text = await resp.text().catch(() => t("errors.unknown"));
+    throw new Error(t("errors.listAccessiblePekosFailed", { status: resp.status, text }));
   }
   const data = await hubJson(resp, baseUrl);
   // The endpoint returns { pekos: [...] }; tolerate a bare array.
   const arr = Array.isArray(data) ? data : data?.pekos;
   if (!Array.isArray(arr)) {
-    throw new Error("Unexpected response format from PekoHub");
+    throw new Error(t("errors.hubUnexpectedResponse"));
   }
   return arr.map((w: AccessiblePekoWire) => ({
     id: String(w.id ?? ""),

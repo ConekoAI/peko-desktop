@@ -1,0 +1,15 @@
+{
+  "justNow": "gerade eben",
+  "minutesAgo_one": "vor {{count}} Minute",
+  "minutesAgo_other": "vor {{count}} Minuten",
+  "hoursAgo_one": "vor {{count}} Stunde",
+  "hoursAgo_other": "vor {{count}} Stunden",
+  "daysAgo_one": "vor {{count}} Tag",
+  "daysAgo_other": "vor {{count}} Tagen",
+  "duration": {
+    "seconds": "{{s}} s",
+    "minutes": "{{m}} min {{s}} s",
+    "hours": "{{h}} h {{m}} min",
+    "days": "{{d}} T {{h}} h"
+  }
+}

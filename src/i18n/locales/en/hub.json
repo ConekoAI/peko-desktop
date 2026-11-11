@@ -1,0 +1,40 @@
+{
+  "menu": {
+    "label": "PekoHub account menu",
+    "loading": "Loading PekoHub status…",
+    "signedInAs": "PekoHub · signed in as @{{handle}}",
+    "signedIn": "PekoHub · signed in",
+    "signIn": "Sign in to PekoHub",
+    "headerHandle": "PekoHub · @{{handle}}",
+    "notSignedIn": "PekoHub · not signed in",
+    "signInAgain": "Start sign-in again",
+    "signInWith": "Sign in with PekoHub",
+    "signOut": "Sign out",
+    "disconnect": "Disconnect this computer…",
+    "relink": "Re-link PekoHub account",
+    "waiting": "Waiting for PekoHub to redirect you back… complete the sign-in in your browser to continue. If the page didn't open, start again.",
+    "connectFailed": "Signed in, but this computer couldn't connect to PekoHub: {{error}}",
+    "unknownError": "unknown error",
+    "signInFailed": "Sign-in failed. Check your browser and try again.",
+    "disconnectFailed": "This computer couldn't disconnect: {{error}}"
+  },
+  "disconnect": {
+    "title": "Disconnect this computer?",
+    "message": "Your pekos on this computer go local-only, so nobody can reach them through PekoHub, and you're signed out. This computer's copies of your chats with pekos on other computers are deleted; those computers keep them, and they come back when you sign in again.",
+    "confirm": "Disconnect",
+    "confirming": "Disconnecting…",
+    "unsentTitle": "Some messages haven't been delivered",
+    "unsentMessage": "{{count}} message(s) to pekos on other computers haven't reached them yet, because those computers are offline. Disconnecting now loses them. Wait until they're delivered, or disconnect anyway.",
+    "anyway": "Disconnect anyway",
+    "wait": "Wait"
+  },
+  "notifications": {
+    "label": "PekoHub notifications",
+    "labelUnread": "PekoHub notifications, {{count}} unread",
+    "unreachable": "Couldn't reach PekoHub.",
+    "empty": "Nothing yet.",
+    "justNow": "just now",
+    "minutesAgo": "{{count}} min ago",
+    "hoursAgo": "{{count}} h ago"
+  }
+}
