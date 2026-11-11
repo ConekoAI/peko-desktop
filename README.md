@@ -102,6 +102,16 @@ peko-desktop/
 └── public/                 # Static assets
 ```
 
+## Window and tray
+
+The window is the front end; the tray icon is the app. Closing the window
+hides it and leaves the engine running, so pekos keep working and
+notifications keep coming. The tray menu brings the window back (**Open**),
+starts and stops the engine, and ends the app (**Quit**), which also stops
+the engine. Opening the app again while it is hidden shows the same window:
+only one copy runs. On a desktop with no tray icon, closing the window
+quits the app.
+
 ## Text and languages
 
 Every string a person reads lives in `src/i18n/locales/en/`, one JSON file

@@ -50,6 +50,21 @@ pub fn tray_set_labels(app: AppHandle, labels: TrayLabels) -> std::result::Resul
     Ok(())
 }
 
+/// Whether the tray icon exists. Without it a hidden window could not be
+/// brought back, so closing the window must quit the app instead.
+pub fn is_present(app: &AppHandle) -> bool {
+    app.try_state::<TrayItems>().is_some()
+}
+
+/// Bring the app's window back and put it in front.
+pub fn show_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
     let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
@@ -86,12 +101,7 @@ pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
         .tooltip("Peko Desktop")
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "open" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
-            }
+            "open" => show_main_window(app),
             // ADR-043: route through the supervisor so the tray's
             // "Start engine" / "Stop engine" items share the same
             // child handle as the Tauri commands. The previous
@@ -117,11 +127,7 @@ pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
                 ..
             } = event
             {
-                let app = tray.app_handle();
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                show_main_window(tray.app_handle());
             }
         })
         .build(app)
