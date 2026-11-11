@@ -94,7 +94,7 @@ peko-desktop/
 │   │   ├── commands/       # Tauri command handlers (one per CLI subcommand)
 │   │   ├── daemon/         # Daemon lifecycle & auto-restart
 │   │   ├── vault/          # OS keyring integration for tokens
-│   │   └── tray/           # System tray icon: opens the app, starts and stops the engine
+│   │   └── tray/           # System tray icon: opens the app and quits it
 │   ├── capabilities/       # Tauri permission allowlist
 │   └── tauri.conf.json     # Tauri config (CSP, window, bundle)
 ├── docs/
@@ -106,9 +106,8 @@ peko-desktop/
 
 The window is the front end; the tray icon is the app. Closing the window
 hides it and leaves the engine running, so pekos keep working and
-notifications keep coming. The tray menu brings the window back (**Open**),
-starts and stops the engine, and ends the app (**Quit**), which also stops
-the engine. Opening the app again while it is hidden shows the same window:
+notifications keep coming. The tray menu brings the window back (**Open**)
+and ends the app (**Quit**), which stops the engine. Opening the app again while it is hidden shows the same window:
 only one copy runs. On a desktop with no tray icon, closing the window
 quits the app.
 

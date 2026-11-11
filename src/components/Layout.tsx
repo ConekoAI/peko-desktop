@@ -63,8 +63,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void traySetLabels({
       open: t("layout.tray.open"),
-      startEngine: t("layout.tray.startEngine"),
-      stopEngine: t("layout.tray.stopEngine"),
       quit: t("layout.tray.quit"),
     }).catch(() => {
       // No tray (browser preview, or a desktop without one): nothing to relabel.

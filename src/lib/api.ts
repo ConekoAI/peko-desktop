@@ -1057,8 +1057,6 @@ export async function settingsSet(key: string, value: string): Promise<void> {
 /** Relabel the tray menu, so it follows the app's language. */
 export async function traySetLabels(labels: {
   open: string;
-  startEngine: string;
-  stopEngine: string;
   quit: string;
 }): Promise<void> {
   await invoke("tray_set_labels", { labels });

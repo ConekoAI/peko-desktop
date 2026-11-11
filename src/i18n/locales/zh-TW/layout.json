@@ -49,8 +49,6 @@
   },
   "tray": {
     "open": "開啟",
-    "startEngine": "啟動引擎",
-    "stopEngine": "停止引擎",
     "quit": "結束"
   }
 }

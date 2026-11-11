@@ -49,8 +49,6 @@
   },
   "tray": {
     "open": "開く",
-    "startEngine": "エンジンを開始",
-    "stopEngine": "エンジンを停止",
     "quit": "終了"
   }
 }

@@ -122,8 +122,7 @@ pub fn run() {
                 });
             }
 
-            // The tray icon: it brings the window back and starts,
-            // stops and quits the engine. A desktop without a tray still
+            // The tray icon: it brings the window back and quits the app. A desktop without a tray still
             // gets the app; there, closing the window quits it.
             if let Err(e) = tray::build_tray(app.handle()) {
                 eprintln!("[peko-desktop] no tray icon: {e}");

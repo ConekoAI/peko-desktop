@@ -49,8 +49,6 @@
   },
   "tray": {
     "open": "打开",
-    "startEngine": "启动引擎",
-    "stopEngine": "停止引擎",
     "quit": "退出"
   }
 }

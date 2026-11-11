@@ -49,8 +49,6 @@
   },
   "tray": {
     "open": "열기",
-    "startEngine": "엔진 시작",
-    "stopEngine": "엔진 중지",
     "quit": "종료"
   }
 }

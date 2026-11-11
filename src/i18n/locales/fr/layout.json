@@ -51,8 +51,6 @@
   },
   "tray": {
     "open": "Ouvrir",
-    "startEngine": "Démarrer le moteur",
-    "stopEngine": "Arrêter le moteur",
     "quit": "Quitter"
   }
 }

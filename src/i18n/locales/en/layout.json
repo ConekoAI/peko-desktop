@@ -50,8 +50,6 @@
   },
   "tray": {
     "open": "Open",
-    "startEngine": "Start engine",
-    "stopEngine": "Stop engine",
     "quit": "Quit"
   }
 }

@@ -16,8 +16,6 @@ pub type Result<T> = std::result::Result<T, TrayError>;
 /// The menu's items, kept so their labels can follow the app's language.
 pub struct TrayItems {
     open: MenuItem<tauri::Wry>,
-    start_engine: MenuItem<tauri::Wry>,
-    stop_engine: MenuItem<tauri::Wry>,
     quit: MenuItem<tauri::Wry>,
 }
 
@@ -26,8 +24,6 @@ pub struct TrayItems {
 #[serde(rename_all = "camelCase")]
 pub struct TrayLabels {
     open: String,
-    start_engine: String,
-    stop_engine: String,
     quit: String,
 }
 
@@ -39,12 +35,7 @@ pub fn tray_set_labels(app: AppHandle, labels: TrayLabels) -> std::result::Resul
     let Some(items) = app.try_state::<TrayItems>() else {
         return Ok(());
     };
-    for (item, text) in [
-        (&items.open, &labels.open),
-        (&items.start_engine, &labels.start_engine),
-        (&items.stop_engine, &labels.stop_engine),
-        (&items.quit, &labels.quit),
-    ] {
+    for (item, text) in [(&items.open, &labels.open), (&items.quit, &labels.quit)] {
         item.set_text(text).map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -68,31 +59,16 @@ pub fn show_main_window(app: &AppHandle) {
 pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
     let open_i = MenuItem::with_id(app, "open", "Open", true, None::<&str>)
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
-    let start_daemon_i = MenuItem::with_id(app, "start_daemon", "Start engine", true, None::<&str>)
-        .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
-    let stop_daemon_i = MenuItem::with_id(app, "stop_daemon", "Stop engine", true, None::<&str>)
-        .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
     let separator =
         PredefinedMenuItem::separator(app).map_err(|e| TrayError::BuildFailed(e.to_string()))?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
         .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
 
-    let menu = Menu::with_items(
-        app,
-        &[
-            &open_i,
-            &start_daemon_i,
-            &stop_daemon_i,
-            &separator,
-            &quit_i,
-        ],
-    )
-    .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
+    let menu = Menu::with_items(app, &[&open_i, &separator, &quit_i])
+        .map_err(|e| TrayError::BuildFailed(e.to_string()))?;
 
     app.manage(TrayItems {
         open: open_i.clone(),
-        start_engine: start_daemon_i.clone(),
-        stop_engine: stop_daemon_i.clone(),
         quit: quit_i.clone(),
     });
 
@@ -102,19 +78,6 @@ pub fn build_tray(app: &AppHandle) -> Result<TrayIcon> {
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => show_main_window(app),
-            // ADR-043: route through the supervisor so the tray's
-            // "Start engine" / "Stop engine" items share the same
-            // child handle as the Tauri commands. The previous
-            // `crate::daemon::start()`/`stop()` path spawned a
-            // separate `peko daemon start` child and tracked it in
-            // `DAEMON_CHILD` — orphaned when the supervisor adopted
-            // or restarted the engine under the same IPC socket.
-            "start_daemon" => {
-                let _ = crate::sidecar::get(app).start();
-            }
-            "stop_daemon" => {
-                let _ = crate::sidecar::get(app).stop();
-            }
             "quit" => {
                 app.exit(0);
             }
