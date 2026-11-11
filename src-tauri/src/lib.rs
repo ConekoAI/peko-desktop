@@ -10,13 +10,13 @@ pub mod storage;
 pub mod tray;
 pub mod updater;
 
-/// Best-effort lookup of the engine version this desktop bundle was
-/// built against. For now this is the desktop's own `Cargo.toml`
-/// version (release process guarantees it matches the bundled
-/// `peko`); if a more precise contract is needed later, the value
-/// can be baked in via `build.rs` from the peko-runtime release tag.
+/// The peko-runtime version this app needs: the one its release bundles
+/// as the sidecar, and the oldest one it accepts from a daemon it didn't
+/// start (peko-runtime ADR-102 D4). It lives in `src-tauri/runtime-version`
+/// so the release workflow reads the same value. The app has its own
+/// version; the two no longer move together.
 fn expected_engine_version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
+    include_str!("../runtime-version").trim().to_string()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -248,5 +248,17 @@ async fn update_local_runtime(app_handle: &AppHandle, status: state::RuntimeStat
     if let Some(mut local) = app_state.get_runtime("local").await {
         local.status = status;
         app_state.set_runtime(local).await;
+    }
+}
+
+#[cfg(test)]
+mod runtime_version_tests {
+    #[test]
+    fn the_pinned_runtime_version_is_a_plain_version() {
+        let v = super::expected_engine_version();
+        assert!(
+            crate::sidecar::parse_release(&v).is_some() && !v.contains(['-', '+']),
+            "src-tauri/runtime-version must be X.Y.Z, got {v:?}"
+        );
     }
 }

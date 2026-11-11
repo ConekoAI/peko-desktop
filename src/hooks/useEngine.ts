@@ -122,9 +122,10 @@ export function useEngineStateChanged(): {
 
 /**
  * Subscribe to `engine-version-mismatch`. The supervisor emits this
- * when the bundled engine's version does not match the version the
- * desktop was built against (expected to be the same in lockstep
- * releases, but worth surfacing if they diverge).
+ * when the running runtime doesn't fit the one this app needs: older
+ * than `src-tauri/runtime-version`, or from a later minor line
+ * (peko-runtime ADR-102). The app and the runtime are released
+ * separately, so a later patch release of the runtime is fine.
  *
  * Returns the most recent mismatch payload (or null) and a
  * dismiss callback. The dashboard banner is the only consumer; it
