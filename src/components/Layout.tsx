@@ -201,6 +201,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <VersionMismatchBanner
                   actual={mismatch.actual}
                   expected={mismatch.expected}
+                  reason={mismatch.reason}
                   onDismiss={dismiss}
                 />
               </div>

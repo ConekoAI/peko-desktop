@@ -12,9 +12,12 @@ name: Release
 #   supplying the tag (e.g. to re-build v0.1.0 after fixing a
 #   release-only issue on a hotfix branch).
 #
-# The bundled peko-daemon sidecar is built from peko-runtime at the
-# same tag (or `runtime_ref` when dispatching), so the tag must exist
-# in peko-runtime too — `prepare` checks that before anything builds.
+# The app and the runtime are released separately (peko-runtime
+# ADR-102). The bundled peko-daemon sidecar is built from peko-runtime
+# at `v<version>`, where the version is in `src-tauri/runtime-version`
+# at the tag being built (or `runtime_ref` when dispatching). That
+# release must exist in peko-runtime — `prepare` checks before anything
+# builds. The same file is the oldest runtime the app accepts.
 #
 # Signing (optional; each platform builds unsigned without it):
 #   macOS    APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD,
@@ -35,7 +38,7 @@ on:
         required: false
         default: ''
       runtime_ref:
-        description: 'peko-runtime tag or branch for the sidecar. Leave empty to use the same tag.'
+        description: 'peko-runtime tag or branch for the sidecar. Leave empty to use src-tauri/runtime-version.'
         required: false
         default: ''
 
@@ -67,6 +70,7 @@ jobs:
         env:
           INPUT_TAG: ${{ inputs.tag }}
           INPUT_RUNTIME_REF: ${{ inputs.runtime_ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "$INPUT_TAG" ]; then
             TAG="$INPUT_TAG"
@@ -80,10 +84,20 @@ jobs:
             echo "::error::Tag $TAG does not exist in $GITHUB_REPOSITORY."
             exit 1
           fi
-          RUNTIME_REF="${INPUT_RUNTIME_REF:-$TAG}"
+          if [ -n "$INPUT_RUNTIME_REF" ]; then
+            RUNTIME_REF="$INPUT_RUNTIME_REF"
+          else
+            PINNED="$(gh api "repos/$GITHUB_REPOSITORY/contents/src-tauri/runtime-version?ref=$TAG" \
+              -H 'Accept: application/vnd.github.raw' | tr -d '[:space:]')"
+            if ! printf '%s' "$PINNED" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::src-tauri/runtime-version at $TAG is not X.Y.Z (got '$PINNED')."
+              exit 1
+            fi
+            RUNTIME_REF="v$PINNED"
+          fi
           if ! git ls-remote --exit-code https://github.com/ConekoAI/peko-runtime.git \
               "refs/tags/$RUNTIME_REF" "refs/heads/$RUNTIME_REF" >/dev/null; then
-            echo "::error::peko-runtime has no tag or branch '$RUNTIME_REF'. Tag peko-runtime first, or pass 'runtime_ref' (e.g. v0.1.0-rc.5 or master)."
+            echo "::error::peko-runtime has no tag or branch '$RUNTIME_REF'. Release that runtime version first, set src-tauri/runtime-version to a released one, or pass 'runtime_ref' (e.g. master)."
             exit 1
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"

@@ -66,9 +66,15 @@ export interface EngineDiagnostics {
   mode: string | null;
 }
 
+/** Which side has to move when the running runtime doesn't fit this app. */
+export type RuntimeFitReason = "older" | "newer" | "unknown";
+
 export interface EngineVersionMismatch {
+  /** The version the running runtime reports. */
   actual: string;
+  /** The runtime version this app needs (it accepts later ones in the same line). */
   expected: string;
+  reason: RuntimeFitReason;
 }
 
 // ─── Principal (ADR-041) ────────────────────────────────────────

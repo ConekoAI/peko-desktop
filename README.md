@@ -46,6 +46,17 @@ pnpm tauri dev
 The first `pnpm tauri dev` will compile the Rust side, which can take a few
 minutes on a cold cache. Subsequent runs are incremental.
 
+## Versions
+
+The app and the runtime are released separately (peko-runtime ADR-102).
+[`src-tauri/runtime-version`](src-tauri/runtime-version) holds one runtime
+version: the one a release bundles, and the oldest one the app accepts
+from a daemon it didn't start. A later runtime in the same minor line
+(`0.1.x`) is fine; an older one, or one from a later line, shows a
+warning. Move the file forward when the app needs a newer runtime. The
+release workflow builds the bundled daemon from that runtime release, so
+it has to exist first.
+
 ## Building a release binary
 
 ```bash

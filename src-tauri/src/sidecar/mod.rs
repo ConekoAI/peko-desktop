@@ -96,11 +96,60 @@ pub struct Diagnostics {
 }
 
 /// Payload emitted alongside `engine-version-mismatch` so the UI can
-/// show the user which versions are involved.
+/// show the user which versions are involved. `expected` is the runtime
+/// version this app needs; `reason` says which side has to move.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VersionMismatch {
     pub actual: String,
     pub expected: String,
+    pub reason: RuntimeFit,
+}
+
+/// How a running runtime compares with the one this app needs
+/// (peko-runtime ADR-102 D2/D4). A patch release breaks nothing the app
+/// depends on, so any runtime in the same minor line at or above the
+/// needed one fits. A later minor line may have changed a request.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeFit {
+    /// Same minor line, not older than needed.
+    Fits,
+    /// Older than this app needs: update the runtime.
+    Older,
+    /// A later minor (or major) line than this app knows: update the app.
+    Newer,
+    /// One of the two is not a version this app can read.
+    Unknown,
+}
+
+/// `X.Y.Z` out of `X.Y.Z`, `X.Y.Z-pre` or `X.Y.Z+build`.
+pub fn parse_release(version: &str) -> Option<(u64, u64, u64)> {
+    let core = version.split(['-', '+']).next()?;
+    let mut parts = core.split('.');
+    let triple = (
+        parts.next()?.parse().ok()?,
+        parts.next()?.parse().ok()?,
+        parts.next()?.parse().ok()?,
+    );
+    parts.next().is_none().then_some(triple)
+}
+
+/// Does the runtime reporting `actual` fit an app that needs `needed`?
+pub fn runtime_fit(needed: &str, actual: &str) -> RuntimeFit {
+    if needed == actual {
+        return RuntimeFit::Fits;
+    }
+    let (Some(need), Some(have)) = (parse_release(needed), parse_release(actual)) else {
+        return RuntimeFit::Unknown;
+    };
+    // The line that may break: the minor while the major is 0, then the major.
+    let line = |v: (u64, u64, u64)| if v.0 == 0 { (0, v.1) } else { (v.0, 0) };
+    match line(have).cmp(&line(need)) {
+        std::cmp::Ordering::Less => RuntimeFit::Older,
+        std::cmp::Ordering::Greater => RuntimeFit::Newer,
+        std::cmp::Ordering::Equal if have < need => RuntimeFit::Older,
+        std::cmp::Ordering::Equal => RuntimeFit::Fits,
+    }
 }
 
 pub struct Supervisor {
@@ -555,7 +604,9 @@ impl Supervisor {
         let g = self.inner.lock().unwrap();
         let uptime_secs = g.started_at.map(|t| t.elapsed().as_secs()).unwrap_or(0);
         let version_matches = match (&g.version, &g.expected_version) {
-            (Some(actual), Some(expected)) => Some(actual == expected),
+            (Some(actual), Some(expected)) => {
+                Some(runtime_fit(expected, actual) == RuntimeFit::Fits)
+            }
             _ => None,
         };
         let pid = g.child_pid.or(g.adopted_pid).or_else(|| match &g.state {
@@ -683,12 +734,14 @@ fn handle_stderr_line(inner: &Arc<Mutex<Inner>>, app: &AppHandle, line: &str) {
             drop(g);
             emit_state_change(app);
             if let Some(expected_v) = expected {
-                if expected_v != version {
+                let reason = runtime_fit(&expected_v, &version);
+                if reason != RuntimeFit::Fits {
                     let _ = app.emit(
                         VERSION_MISMATCH_EVENT,
                         &VersionMismatch {
                             actual: version,
                             expected: expected_v,
+                            reason,
                         },
                     );
                 }
@@ -710,12 +763,14 @@ fn handle_stderr_line(inner: &Arc<Mutex<Inner>>, app: &AppHandle, line: &str) {
         drop(g);
         emit_state_change(app);
         if let Some(expected_v) = expected {
-            if expected_v != version {
+            let reason = runtime_fit(&expected_v, &version);
+            if reason != RuntimeFit::Fits {
                 let _ = app.emit(
                     VERSION_MISMATCH_EVENT,
                     &VersionMismatch {
                         actual: version,
                         expected: expected_v,
+                        reason,
                     },
                 );
             }
@@ -1101,6 +1156,37 @@ mod tests {
         let json = serde_json::to_string(&s).unwrap();
         let back: EngineState = serde_json::from_str(&json).unwrap();
         assert_eq!(back, s);
+    }
+
+    #[test]
+    fn a_runtime_in_the_same_minor_line_and_not_older_fits() {
+        assert_eq!(runtime_fit("0.1.2", "0.1.2"), RuntimeFit::Fits);
+        assert_eq!(runtime_fit("0.1.2", "0.1.9"), RuntimeFit::Fits);
+        assert_eq!(runtime_fit("0.1.0", "0.1.0-rc.6"), RuntimeFit::Fits);
+        assert_eq!(runtime_fit("1.2.0", "1.4.1"), RuntimeFit::Fits);
+    }
+
+    #[test]
+    fn an_older_runtime_or_a_later_line_does_not_fit() {
+        assert_eq!(runtime_fit("0.1.2", "0.1.1"), RuntimeFit::Older);
+        assert_eq!(runtime_fit("0.2.0", "0.1.9"), RuntimeFit::Older);
+        assert_eq!(runtime_fit("1.2.0", "1.1.9"), RuntimeFit::Older);
+        assert_eq!(runtime_fit("0.1.2", "0.2.0"), RuntimeFit::Newer);
+        assert_eq!(runtime_fit("0.9.0", "1.0.0"), RuntimeFit::Newer);
+        assert_eq!(runtime_fit("1.2.0", "2.0.0"), RuntimeFit::Newer);
+        assert_eq!(runtime_fit("0.1.2", "dev"), RuntimeFit::Unknown);
+        assert_eq!(runtime_fit("0.1.2", "0.1"), RuntimeFit::Unknown);
+    }
+
+    #[test]
+    fn a_mismatch_says_which_side_has_to_move() {
+        let m = VersionMismatch {
+            actual: "0.1.1".into(),
+            expected: "0.1.2".into(),
+            reason: RuntimeFit::Older,
+        };
+        let json = serde_json::to_value(&m).unwrap();
+        assert_eq!(json["reason"], "older");
     }
 
     #[test]
