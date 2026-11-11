@@ -1,11 +1,12 @@
 import { Film, Image, Mic } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import type { ModelInputs } from "../../lib/model-spec";
 
-const OPTIONS: { key: keyof ModelInputs; label: string; Icon: typeof Image }[] = [
-  { key: "image", label: "Images", Icon: Image },
-  { key: "audio", label: "Audio", Icon: Mic },
-  { key: "video", label: "Video", Icon: Film },
+const OPTIONS: { key: keyof ModelInputs; Icon: typeof Image }[] = [
+  { key: "image", Icon: Image },
+  { key: "audio", Icon: Mic },
+  { key: "video", Icon: Film },
 ];
 
 /**
@@ -22,14 +23,15 @@ export default function InputsPicker({
   onChange: (value: ModelInputs) => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <fieldset disabled={disabled}>
-      <legend className="field-label mb-1.5 block">Understands</legend>
+      <legend className="field-label mb-1.5 block">{t("models.inputs.legend")}</legend>
       <div className="flex flex-wrap gap-2">
         <span className="inline-flex items-center rounded-lg border border-line bg-surface-sunken px-3 py-1.5 text-xs text-fg-muted">
-          Text
+          {t("models.inputs.text")}
         </span>
-        {OPTIONS.map(({ key, label, Icon }) => {
+        {OPTIONS.map(({ key, Icon }) => {
           const on = value[key];
           return (
             <button
@@ -46,14 +48,13 @@ export default function InputsPicker({
               ].join(" ")}
             >
               <Icon className="h-3.5 w-3.5" />
-              {label}
+              {t(`models.inputs.${key}`)}
             </button>
           );
         })}
       </div>
       <p className="mt-1 text-[11px] text-fg-subtle">
-        Turn on what your provider says the model takes. Attached files of these kinds go to the
-        model itself.
+        {t("models.inputs.hint")}
       </p>
     </fieldset>
   );

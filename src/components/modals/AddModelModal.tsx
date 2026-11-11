@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { useAddModel, useModels } from "../../hooks/useModels";
 import { useGenericCredentialList } from "../../hooks/useSettings";
@@ -38,6 +39,7 @@ export default function AddModelModal({
   onClose: () => void;
   onSuccess?: (modelId: string) => void;
 }) {
+  const { t } = useTranslation();
   const { data: credentials } = useGenericCredentialList();
   const { data: existingModels } = useModels();
   const addMut = useAddModel();
@@ -101,11 +103,11 @@ export default function AddModelModal({
         <div className="modal-header shrink-0 justify-between">
           <div className="flex items-center gap-2">
             <Plus className="h-5 w-5 text-brand-text" />
-            <h2 className="modal-title">Add a model</h2>
+            <h2 className="modal-title">{t("models.add.title")}</h2>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
@@ -114,8 +116,7 @@ export default function AddModelModal({
 
         <div className="space-y-4 overflow-y-auto p-5">
           <p className="text-xs text-fg-muted">
-            Use the base URL, API format, and model name from your provider&apos;s docs. Providers
-            that say &quot;OpenAI-compatible&quot; use Chat Completions.
+            {t("models.add.intro")}
           </p>
           <EndpointForm
             value={draft}
@@ -132,8 +133,10 @@ export default function AddModelModal({
           />
           {conflict && (
             <p className="text-xs text-warn" data-testid="add-model-conflict">
-              A model named <span className="font-mono">{name}</span> already exists — set another
-              name under Advanced.
+              <Trans
+                i18nKey="models.add.conflict"
+                components={{ name: <span className="font-mono">{name}</span> }}
+              />
             </p>
           )}
           {error && (
@@ -151,7 +154,7 @@ export default function AddModelModal({
             onClick={onClose}
             className="btn-secondary"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={submit}
@@ -160,7 +163,7 @@ export default function AddModelModal({
             className="btn-primary"
           >
             <Check className="h-3.5 w-3.5" />
-            {addMut.isPending ? "Adding…" : "Add"}
+            {addMut.isPending ? t("models.add.adding") : t("common.add")}
           </button>
         </div>
       </div>

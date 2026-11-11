@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, Trash2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useUpdateModel } from "../../hooks/useModels";
 import { useGenericCredentialList, useSetGenericCredential } from "../../hooks/useSettings";
 import type { ModelSummary, ModelUpdateArgs } from "../../types";
-import { API_FORMATS } from "../../lib/apiFormats";
+import { API_FORMATS, apiFormatLabel } from "../../lib/apiFormats";
 import InputsPicker from "../models/InputsPicker";
 import PriceFields from "../models/PriceFields";
 import {
@@ -42,6 +43,7 @@ export default function EditModelModal({
   onClose: () => void;
   model: ModelSummary;
 }) {
+  const { t } = useTranslation();
   const updateMut = useUpdateModel();
   const setKeyMut = useSetGenericCredential();
   const { data: credentials } = useGenericCredentialList();
@@ -182,7 +184,7 @@ export default function EditModelModal({
         <div className="modal-header shrink-0 justify-between">
           <div>
             <h2 className="modal-title">
-              Edit Model
+              {t("models.edit.title")}
             </h2>
             <p className="text-xs text-fg-muted">{model.id}</p>
           </div>
@@ -199,7 +201,7 @@ export default function EditModelModal({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="field-label mb-1.5 block">
-                Display name
+                {t("models.edit.displayName")}
               </label>
               <input
                 value={displayName}
@@ -209,7 +211,7 @@ export default function EditModelModal({
             </div>
             <div>
               <label className="field-label mb-1.5 block">
-                Base URL
+                {t("models.endpoint.baseUrl")}
               </label>
               <input
                 value={baseUrl}
@@ -222,7 +224,7 @@ export default function EditModelModal({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="field-label mb-1.5 block">
-                API format
+                {t("models.endpoint.apiFormat")}
               </label>
               <select
                 value={apiFormat}
@@ -230,15 +232,15 @@ export default function EditModelModal({
                 className="select"
               >
                 {API_FORMATS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+                  <option key={o} value={o}>
+                    {apiFormatLabel(o)}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="field-label mb-1.5 block">
-                Wire model ID
+                {t("models.edit.wireModelId")}
               </label>
               <input
                 value={modelId}
@@ -259,7 +261,7 @@ export default function EditModelModal({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="field-label mb-1.5 block">
-                Context window
+                {t("models.edit.contextWindow")}
               </label>
               <input
                 type="number"
@@ -274,7 +276,7 @@ export default function EditModelModal({
             </div>
             <div>
               <label className="field-label mb-1.5 block">
-                Max output tokens
+                {t("models.edit.maxOutputTokens")}
               </label>
               <input
                 type="number"
@@ -295,7 +297,7 @@ export default function EditModelModal({
                 htmlFor="edit-model-new-key"
                 className="field-label mb-1.5 block"
               >
-                Replace API key
+                {t("models.edit.replaceKey")}
               </label>
               <input
                 id="edit-model-new-key"
@@ -303,7 +305,7 @@ export default function EditModelModal({
                 autoComplete="off"
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value)}
-                placeholder={credentialId ? "Leave empty to keep the current key" : "Paste the API key"}
+                placeholder={credentialId ? t("models.edit.replaceKeyKeep") : t("models.edit.replaceKeyPaste")}
                 className="input"
               />
             </div>
@@ -311,14 +313,14 @@ export default function EditModelModal({
 
           <div>
             <label className="field-label mb-1.5 block">
-              Stored key
+              {t("models.edit.storedKey")}
             </label>
             <select
               value={credentialId}
               onChange={(e) => setCredentialId(e.target.value)}
               className="select"
             >
-              <option value="">— None —</option>
+              <option value="">{t("models.edit.none")}</option>
               {credentialOptions.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
@@ -334,7 +336,7 @@ export default function EditModelModal({
                 checked={requiresKey}
                 onChange={(e) => setRequiresKey(e.target.checked)}
               />
-              Requires API key
+              {t("models.edit.requiresKey")}
             </label>
             <label className="flex items-center gap-2 text-xs text-fg-soft">
               <input
@@ -342,27 +344,27 @@ export default function EditModelModal({
                 checked={enabled}
                 onChange={(e) => setEnabled(e.target.checked)}
               />
-              Enabled
+              {t("common.enabled")}
             </label>
           </div>
 
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-xs font-medium text-fg-muted">
-                Headers
+                {t("models.edit.headers")}
               </span>
               <button
                 type="button"
                 onClick={addHeader}
                 className="btn-secondary text-[11px]"
               >
-                <Plus className="h-3 w-3" /> Add header
+                <Plus className="h-3 w-3" /> {t("models.edit.addHeader")}
               </button>
             </div>
             <div className="space-y-2">
               {headers.length === 0 && (
                 <p className="text-xs text-fg-muted">
-                  No extra headers.
+                  {t("models.edit.noHeaders")}
                 </p>
               )}
               {headers.map((h, i) => (
@@ -370,13 +372,13 @@ export default function EditModelModal({
                   <input
                     value={h.key}
                     onChange={(e) => updateHeader(i, { key: e.target.value })}
-                    placeholder="Header name"
+                    placeholder={t("models.edit.headerName")}
                     className="input input-sm flex-1"
                   />
                   <input
                     value={h.value}
                     onChange={(e) => updateHeader(i, { value: e.target.value })}
-                    placeholder="Value"
+                    placeholder={t("models.edit.headerValue")}
                     className="input input-sm flex-1"
                   />
                   <button
@@ -403,7 +405,7 @@ export default function EditModelModal({
             onClick={onClose}
             className="btn-secondary"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={() => void handleSubmit()}
@@ -412,7 +414,7 @@ export default function EditModelModal({
             className="btn-primary"
           >
             <Check className="h-3.5 w-3.5" />
-            {updateMut.isPending ? "Saving…" : "Save changes"}
+            {updateMut.isPending ? t("models.edit.saving") : t("models.edit.save")}
           </button>
         </div>
       </div>

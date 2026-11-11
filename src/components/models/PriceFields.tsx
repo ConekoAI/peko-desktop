@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import type { PriceDraft } from "../../lib/model-spec";
 
 /**
@@ -15,6 +17,7 @@ export default function PriceFields({
   invalid?: boolean;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation();
   const field = (key: keyof PriceDraft, label: string) => (
     <label className="flex items-center gap-1.5 text-xs text-fg-muted">
       {label}
@@ -23,7 +26,7 @@ export default function PriceFields({
         <input
           inputMode="decimal"
           placeholder="—"
-          aria-label={`${label} price per million tokens`}
+          aria-label={t("models.price.fieldAria", { label })}
           value={value[key]}
           disabled={disabled}
           onChange={(e) => onChange({ ...value, [key]: e.target.value })}
@@ -35,18 +38,18 @@ export default function PriceFields({
   return (
     <fieldset disabled={disabled}>
       <legend className="field-label mb-1.5 block">
-        Price per million tokens
+        {t("models.price.legend")}
       </legend>
       <div className="flex flex-wrap gap-3">
-        {field("input", "Input")}
-        {field("output", "Output")}
-        {field("cacheRead", "Cached input")}
-        {field("cacheWrite", "Cache write")}
+        {field("input", t("models.price.input"))}
+        {field("output", t("models.price.output"))}
+        {field("cacheRead", t("models.price.cacheRead"))}
+        {field("cacheWrite", t("models.price.cacheWrite"))}
       </div>
       <p className={`mt-1 text-[11px] ${invalid ? "text-danger" : "text-fg-subtle"}`}>
         {invalid
-          ? "Enter amounts of $0 or more."
-          : "From your provider's pricing page. With a price, pekos' spend on this model counts toward their budgets. Leave the cache prices empty to count cached input at the input price."}
+          ? t("models.price.invalid")
+          : t("models.price.hint")}
       </p>
     </fieldset>
   );

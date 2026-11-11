@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Check, Circle, Copy, Loader2, Trash2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useRemotePeko, useRemotePrincipalRemove } from "../../hooks/useRemotePrincipals";
 import { statusBadge } from "../../hooks/usePrincipalStatus";
 import PekoAvatar from "../peko/PekoAvatar";
@@ -42,6 +43,7 @@ export default function RemotePekoProfile({
   onClose: () => void;
   onRemoved?: () => void;
 }) {
+  const { t } = useTranslation();
   const { record, status, identity, description } = useRemotePeko(runtimeId, principalName);
   const removeMut = useRemotePrincipalRemove();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -88,7 +90,7 @@ export default function RemotePekoProfile({
     <div className="modal-backdrop">
       <div
         role="dialog"
-        aria-label={`${principalName}'s profile`}
+        aria-label={t("peko.remote.profileLabel", { name: principalName })}
         className="modal-panel flex max-h-[75vh] w-full max-w-lg flex-col"
       >
         <div className="modal-header shrink-0 justify-between">
@@ -103,7 +105,7 @@ export default function RemotePekoProfile({
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="btn-icon -mr-1.5"
           >
             <X className="h-4 w-4" />
@@ -112,24 +114,30 @@ export default function RemotePekoProfile({
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5 text-sm">
           {!record ? (
-            <p className="text-fg-muted">This peko is no longer in your list.</p>
+            <p className="text-fg-muted">{t("peko.remote.gone")}</p>
           ) : (
             <>
-              <Row label="Status">
+              <Row label={t("common.status")}>
                 <span className="inline-flex items-center gap-1.5">
                   <Circle className={`h-2.5 w-2.5 fill-current ${badge.color}`} aria-hidden="true" />
                   <span data-testid="remote-status-label">
                     {status.isLoading && !status.data ? "…" : badge.label}
                   </span>
-                  <span className="text-[10px] font-normal text-fg-subtle">via PekoHub</span>
+                  <span className="text-[10px] font-normal text-fg-subtle">{t("peko.remote.viaHub")}</span>
                 </span>
               </Row>
-              <Row label="Runs on">
-                {record.fromAccount ? "Your other computer" : `${record.owner}'s runtime`}
+              <Row label={t("peko.remote.runsOn")}>
+                {record.fromAccount
+                  ? t("peko.remote.yourOtherComputer")
+                  : t("peko.remote.ownersRuntime", { owner: record.owner })}
               </Row>
-              <Row label="Reached through">{hostOf(record.hubUrl)}</Row>
-              <Row label="Access">
-                {record.hasInviteToken ? "Invite link" : record.exposure === "private" ? "Private" : "Public"}
+              <Row label={t("peko.remote.reachedThrough")}>{hostOf(record.hubUrl)}</Row>
+              <Row label={t("peko.remote.access")}>
+                {record.hasInviteToken
+                  ? t("peko.remote.accessInvite")
+                  : record.exposure === "private"
+                    ? t("peko.remote.accessPrivate")
+                    : t("peko.remote.accessPublic")}
               </Row>
               {shareUrl && (
                 <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-sunken px-3 py-2">
@@ -137,7 +145,7 @@ export default function RemotePekoProfile({
                   <button
                     type="button"
                     onClick={copyShareUrl}
-                    aria-label="Copy share link"
+                    aria-label={t("peko.remote.copyShareLink")}
                     className="shrink-0 rounded p-1 text-fg-subtle hover:bg-surface-card hover:text-fg-soft"
                   >
                     {copied ? <Check className="h-3.5 w-3.5 text-brand-text" /> : <Copy className="h-3.5 w-3.5" />}
@@ -153,8 +161,7 @@ export default function RemotePekoProfile({
             className="shrink-0 border-t border-line px-5 py-3 text-xs text-fg-muted"
             data-testid="own-peko-elsewhere"
           >
-            One of your pekos on another computer. It's in your list while it's on PekoHub; to
-            take it off, remove it or make it local only on that computer.
+            {t("peko.remote.ownElsewhere")}
           </p>
         )}
 
@@ -163,8 +170,7 @@ export default function RemotePekoProfile({
             {confirmingRemove ? (
               <div className="space-y-2">
                 <p className="text-sm text-fg-soft">
-                  Remove {principalName} from your list? The peko keeps running on {record.owner}'s
-                  runtime; you can connect again with its share link.
+                  {t("peko.remote.removeConfirm", { name: principalName, owner: record.owner })}
                 </p>
                 {removeError && <p className="text-xs text-danger">{removeError}</p>}
                 <div className="flex justify-end gap-2">
@@ -173,7 +179,7 @@ export default function RemotePekoProfile({
                     onClick={() => setConfirmingRemove(false)}
                     className="rounded-lg px-3 py-1.5 text-sm text-fg-soft hover:bg-surface-sunken"
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="button"
@@ -182,7 +188,7 @@ export default function RemotePekoProfile({
                     className="btn-danger-solid"
                   >
                     {removeMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Remove
+                    {t("common.remove")}
                   </button>
                 </div>
               </div>
@@ -193,7 +199,7 @@ export default function RemotePekoProfile({
                 className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-fg-muted hover:bg-surface-sunken hover:text-danger"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Remove from your list
+                {t("peko.remote.removeFromList")}
               </button>
             )}
           </div>

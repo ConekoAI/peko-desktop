@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Paperclip, Send } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { PendingAttachments } from "./Attachments";
 
@@ -49,6 +50,7 @@ export default function Composer({
   /** Files pasted into the message (e.g. a screenshot). */
   onPasteFiles?: (files: File[]) => void;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLTextAreaElement>(null);
 
   // Grow with the text, up to MAX_HEIGHT.
@@ -81,7 +83,7 @@ export default function Composer({
       <textarea
         ref={ref}
         rows={1}
-        aria-label="Message"
+        aria-label={t("chat.composer.label")}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -91,7 +93,7 @@ export default function Composer({
           e.preventDefault();
           onPasteFiles(files);
         }}
-        placeholder="Message your peko…"
+        placeholder={t("chat.composer.placeholder")}
         className="block max-h-[200px] w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm text-fg outline-none placeholder:text-fg-subtle"
       />
       <div className="flex items-center gap-2 px-2 pb-2">
@@ -99,8 +101,8 @@ export default function Composer({
           <button
             type="button"
             onClick={onAttach}
-            aria-label="Attach files"
-            title="Attach files — or drop them on the window"
+            aria-label={t("common.attachFiles")}
+            title={t("chat.composer.attachTitle")}
             className="btn-icon"
           >
             <Paperclip className="h-4 w-4" />
@@ -108,12 +110,12 @@ export default function Composer({
         )}
         {models.length > 0 && (
           <select
-            aria-label="Model for this message"
+            aria-label={t("chat.composer.modelLabel")}
             value={model ?? ""}
             onChange={(e) => onModelChange(e.target.value || null)}
             className="max-w-[14rem] truncate rounded-md border-none bg-transparent px-2 py-1 text-xs text-fg-muted outline-none hover:bg-surface-sunken focus:ring-1 focus:ring-peko-500"
           >
-            <option value="">Peko&apos;s model</option>
+            <option value="">{t("chat.composer.pekosModel")}</option>
             {models.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.displayName}
@@ -122,13 +124,13 @@ export default function Composer({
           </select>
         )}
         <span className="ml-auto hidden text-[11px] text-fg-subtle sm:inline">
-          ↵ to send · ⇧↵ for a new line
+          {t("chat.composer.hint")}
         </span>
         <button
           type="submit"
           disabled={!canSend}
-          aria-label="Send"
-          title="Send (Enter)"
+          aria-label={t("common.send")}
+          title={t("chat.composer.sendTitle")}
           className="btn-primary h-8 w-8 p-0"
         >
           <Send className="h-4 w-4" />

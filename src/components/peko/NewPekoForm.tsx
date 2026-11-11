@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { ArrowRight, ChevronRight, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { usePrincipalCreate, usePrincipalUpdate } from "../../hooks/usePrincipals";
 import { useModels } from "../../hooks/useModels";
@@ -28,6 +29,7 @@ export default function NewPekoForm({
   /** Left of the Create button: Back in onboarding, Cancel in the dialog. */
   secondary?: ReactNode;
 }) {
+  const { t } = useTranslation();
   const { data: models } = useModels();
   const enabledModels = (models ?? []).filter((m) => m.enabled);
   const createMut = usePrincipalCreate();
@@ -52,12 +54,12 @@ export default function NewPekoForm({
     setSeedError(null);
     if (!file) return;
     if (file.size > 64 * 1024) {
-      setSeedError("A seed is at most 64 KB.");
+      setSeedError(t("peko.new.seedTooBig"));
       return;
     }
     const text = await file.text();
     if (!/^\s*name\s*=/m.test(text)) {
-      setSeedError("This doesn't look like a seed: it has no `name`.");
+      setSeedError(t("peko.new.seedInvalid"));
       return;
     }
     setSeed({ fileName: file.name, text });
@@ -86,7 +88,7 @@ export default function NewPekoForm({
     return (
       <div className="space-y-4">
         <p className="note-warn text-xs" data-testid="new-peko-no-model">
-          A peko needs a model to think with. Add one in Settings → Models first.
+          {t("peko.new.noModel")}
         </p>
         {secondary && <div className="flex justify-end">{secondary}</div>}
       </div>
@@ -98,7 +100,7 @@ export default function NewPekoForm({
       <div className="flex items-center gap-4">
         <PekoAvatar peko={pekoIdentity({ name: trimmed || "?", avatar })} size="lg" />
         <label className="block flex-1">
-          <span className="field-label mb-1.5 block">Name</span>
+          <span className="field-label mb-1.5 block">{t("common.name")}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -112,23 +114,23 @@ export default function NewPekoForm({
           {trimmed.length > 0 && !nameOk && (
             <span className="mt-1 block text-[11px] text-danger">
               {takenNames.includes(trimmed)
-                ? "You already have a peko with this name."
-                : "Use letters, numbers, - or _."}
+                ? t("peko.new.nameTaken")
+                : t("peko.new.nameInvalid")}
             </span>
           )}
         </label>
       </div>
 
       <div>
-        <span className="field-label mb-1.5 block">Avatar</span>
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Avatar">
+        <span className="field-label mb-1.5 block">{t("peko.new.avatar")}</span>
+        <div className="flex flex-wrap gap-1" role="group" aria-label={t("peko.new.avatar")}>
           {AVATAR_SUGGESTIONS.map((emoji) => (
             <button
               key={emoji}
               type="button"
               disabled={busy}
               onClick={() => setAvatar(emoji)}
-              aria-label={`Use ${emoji}`}
+              aria-label={t("peko.new.useAvatar", { emoji })}
               aria-pressed={avatar === emoji}
               className={[
                 "flex h-9 w-9 items-center justify-center rounded-lg text-lg transition-colors",
@@ -141,9 +143,9 @@ export default function NewPekoForm({
         </div>
       </div>
 
-      <Disclosure open={advanced} onToggle={() => setAdvanced((a) => !a)} label="Advanced">
+      <Disclosure open={advanced} onToggle={() => setAdvanced((a) => !a)} label={t("common.advanced")}>
         <div>
-          <span className="field-label mb-1.5 block">Start from a seed</span>
+          <span className="field-label mb-1.5 block">{t("peko.new.seedLabel")}</span>
           {seed ? (
             <div className="flex items-center justify-between rounded-lg border border-line bg-surface-sunken px-3 py-2 text-xs">
               <span className="truncate font-mono text-fg-soft" data-testid="new-peko-seed">
@@ -154,39 +156,39 @@ export default function NewPekoForm({
                 onClick={() => setSeed(null)}
                 className="ml-2 text-fg-subtle hover:text-fg-soft"
               >
-                Remove
+                {t("common.remove")}
               </button>
             </div>
           ) : (
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-xs text-fg-muted hover:border-brand hover:text-fg-soft">
-              Choose a .seed.toml
+              {t("peko.new.chooseSeed")}
               <input
                 type="file"
                 accept=".toml,text/plain,application/toml"
                 className="sr-only"
-                aria-label="Seed file"
+                aria-label={t("peko.new.seedFile")}
                 onChange={(e) => void chooseSeed(e.target.files?.[0])}
               />
             </label>
           )}
           <span className="mt-1 block text-[11px] text-fg-subtle">
-            Seeds from PekoHub give your peko its definition; it still gets a new identity, and you own it.
+            {t("peko.new.seedHint")}
           </span>
           {seedError && <span className="mt-1 block text-[11px] text-danger">{seedError}</span>}
         </div>
         <label className="block">
-          <span className="field-label mb-1.5 block">Description</span>
+          <span className="field-label mb-1.5 block">{t("common.description")}</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            placeholder="What this peko is for (optional)"
+            placeholder={t("peko.new.descriptionPlaceholder")}
             className="input"
           />
         </label>
         {enabledModels.length > 1 && (
           <label className="block">
-            <span className="field-label mb-1.5 block">Model</span>
+            <span className="field-label mb-1.5 block">{t("common.model")}</span>
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
@@ -214,11 +216,11 @@ export default function NewPekoForm({
           {busy ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Waking up {trimmed}… this can take a minute
+              {t("peko.new.waking", { name: trimmed })}
             </>
           ) : (
             <>
-              Create {trimmed || "peko"} <ArrowRight className="h-4 w-4" />
+              {t("peko.new.create", { name: trimmed || t("peko.new.fallbackName") })} <ArrowRight className="h-4 w-4" />
             </>
           )}
         </PrimaryButton>

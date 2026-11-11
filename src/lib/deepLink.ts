@@ -2,6 +2,7 @@ import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { onOpenUrl, getCurrent as getCurrentDeepLinks } from "@tauri-apps/plugin-deep-link";
 
 import { remotePrincipalAdd } from "./api";
+import { t } from "../i18n";
 import { parseShareUrl } from "../hooks/useRemotePrincipals";
 
 /**
@@ -142,7 +143,7 @@ export async function installDeepLinkHandler(): Promise<UnlistenFn> {
 async function handleRawUrl(raw: string): Promise<void> {
   const intent = parseDeepLink(raw);
   if (!intent) {
-    await emit("deep-link-error", `Unsupported link: ${raw}`);
+    await emit("deep-link-error", t("errors.unsupportedLink", { link: raw }));
     return;
   }
   try {
@@ -150,6 +151,6 @@ async function handleRawUrl(raw: string): Promise<void> {
     await emit("deep-link-handled", intent);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await emit("deep-link-error", `Failed to add remote peko: ${message}`);
+    await emit("deep-link-error", t("errors.addRemotePekoFailed", { message }));
   }
 }

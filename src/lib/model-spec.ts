@@ -14,6 +14,7 @@ import {
   type ModelThinkingMode,
   type ModelToolSupport,
 } from "../types";
+import { t } from "../i18n";
 
 // Re-export the canonical helper so consumers can import from a
 // single place.
@@ -44,21 +45,21 @@ export function specBadgeList(spec: ModelSpec): SpecBadge[] {
   if (spec.image_input) {
     badges.push({
       kind: "vision",
-      label: "Vision",
+      label: t("models.badge.vision"),
       testId: "model-card-spec-vision",
     });
   }
   if (spec.audio_input) {
     badges.push({
       kind: "audio",
-      label: "Audio",
+      label: t("models.badge.audio"),
       testId: "model-card-spec-audio",
     });
   }
   if (spec.video_input) {
     badges.push({
       kind: "video",
-      label: "Video",
+      label: t("models.badge.video"),
       testId: "model-card-spec-video",
     });
   }
@@ -69,7 +70,7 @@ export function specBadgeList(spec: ModelSpec): SpecBadge[] {
   if (spec.json_mode) {
     badges.push({
       kind: "json",
-      label: "JSON",
+      label: t("models.badge.json"),
       testId: "model-card-spec-json",
     });
   }
@@ -82,7 +83,7 @@ function toolsBadge(support: ModelToolSupport): SpecBadge | null {
   if (support === "none") return null;
   return {
     kind: "tools",
-    label: support === "full" ? "Full tools" : "Tools",
+    label: support === "full" ? t("models.badge.fullTools") : t("models.badge.tools"),
     testId: "model-card-spec-tools",
   };
 }
@@ -91,10 +92,10 @@ function thinkingBadge(mode: ModelThinkingMode): SpecBadge | null {
   if (mode === "disabled") return null;
   const label =
     mode === "required"
-      ? "Thinking (required)"
+      ? t("models.badge.thinkingRequired")
       : mode === "custom_budget"
-        ? "Thinking (budget)"
-        : "Thinking";
+        ? t("models.badge.thinkingBudget")
+        : t("models.badge.thinking");
   return {
     kind: "thinking",
     label,
@@ -107,7 +108,7 @@ function pricingBadge(pricing: ModelPricingHint | undefined): SpecBadge | null {
   const inP = pricing.input_per_million;
   const outP = pricing.output_per_million;
   if (inP == null && outP == null) return null;
-  const label = `${formatUsd(inP)} in / ${formatUsd(outP)} out`;
+  const label = t("models.badge.pricing", { input: formatUsd(inP), output: formatUsd(outP) });
   return {
     kind: "pricing",
     label,

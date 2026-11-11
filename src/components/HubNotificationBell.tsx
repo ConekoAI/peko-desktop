@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { currentLocale, t as translate } from "../i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { usePekohubBundle } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
@@ -18,10 +20,12 @@ const POLL_MS = 60_000;
 /** "5 min ago", "3 h ago", or the date. */
 function ago(at: string): string {
   const minutes = Math.round((Date.now() - new Date(at).getTime()) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  if (minutes < 24 * 60) return `${Math.round(minutes / 60)} h ago`;
-  return new Date(at).toLocaleDateString();
+  if (minutes < 1) return translate("hub.notifications.justNow");
+  if (minutes < 60) return translate("hub.notifications.minutesAgo", { count: minutes });
+  if (minutes < 24 * 60) {
+    return translate("hub.notifications.hoursAgo", { count: Math.round(minutes / 60) });
+  }
+  return new Date(at).toLocaleDateString(currentLocale());
 }
 
 /**
@@ -31,6 +35,7 @@ function ago(at: string): string {
  * item opens its page on the PekoHub website, where it is acted on.
  */
 export default function HubNotificationBell() {
+  const { t } = useTranslation();
   const { data: settings } = useSettings();
   const { data: bundle } = usePekohubBundle();
   const queryClient = useQueryClient();
@@ -101,8 +106,12 @@ export default function HubNotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={toggle}
-        aria-label={unread > 0 ? `PekoHub notifications, ${unread} unread` : "PekoHub notifications"}
-        title="PekoHub notifications"
+        aria-label={
+          unread > 0
+            ? t("hub.notifications.labelUnread", { count: unread })
+            : t("hub.notifications.label")
+        }
+        title={t("hub.notifications.label")}
         className="relative flex h-11 w-11 items-center justify-center rounded-[22px] bg-surface-sunken text-fg-soft transition-all duration-200 hover:rounded-xl hover:bg-brand hover:text-white"
       >
         <Bell className="h-5 w-5" />
@@ -116,14 +125,14 @@ export default function HubNotificationBell() {
       {open && (
         <div
           role="menu"
-          aria-label="PekoHub notifications"
+          aria-label={t("hub.notifications.label")}
           className="popover absolute bottom-0 left-full z-50 ml-3 w-80"
         >
           <div className="eyebrow px-2.5 pb-1.5 pt-2">PekoHub</div>
           {list.isError ? (
-            <p className="px-3 py-4 text-sm text-fg-muted">Couldn&apos;t reach PekoHub.</p>
+            <p className="px-3 py-4 text-sm text-fg-muted">{t("hub.notifications.unreachable")}</p>
           ) : items.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-fg-muted">Nothing yet.</p>
+            <p className="px-3 py-4 text-sm text-fg-muted">{t("hub.notifications.empty")}</p>
           ) : (
             <ul className="max-h-96 overflow-y-auto">
               {items.map((item) => (

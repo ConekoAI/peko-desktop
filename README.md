@@ -86,6 +86,7 @@ peko-desktop/
 │   ├── components/         # Shared UI components
 │   ├── hooks/              # React hooks (IPC, auth, etc.)
 │   ├── lib/                # Frontend helpers
+│   ├── i18n/               # The app's text, one folder per language
 │   └── pages/              # Page-level components
 ├── src-tauri/              # Rust backend (Tauri 2)
 │   ├── src/
@@ -100,6 +101,31 @@ peko-desktop/
 │   └── architecture/adr/   # Architecture Decision Records
 └── public/                 # Static assets
 ```
+
+## Text and languages
+
+Every string a person reads lives in `src/i18n/locales/en/`, one JSON file
+per area of the app (`chat.json`, `settings.json`, …). Components read it
+with `useTranslation()` from `react-i18next`; other modules import `t` from
+`src/i18n`. Keys are type-checked against the English files, and a test
+(`I18nNoHardcodedText.test.ts`) fails on text written straight into the
+markup.
+
+```tsx
+const { t } = useTranslation();
+<button title={t("common.close")}>{t("chat.working", { name })}</button>
+```
+
+A sentence with markup inside it uses `<Trans>`, so a translation can
+reorder the pieces. Counts pass `count`, which lets a language add its own
+plural forms (`key_one`, `key_other`).
+
+To add a language, copy `locales/en/` to `locales/<code>/`, translate the
+values, and list it in `resources` in `src/i18n/index.ts`. A key missing
+from a language shows the English text. English is the only language so
+far, and the app does not yet pick a language from the system or offer a
+setting for it. The tray menu (`src-tauri/src/tray/`) and text that comes
+from the runtime (its error messages, a peko's replies) are not covered.
 
 ## Architecture
 

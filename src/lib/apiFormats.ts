@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 /**
  * The wire protocols the runtime has adapters for (ADR-068). The values
  * are the short ids the runtime lists models with and accepts on add:
@@ -6,32 +8,22 @@
  */
 export type ApiFormat = "openai" | "anthropic" | "responses";
 
-export const API_FORMATS: { value: ApiFormat; label: string; short: string; hint: string }[] = [
-  {
-    value: "openai",
-    label: "OpenAI-compatible (Chat Completions)",
-    short: "Chat Completions",
-    hint: "Most providers and local servers: POST {base URL}/chat/completions",
-  },
-  {
-    value: "anthropic",
-    label: "Anthropic-compatible (Messages)",
-    short: "Anthropic Messages",
-    hint: "Anthropic and compatible gateways: POST {base URL}/v1/messages",
-  },
-  {
-    value: "responses",
-    label: "OpenAI Responses",
-    short: "Responses",
-    hint: "OpenAI's newer API: POST {base URL}/responses",
-  },
-];
+export const API_FORMATS: readonly ApiFormat[] = ["openai", "anthropic", "responses"];
+
+function known(value: string): value is ApiFormat {
+  return (API_FORMATS as readonly string[]).includes(value);
+}
 
 export function apiFormatLabel(value: string): string {
-  return API_FORMATS.find((f) => f.value === value)?.label ?? value;
+  return known(value) ? t(`models.apiFormat.${value}.label`) : value;
 }
 
 /** A short label for badges, e.g. "Chat Completions". */
 export function apiFormatShort(value: string): string {
-  return API_FORMATS.find((f) => f.value === value)?.short ?? value;
+  return known(value) ? t(`models.apiFormat.${value}.short`) : value;
+}
+
+/** What the format is for and the request it makes. */
+export function apiFormatHint(value: string): string {
+  return known(value) ? t(`models.apiFormat.${value}.hint`) : "";
 }

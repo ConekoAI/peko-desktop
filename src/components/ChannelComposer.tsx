@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, type KeyboardEvent } from "react";
 import { Send, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useChannelPost } from "../hooks/useChannelPost";
 import { useChannelInfo } from "../hooks/useChannels";
 import { insertMention, mentionCandidates, mentionQuery } from "../lib/mentions";
@@ -36,6 +37,7 @@ export default function ChannelComposer({
   /** A DM with another person (runtime ADR-095 D6): no peko to mention. */
   withPerson?: boolean;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const mutation = useChannelPost(runtimeId);
@@ -80,7 +82,7 @@ export default function ChannelComposer({
   const canSubmit = trimmed.length > 0 && !mutation.isPending;
   // Computed outside the JSX: the `isChannelForbidden` type guard
   // narrows `mutation.error` to `never` in the generic branch.
-  const errorMessage = mutation.error?.message ?? "Failed to post message";
+  const errorMessage = mutation.error?.message ?? t("channel.composer.postFailed");
 
   async function submit() {
     if (!canSubmit) return;
@@ -133,8 +135,7 @@ export default function ChannelComposer({
             className="note-warn mb-2 text-xs"
             data-testid="channel-composer-forbidden"
           >
-            You aren&apos;t in this group — only members can
-            post. Ask a current member to invite you.
+            {t("channel.composer.forbidden")}
           </div>
         ) : (
           <div
@@ -149,7 +150,7 @@ export default function ChannelComposer({
         {menuOpen && (
           <ul
             role="listbox"
-            aria-label="Mention a peko"
+            aria-label={t("channel.composer.mentionLabel")}
             className="popover absolute bottom-full left-0 mb-2 min-w-48"
           >
             {suggestions.map((name, i) => (
@@ -183,8 +184,12 @@ export default function ChannelComposer({
           onKeyDown={onKeyDown}
           placeholder={
             withPerson
-              ? `Message ${channelName ?? "them"}`
-              : `${channelName ? `Message ${channelName}` : "Message the group"} — @ to mention a peko`
+              ? channelName
+                ? t("channel.composer.messagePerson", { name: channelName })
+                : t("channel.composer.messageThem")
+              : channelName
+                ? t("channel.composer.messageGroupNamed", { name: channelName })
+                : t("channel.composer.messageGroup")
           }
           rows={2}
           disabled={mutation.isPending}
@@ -197,7 +202,7 @@ export default function ChannelComposer({
           disabled={!canSubmit}
           data-testid="channel-composer-send"
           className="btn-primary h-9 w-9 shrink-0 p-0"
-          aria-label="Send message"
+          aria-label={t("channel.composer.send")}
         >
           {mutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />

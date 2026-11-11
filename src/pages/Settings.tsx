@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
@@ -13,6 +14,7 @@ import { useEngineStatus } from "../hooks/useEngine";
 import { useRuntimes, useAddRuntime, useRemoveRuntime, useReconnectRuntime, useRenameRuntime } from "../hooks/useRuntimes";
 import { getTheme, setTheme } from "../lib/theme";
 import { pekoHomeDir } from "../lib/api";
+import { currentLocale } from "../i18n";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddModelModal from "../components/modals/AddModelModal";
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
@@ -49,6 +51,7 @@ type Section = "general" | "models" | "advanced" | "about";
 const CARD = "card p-5";
 
 function GeneralSection() {
+  const { t } = useTranslation();
   const [theme, setThemeState] = useState(getTheme);
 
   function choose(next: "light" | "dark" | "system") {
@@ -61,22 +64,22 @@ function GeneralSection() {
       <div className={CARD}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="h-section">Appearance</h3>
-            <p className="field-hint mt-0.5">Dark matches PekoHub.</p>
+            <h3 className="h-section">{t("settings.appearance.title")}</h3>
+            <p className="field-hint mt-0.5">{t("settings.appearance.hint")}</p>
           </div>
-        <div role="radiogroup" aria-label="Theme" className="segmented">
-          {(["light", "dark", "system"] as const).map((t) => {
-            const Icon = t === "light" ? Sun : t === "dark" ? Moon : Monitor;
+        <div role="radiogroup" aria-label={t("settings.appearance.theme")} className="segmented">
+          {(["light", "dark", "system"] as const).map((mode) => {
+            const Icon = mode === "light" ? Sun : mode === "dark" ? Moon : Monitor;
             return (
               <button
-                key={t}
+                key={mode}
                 role="radio"
-                aria-checked={theme === t}
-                onClick={() => choose(t)}
-                className={["segment", theme === t ? "segment-active" : ""].join(" ")}
+                aria-checked={theme === mode}
+                onClick={() => choose(mode)}
+                className={["segment", theme === mode ? "segment-active" : ""].join(" ")}
               >
                 <Icon className="h-3.5 w-3.5" />
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {t(`settings.appearance.${mode}`)}
               </button>
             );
           })}
@@ -90,6 +93,7 @@ function GeneralSection() {
 }
 
 function StoredKeys() {
+  const { t } = useTranslation();
   const { data: credentials, isLoading } = useGenericCredentialList();
   const setCred = useSetGenericCredential();
   const [namespace, setNamespace] = useState("llm");
@@ -121,11 +125,10 @@ function StoredKeys() {
       <div className={CARD}>
         <div className="mb-3">
           <h3 className="h-section">
-            Stored keys
+            {t("settings.keys.title")}
           </h3>
           <p className="field-hint mt-0.5">
-            Every secret in the engine&apos;s vault. Model keys are managed
-            from Models; this list is for keys other tools use.
+            {t("settings.keys.hint")}
           </p>
         </div>
 
@@ -134,9 +137,9 @@ function StoredKeys() {
           onSubmit={handleSave}
           className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-line bg-surface-raised p-4"
         >
-          <h4 className="col-span-2 text-xs font-semibold text-fg-soft">Add a key</h4>
+          <h4 className="col-span-2 text-xs font-semibold text-fg-soft">{t("settings.keys.add")}</h4>
           <label className="block">
-            <span className="field-label mb-1.5 block text-xs">Namespace</span>
+            <span className="field-label mb-1.5 block text-xs">{t("settings.keys.namespace")}</span>
             <input
               type="text"
               value={namespace}
@@ -148,12 +151,12 @@ function StoredKeys() {
             />
           </label>
           <label className="block">
-            <span className="field-label mb-1.5 block text-xs">Name</span>
+            <span className="field-label mb-1.5 block text-xs">{t("common.name")}</span>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. github"
+              placeholder={t("settings.keys.namePlaceholder")}
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
@@ -161,22 +164,22 @@ function StoredKeys() {
             />
           </label>
           <label className="block">
-            <span className="field-label mb-1.5 block text-xs">Kind</span>
+            <span className="field-label mb-1.5 block text-xs">{t("settings.keys.kind")}</span>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as CredentialKind)}
               className="select input-sm"
             >
-              <option value="api_key">API key</option>
-              <option value="bearer_token">Bearer token</option>
-              <option value="oauth_token">OAuth token</option>
-              <option value="basic_auth">Basic auth</option>
-              <option value="private_key">Private key</option>
-              <option value="generic_secret">Other secret</option>
+              <option value="api_key">{t("settings.keys.kinds.api_key")}</option>
+              <option value="bearer_token">{t("settings.keys.kinds.bearer_token")}</option>
+              <option value="oauth_token">{t("settings.keys.kinds.oauth_token")}</option>
+              <option value="basic_auth">{t("settings.keys.kinds.basic_auth")}</option>
+              <option value="private_key">{t("settings.keys.kinds.private_key")}</option>
+              <option value="generic_secret">{t("settings.keys.kinds.generic_secret")}</option>
             </select>
           </label>
           <label className="block">
-            <span className="field-label mb-1.5 block text-xs">Secret</span>
+            <span className="field-label mb-1.5 block text-xs">{t("settings.keys.secret")}</span>
             <input
               type="password"
               value={material}
@@ -196,14 +199,14 @@ function StoredKeys() {
               ) : (
                 <Save className="h-3 w-3" />
               )}
-              Save key
+              {t("settings.keys.save")}
             </button>
           </div>
         </form>
 
         {isLoading && (
           <p className="py-6 text-center text-xs text-fg-muted">
-            Loading credentials…
+            {t("settings.keys.loading")}
           </p>
         )}
 
@@ -214,10 +217,10 @@ function StoredKeys() {
           >
             <Key className="mx-auto mb-2 h-6 w-6 text-fg-subtle" />
             <p className="text-sm font-medium text-fg-soft">
-              No stored keys
+              {t("settings.keys.empty")}
             </p>
             <p className="mt-1 text-xs text-fg-muted">
-              Keys you add for models or tools appear here.
+              {t("settings.keys.emptyHint")}
             </p>
           </div>
         )}
@@ -238,6 +241,7 @@ function StoredKeys() {
 }
 
 function CredentialRow({ credential }: { credential: CredentialDetail }) {
+  const { t } = useTranslation();
   const deleteCred = useDeleteCredentialById();
 
   return (
@@ -256,7 +260,7 @@ function CredentialRow({ credential }: { credential: CredentialDetail }) {
           {credential.lastTestedAt && (
             <span className="text-[10px] text-fg-subtle">
               {credential.lastTestedOk ? "✓" : "✗"}{" "}
-              {new Date(credential.lastTestedAt).toLocaleString()}
+              {new Date(credential.lastTestedAt).toLocaleString(currentLocale())}
             </span>
           )}
         </div>
@@ -266,7 +270,7 @@ function CredentialRow({ credential }: { credential: CredentialDetail }) {
           className="btn-danger btn-xs border border-danger/30"
         >
           <Trash2 className="h-3 w-3" />
-          Delete
+          {t("common.delete")}
         </button>
       </div>
       <RevealButton id={credential.id} />
@@ -275,6 +279,7 @@ function CredentialRow({ credential }: { credential: CredentialDetail }) {
 }
 
 function RevealButton({ id }: { id: string }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { data, isLoading } = useCredentialMaterial(id, open ? "reveal" : "");
 
@@ -286,7 +291,7 @@ function RevealButton({ id }: { id: string }) {
         className="inline-flex items-center gap-1 text-[11px] text-fg-muted hover:text-fg-soft"
       >
         {open ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-        {open ? "Hide secret" : "Reveal secret"}
+        {open ? t("settings.keys.hide") : t("settings.keys.reveal")}
       </button>
       {open && (
         <div className="mt-1">
@@ -307,6 +312,7 @@ function RevealButton({ id }: { id: string }) {
 }
 
 function ModelsSection() {
+  const { t } = useTranslation();
   const { data: models, isLoading, isError } = useModels();
   const [showAdd, setShowAdd] = useState(false);
 
@@ -316,7 +322,7 @@ function ModelsSection() {
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>
             <p className="text-sm text-fg-muted">
-              The endpoints your pekos think with. Each model keeps its own API key; change it under Edit.
+              {t("settings.models.intro")}
             </p>
           </div>
           <button
@@ -325,13 +331,13 @@ function ModelsSection() {
             className="btn-primary btn-sm"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add model
+            {t("settings.models.add")}
           </button>
         </div>
 
         {isLoading && (
           <p className="py-6 text-center text-xs text-fg-muted">
-            Loading models…
+            {t("settings.models.loading")}
           </p>
         )}
 
@@ -342,17 +348,17 @@ function ModelsSection() {
           >
             <Cpu className="mx-auto mb-2 h-6 w-6 text-fg-subtle" />
             <p className="text-sm font-medium text-fg-soft">
-              No models configured yet
+              {t("settings.models.empty")}
             </p>
             <p className="mt-1 text-xs text-fg-muted">
-              Add an endpoint and its API key to start talking to your pekos.
+              {t("settings.models.emptyHint")}
             </p>
             <button
               onClick={() => setShowAdd(true)}
               className="btn-primary btn-sm mt-3"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add your first model
+              {t("settings.models.addFirst")}
             </button>
           </div>
         )}
@@ -375,12 +381,11 @@ function ModelsSection() {
             <div className="mb-1 flex items-center gap-2">
               <Info className="h-4 w-4 text-warn" />
               <h3 className="text-sm font-semibold text-warn">
-                Model catalog unavailable
+                {t("settings.models.unavailable")}
               </h3>
             </div>
             <p className="text-xs text-warn">
-              Couldn&apos;t load the model catalog from the runtime. Check
-              that the engine is running and reload this tab.
+              {t("settings.models.unavailableHint")}
             </p>
           </div>
         )}
@@ -396,6 +401,7 @@ function ModelsSection() {
 }
 
 function Runtimes() {
+  const { t } = useTranslation();
   const { data: runtimes, isLoading } = useRuntimes();
   const addRuntime = useAddRuntime();
   const removeRuntime = useRemoveRuntime();
@@ -449,9 +455,9 @@ function Runtimes() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="h-section">Runtimes</h3>
+          <h3 className="h-section">{t("settings.runtimes.title")}</h3>
           <p className="text-xs text-fg-muted">
-            This computer&apos;s engine, and remote engines you connect to by id.
+            {t("settings.runtimes.hint")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -460,7 +466,7 @@ function Runtimes() {
             className="btn-secondary"
           >
             <Plus className="h-4 w-4" />
-            Add Remote
+            {t("settings.runtimes.addRemote")}
           </button>
         </div>
       </div>
@@ -468,31 +474,31 @@ function Runtimes() {
       {/* Manual add form */}
       {showAdd && (
         <div className="card p-5">
-          <h4 className="h-section mb-3">Add Remote Runtime</h4>
+          <h4 className="h-section mb-3">{t("settings.runtimes.addTitle")}</h4>
           <div className="space-y-3">
             <div>
-              <label className="field-label mb-1.5 block">Runtime ID</label>
+              <label className="field-label mb-1.5 block">{t("settings.runtimes.id")}</label>
               <input
                 type="text"
                 value={newRuntimeId}
                 onChange={(e) => setNewRuntimeId(e.target.value)}
-                placeholder="e.g. did:key:z6Mk..."
+                placeholder={t("settings.runtimes.idPlaceholder")}
                 className="input"
               />
             </div>
             <div>
-              <label className="field-label mb-1.5 block">Display Name</label>
+              <label className="field-label mb-1.5 block">{t("settings.runtimes.displayName")}</label>
               <input
                 type="text"
                 value={newRuntimeName}
                 onChange={(e) => setNewRuntimeName(e.target.value)}
-                placeholder="e.g. Home Server"
+                placeholder={t("settings.runtimes.displayNamePlaceholder")}
                 className="input"
               />
             </div>
             <div>
               <label className="field-label mb-1.5 block">
-                PekoHub URL (optional)
+                {t("settings.runtimes.hubUrl")}
               </label>
               <input
                 type="text"
@@ -509,14 +515,14 @@ function Runtimes() {
                 className="btn-primary"
               >
                 {addRuntime.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Add
+                {t("common.add")}
               </button>
               <button
                 onClick={() => setShowAdd(false)}
                 className="btn-secondary"
               >
                 <X className="h-4 w-4" />
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           </div>
@@ -527,7 +533,7 @@ function Runtimes() {
         {isLoading ? (
           <div className="flex items-center gap-2 py-4 text-sm text-fg-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading runtimes...
+            {t("settings.runtimes.loading")}
           </div>
         ) : runtimes && runtimes.length > 0 ? (
           runtimes.map((runtime) => (
@@ -579,14 +585,14 @@ function Runtimes() {
                       <button
                         onClick={() => startRename(runtime)}
                         className="rounded p-0.5 text-fg-subtle opacity-0 transition-opacity hover:text-fg-soft group-hover:opacity-100"
-                        title="Rename"
+                        title={t("settings.runtimes.rename")}
                       >
                         <Edit3 className="h-3 w-3" />
                       </button>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-xs text-fg-muted">
-                    <span className="capitalize">{runtime.connectionType}</span>
+                    <span className="capitalize">{t(`settings.runtimes.type.${runtime.connectionType}`)}</span>
                     <span>·</span>
                     <span
                       className={[
@@ -599,7 +605,7 @@ function Runtimes() {
                               : "text-fg-subtle",
                       ].join(" ")}
                     >
-                      {runtime.status}
+                      {t(`settings.runtimes.status.${runtime.status}`)}
                     </span>
                   </div>
                 </div>
@@ -610,7 +616,7 @@ function Runtimes() {
                   onClick={() => reconnectRuntime.mutate(runtime.id)}
                   disabled={reconnectRuntime.isPending}
                   className="btn-icon"
-                  title="Reconnect"
+                  title={t("settings.runtimes.reconnect")}
                 >
                   <RefreshCw className="h-4 w-4" />
                 </button>
@@ -619,7 +625,7 @@ function Runtimes() {
                     onClick={() => removeRuntime.mutate(runtime.id)}
                     disabled={removeRuntime.isPending}
                     className="btn-icon hover:bg-danger-soft hover:text-danger"
-                    title="Remove"
+                    title={t("common.remove")}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -629,7 +635,7 @@ function Runtimes() {
           ))
         ) : (
           <div className="py-8 text-center text-sm text-fg-subtle">
-            No runtimes configured
+            {t("settings.runtimes.empty")}
           </div>
         )}
       </div>
@@ -638,19 +644,20 @@ function Runtimes() {
 }
 
 function PekoFolder() {
+  const { t } = useTranslation();
   const { data: dir, error } = useQuery({ queryKey: ["peko-home-dir"], queryFn: pekoHomeDir });
   return (
     <div className={CARD}>
-      <h3 className="h-section">Peko folder</h3>
+      <h3 className="h-section">{t("settings.folder.title")}</h3>
       <p className="field-hint mt-0.5">
-        Where the engine keeps your pekos, models, and keys.
+        {t("settings.folder.hint")}
       </p>
       <div className="mt-3 flex items-center gap-2">
         <code
           data-testid="peko-home-dir"
           className="min-w-0 flex-1 truncate rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-fg-soft"
         >
-          {dir ?? (error ? "Unknown" : "…")}
+          {dir ?? (error ? t("settings.folder.unknown") : "…")}
         </code>
         <button
           type="button"
@@ -659,7 +666,7 @@ function PekoFolder() {
           className="btn-secondary btn-sm shrink-0"
         >
           <FolderOpen className="h-3.5 w-3.5" />
-          Show folder
+          {t("settings.folder.show")}
         </button>
       </div>
     </div>
@@ -680,13 +687,14 @@ function AdvancedSection() {
 
 const LINKS = [
   {
-    label: "Getting started",
+    key: "gettingStarted",
     url: "https://github.com/ConekoAI/peko-runtime/blob/master/docs/getting-started/GETTING_STARTED.md",
   },
-  { label: "Report a problem", url: "https://github.com/ConekoAI/peko-desktop/issues" },
-];
+  { key: "report", url: "https://github.com/ConekoAI/peko-desktop/issues" },
+] as const;
 
 function AboutSection() {
+  const { t } = useTranslation();
   const { data: appVersion } = useQuery({ queryKey: ["app-version"], queryFn: getVersion });
   const { data: engine } = useEngineStatus();
   const engineVersion = engine?.kind === "running" ? engine.version : null;
@@ -707,22 +715,22 @@ function AboutSection() {
         </div>
         <dl className="rows text-sm [&>div]:px-4 [&>div]:py-2.5">
           <div className="flex justify-between">
-            <dt className="text-fg-muted">App version</dt>
+            <dt className="text-fg-muted">{t("settings.about.appVersion")}</dt>
             <dd data-testid="app-version" className="font-medium text-fg">
               {appVersion ?? "…"}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-fg-muted">Engine version</dt>
+            <dt className="text-fg-muted">{t("settings.about.engineVersion")}</dt>
             <dd data-testid="engine-version" className="font-medium text-fg">
-              {engineVersion ?? (engine?.kind === "running" ? "…" : "Not running")}
+              {engineVersion ?? (engine?.kind === "running" ? "…" : t("settings.about.notRunning"))}
             </dd>
           </div>
         </dl>
       </div>
 
       <div className={CARD}>
-        <h3 className="h-section mb-2">Help</h3>
+        <h3 className="h-section mb-2">{t("settings.about.help")}</h3>
         <div className="flex flex-col items-start gap-1">
           {LINKS.map((link) => (
             <button
@@ -731,7 +739,7 @@ function AboutSection() {
               onClick={() => void openUrl(link.url)}
               className="link inline-flex items-center gap-1 text-sm"
             >
-              {link.label}
+              {t(`settings.about.${link.key}`)}
               <ExternalLink className="h-3 w-3" />
             </button>
           ))}
@@ -739,44 +747,44 @@ function AboutSection() {
       </div>
 
       <div className={CARD}>
-        <h3 className="h-section mb-2">Onboarding</h3>
+        <h3 className="h-section mb-2">{t("settings.about.onboarding")}</h3>
         <p className="mb-3 text-xs text-fg-muted">
-          Walk through connecting a model and creating a peko again.
+          {t("settings.about.onboardingHint")}
         </p>
         <button
           type="button"
           onClick={handleReplayOnboarding}
           className="btn-secondary"
         >
-          Replay onboarding
+          {t("settings.about.replay")}
         </button>
       </div>
     </div>
   );
 }
 
-const SECTIONS: { id: Section; label: string; icon: React.ElementType }[] = [
-  { id: "general", label: "General", icon: SlidersHorizontal },
-  { id: "models", label: "Models", icon: Cpu },
-  { id: "advanced", label: "Advanced", icon: Wrench },
-  { id: "about", label: "About", icon: Info },
+const SECTIONS: { id: Section; icon: React.ElementType }[] = [
+  { id: "general", icon: SlidersHorizontal },
+  { id: "models", icon: Cpu },
+  { id: "advanced", icon: Wrench },
+  { id: "about", icon: Info },
 ];
 
 export default function Settings() {
+  const { t } = useTranslation();
   const [active, setActive] = useState<Section>("general");
-  const current = SECTIONS.find((x) => x.id === active) ?? SECTIONS[0];
 
   return (
     <div className="flex h-full">
       <nav
-        aria-label="Settings sections"
+        aria-label={t("settings.sectionsLabel")}
         className="flex w-64 shrink-0 flex-col border-r border-line bg-surface-raised"
       >
         <div className="flex h-12 shrink-0 items-center border-b border-line px-4">
-          <h2 className="text-[15px] font-semibold tracking-tight text-fg">Settings</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight text-fg">{t("settings.title")}</h2>
         </div>
         <div className="space-y-0.5 p-2">
-          {SECTIONS.map(({ id, label, icon: Icon }) => (
+          {SECTIONS.map(({ id, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActive(id)}
@@ -784,7 +792,7 @@ export default function Settings() {
               className={["nav-item", active === id ? "nav-item-active" : ""].join(" ")}
             >
               <Icon className={["h-4 w-4", active === id ? "text-brand-text" : ""].join(" ")} />
-              {label}
+              {t(`settings.sections.${id}`)}
             </button>
           ))}
         </div>
@@ -792,7 +800,7 @@ export default function Settings() {
 
       <div className="min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-8 py-8">
-          <h1 className="h-page mb-6">{current.label}</h1>
+          <h1 className="h-page mb-6">{t(`settings.sections.${active}`)}</h1>
           {active === "general" && <GeneralSection />}
           {active === "models" && <ModelsSection />}
           {active === "advanced" && <AdvancedSection />}

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import { currentLocale } from "../i18n";
 import { Hash, User, Users, ChevronDown, ChevronUp, UserPlus, LogOut, Share2 } from "lucide-react";
 import { useChannel, useChannelInfo } from "../hooks/useChannels";
 import { useChannelDirectory } from "../hooks/useChannelDirectory";
@@ -40,6 +42,7 @@ export default function ChannelHeader({
   /** Shown instead of the channel's stored name (a person DM's person). */
   title?: string;
 }) {
+  const { t } = useTranslation();
   const { data: detail } = useChannel(channelId, runtimeId);
   const { data: info } = useChannelInfo(channelId);
   const directory = useChannelDirectory(channelId);
@@ -93,15 +96,15 @@ export default function ChannelHeader({
                 className="badge-neutral shrink-0"
                 title={detail.channelId}
               >
-                {kind === "dm" ? "Direct message" : "Group"}
+                {kind === "dm" ? t("channel.header.dm") : t("channel.header.group")}
               </span>
               {isGuest && (
                 <span
                   className="badge-warn shrink-0"
                   data-testid="channel-guest-chip"
-                  title="You aren't in this group — you can read but not post."
+                  title={t("channel.header.guestTitle")}
                 >
-                  View only
+                  {t("channel.header.viewOnly")}
                 </span>
               )}
             </div>
@@ -109,9 +112,16 @@ export default function ChannelHeader({
                 it is opened or accepted, so who "created" this copy says nothing. */}
             {!title && (
               <div className="truncate text-xs leading-tight text-fg-subtle">
-                Created by <span title={detail.creator}>{directory.resolve(detail.creator).label}</span> ·{" "}
-                {/* A copy from another computer began when the group did. */}
-                {new Date(directory.createdAt ?? detail.createdAt).toLocaleString()}
+                <Trans
+                  i18nKey="channel.header.createdBy"
+                  components={{
+                    creator: <span title={detail.creator}>{directory.resolve(detail.creator).label}</span>,
+                  }}
+                  // A copy from another computer began when the group did.
+                  values={{
+                    date: new Date(directory.createdAt ?? detail.createdAt).toLocaleString(currentLocale()),
+                  }}
+                />
               </div>
             )}
           </div>
@@ -128,7 +138,7 @@ export default function ChannelHeader({
               data-testid="channel-share-button"
             >
               <Share2 className="h-3.5 w-3.5" />
-              <span>Share</span>
+              <span>{t("channel.header.share")}</span>
             </button>
           )}
           {showInvite && (
@@ -139,19 +149,19 @@ export default function ChannelHeader({
               data-testid="channel-invite-button"
             >
               <UserPlus className="h-3.5 w-3.5" />
-              <span>Invite</span>
+              <span>{t("channel.header.invite")}</span>
             </button>
           )}
           {showLeave && (
             <button
               type="button"
               onClick={onLeaveClick}
-              title={isCreator ? "Leave group (you'll stay its creator)" : "Leave group"}
+              title={isCreator ? t("channel.header.leaveTitleCreator") : t("channel.header.leaveTitle")}
               className="btn-ghost btn-sm hover:bg-danger-soft hover:text-danger"
               data-testid="channel-leave-button"
             >
               <LogOut className="h-3.5 w-3.5" />
-              <span>Leave</span>
+              <span>{t("channel.header.leave")}</span>
             </button>
           )}
           <span aria-hidden className="mx-1 h-5 w-px bg-line" />

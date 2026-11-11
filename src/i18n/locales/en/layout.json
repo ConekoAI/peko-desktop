@@ -1,0 +1,52 @@
+{
+  "rail": {
+    "chats": "Chats",
+    "groups": "Groups",
+    "settings": "Settings",
+    "newGroup": "New group",
+    "invitationLabel": "Invitation: {{name}}",
+    "invitation": "Invitation",
+    "invitationSummary_one": "{{count}} member · from {{inviter}}",
+    "invitationSummary_other": "{{count}} members · from {{inviter}}",
+    "joining": "Joining…",
+    "joinGroup": "Join a group",
+    "joinHint": "Paste an invite link, or a public group's ID.",
+    "joinAsked": "Asked to join {{name}}. It appears here when its owner's computer lets you in.",
+    "asking": "Asking…"
+  },
+  "titleBar": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "engineFailure": {
+    "title": "The engine couldn't start",
+    "body": "This usually means another peko daemon is using the IPC socket, or the bundled engine binary failed to launch. Chat and other engine-backed features won't work until the engine is running.",
+    "restart": "Restart engine",
+    "restarting": "Restarting…",
+    "hideDetails": "Hide details",
+    "showDetails": "Show details"
+  },
+  "statusBar": {
+    "failed": "{{label}}: {{detail}}",
+    "failedFallback": "engine is in a failed state"
+  },
+  "keepAwake": {
+    "title": "Keep this computer awake while a peko works",
+    "hint": "So the pekos on this computer can finish what you ask them from your other computers. Sleep is held off only while a peko is working, and a minute after. Closing a laptop's lid still puts it to sleep."
+  },
+  "runtimeBadge": {
+    "localRuntime": "Local runtime",
+    "local": "Local"
+  },
+  "versionMismatch": {
+    "newerTitle": "This app is older than your Peko",
+    "newerBody": "Peko <running/> is running, and this app was made for <needed/>. Some things may not work. Update Peko Desktop.",
+    "olderTitle": "Your Peko is older than this app needs",
+    "olderBody": "Peko <running/> is running, and this app needs <needed/> or later. If you started it from the command line, run <code>peko update</code>, then <code>peko daemon stop</code> and open this app again.",
+    "unknownTitle": "Can't tell if your Peko fits this app",
+    "unknownBody": "Peko reports version <running/>, and this app needs <needed/> or later. Some things may not work.",
+    "dismiss": "Dismiss version mismatch banner"
+  }
+}

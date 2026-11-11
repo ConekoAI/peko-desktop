@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, LogIn, LogOut, RefreshCw, Unplug, User } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   afterPekohubSignIn,
   usePekohubBundle,
@@ -36,6 +37,7 @@ type DisconnectStep = { kind: "confirm" } | { kind: "unsent"; count: number };
  *     by runOAuthFlow.
  */
 export default function ProfileMenu() {
+  const { t } = useTranslation();
   const { data: settings } = useSettings();
   const { data: bundle, isPending } = usePekohubBundle();
   const logout = usePekohubLogout();
@@ -120,7 +122,7 @@ export default function ProfileMenu() {
       await afterPekohubSignIn(queryClient);
       if (!result.registered) {
         setOauthError(
-          `Signed in, but this computer couldn't connect to PekoHub: ${result.error ?? "unknown error"}`,
+          t("hub.menu.connectFailed", { error: result.error ?? t("hub.menu.unknownError") }),
         );
       }
     } catch (err) {
@@ -128,7 +130,7 @@ export default function ProfileMenu() {
       setOauthError(
         err instanceof Error
           ? err.message
-          : "Sign-in failed. Check your browser and try again.",
+          : t("hub.menu.signInFailed"),
       );
     } finally {
       if (mine === attempt.current) setSigningIn(false);
@@ -176,15 +178,15 @@ export default function ProfileMenu() {
       <button
         onClick={() => setOpen((v) => !v)}
         disabled={isPending}
-        aria-label="PekoHub account menu"
+        aria-label={t("hub.menu.label")}
         title={
           isPending
-            ? "Loading PekoHub status…"
+            ? t("hub.menu.loading")
             : signedIn
               ? account
-                ? `PekoHub · signed in as @${account.handle}`
-                : "PekoHub · signed in"
-              : "Sign in to PekoHub"
+                ? t("hub.menu.signedInAs", { handle: account.handle })
+                : t("hub.menu.signedIn")
+              : t("hub.menu.signIn")
         }
         className={[
           "flex h-11 w-11 items-center justify-center overflow-hidden transition-all duration-200",
@@ -225,9 +227,9 @@ export default function ProfileMenu() {
           <div className="px-2.5 pb-1.5 pt-2 text-xs font-medium text-fg-muted">
             {signedIn
               ? account
-                ? `PekoHub · @${account.handle}`
-                : "PekoHub · signed in"
-              : "PekoHub · not signed in"}
+                ? t("hub.menu.headerHandle", { handle: account.handle })
+                : t("hub.menu.signedIn")
+              : t("hub.menu.notSignedIn")}
           </div>
 
           <div className="my-1 h-px bg-line" />
@@ -244,7 +246,7 @@ export default function ProfileMenu() {
               ) : (
                 <LogIn className="h-4 w-4" />
               )}
-              {signingIn ? "Start sign-in again" : "Sign in with PekoHub"}
+              {signingIn ? t("hub.menu.signInAgain") : t("hub.menu.signInWith")}
             </button>
           )}
 
@@ -261,7 +263,7 @@ export default function ProfileMenu() {
               ) : (
                 <LogOut className="h-4 w-4" />
               )}
-              Sign out
+              {t("hub.menu.signOut")}
             </button>
           )}
 
@@ -281,7 +283,7 @@ export default function ProfileMenu() {
               ) : (
                 <Unplug className="h-4 w-4" />
               )}
-              Disconnect this computer…
+              {t("hub.menu.disconnect")}
             </button>
           )}
 
@@ -302,7 +304,7 @@ export default function ProfileMenu() {
                 ) : (
                   <RefreshCw className="h-4 w-4" />
                 )}
-                Re-link PekoHub account
+                {t("hub.menu.relink")}
               </button>
             </>
           )}
@@ -310,7 +312,7 @@ export default function ProfileMenu() {
           {(signingIn || oauthError) && (
             <div className="note-info mx-1 mb-1 mt-2 block text-xs">
               {signingIn &&
-                "Waiting for PekoHub to redirect you back… complete the sign-in in your browser to continue. If the page didn't open, start again."}
+                t("hub.menu.waiting")}
               {oauthError && (
                 <span className="block text-danger">
                   {oauthError}
@@ -324,7 +326,7 @@ export default function ProfileMenu() {
               data-testid="pekohub-disconnect-error"
               className="note-danger mx-1 mb-1 mt-2 block text-xs"
             >
-              This computer couldn't disconnect: {disconnectError}
+              {t("hub.menu.disconnectFailed", { error: disconnectError })}
             </div>
           )}
         </div>
@@ -332,19 +334,21 @@ export default function ProfileMenu() {
 
       <ConfirmModal
         open={disconnect?.kind === "confirm"}
-        title="Disconnect this computer?"
-        message="Your pekos on this computer go local-only, so nobody can reach them through PekoHub, and you're signed out. This computer's copies of your chats with pekos on other computers are deleted; those computers keep them, and they come back when you sign in again."
-        confirmText={disconnecting ? "Disconnecting…" : "Disconnect"}
+        title={t("hub.disconnect.title")}
+        message={t("hub.disconnect.message")}
+        confirmText={disconnecting ? t("hub.disconnect.confirming") : t("hub.disconnect.confirm")}
         variant="danger"
         onConfirm={() => void handleDisconnect(false)}
         onCancel={() => setDisconnect(null)}
       />
       <ConfirmModal
         open={disconnect?.kind === "unsent"}
-        title="Some messages haven't been delivered"
-        message={`${disconnect?.kind === "unsent" ? disconnect.count : 0} message(s) to pekos on other computers haven't reached them yet, because those computers are offline. Disconnecting now loses them. Wait until they're delivered, or disconnect anyway.`}
-        confirmText={disconnecting ? "Disconnecting…" : "Disconnect anyway"}
-        cancelText="Wait"
+        title={t("hub.disconnect.unsentTitle")}
+        message={t("hub.disconnect.unsentMessage", {
+          count: disconnect?.kind === "unsent" ? disconnect.count : 0,
+        })}
+        confirmText={disconnecting ? t("hub.disconnect.confirming") : t("hub.disconnect.anyway")}
+        cancelText={t("hub.disconnect.wait")}
         variant="danger"
         onConfirm={() => void handleDisconnect(true)}
         onCancel={() => setDisconnect(null)}

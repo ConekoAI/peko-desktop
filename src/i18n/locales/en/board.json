@@ -1,0 +1,27 @@
+{
+  "title": "Board",
+  "empty": "No work on the board yet",
+  "open": "{{count}} open",
+  "blocked": "{{count}} blocked",
+  "pastCheckIn": "{{count}} past check-in",
+  "for": "for {{name}}",
+  "unclaimed": "unclaimed",
+  "checkIn": "check-in {{date}}",
+  "checkInPast": "past its check-in {{date}}",
+  "blockPlaceholder": "What does it wait on?",
+  "block": "Block",
+  "take": "Take it",
+  "unblock": "Unblock",
+  "blockedAction": "Blocked…",
+  "done": "Done",
+  "letGo": "Let go",
+  "markDone": "Mark done",
+  "addPlaceholder": "Add work to the board",
+  "newItem": "New board item",
+  "state": {
+    "open": "open",
+    "doing": "doing",
+    "blocked": "blocked",
+    "done": "done"
+  }
+}

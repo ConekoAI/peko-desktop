@@ -1,5 +1,6 @@
 import { useState, useMemo, type ReactNode } from "react";
 import { ChevronUp, ChevronDown, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type SortDir = "asc" | "desc" | null;
 
@@ -24,11 +25,12 @@ export default function DataTable<T>({
   columns,
   rows,
   keyExtractor,
-  emptyText = "No data",
+  emptyText,
   searchable = true,
   searchKeys,
   pageSize,
 }: DataTableProps<T>) {
+  const { t } = useTranslation();
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [search, setSearch] = useState("");
@@ -100,7 +102,7 @@ export default function DataTable<T>({
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search..."
+            placeholder={t("common.search")}
             className="input pl-9 pr-4"
           />
         </div>
@@ -139,7 +141,7 @@ export default function DataTable<T>({
                   colSpan={columns.length}
                   className="px-4 py-8 text-center text-fg-muted"
                 >
-                  {emptyText}
+                  {emptyText ?? t("common.noData")}
                 </td>
               </tr>
             ) : (
@@ -163,7 +165,11 @@ export default function DataTable<T>({
       {pageSize && totalPages > 1 && (
         <div className="flex items-center justify-between">
           <span className="text-xs text-fg-muted">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)} of {sorted.length}
+            {t("common.showingRange", {
+              from: (page - 1) * pageSize + 1,
+              to: Math.min(page * pageSize, sorted.length),
+              total: sorted.length,
+            })}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -171,17 +177,17 @@ export default function DataTable<T>({
               disabled={page <= 1}
               className="rounded-lg border border-line bg-surface-card px-3 py-1.5 text-sm text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
             >
-              Previous
+              {t("common.previous")}
             </button>
             <span className="text-sm text-fg-muted">
-              Page {page} of {totalPages}
+              {t("common.pageOf", { page, total: totalPages })}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
               className="rounded-lg border border-line bg-surface-card px-3 py-1.5 text-sm text-fg-soft transition-colors hover:bg-surface-sunken disabled:opacity-50"
             >
-              Next
+              {t("common.next")}
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import type { StreamEvent } from "../types";
 
 interface ChatStreamProps {
@@ -7,6 +8,7 @@ interface ChatStreamProps {
 }
 
 export default function ChatStream({ messages, className = "" }: ChatStreamProps) {
+  const { t } = useTranslation();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export default function ChatStream({ messages, className = "" }: ChatStreamProps
     >
       {messages.length === 0 && (
         <div className="py-8 text-center text-sm text-fg-subtle">
-          No messages yet
+          {t("common.noMessagesYet")}
         </div>
       )}
 

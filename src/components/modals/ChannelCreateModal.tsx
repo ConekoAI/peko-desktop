@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Users, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+import { t as translate } from "../../i18n";
 
 import { useNavigate } from "@tanstack/react-router";
 
@@ -39,6 +42,7 @@ export default function ChannelCreateModal({
   /** Open the new-peko flow (no peko lives on this computer). */
   onCreatePeko?: () => void;
 }) {
+  const { t } = useTranslation();
   const { data: principals, isLoading: principalsLoading } = usePrincipals();
   // A group lives with the peko that starts it. With none here, one of
   // your pekos on another computer can start it for you.
@@ -145,7 +149,7 @@ export default function ChannelCreateModal({
               id="channel-create-modal-title"
               className="modal-title"
             >
-              New group
+              {t("channel.create.title")}
             </h2>
           </div>
           <button
@@ -158,8 +162,7 @@ export default function ChannelCreateModal({
 
         <div className="space-y-4 p-5 text-sm text-fg-soft">
           <p className="text-xs text-fg-muted">
-            A group is a chat with you and several pekos. You can add more
-            people and pekos later.
+            {t("channel.create.intro")}
           </p>
 
           <div>
@@ -167,7 +170,7 @@ export default function ChannelCreateModal({
               htmlFor="channel-name"
               className="field-label mb-1.5 block"
             >
-              Group name <span className="text-danger">*</span>
+              {t("channel.create.name")} <span className="text-danger">*</span>
             </label>
             <input
               id="channel-name"
@@ -181,7 +184,7 @@ export default function ChannelCreateModal({
             />
             {name && !nameValid && (
               <p className="mt-1 text-xs text-danger">
-                Use 1–64 characters.
+                {t("channel.create.nameInvalid")}
               </p>
             )}
           </div>
@@ -191,11 +194,11 @@ export default function ChannelCreateModal({
               htmlFor="channel-creator"
               className="field-label mb-1.5 block"
             >
-              Started by <span className="text-danger">*</span>
+              {t("channel.create.startedBy")} <span className="text-danger">*</span>
             </label>
             {principalsLoading && (
               <p className="text-xs text-fg-muted">
-                Loading your pekos…
+                {t("channel.create.loadingPekos")}
               </p>
             )}
             {!principalsLoading && principalItems.length === 0 && (
@@ -242,7 +245,7 @@ export default function ChannelCreateModal({
             onClick={onClose}
             className="btn-secondary"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           {(principalsLoading || principalItems.length > 0) && (
           <button
@@ -252,7 +255,7 @@ export default function ChannelCreateModal({
             data-testid="channel-create-submit"
           >
             <Check className="h-3.5 w-3.5" />
-            {createMut.isPending ? "Creating…" : "Create"}
+            {createMut.isPending ? t("channel.create.creating") : t("channel.create.create")}
           </button>
           )}
         </div>
@@ -263,7 +266,7 @@ export default function ChannelCreateModal({
 
 /** What you ask a peko of yours to do when it starts a group for you. */
 export function askToStart(groupName: string): string {
-  return `Please start a group called "${groupName}", add me to it, and register it on PekoHub (invite only) so it reaches my other computers.`;
+  return translate("channel.create.askToStart", { name: groupName });
 }
 
 /**
@@ -285,21 +288,21 @@ function NoPekoHere({
   onAsk: (peko: { principalName: string; runtimeId: string }) => void;
   onCreatePeko?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className="space-y-2 text-xs text-fg-muted"
       data-testid="channel-create-no-peko"
     >
       <p>
-        A group lives on the computer of the peko that starts it, and none of
-        your pekos live on this one.
+        {t("channel.create.noPekoHere")}
       </p>
       {yoursElsewhere.length > 0 && (
         <>
           <p>
             {groupName
-              ? "Ask one of yours on another computer to start it; it adds you, and the group shows up here too."
-              : "Name the group, then ask one of yours on another computer to start it."}
+              ? t("channel.create.askElsewhere")
+              : t("channel.create.nameFirst")}
           </p>
           <div className="flex flex-wrap gap-2">
             {yoursElsewhere.map((peko) => (
@@ -311,7 +314,7 @@ function NoPekoHere({
                 className="btn-primary btn-sm"
                 data-testid={`channel-create-ask-${peko.principalName}`}
               >
-                Ask {peko.displayName || peko.principalName}
+                {t("channel.create.ask", { name: peko.displayName || peko.principalName })}
               </button>
             ))}
           </div>
@@ -324,7 +327,7 @@ function NoPekoHere({
           className="rounded-md border border-line px-2.5 py-1 text-xs text-fg-soft hover:bg-surface-sunken"
           data-testid="channel-create-new-peko"
         >
-          Create a peko on this computer
+          {t("channel.create.createPekoHere")}
         </button>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { Fragment, useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
+import { Trans, useTranslation } from "react-i18next";
 import {
   usePrincipals,
   usePrincipalSend,
@@ -56,6 +57,7 @@ import type {
   StreamEvent,
 } from "../types";
 import type { ChatStreamMsg } from "../lib/api";
+import { currentLocale, t as translate } from "../i18n";
 
 interface ChatItem {
   event: StreamEvent;
@@ -94,10 +96,11 @@ function HostOfflineNotice({
     >
       <Moon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <p>
-        <span className="font-medium text-fg">{computer}</span> is offline
-        {ago && ` (last online ${ago})`}, so {peko} can&apos;t work right now. What you send
-        waits and reaches {peko} when that computer is back; you&apos;ll get a notification when{" "}
-        {peko} answers.
+        <Trans
+          i18nKey={ago ? "chat.hostOfflineSince" : "chat.hostOffline"}
+          values={{ peko, ago }}
+          components={{ computer: <span className="font-medium text-fg">{computer}</span> }}
+        />
       </p>
     </div>
   );
@@ -110,11 +113,11 @@ function formatTime(ts?: string) {
   if (!ts) return "";
   const ms = Number(ts);
   if (!isNaN(ms) && ms > 1000000000000) {
-    return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(ms).toLocaleTimeString(currentLocale(), { hour: "2-digit", minute: "2-digit" });
   }
   const d = new Date(ts);
   if (isNaN(d.getTime())) return ts;
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString(currentLocale(), { hour: "2-digit", minute: "2-digit" });
 }
 
 function ChatMessage({
@@ -142,6 +145,7 @@ function ChatMessage({
 }) {
   const { event, isUser } = item;
   const isError = event.type === "error";
+  const { t } = useTranslation();
   const text = event.content ?? "";
   const [copied, setCopied] = useState(false);
 
@@ -170,7 +174,7 @@ function ChatMessage({
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold text-fg">
-            {isUser ? "You" : isError ? "Error" : peko.name}
+            {isUser ? t("common.you") : isError ? t("common.error") : peko.name}
           </span>
           <span className="text-[11px] text-fg-subtle">
             {formatTime(event.timestamp)}
@@ -192,7 +196,7 @@ function ChatMessage({
             data-testid="message-waiting"
           >
             <Clock className="h-3 w-3" />
-            Waiting for {waitingFor} to come online
+            {t("chat.waitingFor", { name: waitingFor })}
           </p>
         )}
         {onPick && item.options && item.options.length > 0 && (
@@ -202,11 +206,11 @@ function ChatMessage({
             room, so messages sit close together. */}
         {!item.queued && text && (
           <div className="absolute -top-3 right-3 flex gap-0.5 rounded-lg border border-line bg-surface-card p-0.5 opacity-0 shadow-pop transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-            <MessageAction label={copied ? "Copied" : "Copy"} onClick={copy}>
+            <MessageAction label={copied ? t("common.copied") : t("common.copy")} onClick={copy}>
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             </MessageAction>
             {onRetry && (
-              <MessageAction label="Retry" onClick={onRetry}>
+              <MessageAction label={t("common.retry")} onClick={onRetry}>
                 <RotateCcw className="h-3.5 w-3.5" />
               </MessageAction>
             )}
@@ -230,10 +234,11 @@ function SuggestedReplies({
   replies: string[];
   onPick: (reply: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       role="group"
-      aria-label="Suggested replies"
+      aria-label={t("chat.suggestedReplies")}
       data-testid="suggested-replies"
       className="mt-2 flex flex-wrap gap-1.5"
     >
@@ -287,22 +292,22 @@ export function foldReplyText(current: string, delta: string, newIteration: bool
 /** A short, plain phrase for why a run is waiting or failed. */
 export function runFailureLine(failure: RunFailure, now: Date = new Date()): string {
   const reason =
-    {
-      peko_limit: "its spending limit is reached",
-      provider_quota: "the model provider's quota is used up",
-      provider_unreachable: "the model provider can't be reached",
-    }[failure.kind] ?? failure.message;
+    failure.kind === "peko_limit" ||
+    failure.kind === "provider_quota" ||
+    failure.kind === "provider_unreachable"
+      ? translate(`chat.runFailure.reason.${failure.kind}`)
+      : failure.message;
   if (failure.nextAttemptAt) {
     const next = new Date(failure.nextAttemptAt);
     const sameDay = next.toDateString() === now.toDateString();
-    const when = next.toLocaleString([], {
+    const when = next.toLocaleString(currentLocale(), {
       ...(sameDay ? {} : { month: "short", day: "numeric" }),
       hour: "2-digit",
       minute: "2-digit",
     });
-    return `Waiting — ${reason}. It continues on its own, next try ${when}.`;
+    return translate("chat.runFailure.waiting", { reason, when });
   }
-  return `The last reply didn't go through — ${reason}.`;
+  return translate("chat.runFailure.failed", { reason });
 }
 
 /** Seconds since `since`, ticking once a second while `live`. */
@@ -320,7 +325,9 @@ function useElapsed(since: number | null, live: boolean): number {
 /** Who is asking, as the card names them. */
 function askerName(request: ApprovalRequest): string {
   const address = shownAddress(request.actor);
-  return request.actorName ? `${request.actorName} (${address})` : address;
+  return request.actorName
+    ? translate("chat.approval.asker", { name: request.actorName, address })
+    : address;
 }
 
 /**
@@ -337,6 +344,7 @@ function ApprovalCards({
   runtimeId: string;
   requests: ApprovalRequest[];
 }) {
+  const { t } = useTranslation();
   const decide = useDecideApproval();
   const [outcome, setOutcome] = useState<string | null>(null);
   useEffect(() => {
@@ -361,9 +369,10 @@ function ApprovalCards({
           {r.kind === "owner_task" ? (
             <>
               <p className="text-fg">
-                You asked {peko} for something {r.reason || "in a shared conversation"} that
-                needs your full access. Approved, it runs as you, outside that conversation,
-                with only this brief:
+                {t("chat.approval.ownerTask", {
+                  peko,
+                  where: r.reason || t("chat.approval.ownerTaskWhere"),
+                })}
               </p>
               <p
                 className="mt-2 whitespace-pre-wrap rounded-lg border border-line bg-surface p-2.5 text-xs text-fg"
@@ -375,8 +384,14 @@ function ApprovalCards({
           ) : (
             <>
               <p className="text-fg">
-                <span className="font-medium">{askerName(r)}</span> asks {peko} to run{" "}
-                <span className="font-mono text-xs">{r.summary.replace(/`/g, "")}</span>
+                <Trans
+                  i18nKey="chat.approval.toolRequest"
+                  values={{ peko }}
+                  components={{
+                    asker: <span className="font-medium">{askerName(r)}</span>,
+                    summary: <span className="font-mono text-xs">{r.summary.replace(/`/g, "")}</span>,
+                  }}
+                />
               </p>
               {r.reason && <p className="mt-1 text-xs text-fg-muted">{r.reason}</p>}
             </>
@@ -388,17 +403,17 @@ function ApprovalCards({
               onClick={() => void act(r.id, true)}
               className="btn-primary btn-sm"
             >
-              Approve
+              {t("chat.approval.approve")}
             </button>
             {r.kind !== "owner_task" && (
               <button
                 type="button"
                 disabled={decide.isPending}
                 onClick={() => void act(r.id, true, true)}
-                title={`Approve, and always allow this for ${r.actorName ?? r.actor}`}
+                title={t("chat.approval.alwaysTitle", { name: r.actorName ?? r.actor })}
                 className="btn-secondary btn-sm"
               >
-                Always allow
+                {t("chat.approval.always")}
               </button>
             )}
             <button
@@ -407,7 +422,7 @@ function ApprovalCards({
               onClick={() => void act(r.id, false)}
               className="btn-secondary btn-sm"
             >
-              Deny
+              {t("chat.approval.deny")}
             </button>
           </div>
         </div>
@@ -469,6 +484,7 @@ function PrincipalToolbar({
   /** The other computer it runs on, when it isn't this one. */
   computer?: string | null;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   return (
@@ -476,15 +492,15 @@ function PrincipalToolbar({
       <button
         type="button"
         onClick={() => setProfileOpen(true)}
-        title={`${peko.name}'s profile`}
+        title={t("peko.remote.profileLabel", { name: peko.name })}
         className="-mx-1.5 flex min-w-0 items-center gap-3 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface-sunken"
       >
         <PekoAvatar peko={peko} size="md" />
         <div className="min-w-0">
           <h3 className="truncate text-[15px] font-semibold leading-tight tracking-tight text-fg">{peko.name}</h3>
           <p className="truncate text-xs leading-tight text-fg-muted">
-            {description || "Your peko"}
-            {computer && <span data-testid="peko-computer"> · on {computer}</span>}
+            {description || t("chat.yourPeko")}
+            {computer && <span data-testid="peko-computer"> {t("chat.onComputer", { computer })}</span>}
           </p>
         </div>
       </button>
@@ -509,6 +525,7 @@ function PrincipalToolbar({
  * reads it back via `principal_log` with the privacy gate.
  */
 export default function Chat() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const routerState = useRouterState();
   const params = useParams({ strict: false });
@@ -656,7 +673,7 @@ export default function Chat() {
   const ownRemote = runtimeId !== "local" && !!remotePeko?.fromAccount;
   // A peko on another computer works only while that computer is on: say
   // so while it is offline, and mark what you sent that hasn't reached it.
-  const hostLabel = remotePeko?.runtimeName || `${pekoFace.name}'s computer`;
+  const hostLabel = remotePeko?.runtimeName || t("chat.pekosComputer", { name: pekoFace.name });
   const hostOffline = !!remotePeko && remote.status.data?.status === "offline";
   const undelivered = useUndeliveredMessages(runtimeId, selectedPrincipal, !!remotePeko, hostOffline);
   const waiting = useMemo(() => new Set(undelivered.data ?? []), [undelivered.data]);
@@ -973,7 +990,7 @@ export default function Chat() {
       return (
         <div className="flex h-full animate-fade-in flex-col items-center justify-center gap-4 p-8">
           <div className="tile h-14 w-14 rounded-2xl"><MessageCircle className="h-6 w-6" /></div>
-          <p className="text-sm text-fg-muted">Select a peko from the sidebar</p>
+          <p className="text-sm text-fg-muted">{t("chat.selectPeko")}</p>
         </div>
       );
     }
@@ -982,10 +999,10 @@ export default function Chat() {
         <div className="tile h-14 w-14 rounded-2xl"><MessageCircle className="h-6 w-6" /></div>
         <div className="text-center">
           <p className="h-section">
-            No pekos yet
+            {t("chat.noPekos")}
           </p>
           <p className="mt-1 text-sm text-fg-muted">
-            Create your first peko to start chatting.
+            {t("chat.noPekosHint")}
           </p>
         </div>
         <button
@@ -993,20 +1010,23 @@ export default function Chat() {
           className="btn-primary"
         >
           <Plus className="h-4 w-4" />
-          Create a peko
+          {t("chat.createPeko")}
         </button>
         {!signedInToHub && (
           <p className="text-xs text-fg-subtle">
-            Have pekos on another computer?{" "}
-            <button
-              type="button"
-              data-testid="empty-sign-in"
-              onClick={requestPekohubSignIn}
-              className="link font-medium"
-            >
-              Sign in with PekoHub
-            </button>{" "}
-            to see them here.
+            <Trans
+              i18nKey="chat.signInPrompt"
+              components={{
+                signIn: (
+                  <button
+                    type="button"
+                    data-testid="empty-sign-in"
+                    onClick={requestPekohubSignIn}
+                    className="link font-medium"
+                  />
+                ),
+              }}
+            />
           </p>
         )}
         <CreatePrincipalModal
@@ -1023,7 +1043,7 @@ export default function Chat() {
       <div className="flex h-full animate-fade-in flex-col items-center justify-center gap-4 p-8">
         <div className="tile h-14 w-14 rounded-2xl"><MessageCircle className="h-6 w-6" /></div>
         <p className="text-sm text-fg-muted">
-          Select a peko from the sidebar
+          {t("chat.selectPeko")}
         </p>
       </div>
     );
@@ -1037,7 +1057,7 @@ export default function Chat() {
           className="pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-brand bg-brand-soft/80 text-brand-text"
         >
           <Paperclip className="h-6 w-6" />
-          <p className="text-sm font-medium">Drop files to attach</p>
+          <p className="text-sm font-medium">{t("chat.dropFiles")}</p>
         </div>
       )}
       <PrincipalToolbar
@@ -1048,7 +1068,7 @@ export default function Chat() {
             ? // One of yours on another computer reads like one of this
               // computer's ("Your peko" when it has no description).
               remote.description ||
-              (remotePeko.fromAccount ? undefined : `${remotePeko.owner}'s peko`)
+              (remotePeko.fromAccount ? undefined : t("chat.ownersPeko", { owner: remotePeko.owner }))
             : principals?.find((p) => p.name === selectedPrincipal)?.description
         }
         computer={remotePeko?.runtimeName}
@@ -1058,7 +1078,7 @@ export default function Chat() {
         {displayItems.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-fg-subtle">
             <MessageCircle className="h-10 w-10" />
-            <p className="mt-2 text-sm">Send a message to begin...</p>
+            <p className="mt-2 text-sm">{t("chat.begin")}</p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -1071,7 +1091,7 @@ export default function Chat() {
                   className="btn-secondary btn-xs rounded-full px-3"
                 >
                   {loadingOlder && <Loader2 className="h-3 w-3 animate-spin" />}
-                  Load earlier messages
+                  {t("common.loadEarlier")}
                 </button>
               </div>
             )}
@@ -1101,7 +1121,9 @@ export default function Chat() {
               >
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 <span>
-                  {pekoFace.name} is working{workingSecs >= 3 ? ` · ${workingSecs}s` : ""}
+                  {workingSecs >= 3
+                    ? t("chat.workingFor", { name: pekoFace.name, seconds: workingSecs })
+                    : t("chat.working", { name: pekoFace.name })}
                 </span>
               </div>
             )}

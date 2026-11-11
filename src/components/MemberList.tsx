@@ -3,6 +3,7 @@ import type { ChannelPerson, WakePolicy } from "../lib/api";
 import { useChannelDirectory } from "../hooks/useChannelDirectory";
 import { shownAddress } from "../lib/format";
 import { Globe, Loader2, User } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { usePekoDirectory } from "../hooks/usePekoDirectory";
 import PekoAvatar from "./peko/PekoAvatar";
 import RuntimeBadge from "./RuntimeBadge";
@@ -29,6 +30,7 @@ export default function MemberList({
   channelId: string;
   runtimeId?: string;
 }) {
+  const { t } = useTranslation();
   const { data, isLoading } = useChannelMembers(channelId, runtimeId);
   const directory = usePekoDirectory();
   const { data: info } = useChannelInfo(channelId);
@@ -42,7 +44,7 @@ export default function MemberList({
     return (
       <div className="flex items-center gap-2 p-4 text-xs text-fg-subtle">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Loading members…
+        {t("channel.members.loading")}
       </div>
     );
   }
@@ -59,7 +61,7 @@ export default function MemberList({
   if (members.length === 0) {
     return (
       <div className="p-4 text-xs text-fg-subtle">
-        No members yet.
+        {t("channel.members.empty")}
       </div>
     );
   }
@@ -89,7 +91,7 @@ export default function MemberList({
     <div className="p-3">
       <section data-testid="channel-members-local">
         <div className="eyebrow mb-1.5 px-2">
-          Local
+          {t("channel.members.local")}
         </div>
         <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">
           {local.map((did) => {
@@ -124,7 +126,7 @@ export default function MemberList({
       {remote.length > 0 && (
         <section className="mt-3" data-testid="channel-members-remote">
           <div className="eyebrow mb-1.5 px-2">
-            Remote
+            {t("channel.members.remote")}
           </div>
           <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">
             {remote.map((row) => (
@@ -159,6 +161,7 @@ function PeopleList({
   people: ChannelPerson[];
   wakeOf: Map<string, { name: string; localId: string; wake: WakePolicy }>;
 }) {
+  const { t } = useTranslation();
   const directory = useChannelDirectory(channelId);
   const here = people.filter((p) => p.here || p.you);
   const elsewhere = people.filter((p) => !p.here && !p.you);
@@ -182,7 +185,7 @@ function PeopleList({
         )}
         <span className="min-w-0 flex-1 truncate font-medium">{who.label}</span>
         <span className="shrink-0 text-[10px] text-fg-muted">
-          {p.kind === "principal" ? "Peko" : "Person"}
+          {p.kind === "principal" ? t("channel.members.peko") : t("channel.members.person")}
         </span>
         {wakePeko && (
           <WakePicker channelId={channelId} pekoName={wakePeko.name} wake={wakePeko.wake} />
@@ -194,14 +197,14 @@ function PeopleList({
     <div className="p-3">
       <section data-testid="channel-members-local">
         <div className="eyebrow mb-1.5 px-2">
-          On this computer
+          {t("channel.members.here")}
         </div>
         <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">{here.map(row)}</ul>
       </section>
       {elsewhere.length > 0 && (
         <section className="mt-3" data-testid="channel-members-remote">
           <div className="eyebrow mb-1.5 px-2">
-            Elsewhere
+            {t("channel.members.elsewhere")}
           </div>
           <ul className="grid gap-0.5 sm:grid-cols-2 lg:grid-cols-3">{elsewhere.map(row)}</ul>
         </section>
@@ -210,11 +213,7 @@ function PeopleList({
   );
 }
 
-const WAKE_OPTIONS: { value: WakePolicy; label: string; hint: string }[] = [
-  { value: "human", label: "Every message", hint: "Replies to every message from a person" },
-  { value: "mention", label: "@mentions", hint: "Replies when someone @mentions it" },
-  { value: "off", label: "Never", hint: "Reads along; replies only when it checks in" },
-];
+const WAKE_OPTIONS: WakePolicy[] = ["human", "mention", "off"];
 
 /**
  * What starts a turn for one of your pekos in this group (ADR-082):
@@ -230,21 +229,22 @@ function WakePicker({
   pekoName: string;
   wake: WakePolicy;
 }) {
+  const { t } = useTranslation();
   const setWake = useSetChannelWake(channelId);
   const current = setWake.isPending ? setWake.variables?.wake ?? wake : wake;
   return (
     <span className="flex shrink-0 flex-col items-end">
       <select
-        aria-label={`When ${pekoName} replies`}
+        aria-label={t("channel.members.wakeLabel", { name: pekoName })}
         value={current}
         disabled={setWake.isPending}
-        title={WAKE_OPTIONS.find((o) => o.value === current)?.hint}
+        title={t(`channel.members.wake.${current}.hint`)}
         onChange={(e) => setWake.mutate({ pekoName, wake: e.target.value as WakePolicy })}
         className="select input-sm w-auto py-1 pr-7 text-[11px] text-fg-soft disabled:opacity-60"
       >
         {WAKE_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
+          <option key={o} value={o}>
+            {t(`channel.members.wake.${o}.label`)}
           </option>
         ))}
       </select>

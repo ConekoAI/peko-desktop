@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import type { RuntimeFitReason } from "../types";
 
 /**
@@ -27,8 +28,12 @@ export default function VersionMismatchBanner({
   reason?: RuntimeFitReason;
   onDismiss: () => void;
 }) {
-  const running = <code className="font-mono">{actual}</code>;
-  const needed = <code className="font-mono">{expected}</code>;
+  const { t } = useTranslation();
+  const parts = {
+    running: <code className="font-mono">{actual}</code>,
+    needed: <code className="font-mono">{expected}</code>,
+    code: <code className="font-mono" />,
+  };
   return (
     <div
       role="alert"
@@ -42,29 +47,23 @@ export default function VersionMismatchBanner({
       <div className="min-w-0 flex-1">
         {reason === "newer" ? (
           <>
-            <p className="font-medium">This app is older than your Peko</p>
+            <p className="font-medium">{t("layout.versionMismatch.newerTitle")}</p>
             <p className="mt-1 break-words text-warn">
-              Peko {running} is running, and this app was made for {needed}.
-              Some things may not work. Update Peko Desktop.
+              <Trans i18nKey="layout.versionMismatch.newerBody" components={parts} />
             </p>
           </>
         ) : reason === "older" ? (
           <>
-            <p className="font-medium">Your Peko is older than this app needs</p>
+            <p className="font-medium">{t("layout.versionMismatch.olderTitle")}</p>
             <p className="mt-1 break-words text-warn">
-              Peko {running} is running, and this app needs {needed} or later.
-              If you started it from the command line, run{" "}
-              <code className="font-mono">peko update</code>, then{" "}
-              <code className="font-mono">peko daemon stop</code> and open this
-              app again.
+              <Trans i18nKey="layout.versionMismatch.olderBody" components={parts} />
             </p>
           </>
         ) : (
           <>
-            <p className="font-medium">Can&apos;t tell if your Peko fits this app</p>
+            <p className="font-medium">{t("layout.versionMismatch.unknownTitle")}</p>
             <p className="mt-1 break-words text-warn">
-              Peko reports version {running}, and this app needs {needed} or
-              later. Some things may not work.
+              <Trans i18nKey="layout.versionMismatch.unknownBody" components={parts} />
             </p>
           </>
         )}
@@ -72,7 +71,7 @@ export default function VersionMismatchBanner({
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss version mismatch banner"
+        aria-label={t("layout.versionMismatch.dismiss")}
         className="rounded-md p-1 text-warn transition-colors hover:bg-warn/10"
       >
         <X className="h-4 w-4" />

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { isGenesisPending, usePrincipals } from "../hooks/usePrincipals";
 import { usePekohubBundle } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
@@ -65,6 +66,7 @@ function NewChatMenu({
   onDiscover: () => void;
   onMessagePerson: () => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -85,11 +87,11 @@ function NewChatMenu({
   }, [open]);
 
   const items = [
-    { label: "Create a peko", icon: Plus, run: onCreate },
-    { label: "Import a .peko file", icon: Package, run: onImport },
-    { label: "Add a peko", icon: LinkIcon, run: onConnect },
-    { label: "Discover public pekos", icon: Compass, run: onDiscover },
-    { label: "Message a person", icon: MessageCircle, run: onMessagePerson },
+    { label: t("sidebar.menu.create"), icon: Plus, run: onCreate },
+    { label: t("sidebar.menu.import"), icon: Package, run: onImport },
+    { label: t("sidebar.menu.add"), icon: LinkIcon, run: onConnect },
+    { label: t("sidebar.menu.discover"), icon: Compass, run: onDiscover },
+    { label: t("sidebar.menu.messagePerson"), icon: MessageCircle, run: onMessagePerson },
   ].filter((item) => item.run);
 
   return (
@@ -124,7 +126,7 @@ function NewChatMenu({
         className="btn-secondary w-full"
       >
         <Plus className="h-4 w-4" />
-        New chat
+        {t("sidebar.newChat")}
       </button>
     </div>
   );
@@ -141,6 +143,7 @@ function PrincipalContextMenu({
   onOpenChat: () => void;
   onOpenProfile: () => void;
 }) {
+  const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -168,7 +171,7 @@ function PrincipalContextMenu({
         className="menu-item"
       >
         <UserCircle className="h-4 w-4" />
-        Open Chat
+        {t("sidebar.openChat")}
       </button>
       <div className="my-1 h-px bg-line" />
       <button
@@ -179,7 +182,7 @@ function PrincipalContextMenu({
         className="menu-item"
       >
         <Settings className="h-4 w-4" />
-        Profile
+        {t("sidebar.profile")}
       </button>
     </div>
   );
@@ -212,11 +215,12 @@ function LocalStatusDot({ name }: { name: string }) {
 }
 
 function UnreadBadge({ count, testId }: { count: number; testId: string }) {
+  const { t } = useTranslation();
   return (
     <span
       className="count-badge shrink-0"
       data-testid={testId}
-      aria-label={`${count} unread`}
+      aria-label={t("sidebar.unread", { n: count })}
     >
       {count > 99 ? "99+" : count}
     </span>
@@ -277,6 +281,7 @@ export default function PrincipalSidebar({
   onConnectClick?: () => void;
   onImportClick?: () => void;
 } = {}) {
+  const { t } = useTranslation();
   const unread = useUnreadCounts();
   const navigate = useNavigate();
   const params = useParams({ strict: false });
@@ -411,7 +416,7 @@ export default function PrincipalSidebar({
     <div className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-surface-raised">
       <div className="flex h-12 shrink-0 items-center border-b border-line px-4">
         <h3 className="truncate text-[15px] font-semibold tracking-tight text-fg">
-          Chats
+          {t("sidebar.title")}
         </h3>
       </div>
 
@@ -422,7 +427,7 @@ export default function PrincipalSidebar({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search chats…"
+            placeholder={t("sidebar.searchPlaceholder")}
             className="input bg-surface py-1.5 pl-8 pr-3"
           />
         </div>
@@ -432,7 +437,7 @@ export default function PrincipalSidebar({
         <DmRequests />
         {people.length > 0 && (
           <div className="mb-2" data-testid="person-dms">
-            <ChatSectionLabel>People</ChatSectionLabel>
+            <ChatSectionLabel>{t("sidebar.people")}</ChatSectionLabel>
             {people.map((person) => {
               const active = person.channelId === personChannel;
               return (
@@ -446,11 +451,11 @@ export default function PrincipalSidebar({
             })}
           </div>
         )}
-        {people.length > 0 && listed > 0 && <ChatSectionLabel>Pekos</ChatSectionLabel>}
+        {people.length > 0 && listed > 0 && <ChatSectionLabel>{t("sidebar.pekos")}</ChatSectionLabel>}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
             <Loader2 className="h-5 w-5 animate-spin text-fg-subtle" />
-            <span className="text-xs text-fg-subtle">Loading...</span>
+            <span className="text-xs text-fg-subtle">{t("sidebar.loading")}</span>
           </div>
         ) : listed > 0 ? (
           <div className="mb-3">
@@ -484,10 +489,10 @@ export default function PrincipalSidebar({
                     <span
                       className="badge-warn shrink-0"
                       data-testid={`waking-badge-${p.name}`}
-                      title="This peko is still setting itself up"
+                      title={t("sidebar.wakingTitle")}
                     >
                       <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                      waking…
+                      {t("sidebar.waking")}
                     </span>
                   )}
                   <LocalStatusDot name={p.name} />
@@ -514,7 +519,7 @@ export default function PrincipalSidebar({
                   className="mt-2 flex w-full items-center gap-1 px-2 py-1 text-left text-[11px] font-medium text-fg-subtle hover:text-fg-muted"
                 >
                   {showAway ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                  Not seen for {AWAY_AFTER_DAYS}+ days ({awayRemote.length})
+                  {t("sidebar.away", { days: AWAY_AFTER_DAYS, n: awayRemote.length })}
                 </button>
                 {showAway &&
                   awayRemote.map((rp) => (
@@ -533,7 +538,7 @@ export default function PrincipalSidebar({
         ) : showFirstRunCTA ? (
           <div className="px-2 py-8 text-center text-xs text-fg-subtle">
             <span className="block space-y-3">
-              <span className="block">No pekos yet</span>
+              <span className="block">{t("sidebar.noPekos")}</span>
               {onCreateClick && (
                 <button
                   type="button"
@@ -541,14 +546,14 @@ export default function PrincipalSidebar({
                   className="btn-primary btn-sm"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Create your first peko
+                  {t("sidebar.createFirst")}
                 </button>
               )}
             </span>
           </div>
         ) : people.length > 0 ? null : (
           <div className="px-2 py-8 text-center text-xs text-fg-subtle">
-            No chats match
+            {t("sidebar.noMatch")}
           </div>
         )}
 

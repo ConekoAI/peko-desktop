@@ -1,5 +1,6 @@
 import { Hash, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { Trans, useTranslation } from "react-i18next";
 
 /**
  * PR-3 + P1.6: ephemeral toast for inbound channel invites. Fired by
@@ -30,6 +31,7 @@ export default function ChannelInviteToast({
   pendingCount?: number;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   function handleOpen() {
@@ -52,16 +54,22 @@ export default function ChannelInviteToast({
         className="min-w-0 flex-1 truncate text-left text-fg-soft hover:text-brand-text"
         data-testid="channel-invite-toast-open"
       >
-        Added to{" "}
-        <span className="font-mono font-medium">
-          {item.channelName || item.channelId}
-        </span>
+        <Trans
+          i18nKey="channel.inviteToast.addedTo"
+          components={{
+            name: (
+              <span className="font-mono font-medium">
+                {item.channelName || item.channelId}
+              </span>
+            ),
+          }}
+        />
       </button>
       {pendingCount > 0 && (
         <span
           className="badge-accent shrink-0"
           data-testid="channel-invite-toast-pending"
-          title={`${pendingCount} more invite${pendingCount === 1 ? "" : "s"} pending`}
+          title={t("channel.inviteToast.pending", { count: pendingCount })}
         >
           +{pendingCount}
         </span>
@@ -69,7 +77,7 @@ export default function ChannelInviteToast({
       <button
         onClick={onDismiss}
         className="btn-icon shrink-0 p-1"
-        aria-label="Dismiss invite toast"
+        aria-label={t("channel.inviteToast.dismiss")}
       >
         <X className="h-3 w-3" />
       </button>

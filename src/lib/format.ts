@@ -1,8 +1,10 @@
+import { currentLocale, t } from "../i18n";
+
 export function formatDate(date: string | number): string {
   // Handle raw millisecond timestamps from backend
   const ms = typeof date === "number" ? date : Number(date);
   if (!isNaN(ms) && ms > 1000000000000) {
-    return new Date(ms).toLocaleString(undefined, {
+    return new Date(ms).toLocaleString(currentLocale(), {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -13,7 +15,7 @@ export function formatDate(date: string | number): string {
   // Fallback: try parsing as ISO/date string
   const d = new Date(date);
   if (isNaN(d.getTime())) return String(date);
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(currentLocale(), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -23,13 +25,13 @@ export function formatDate(date: string | number): string {
 }
 
 export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  if (seconds < 60) return t("time.duration.seconds", { s: seconds });
+  if (seconds < 3600) return t("time.duration.minutes", { m: Math.floor(seconds / 60), s: seconds % 60 });
   const hours = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
-  if (hours < 24) return `${hours}h ${mins}m`;
+  if (hours < 24) return t("time.duration.hours", { h: hours, m: mins });
   const days = Math.floor(hours / 24);
-  return `${days}d ${hours % 24}h`;
+  return t("time.duration.days", { d: days, h: hours % 24 });
 }
 
 export function formatBytes(bytes: number): string {
@@ -66,12 +68,11 @@ export function timeAgo(iso: string, now: number = Date.now()): string {
   const then = Date.parse(iso);
   if (isNaN(then)) return "";
   const mins = Math.floor((now - then) / 60_000);
-  if (mins < 1) return "just now";
-  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
-  if (mins < 60) return unit(mins, "minute");
+  if (mins < 1) return t("time.justNow");
+  if (mins < 60) return t("time.minutesAgo", { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return unit(hours, "hour");
-  return unit(Math.floor(hours / 24), "day");
+  if (hours < 24) return t("time.hoursAgo", { count: hours });
+  return t("time.daysAgo", { count: Math.floor(hours / 24) });
 }
 
 /** Up to two letters standing for a group's name. */

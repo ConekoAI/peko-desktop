@@ -1,4 +1,5 @@
 import type { EngineState } from "../types";
+import { t } from "../i18n";
 
 /**
  * Headline badge tone for a given engine state.
@@ -33,21 +34,23 @@ export function engineStateTone(state: EngineState | undefined): EngineTone {
  * lockstep with the text.
  */
 export function engineStateLabel(state: EngineState | undefined): string {
-  if (!state) return "Connecting…";
+  if (!state) return t("engine.state.connecting");
   switch (state.kind) {
     case "running":
-      return "Running";
+      return t("engine.state.running");
     case "starting":
-      return "Starting";
+      return t("engine.state.starting");
     case "restarting":
       // The supervisor caps at attempt 1, but future-proof the copy
       // against a higher cap. "Restarting…" alone is fine when the
       // count is 1.
-      return state.attempt > 1 ? `Restarting (${state.attempt})…` : "Restarting…";
+      return state.attempt > 1
+        ? t("engine.state.restartingAttempt", { attempt: state.attempt })
+        : t("engine.state.restarting");
     case "stopped":
-      return "Stopped";
+      return t("engine.state.stopped");
     case "failed":
-      return "Failed";
+      return t("engine.state.failed");
   }
 }
 
@@ -60,13 +63,13 @@ export function engineStateSubtitle(state: EngineState | undefined): string | nu
   if (!state) return null;
   switch (state.kind) {
     case "running":
-      return `v${state.version} · PID ${state.pid}`;
+      return t("engine.subtitle.running", { version: state.version, pid: state.pid });
     case "starting":
-      return "Waiting for engine handshake";
+      return t("engine.subtitle.starting");
     case "restarting":
-      return "Engine exited unexpectedly; supervisor is restarting it";
+      return t("engine.subtitle.restarting");
     case "stopped":
-      return "Engine is not running";
+      return t("engine.subtitle.stopped");
     case "failed":
       return state.message;
   }

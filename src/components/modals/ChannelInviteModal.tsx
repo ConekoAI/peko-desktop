@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Globe, Hash, Monitor, UserPlus, X } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { useChannelInvite } from "../../hooks/useChannels";
 import { usePrincipals } from "../../hooks/usePrincipals";
@@ -38,6 +39,7 @@ export default function ChannelInviteModal({
   members: ChannelMembers | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { data: principals } = usePrincipals();
   const { data: remotes } = useRemotePrincipals();
   const [search, setSearch] = useState("");
@@ -174,7 +176,10 @@ export default function ChannelInviteModal({
               id="channel-invite-modal-title"
               className="modal-title"
             >
-              Invite to <span className="font-mono">{channel}</span>
+              <Trans
+                i18nKey="channel.invite.title"
+                components={{ name: <span className="font-mono">{channel}</span> }}
+              />
             </h2>
           </div>
           <button
@@ -187,13 +192,12 @@ export default function ChannelInviteModal({
 
         <div className="space-y-4 p-5 text-sm text-fg-soft">
           <p className="text-xs text-fg-muted">
-            Pick a peko to add to this group.
+            {t("channel.invite.intro")}
           </p>
 
           {!inviterName && (
             <div className="rounded-lg border border-warn/25 bg-warn-soft px-3 py-2 text-xs text-warn">
-              Only a member can add others. Ask someone in this group to add
-              one of your pekos first.
+              {t("channel.invite.notMember")}
             </div>
           )}
 
@@ -203,7 +207,7 @@ export default function ChannelInviteModal({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search pekos…"
+              placeholder={t("channel.invite.searchPlaceholder")}
               className="input"
               data-testid="channel-invite-search"
             />
@@ -216,8 +220,8 @@ export default function ChannelInviteModal({
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs text-fg-subtle">
                 {candidates.length === 0
-                  ? "No inviteable pekos yet — every local peko is already a member."
-                  : "No pekos match your search."}
+                  ? t("channel.invite.noCandidates")
+                  : t("channel.invite.noMatch")}
               </div>
             ) : (
               <ul className="divide-y divide-line">
@@ -262,7 +266,7 @@ export default function ChannelInviteModal({
             onClick={onClose}
             className="btn-secondary"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSubmit}
@@ -271,7 +275,7 @@ export default function ChannelInviteModal({
             data-testid="channel-invite-submit"
           >
             <Check className="h-3.5 w-3.5" />
-            {inviteMut.isPending ? "Inviting…" : "Invite"}
+            {inviteMut.isPending ? t("channel.invite.inviting") : t("channel.invite.invite")}
           </button>
         </div>
       </div>

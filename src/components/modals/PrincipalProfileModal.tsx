@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { Trans, useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useLocalUserAccount,
@@ -44,6 +45,7 @@ import PekoAvatar from "../peko/PekoAvatar";
 import RemotePekoProfile from "./RemotePekoProfile";
 import UsagePanel from "../peko/UsagePanel";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
+import { currentLocale, t as translate } from "../../i18n";
 
 interface PrincipalProfileModalProps {
   open: boolean;
@@ -54,29 +56,22 @@ interface PrincipalProfileModalProps {
   onRemoved?: () => void;
 }
 
-const STATUS_OPTIONS: Array<{ value: PrincipalStatusValue; label: string }> = [
-  { value: "online", label: "Online" },
-  { value: "offline", label: "Offline" },
-  { value: "busy", label: "Busy" },
-  { value: "error", label: "Error" },
-];
+const STATUS_OPTIONS: PrincipalStatusValue[] = ["online", "offline", "busy", "error"];
 
 /**
  * PekoHub registration states (ADR-081). `hint` is the one-line
  * explainer under the picker so the user sees who can reach the peko.
  */
-const REGISTRATION_OPTIONS: ReadonlyArray<{
-  value: PekoRegistration;
-  label: string;
-  hint: string;
-}> = [
-  { value: "local_only", label: "Local only", hint: "Not on PekoHub" },
-  { value: "private", label: "Private", hint: "On PekoHub; only its contacts can reach it" },
-  { value: "public", label: "Public", hint: "Discoverable on PekoHub" },
-];
+const REGISTRATION_OPTIONS: readonly PekoRegistration[] = ["local_only", "private", "public"];
+
+function isRegistration(value: string | undefined): value is PekoRegistration {
+  return (REGISTRATION_OPTIONS as readonly string[]).includes(value ?? "");
+}
 
 function registrationLabel(exposure: string | undefined): string {
-  return REGISTRATION_OPTIONS.find((o) => o.value === exposure)?.label ?? exposure ?? "—";
+  return isRegistration(exposure)
+    ? translate(`peko.profile.registration.${exposure}.label`)
+    : (exposure ?? "—");
 }
 
 /**
@@ -102,8 +97,10 @@ export function effectiveRegistration(p: {
 export function ownerLabel(owner: string, linked: LocalUserAccount | null | undefined): string {
   if (!owner) return "—";
   if (!isLocalUser(owner, linked?.id)) return owner;
-  if (!linked) return "You (this computer only)";
-  return linked.name ? `You (${linked.name} on PekoHub)` : "You (on PekoHub)";
+  if (!linked) return translate("peko.profile.ownerLocal");
+  return linked.name
+    ? translate("peko.profile.ownerHubNamed", { name: linked.name })
+    : translate("peko.profile.ownerHub");
 }
 
 /**
@@ -139,6 +136,7 @@ function LocalPekoProfile({
   onClose,
   onRemoved,
 }: Omit<PrincipalProfileModalProps, "runtimeId">) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: principal, isLoading } = usePrincipal(principalName);
   const { data: models, isLoading: modelsLoading } = useModels();
@@ -483,7 +481,7 @@ function LocalPekoProfile({
               </div>
             ) : (
               <p className="text-sm text-fg-muted">
-                Peko not found
+                {t("peko.profile.notFound")}
               </p>
             )}
           </div>
@@ -492,8 +490,8 @@ function LocalPekoProfile({
               <button
                 onClick={() => setIsEditing(true)}
                 className="btn-icon -mr-1.5"
-                title="Edit"
-                aria-label="Edit"
+                title={t("common.edit")}
+                aria-label={t("common.edit")}
               >
                 <Pencil className="h-4 w-4" />
               </button>
@@ -510,7 +508,7 @@ function LocalPekoProfile({
         <div className="flex-1 space-y-4 overflow-y-auto p-5 text-sm">
           {principal && !isEditing && (
             <>
-              <Row label="Description" value={principal.description || "—"} />
+              <Row label={t("common.description")} value={principal.description || "—"} />
               {/* PR #9: live status badge, polled via usePrincipalStatus.
                   For local principals we also surface a "Quick status"
                   dropdown inside `isEditing` (PR #3 added the
@@ -523,7 +521,7 @@ function LocalPekoProfile({
                 isRemote={isRemote}
               />
               <Row
-                label="PekoHub"
+                label={t("peko.profile.hub")}
                 value={
                   isRemote
                     ? principal.exposure || "—"
@@ -531,15 +529,15 @@ function LocalPekoProfile({
                 }
               />
               <Row
-                label="Preferred model"
+                label={t("peko.profile.preferredModel")}
                 value={
                   selectedModel?.displayName ??
                   principal.preferredModelId ??
                   "—"
                 }
               />
-              <Row label="Owner" value={ownerLabel(principal.owner, linkedAccount)} />
-              {isRemote && <Row label="Runtime" value={principal.runtimeId} />}
+              <Row label={t("peko.profile.owner")} value={ownerLabel(principal.owner, linkedAccount)} />
+              {isRemote && <Row label={t("peko.profile.runtime")} value={principal.runtimeId} />}
               {!isRemote && <UsagePanel name={principal.name} priced={modelIsPriced} />}
               {/* Public share link (PR-D). Only meaningful when exposure
                   is `public` — otherwise the link would 404 on the
@@ -552,7 +550,7 @@ function LocalPekoProfile({
                     <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-text" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-fg">
-                        Share link
+                        {t("peko.profile.shareLink")}
                       </p>
                       <p className="mt-0.5 break-all font-mono text-[11px] text-fg-muted">
                         {shareUrl}
@@ -565,12 +563,12 @@ function LocalPekoProfile({
                         {copied ? (
                           <>
                             <Check className="h-3.5 w-3.5" />
-                            Copied
+                            {t("common.copied")}
                           </>
                         ) : (
                           <>
                             <Copy className="h-3.5 w-3.5" />
-                            Copy link
+                            {t("peko.profile.copyLink")}
                           </>
                         )}
                       </button>
@@ -594,10 +592,10 @@ function LocalPekoProfile({
                     <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-text" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-fg">
-                        Invite link
+                        {t("peko.profile.inviteLink")}
                       </p>
                       <p className="mt-0.5 text-[11px] text-fg-muted">
-                        Share with one friend. Burns immediately on revoke.
+                        {t("peko.profile.inviteHint")}
                       </p>
                       {mintError && (
                         <p
@@ -616,12 +614,12 @@ function LocalPekoProfile({
                             {mintedInvite.url}
                           </p>
                           <p className="mt-1 text-[10px] text-fg-subtle">
-                            jti {mintedInvite.claims.jti.slice(0, 8)}…
-                            {" · "}
-                            expires{" "}
-                            {new Date(
-                              mintedInvite.claims.exp * 1000,
-                            ).toLocaleString()}
+                            {t("peko.profile.inviteMeta", {
+                              jti: mintedInvite.claims.jti.slice(0, 8),
+                              date: new Date(mintedInvite.claims.exp * 1000).toLocaleString(
+                                currentLocale(),
+                              ),
+                            })}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             <button
@@ -638,7 +636,7 @@ function LocalPekoProfile({
                               data-testid="copy-invite-link"
                             >
                               <Copy className="h-3.5 w-3.5" />
-                              Copy
+                              {t("common.copy")}
                             </button>
                             <button
                               onClick={handleRevokeInvite}
@@ -651,7 +649,7 @@ function LocalPekoProfile({
                               ) : (
                                 <Trash2 className="h-3.5 w-3.5" />
                               )}
-                              Burn
+                              {t("peko.profile.burn")}
                             </button>
                           </div>
                         </>
@@ -667,7 +665,7 @@ function LocalPekoProfile({
                           ) : (
                             <Link2 className="h-3.5 w-3.5" />
                           )}
-                          Generate invite link
+                          {t("peko.profile.generateInvite")}
                         </button>
                       )}
                     </div>
@@ -688,19 +686,16 @@ function LocalPekoProfile({
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-warn">
-                        Export .peko package
+                        {t("peko.profile.exportTitle")}
                       </p>
                       <p className="mt-0.5 text-[11px] text-warn">
-                        The package contains this peko&apos;s{" "}
-                        <strong>private keys</strong> — its full existence.
-                        Treat it like a password: anyone holding it can wake
-                        and impersonate this peko.
+                        <Trans i18nKey="peko.profile.exportWarning" components={{ strong: <strong /> }} />
                       </p>
                       <label
                         htmlFor="peko-export-path"
                         className="mb-1 mt-2 block text-[11px] font-medium text-warn"
                       >
-                        Destination path
+                        {t("peko.profile.exportPath")}
                       </label>
                       <input
                         id="peko-export-path"
@@ -710,7 +705,7 @@ function LocalPekoProfile({
                       />
                       {trimmedExportPath.length > 0 && !exportPathValid && (
                         <p className="mt-1 text-[11px] text-warn">
-                          The destination must end in <code>.peko</code>.
+                          <Trans i18nKey="peko.profile.exportPathInvalid" components={{ code: <code /> }} />
                         </p>
                       )}
                       <button
@@ -724,7 +719,7 @@ function LocalPekoProfile({
                         ) : (
                           <Package className="h-3.5 w-3.5" />
                         )}
-                        Export .peko
+                        {t("peko.profile.export")}
                       </button>
                       {exportError && (
                         <p
@@ -739,7 +734,10 @@ function LocalPekoProfile({
                           data-testid="export-peko-success"
                           className="mt-2 break-all text-[11px] text-brand-text"
                         >
-                          Exported to <span className="font-mono">{exportedTo}</span>
+                          <Trans
+                            i18nKey="peko.profile.exportedTo"
+                            components={{ path: <span className="font-mono">{exportedTo}</span> }}
+                          />
                         </p>
                       )}
                     </div>
@@ -756,13 +754,16 @@ function LocalPekoProfile({
                   id="peko-danger-zone"
                   className="text-xs font-semibold uppercase tracking-wide text-danger"
                 >
-                  Danger zone
+                  {t("peko.profile.dangerZone")}
                 </h3>
                 {confirmingRemove ? (
                   <div className="mt-2">
                     <p className="text-xs text-fg">
-                      Remove <strong>{principal.name}</strong>? This deletes its
-                      workspace, memory, and conversations. It cannot be undone.
+                      <Trans
+                        i18nKey="peko.profile.removeConfirm"
+                        values={{ name: principal.name }}
+                        components={{ strong: <strong /> }}
+                      />
                     </p>
                     <div className="mt-3 flex justify-end gap-2">
                       <button
@@ -770,7 +771,7 @@ function LocalPekoProfile({
                         disabled={removeMut.isPending}
                         className="btn-secondary btn-sm"
                       >
-                        Keep {principal.name}
+                        {t("peko.profile.keep", { name: principal.name })}
                       </button>
                       <button
                         onClick={handleRemove}
@@ -783,20 +784,20 @@ function LocalPekoProfile({
                         ) : (
                           <Trash2 className="h-3.5 w-3.5" />
                         )}
-                        Remove {principal.name}
+                        {t("peko.profile.removeNamed", { name: principal.name })}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="mt-1 flex items-center justify-between gap-3">
                     <p className="text-xs text-fg-muted">
-                      Delete this peko and everything it knows.
+                      {t("peko.profile.removeHint")}
                     </p>
                     <button
                       onClick={() => setConfirmingRemove(true)}
                       className="shrink-0 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger-soft"
                     >
-                      Remove…
+                      {t("peko.profile.removeEllipsis")}
                     </button>
                   </div>
                 )}
@@ -812,14 +813,14 @@ function LocalPekoProfile({
                     htmlFor="principal-avatar"
                     className="field-label mb-1.5 block"
                   >
-                    Avatar
+                    {t("peko.new.avatar")}
                   </label>
                   <div className="flex items-center gap-2">
                     <input
                       id="principal-avatar"
                       value={avatar}
                       onChange={(e) => setAvatar(e.target.value)}
-                      placeholder="An emoji or two letters"
+                      placeholder={t("peko.profile.avatarPlaceholder")}
                       maxLength={16}
                       className="input w-40"
                     />
@@ -829,17 +830,17 @@ function LocalPekoProfile({
                         onClick={() => setAvatar("")}
                         className="text-xs text-fg-muted hover:text-fg-soft"
                       >
-                        Clear
+                        {t("common.clear")}
                       </button>
                     )}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label="Avatar suggestions">
+                  <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label={t("peko.profile.avatarSuggestions")}>
                     {AVATAR_SUGGESTIONS.map((emoji) => (
                       <button
                         key={emoji}
                         type="button"
                         onClick={() => setAvatar(emoji)}
-                        aria-label={`Use ${emoji}`}
+                        aria-label={t("peko.new.useAvatar", { emoji })}
                         aria-pressed={avatar === emoji}
                         className={[
                           "flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors",
@@ -859,13 +860,13 @@ function LocalPekoProfile({
                   htmlFor="principal-description"
                   className="field-label mb-1.5 block"
                 >
-                  Description
+                  {t("common.description")}
                 </label>
                 <textarea
                   id="principal-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What this peko does"
+                  placeholder={t("peko.profile.descriptionPlaceholder")}
                   rows={2}
                   className="input"
                 />
@@ -887,7 +888,7 @@ function LocalPekoProfile({
                       htmlFor="principal-status"
                       className="field-label mb-1.5 block"
                     >
-                      Quick status
+                      {t("peko.profile.quickStatus")}
                     </label>
                     <select
                       id="principal-status"
@@ -897,8 +898,8 @@ function LocalPekoProfile({
                     >
                       <option value="">—</option>
                       {STATUS_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
+                        <option key={o} value={o}>
+                          {statusBadge(o).label}
                         </option>
                       ))}
                     </select>
@@ -911,7 +912,7 @@ function LocalPekoProfile({
                       htmlFor="principal-exposure"
                       className="field-label mb-1.5 block"
                     >
-                      PekoHub
+                      {t("peko.profile.hub")}
                     </label>
                     <select
                       id="principal-exposure"
@@ -920,13 +921,13 @@ function LocalPekoProfile({
                       className="select"
                     >
                       {REGISTRATION_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
+                        <option key={o} value={o}>
+                          {t(`peko.profile.registration.${o}.label`)}
                         </option>
                       ))}
                     </select>
                     <p className="mt-1 text-[11px] text-fg-subtle">
-                      {REGISTRATION_OPTIONS.find((o) => o.value === exposure)?.hint ?? ""}
+                      {isRegistration(exposure) ? t(`peko.profile.registration.${exposure}.hint`) : ""}
                     </p>
                   </div>
                 )}
@@ -937,13 +938,13 @@ function LocalPekoProfile({
                   htmlFor="principal-model"
                   className="field-label mb-1.5 block"
                 >
-                  Preferred model
+                  {t("peko.profile.preferredModel")}
                 </label>
                 {modelsLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin text-fg-subtle" />
                 ) : modelItems.length === 0 ? (
                   <p className="text-xs text-warn">
-                    No configured models. Add one in Settings → Models first.
+                    {t("peko.profile.noModels")}
                   </p>
                 ) : (
                   <select
@@ -952,7 +953,7 @@ function LocalPekoProfile({
                     onChange={(e) => setModelId(e.target.value)}
                     className="select"
                   >
-                    <option value="">— None —</option>
+                    <option value="">{t("peko.profile.noneOption")}</option>
                     {modelItems.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.displayName}
@@ -970,8 +971,7 @@ function LocalPekoProfile({
               className="rounded-lg border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn"
             >
               <p className="font-medium">
-                This peko is already registered from another computer —
-                a peko can be online in only one place.
+                {t("peko.profile.exposureConflict")}
               </p>
               {exposureConflictDetail && (
                 <p className="mt-1 opacity-80">{exposureConflictDetail}</p>
@@ -1000,7 +1000,7 @@ function LocalPekoProfile({
               className="btn-primary"
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              Chat
+              {t("common.chat")}
             </button>
           )}
 
@@ -1020,7 +1020,7 @@ function LocalPekoProfile({
                 disabled={updateMut.isPending || registering}
                 className="btn-secondary"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleSave}
@@ -1030,7 +1030,7 @@ function LocalPekoProfile({
                 {updateMut.isPending || registering ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : null}
-                Save
+                {t("common.save")}
               </button>
             </>
           ) : (
@@ -1038,7 +1038,7 @@ function LocalPekoProfile({
               onClick={onClose}
               className="btn-secondary"
             >
-              Close
+              {t("common.close")}
             </button>
           )}
         </div>
@@ -1077,10 +1077,11 @@ function StatusBadgeRow({
   loading: boolean;
   isRemote: boolean;
 }) {
+  const { t } = useTranslation();
   const badge = statusBadge(status);
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-fg-muted">Status</span>
+      <span className="text-sm text-fg-muted">{t("common.status")}</span>
       <span className="inline-flex items-center gap-1.5 font-medium text-fg">
         <Circle
           className={`h-2.5 w-2.5 fill-current ${badge.color}`}
@@ -1088,7 +1089,7 @@ function StatusBadgeRow({
         />
         <span data-testid="live-status-label">{loading ? "…" : badge.label}</span>
         {isRemote && (
-          <span className="ml-1 text-[10px] font-normal text-fg-subtle">via PekoHub</span>
+          <span className="ml-1 text-[10px] font-normal text-fg-subtle">{t("peko.remote.viaHub")}</span>
         )}
       </span>
     </div>

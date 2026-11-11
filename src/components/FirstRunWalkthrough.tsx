@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { usePrincipals } from "../hooks/usePrincipals";
 import { useAddModel, useModels, useTestModel } from "../hooks/useModels";
@@ -38,18 +39,10 @@ export const REPLAY_EVENT = "peko:replay-onboarding";
 
 type Step = 1 | 2 | 3;
 
-const STEPS: { id: Step; label: string }[] = [
-  { id: 1, label: "Connect a model" },
-  { id: 2, label: "Name your peko" },
-  { id: 3, label: "Say hello" },
-];
+const STEPS: Step[] = [1, 2, 3];
 
 /** Names offered by default, first free one wins. */
-const FIRST_MESSAGES = [
-  "Hi! What can you help me with?",
-  "Remind me to stretch in 30 minutes.",
-  "Help me plan my week.",
-];
+const FIRST_MESSAGES = ["hello", "stretch", "plan"] as const;
 
 export default function FirstRunWalkthrough() {
   const { data: principals, isLoading: principalsLoading } = usePrincipals();
@@ -97,6 +90,7 @@ export default function FirstRunWalkthrough() {
 }
 
 function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: string[] }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(1);
   const [modelId, setModelId] = useState<string | null>(null);
@@ -116,9 +110,9 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
     <div className="modal-panel flex max-h-[90vh] max-w-xl flex-col overflow-hidden">
       <div className="flex items-start justify-between px-6 pt-5">
         <div>
-          <p className="eyebrow text-brand-text">Welcome to Peko</p>
+          <p className="eyebrow text-brand-text">{t("firstRun.welcome")}</p>
           <h2 id="first-run-walkthrough-title" className="mt-0.5 text-lg font-semibold text-fg">
-            {STEPS[step - 1].label}
+            {t(`firstRun.steps.${step}`)}
           </h2>
         </div>
         <button
@@ -126,19 +120,19 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
           onClick={onClose}
           className="btn-ghost btn-xs"
         >
-          Skip
+          {t("firstRun.skip")}
         </button>
       </div>
 
-      <ol className="flex gap-2 px-6 pt-3" aria-label="Onboarding progress">
+      <ol className="flex gap-2 px-6 pt-3" aria-label={t("firstRun.progress")}>
         {STEPS.map((s) => (
           <li
-            key={s.id}
-            data-testid={`onboarding-step-${s.id}`}
-            aria-current={s.id === step ? "step" : undefined}
+            key={s}
+            data-testid={`onboarding-step-${s}`}
+            aria-current={s === step ? "step" : undefined}
             className={[
               "h-1 flex-1 rounded-full",
-              s.id <= step ? "bg-brand" : "bg-surface-sunken",
+              s <= step ? "bg-brand" : "bg-surface-sunken",
             ].join(" ")}
           />
         ))}
@@ -173,6 +167,7 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
 // ─── Step 1: connect a model ────────────────────────────────────────
 
 function ModelStep({ onNext }: { onNext: (modelId: string) => void }) {
+  const { t } = useTranslation();
   const { data: models, isLoading: modelsLoading } = useModels();
   const enabled = useMemo(() => (models ?? []).filter((m) => m.enabled), [models]);
   const [addingNew, setAddingNew] = useState(false);
@@ -190,11 +185,10 @@ function ModelStep({ onNext }: { onNext: (modelId: string) => void }) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-fg-muted">
-          A model is a peko&apos;s mind. You already have some — pick the one your first peko will
-          use.
+          {t("firstRun.pickModel")}
         </p>
         <label className="block">
-          <span className="field-label mb-1.5 block">Model</span>
+          <span className="field-label mb-1.5 block">{t("common.model")}</span>
           <select
             value={existing}
             onChange={(e) => setExisting(e.target.value)}
@@ -213,10 +207,10 @@ function ModelStep({ onNext }: { onNext: (modelId: string) => void }) {
             onClick={() => setAddingNew(true)}
             className="text-xs text-fg-muted hover:text-fg-soft"
           >
-            Add another model instead
+            {t("firstRun.addAnother")}
           </button>
           <PrimaryButton onClick={() => onNext(existing)} disabled={!existing}>
-            Continue <ArrowRight className="h-4 w-4" />
+            {t("firstRun.continue")} <ArrowRight className="h-4 w-4" />
           </PrimaryButton>
         </div>
       </div>
@@ -232,6 +226,7 @@ function ModelStep({ onNext }: { onNext: (modelId: string) => void }) {
  * a failed test shows the provider's message and can be passed.
  */
 function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
+  const { t } = useTranslation();
   const addMut = useAddModel();
   const testMut = useTestModel();
   const [draft, setDraft] = useState<EndpointDraft>(EMPTY_ENDPOINT);
@@ -248,7 +243,7 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
       setAddedId(info.id);
       const result = await testMut.mutateAsync(info.id);
       if (result.ok) onAdded(info.id);
-      else setTestError(result.message || "The model did not answer.");
+      else setTestError(result.message || t("firstRun.noAnswer"));
     } catch {
       // `addMut.error` / `testMut.error` render below.
     }
@@ -261,9 +256,7 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-fg-muted">
-        A model is a peko&apos;s mind. Enter the base URL from your provider&apos;s docs (most
-        say &quot;OpenAI-compatible&quot;, which is Chat Completions) and your key; Peko then
-        lists the models it offers.
+        {t("firstRun.addModelIntro")}
       </p>
 
       <EndpointForm
@@ -280,11 +273,11 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
           data-testid="onboarding-model-error"
           className="note-danger text-xs"
         >
-          <p className="font-medium">Couldn&apos;t reach the model.</p>
+          <p className="font-medium">{t("firstRun.unreachable")}</p>
           <p className="mt-0.5 break-words">{failureText}</p>
           {addedId && (
             <button type="button" onClick={() => onAdded(addedId)} className="mt-1 underline">
-              Continue anyway
+              {t("firstRun.continueAnyway")}
             </button>
           )}
         </div>
@@ -295,11 +288,11 @@ function AddModel({ onAdded }: { onAdded: (modelId: string) => void }) {
           {busy ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              {addMut.isPending ? "Adding…" : "Checking…"}
+              {addMut.isPending ? t("firstRun.adding") : t("firstRun.checking")}
             </>
           ) : (
             <>
-              Connect <ArrowRight className="h-4 w-4" />
+              {t("firstRun.connect")} <ArrowRight className="h-4 w-4" />
             </>
           )}
         </PrimaryButton>
@@ -321,6 +314,7 @@ function PekoStep({
   onBack: () => void;
   onNext: (name: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <NewPekoForm
       modelId={modelId}
@@ -332,7 +326,7 @@ function PekoStep({
           onClick={onBack}
           className="inline-flex items-center gap-1 text-xs text-fg-muted hover:text-fg-soft"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
+          <ArrowLeft className="h-3.5 w-3.5" /> {t("common.back")}
         </button>
       }
     />
@@ -348,22 +342,24 @@ function HelloStep({
   pekoName: string;
   onFinish: (firstMessage: string | null) => void;
 }) {
-  const [text, setText] = useState(FIRST_MESSAGES[0]);
+  const { t } = useTranslation();
+  const firstMessages = FIRST_MESSAGES.map((key) => t(`firstRun.firstMessages.${key}`));
+  const [text, setText] = useState(firstMessages[0]);
   return (
     <div className="space-y-4">
       <p className="flex items-center gap-1.5 text-sm text-fg-muted">
         <Check className="h-4 w-4 text-brand-text" />
-        {pekoName} is awake. What would you like to say first?
+        {t("firstRun.awake", { name: pekoName })}
       </p>
       <textarea
-        aria-label="First message"
+        aria-label={t("firstRun.firstMessage")}
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={3}
         className="input"
       />
       <div className="flex flex-wrap gap-1.5">
-        {FIRST_MESSAGES.map((m) => (
+        {firstMessages.map((m) => (
           <button
             key={m}
             type="button"
@@ -380,10 +376,10 @@ function HelloStep({
           onClick={() => onFinish(null)}
           className="text-xs text-fg-muted hover:text-fg-soft"
         >
-          Go to the chat without a message
+          {t("firstRun.skipMessage")}
         </button>
         <PrimaryButton onClick={() => onFinish(text.trim())} disabled={!text.trim()}>
-          Send <ArrowRight className="h-4 w-4" />
+          {t("common.send")} <ArrowRight className="h-4 w-4" />
         </PrimaryButton>
       </div>
     </div>

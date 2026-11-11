@@ -10,6 +10,7 @@
  */
 
 import { hubApiBase, hubGet, hubJson, hubWebOrigin } from "./api";
+import { t } from "../i18n";
 
 /** An exact match for an ID: a person, a public peko, or a seed. */
 export type ExactHit =
@@ -64,7 +65,7 @@ export function resolveHubUrl(configured?: string | null): string {
 export async function hubSearch(hubUrl: string, q: string): Promise<HubSearchResult> {
   const res = await hubGet(hubUrl, "search", { query: { q, page: "1", perPage: "24" } });
   if (!res.ok) {
-    throw new Error(`Search failed: HTTP ${res.status}`);
+    throw new Error(t("errors.searchFailed", { status: res.status }));
   }
   const body = (await hubJson(res, hubUrl)) as Partial<HubSearchResult>;
   // A hub from before ADR-009 sends seeds only.

@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useLocalUserAccount, usePrincipals, type PrincipalSummary } from "./usePrincipals";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
 import { shownAddress } from "../lib/format";
+import { t } from "../i18n";
 
 /** How an actor (a channel member or author) is shown. */
 export interface ActorDisplay {
@@ -37,7 +38,7 @@ export function resolveActor(
   linkedAccount?: string | null,
 ): ActorDisplay {
   if (isLocalUser(actor, linkedAccount)) {
-    return { label: "You", peko: null, isYou: true };
+    return { label: t("common.you"), peko: null, isYou: true };
   }
   const id = actor.replace(/^principal:(local:)?/, "");
   const peko =

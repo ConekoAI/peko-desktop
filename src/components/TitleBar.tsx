@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X, Maximize2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 /**
  * macOS draws its own window buttons over the top-left of the page
@@ -10,6 +11,7 @@ import { Minus, Square, X, Maximize2 } from "lucide-react";
 export const IS_MAC = typeof navigator !== "undefined" && /Macintosh|Mac OS X/.test(navigator.userAgent);
 
 export default function TitleBar() {
+  const { t } = useTranslation();
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -87,14 +89,14 @@ export default function TitleBar() {
           <button
             onClick={handleMinimize}
             className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-surface-sunken hover:text-fg"
-            title="Minimize"
+            title={t("layout.titleBar.minimize")}
           >
             <Minus className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={handleMaximize}
             className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-surface-sunken hover:text-fg-soft"
-            title={isMaximized ? "Restore" : "Maximize"}
+            title={isMaximized ? t("layout.titleBar.restore") : t("layout.titleBar.maximize")}
           >
             {isMaximized ? (
               <Square className="h-3 w-3" />
@@ -105,7 +107,7 @@ export default function TitleBar() {
           <button
             onClick={handleClose}
             className="flex h-9 w-9 items-center justify-center text-fg-muted transition-colors hover:bg-rose-600 hover:text-white"
-            title="Close"
+            title={t("layout.titleBar.close")}
           >
             <X className="h-3.5 w-3.5" />
           </button>

@@ -7,6 +7,7 @@
 // responsive grid rendering.
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Check,
   Edit3,
@@ -25,12 +26,14 @@ import { specBadgeList } from "../../lib/model-spec";
 import { resolveSpec, type ModelSummary } from "../../types";
 import SpecBadge from "./SpecBadge";
 import { apiFormatShort } from "../../lib/apiFormats";
+import { currentLocale } from "../../i18n";
 
 interface ModelGalleryCardProps {
   model: ModelSummary;
 }
 
 export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
+  const { t } = useTranslation();
   const [showEdit, setShowEdit] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(
@@ -53,14 +56,16 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
         setFeedback({
           ok: result.ok,
           text: result.ok
-            ? `Test passed${result.modelUsed ? ` · ${result.modelUsed}` : ""}`
+            ? result.modelUsed
+              ? t("models.card.testPassedWith", { model: result.modelUsed })
+              : t("models.card.testPassed")
             : result.message,
         });
       },
       onError: (err) => {
         setFeedback({
           ok: false,
-          text: err instanceof Error ? err.message : "Test failed",
+          text: err instanceof Error ? err.message : t("models.card.testFailed"),
         });
       },
     });
@@ -99,7 +104,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
       {/* Format + status pills */}
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
           <span
-            title="API format"
+            title={t("models.endpoint.apiFormat")}
             className="badge-neutral uppercase tracking-wide"
           >
             {apiFormatShort(model.apiFormat)}
@@ -109,18 +114,18 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
               data-testid={`model-card-status-disabled-${model.id}`}
               className="badge-neutral"
             >
-              Disabled
+              {t("models.card.disabled")}
             </span>
           )}
           {model.requiresKey && !model.credentialId && (
             <span className="badge-warn">
-              No key — add one under Edit
+              {t("models.card.noKey")}
             </span>
           )}
           {model.credentialId && (
             <span className="badge-ok">
               <Check className="h-2.5 w-2.5" />
-              Key set
+              {t("models.card.keySet")}
             </span>
           )}
       </div>
@@ -149,10 +154,10 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             {model.modelId}
           </span>
           {model.contextWindow !== undefined && (
-            <span>{model.contextWindow.toLocaleString()} ctx</span>
+            <span>{t("models.card.context", { n: model.contextWindow.toLocaleString(currentLocale()) })}</span>
           )}
           {model.maxOutputTokens !== undefined && (
-            <span>{model.maxOutputTokens.toLocaleString()} out</span>
+            <span>{t("models.card.maxOutput", { n: model.maxOutputTokens.toLocaleString(currentLocale()) })}</span>
           )}
         </div>
         <div
@@ -189,13 +194,13 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             data-testid={`model-card-enabled-${model.id}`}
             className="h-3.5 w-3.5"
           />
-          Enabled
+          {t("common.enabled")}
         </label>
         <div className="flex items-center gap-1">
           <button
             onClick={handleTest}
             disabled={testModel.isPending}
-            title="Test model"
+            title={t("models.card.test")}
             data-testid={`model-card-test-${model.id}`}
             className="btn-icon"
           >
@@ -207,7 +212,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
           </button>
           <button
             onClick={() => setShowEdit(true)}
-            title="Edit"
+            title={t("common.edit")}
             data-testid={`model-card-edit-${model.id}`}
             className="btn-icon"
           >
@@ -216,7 +221,7 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
           {confirmingRemove ? (
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-fg-muted">
-                Remove?
+                {t("models.card.removeConfirm")}
               </span>
               <button
                 onClick={handleConfirmRemove}
@@ -229,20 +234,20 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
                 ) : (
                   <Trash2 className="h-3 w-3" />
                 )}
-                Confirm
+                {t("common.confirm")}
               </button>
               <button
                 onClick={() => setConfirmingRemove(false)}
                 disabled={removeModel.isPending}
                 className="btn-secondary btn-xs"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           ) : (
             <button
               onClick={() => setConfirmingRemove(true)}
-              title="Remove"
+              title={t("common.remove")}
               data-testid={`model-card-remove-${model.id}`}
               className="btn-icon hover:bg-danger-soft hover:text-danger"
             >

@@ -4,6 +4,9 @@ import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeHighlight from "rehype-highlight";
 import { Check, Code, Copy, Image as ImageIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+import { t as translate } from "../../i18n";
 
 import { copyText } from "./copy";
 import { AttachmentView, baseName } from "./Attachments";
@@ -142,7 +145,9 @@ function embedAt(
   const value = node.value ?? "";
   if (SVG_OPEN.test(value)) {
     const whole = closedSvg(value);
-    if (whole) return { image: { type: "image", url: svgDataUrl(whole), alt: "SVG image" }, count: 1 };
+    if (whole) {
+      return { image: { type: "image", url: svgDataUrl(whole), alt: translate("chat.markdown.svgImage") }, count: 1 };
+    }
     const start = node.position?.start.offset;
     if (start === undefined) return null;
     for (let j = i + 1; j < children.length; j++) {
@@ -150,7 +155,10 @@ function embedAt(
       if (end === undefined) return null;
       const markup = closedSvg(source.slice(start, end));
       if (markup) {
-        return { image: { type: "image", url: svgDataUrl(markup), alt: "SVG image" }, count: j - i + 1 };
+        return {
+          image: { type: "image", url: svgDataUrl(markup), alt: translate("chat.markdown.svgImage") },
+          count: j - i + 1,
+        };
       }
     }
     return null;
@@ -223,12 +231,13 @@ function MarkdownImage({ src, alt }: { src: string; alt?: string }) {
 
 /** A link; one to a file on this computer opens it in its app. */
 function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
+  const { t } = useTranslation();
   const path = href ? localPath(href) : null;
   if (path) {
     return (
       <button
         type="button"
-        title={`Open ${baseName(path)}`}
+        title={t("chat.attachments.open", { name: baseName(path) })}
         onClick={() => void attachmentOpen(path).catch(() => {})}
         className="text-brand-text underline underline-offset-2 hover:opacity-80"
       >
@@ -253,6 +262,7 @@ function textOf(node: ReactNode): string {
 }
 
 function CodeBlock({ children }: { children?: ReactNode }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const code = textOf(children).replace(/\n$/, "");
   const className =
@@ -274,27 +284,27 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   return (
     <div className="not-prose my-2 overflow-hidden rounded-lg border border-line bg-surface">
       <div className="flex items-center justify-between border-b border-line bg-surface-raised px-3 py-1 font-mono text-[11px] text-fg-subtle">
-        <span>{language ?? "code"}</span>
+        <span>{language ?? t("chat.markdown.code")}</span>
         <span className="flex items-center gap-1">
           {isSvg && (
             <button
               type="button"
               onClick={() => setShowCode((v) => !v)}
-              aria-label={showCode ? "Show image" : "Show code"}
+              aria-label={showCode ? t("chat.markdown.showImage") : t("chat.markdown.showCode")}
               className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-sans transition-colors hover:bg-surface-sunken hover:text-fg"
             >
               {showCode ? <ImageIcon className="h-3 w-3" /> : <Code className="h-3 w-3" />}
-              {showCode ? "Image" : "Code"}
+              {showCode ? t("chat.markdown.image") : t("chat.markdown.codeLabel")}
             </button>
           )}
           <button
             type="button"
             onClick={copy}
-            aria-label={copied ? "Copied" : "Copy code"}
+            aria-label={copied ? t("common.copied") : t("chat.markdown.copyCode")}
             className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-sans transition-colors hover:bg-surface-sunken hover:text-fg"
           >
             {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-            {copied ? "Copied" : "Copy"}
+            {copied ? t("common.copied") : t("common.copy")}
           </button>
         </span>
       </div>
@@ -304,7 +314,7 @@ function CodeBlock({ children }: { children?: ReactNode }) {
         </pre>
       ) : (
         <div className="flex justify-center bg-surface-card p-3">
-          <img src={svgDataUrl(code)} alt="SVG image" className="max-h-96 max-w-full object-contain" />
+          <img src={svgDataUrl(code)} alt={t("chat.markdown.svgImage")} className="max-h-96 max-w-full object-contain" />
         </div>
       )}
     </div>

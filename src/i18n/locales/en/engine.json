@@ -1,0 +1,17 @@
+{
+  "state": {
+    "connecting": "Connecting…",
+    "running": "Running",
+    "starting": "Starting",
+    "restarting": "Restarting…",
+    "restartingAttempt": "Restarting ({{attempt}})…",
+    "stopped": "Stopped",
+    "failed": "Failed"
+  },
+  "subtitle": {
+    "running": "v{{version}} · PID {{pid}}",
+    "starting": "Waiting for engine handshake",
+    "restarting": "Engine exited unexpectedly; supervisor is restarting it",
+    "stopped": "Engine is not running"
+  }
+}

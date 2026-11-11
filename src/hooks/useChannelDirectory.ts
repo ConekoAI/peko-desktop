@@ -5,6 +5,7 @@ import { usePekoDirectory, type ActorDisplay } from "./usePekoDirectory";
 import { pekoIdentity } from "../lib/pekoIdentity";
 import { findPerson, mentionablePekos, namedMentions } from "../lib/channelPeople";
 import { shownAddress } from "../lib/format";
+import { t } from "../i18n";
 
 /**
  * Names for everyone in a channel: pekos on this computer (with their
@@ -27,7 +28,7 @@ export function useChannelDirectory(
       if (mine.isYou || mine.peko) return mine;
       const who = findPerson(actor, people);
       if (!who) return mine;
-      if (who.you) return { label: "You", peko: null, isYou: true };
+      if (who.you) return { label: t("common.you"), peko: null, isYou: true };
       const label = who.name ?? shownAddress(who.address.replace(/^user:(hub:)?/, ""));
       return {
         label,
