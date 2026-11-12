@@ -50,6 +50,7 @@ describe("principalCreate wire shape", () => {
       description: null,
       modelId: "openai",
       seed: null,
+      acceptSetup: null,
       runtimeId: null,
     });
   });
@@ -70,6 +71,7 @@ describe("principalCreate wire shape", () => {
       description: "personal assistant",
       modelId: "openai",
       seed: null,
+      acceptSetup: null,
       runtimeId: null,
     });
   });
@@ -86,8 +88,15 @@ describe("principalCreate wire shape", () => {
       description: null,
       modelId: "openai",
       seed: "~/.peko/seeds/coding-assistant.seed.toml",
+      acceptSetup: null,
       runtimeId: null,
     });
+  });
+
+  it("says the person accepted a seed's setup steps only when they did", async () => {
+    await principalCreate({ name: "alice", modelId: "openai", seed: "x", acceptSetup: true });
+    const [, payload] = mockedInvoke.mock.calls[0] as [string, Record<string, unknown>];
+    expect(payload.acceptSetup).toBe(true);
   });
 
   it("returns the runtime's projected PrincipalSummary", async () => {

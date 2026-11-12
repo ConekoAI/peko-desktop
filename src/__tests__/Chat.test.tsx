@@ -91,6 +91,8 @@ vi.mock("../components/chat/copy", () => ({
   copyText: (text: string) => copyMock(text),
 }));
 
+// The first-turn panel has its own test (SetupPanel.test.tsx).
+vi.mock("../components/peko/SetupPanel", () => ({ default: () => null }));
 vi.mock("../components/modals/PrincipalProfileModal", () => ({
   default: () => null,
 }));

@@ -198,8 +198,7 @@ export async function principalGet(
  * runtime command.
  *
  * Genesis (ADR-054): `peko create` now blocks through the genesis
- * boot sequence (up to the runtime's ~300s wait cap), so this invoke
- * can take minutes to settle. The returned summary may still carry
+ * boot sequence, so this invoke can take minutes to settle. The returned summary may still carry
  * `bootState: "genesis_pending"` when the runtime returns early —
  * callers should keep polling `principal_get` until `organized`
  * (`usePrincipalCreate` does this automatically).
@@ -214,7 +213,59 @@ export interface PrincipalCreateRequest {
    * `description` override the seed's.
    */
   seed?: string;
+  /**
+   * The person read the seed's setup steps (`seedSetupSteps`) and agreed
+   * to them. Without it a seed that lists steps is refused: the new peko
+   * runs them on its first turn, on this computer.
+   */
+  acceptSetup?: boolean;
   runtimeId?: RuntimeId;
+}
+
+/** The setup steps a seed lists; empty when it lists none. */
+export async function seedSetupSteps(seed: string): Promise<string[]> {
+  return invoke<string[]>("seed_setup_steps", { seed });
+}
+
+/** One thing a peko did on its first turn. */
+export interface SetupStep {
+  callId: string;
+  tool: string;
+  line: string;
+  /** `null` while it is still running; `"ok"` when it worked. */
+  outcome: string | null;
+}
+
+/** How a peko's first turn is going. */
+export interface SetupStatus {
+  /** False once the first turn is over (done, or stopped). */
+  settingUp: boolean;
+  /** Whether there is something to stop right now. */
+  running: boolean;
+  /** The setup steps its seed listed. */
+  setup: string[];
+  steps: SetupStep[];
+  /** Its own report of how setup went, once written. */
+  report: string | null;
+}
+
+/** `null` for a remote peko, or when nothing can be said about it. */
+export async function principalSetupStatus(
+  name: string,
+  runtimeId?: RuntimeId,
+): Promise<SetupStatus | null> {
+  return invoke<SetupStatus | null>("principal_setup_status", {
+    name,
+    runtimeId: runtimeId ?? null,
+  });
+}
+
+/**
+ * Stop what a peko is doing on its own (its first turn, or scheduled
+ * work). Resolves to whether there was something to stop.
+ */
+export async function principalStopSetup(name: string, runtimeId?: RuntimeId): Promise<boolean> {
+  return invoke<boolean>("principal_stop_setup", { name, runtimeId: runtimeId ?? null });
 }
 
 export async function principalCreate(
@@ -225,6 +276,7 @@ export async function principalCreate(
     description: req.description ?? null,
     modelId: req.modelId,
     seed: req.seed ?? null,
+    acceptSetup: req.acceptSetup ?? null,
     runtimeId: req.runtimeId ?? null,
   });
 }

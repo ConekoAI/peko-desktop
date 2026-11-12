@@ -18,6 +18,10 @@ vi.mock("../hooks/usePrincipals", () => ({
   usePrincipalCreate: () => mutation(createMock as never),
   usePrincipalUpdate: () => mutation(updateMock as never),
 }));
+const setupStepsMock = vi.fn(async (_seed: string): Promise<string[]> => []);
+vi.mock("../lib/api", () => ({
+  seedSetupSteps: (seed: string) => setupStepsMock(seed),
+}));
 vi.mock("../hooks/useModels", () => ({
   useModels: () => ({ data: modelsSignal.value }),
 }));
@@ -27,6 +31,8 @@ import CreatePrincipalModal from "../components/modals/CreatePrincipalModal";
 beforeEach(() => {
   createMock.mockClear();
   updateMock.mockClear();
+  setupStepsMock.mockReset();
+  setupStepsMock.mockResolvedValue([]);
   principalsSignal.value = [{ name: "nova" }];
   modelsSignal.value = [
     { id: "fast", displayName: "Fast", enabled: true },
@@ -85,6 +91,58 @@ describe("CreatePrincipalModal", () => {
     await waitFor(() =>
       expect(createMock).toHaveBeenCalledWith({ name: "pip", modelId: "fast", seed: text }),
     );
+  });
+
+  it("shows a seed's setup steps and creates only once they are accepted", async () => {
+    setupStepsMock.mockResolvedValue(["Install ripgrep", "Add the notes skill"]);
+    render(<CreatePrincipalModal open onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    const text = 'name = "ada"\n[intent]\nsetup = ["Install ripgrep", "Add the notes skill"]\n';
+    const file = new File([text], "ada.seed.toml", { type: "application/toml" });
+    fireEvent.change(screen.getByLabelText("Seed file"), { target: { files: [file] } });
+
+    const steps = await screen.findAllByTestId("new-peko-setup-step");
+    expect(steps.map((s) => s.textContent)).toEqual(["Install ripgrep", "Add the notes skill"]);
+    expect(screen.getByTestId("new-peko-setup")).toHaveTextContent(
+      /run commands and download code on this computer/i,
+    );
+    const create = screen.getByRole("button", { name: /create pip/i });
+    expect(create).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId("new-peko-setup-accept"));
+    expect(create).toBeEnabled();
+    fireEvent.click(create);
+    await waitFor(() =>
+      expect(createMock).toHaveBeenCalledWith({
+        name: "pip",
+        modelId: "fast",
+        seed: text,
+        acceptSetup: true,
+      }),
+    );
+  });
+
+  it("forgets the steps and the acceptance when the seed is removed", async () => {
+    setupStepsMock.mockResolvedValue(["Install ripgrep"]);
+    render(<CreatePrincipalModal open onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    const file = new File(['name = "ada"\n'], "ada.seed.toml", { type: "application/toml" });
+    fireEvent.change(screen.getByLabelText("Seed file"), { target: { files: [file] } });
+    fireEvent.click(await screen.findByTestId("new-peko-setup-accept"));
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(screen.queryByTestId("new-peko-setup")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /create pip/i }));
+    await waitFor(() => expect(createMock).toHaveBeenCalledWith({ name: "pip", modelId: "fast" }));
+  });
+
+  it("says so when a seed's steps can't be read", async () => {
+    setupStepsMock.mockRejectedValue(new Error("This seed could not be read: bad TOML"));
+    render(<CreatePrincipalModal open onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    const file = new File(['name = "ada"\n[['], "ada.seed.toml", { type: "application/toml" });
+    fireEvent.change(screen.getByLabelText("Seed file"), { target: { files: [file] } });
+    expect(await screen.findByText(/could not be read/)).toBeInTheDocument();
+    expect(screen.queryByTestId("new-peko-seed")).toBeNull();
   });
 
   it("refuses a file that isn't a seed", async () => {

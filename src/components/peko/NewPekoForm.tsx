@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { usePrincipalCreate, usePrincipalUpdate } from "../../hooks/usePrincipals";
 import { useModels } from "../../hooks/useModels";
+import { seedSetupSteps } from "../../lib/api";
 import { isValidPrincipalName } from "../../lib/validatePrincipalName";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
 import PekoAvatar from "./PekoAvatar";
@@ -44,6 +45,10 @@ export default function NewPekoForm({
   // A seed (ADR-060) to grow from: a `.seed.toml` downloaded from PekoHub.
   const [seed, setSeed] = useState<{ fileName: string; text: string } | null>(null);
   const [seedError, setSeedError] = useState<string | null>(null);
+  // What the seed asks the new peko to set up on its first turn. It runs
+  // commands on this computer, so the person agrees to the steps first.
+  const [setupSteps, setSetupSteps] = useState<string[]>([]);
+  const [setupAccepted, setSetupAccepted] = useState(false);
   const model = chosenModel || enabledModels[0]?.id || "";
 
   const trimmed = name.trim();
@@ -62,9 +67,26 @@ export default function NewPekoForm({
       setSeedError(t("peko.new.seedInvalid"));
       return;
     }
+    let steps: string[];
+    try {
+      steps = await seedSetupSteps(text);
+    } catch (e) {
+      setSeedError(e instanceof Error ? e.message : String(e));
+      return;
+    }
     setSeed({ fileName: file.name, text });
+    setSetupSteps(steps);
+    setSetupAccepted(false);
     setAdvanced(true);
   }
+
+  function removeSeed() {
+    setSeed(null);
+    setSetupSteps([]);
+    setSetupAccepted(false);
+  }
+
+  const needsAccept = setupSteps.length > 0 && !setupAccepted;
 
   async function create() {
     try {
@@ -73,6 +95,7 @@ export default function NewPekoForm({
         modelId: model,
         ...(description.trim() && { description: description.trim() }),
         ...(seed && { seed: seed.text }),
+        ...(seed && setupSteps.length > 0 && setupAccepted && { acceptSetup: true }),
       });
       if (avatar) await updateMut.mutateAsync({ name: trimmed, avatar });
       onCreated(trimmed);
@@ -153,7 +176,7 @@ export default function NewPekoForm({
               </span>
               <button
                 type="button"
-                onClick={() => setSeed(null)}
+                onClick={removeSeed}
                 className="ml-2 text-fg-subtle hover:text-fg-soft"
               >
                 {t("common.remove")}
@@ -175,6 +198,34 @@ export default function NewPekoForm({
             {t("peko.new.seedHint")}
           </span>
           {seedError && <span className="mt-1 block text-[11px] text-danger">{seedError}</span>}
+          {setupSteps.length > 0 && (
+            <div
+              className="mt-2 space-y-2 rounded-lg border border-warn/25 bg-warn-soft p-3 text-xs text-warn"
+              data-testid="new-peko-setup"
+            >
+              <p className="font-medium">
+                {t("peko.new.setupTitle", { name: trimmed || t("peko.new.fallbackName") })}
+              </p>
+              <ol className="list-decimal space-y-1 pl-5">
+                {setupSteps.map((step, index) => (
+                  <li key={index} className="break-words" data-testid="new-peko-setup-step">
+                    {step}
+                  </li>
+                ))}
+              </ol>
+              <p>{t("peko.new.setupWarning")}</p>
+              <label className="flex cursor-pointer items-center gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  checked={setupAccepted}
+                  disabled={busy}
+                  onChange={(e) => setSetupAccepted(e.target.checked)}
+                  data-testid="new-peko-setup-accept"
+                />
+                {t("peko.new.setupAccept", { name: trimmed || t("peko.new.fallbackName") })}
+              </label>
+            </div>
+          )}
         </div>
         <label className="block">
           <span className="field-label mb-1.5 block">{t("common.description")}</span>
@@ -212,7 +263,7 @@ export default function NewPekoForm({
 
       <div className="flex items-center justify-between">
         {secondary ?? <span />}
-        <PrimaryButton onClick={create} disabled={!nameOk || !model || busy}>
+        <PrimaryButton onClick={create} disabled={!nameOk || !model || busy || needsAccept}>
           {busy ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />

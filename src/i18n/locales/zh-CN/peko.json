@@ -15,7 +15,10 @@
     "descriptionPlaceholder": "这个 peko 用来做什么（可选）",
     "waking": "正在唤醒 {{name}}…可能需要一分钟",
     "create": "创建 {{name}}",
-    "fallbackName": "peko"
+    "fallbackName": "peko",
+    "setupTitle": "这个种子要求 {{name}} 准备以下内容",
+    "setupWarning": "它会在第一轮以你的身份在这台电脑上运行命令并下载代码。同意之前请阅读每个步骤。",
+    "setupAccept": "让 {{name}} 执行"
   },
   "status": {
     "online": "在线",
@@ -152,5 +155,15 @@
     "noModels": "没有已配置的模型。请先在“设置 → 模型”中添加一个。",
     "noneOption": "— 无 —",
     "exposureConflict": "这个 peko 已经从另一台电脑登记——一个 peko 只能在一个地方在线。"
+  },
+  "setup": {
+    "title": "{{name}} 正在自行准备",
+    "stop": "停止",
+    "stopping": "正在停止…",
+    "stopHint": "它会在当前步骤结束后停止，并保留已完成的内容。",
+    "empty": "还没有内容。它工作时，步骤会显示在这里。",
+    "reportTitle": "准备报告",
+    "hide": "隐藏准备报告",
+    "stepFailed": "此步骤失败"
   }
 }

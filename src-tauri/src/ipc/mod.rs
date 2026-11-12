@@ -341,6 +341,28 @@ fn peer_str_to_subject_value(peer: &str) -> serde_json::Value {
     serde_json::Value::Null
 }
 
+/// The `principal_create` request. `seed` is a seed's TOML (ADR-060).
+/// `accept_setup` says the person saw the seed's setup steps and
+/// accepted them; a daemon that predates it ignores the field.
+fn principal_create_request(
+    name: &str,
+    description: Option<&str>,
+    model_id: &str,
+    seed: Option<&str>,
+    accept_setup: bool,
+) -> serde_json::Value {
+    serde_json::json!({
+        "type": "principal_create",
+        "protocol_version": PROTOCOL_VERSION,
+        "request_id": 1u64,
+        "name": name,
+        "description": description,
+        "model_id": model_id,
+        "seed": seed,
+        "accept_setup": accept_setup,
+    })
+}
+
 /// Async IPC client for communicating with the peko daemon.
 pub struct IpcClient {
     transport: Transport,
@@ -1036,6 +1058,7 @@ impl IpcClient {
             "request_id": 1u64,
             "name": name,
             "peer": peer.map(peer_str_to_subject_value),
+            "main": false,
         });
         self.request_response(req).await
     }
@@ -1263,21 +1286,45 @@ impl IpcClient {
         description: Option<&str>,
         model_id: &str,
         seed: Option<&str>,
+        accept_setup: bool,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
-        // `seed` is a seed's TOML (ADR-060); daemons that predate it
-        // ignore the field.
+        self.request_response_with_timeout(
+            principal_create_request(name, description, model_id, seed, accept_setup),
+            GENESIS_REQUEST_TIMEOUT,
+        )
+        .await
+    }
+
+    /// Stop what a peko is doing on its own, outside any conversation:
+    /// its first turn, or scheduled work (`principal_stop` with `main`).
+    /// Owner only. With nothing running the daemon answers
+    /// `done { success: false, error: "no running turn…" }`.
+    pub async fn principal_stop_main(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "principal_create",
+            "type": "principal_stop",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "name": name,
-            "description": description,
-            "model_id": model_id,
-            "seed": seed,
+            "peer": serde_json::Value::Null,
+            "main": true,
         });
-        self.request_response_with_timeout(req, GENESIS_REQUEST_TIMEOUT)
-            .await
+        self.request_response(req).await
+    }
+
+    /// How a peko's first turn is going (`principal_setup_status`): its
+    /// boot state, whether a turn is running, its setup steps, its
+    /// recent tool calls, and its setup report once written.
+    pub async fn principal_setup_status(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_setup_status",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
     }
 
     /// Update an existing Principal's mutable config. Mirror of
@@ -2333,6 +2380,19 @@ pub(crate) fn read_pid_file_for_probe(path: &std::path::Path) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
+    /// `accept_setup` is true on the wire only when the person accepted
+    /// a seed's setup steps.
+    #[test]
+    fn principal_create_says_whether_setup_was_accepted() {
+        let plain =
+            super::principal_create_request("ada", None, "m", Some("name = \"ada\""), false);
+        assert_eq!(plain["accept_setup"], false);
+        assert_eq!(plain["seed"], "name = \"ada\"");
+        let accepted = super::principal_create_request("ada", None, "m", Some("x"), true);
+        assert_eq!(accepted["accept_setup"], true);
+        assert_eq!(accepted["type"], "principal_create");
+    }
+
     use super::*;
 
     /// The log names which wait ran out: a request's reply, the
