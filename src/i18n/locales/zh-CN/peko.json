@@ -17,8 +17,10 @@
     "create": "创建 {{name}}",
     "fallbackName": "peko",
     "setupTitle": "这个种子要求 {{name}} 准备以下内容",
-    "setupWarning": "它会在第一轮以你的身份在这台电脑上运行命令并下载代码。同意之前请阅读每个步骤。",
-    "setupAccept": "让 {{name}} 执行"
+    "setupWarning": "它会以你的身份在这台电脑上运行命令并下载代码。同意之前请阅读每个步骤。",
+    "setupAccept": "让 {{name}} 执行",
+    "filesTitle": "这个种子会把这些文件写入 {{name}} 的文件夹",
+    "fileRuns": "此文件指定了你的电脑将要运行的内容："
   },
   "status": {
     "online": "在线",

@@ -222,12 +222,34 @@ pub async fn principal_create(
     project_principal_create_envelope(&value, &name)
 }
 
-/// The setup steps a seed lists (`[intent] setup`): what the new peko
-/// will get ready on its first turn, running commands on this computer.
-/// The form shows them so the person can accept them before creating.
-/// Each step is put on one line; blank ones are dropped.
+/// One file a seed carries (`[files]`), for the person to read before
+/// they accept the seed.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SeedFile {
+    pub path: String,
+    /// Bytes of text.
+    pub size: usize,
+    /// The file's text, when it names something this computer will run
+    /// (an MCP server or a workflow); such a file is shown in full.
+    pub content: Option<String>,
+}
+
+/// What a seed brings beyond a definition: the setup steps the new peko
+/// will carry out, and the files written into its folder.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SeedContents {
+    pub steps: Vec<String>,
+    pub files: Vec<SeedFile>,
+}
+
+/// What a seed will do to this computer when a peko is created from it
+/// (`[intent] setup` and `[files]`), so the form can show it and the
+/// person can accept it first. The engine checks the seed again and is
+/// the one that enforces what a seed may carry; this only reads it.
 #[tauri::command]
-pub fn seed_setup_steps(seed: String) -> Result<Vec<String>, String> {
+pub fn seed_contents(seed: String) -> Result<SeedContents, String> {
     if seed.len() > 64 * 1024 {
         return Err("A seed is at most 64 KB.".to_string());
     }
@@ -246,7 +268,26 @@ pub fn seed_setup_steps(seed: String) -> Result<Vec<String>, String> {
                 .collect()
         })
         .unwrap_or_default();
-    Ok(steps)
+    let mut files: Vec<SeedFile> = doc
+        .get("files")
+        .and_then(toml::Value::as_table)
+        .map(|table| {
+            table
+                .iter()
+                .map(|(path, value)| {
+                    let text = value.as_str().unwrap_or_default();
+                    let runs = path.starts_with("mcp/") || path.starts_with("workflows/");
+                    SeedFile {
+                        path: path.clone(),
+                        size: text.len(),
+                        content: runs.then(|| text.trim_end().to_string()),
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(SeedContents { steps, files })
 }
 
 /// One thing a peko did on its first turn, as a short line.
@@ -1629,21 +1670,38 @@ mod tests {
         assert!(err.contains("invalid peko name"), "got: {err}");
     }
 
-    /// A seed's setup steps are read for the person to accept: one line
-    /// each, blank ones dropped, none when the seed lists none.
+    /// What a seed brings is read for the person to accept: its setup
+    /// steps, one line each, and its files, with the text of the ones
+    /// that name something to run.
     #[test]
-    fn test_seed_setup_steps_are_read_from_the_seed() {
+    fn test_seed_contents_are_read_from_the_seed() {
         let seed = "name = \"ada\"\n[intent]\ngoals = [\"Help\"]\n\
-                    setup = [\"  Install\\n ripgrep \", \"\", \"Add the notes skill\"]\n";
+                    setup = [\"  Install\\n ripgrep \", \"\", \"Add the notes skill\"]\n\
+                    [files]\n\"roles/researcher.md\" = \"Cite sources.\"\n\
+                    \"mcp/echo/server.json\" = \"{ \\\"command\\\": \\\"echo\\\" }\\n\"\n";
+        let contents = seed_contents(seed.to_string()).unwrap();
+        assert_eq!(contents.steps, ["Install ripgrep", "Add the notes skill"]);
         assert_eq!(
-            seed_setup_steps(seed.to_string()).unwrap(),
-            ["Install ripgrep", "Add the notes skill"]
+            contents.files,
+            [
+                SeedFile {
+                    path: "mcp/echo/server.json".into(),
+                    size: 22,
+                    content: Some("{ \"command\": \"echo\" }".into()),
+                },
+                SeedFile {
+                    path: "roles/researcher.md".into(),
+                    size: 13,
+                    content: None,
+                },
+            ]
         );
-        assert!(seed_setup_steps("name = \"ada\"\n".to_string())
-            .unwrap()
-            .is_empty());
-        assert!(seed_setup_steps("not toml [".to_string()).is_err());
-        assert!(seed_setup_steps("x".repeat(65 * 1024))
+        assert_eq!(
+            seed_contents("name = \"ada\"\n".to_string()).unwrap(),
+            SeedContents::default()
+        );
+        assert!(seed_contents("not toml [".to_string()).is_err());
+        assert!(seed_contents("x".repeat(65 * 1024))
             .unwrap_err()
             .contains("64 KB"));
     }

@@ -17,8 +17,10 @@
     "create": "Créer {{name}}",
     "fallbackName": "le peko",
     "setupTitle": "Cette graine demande à {{name}} de préparer ceci",
-    "setupWarning": "Lors de son premier tour, il exécutera des commandes et téléchargera du code sur cet ordinateur, en votre nom. Lisez chaque étape avant d'accepter.",
-    "setupAccept": "Laisser {{name}} le faire"
+    "setupWarning": "Il exécutera des commandes et téléchargera du code sur cet ordinateur, en votre nom. Lisez chaque étape avant d'accepter.",
+    "setupAccept": "Laisser {{name}} le faire",
+    "filesTitle": "Cette graine écrit ces fichiers dans le dossier de {{name}}",
+    "fileRuns": "Ce fichier désigne quelque chose que votre ordinateur exécutera :"
   },
   "status": {
     "online": "En ligne",

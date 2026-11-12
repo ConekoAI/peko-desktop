@@ -214,17 +214,34 @@ export interface PrincipalCreateRequest {
    */
   seed?: string;
   /**
-   * The person read the seed's setup steps (`seedSetupSteps`) and agreed
-   * to them. Without it a seed that lists steps is refused: the new peko
-   * runs them on its first turn, on this computer.
+   * The person read what the seed brings (`seedContents`: its setup steps
+   * and files) and agreed to it. Without it such a seed is refused: it
+   * changes this computer.
    */
   acceptSetup?: boolean;
   runtimeId?: RuntimeId;
 }
 
-/** The setup steps a seed lists; empty when it lists none. */
-export async function seedSetupSteps(seed: string): Promise<string[]> {
-  return invoke<string[]>("seed_setup_steps", { seed });
+/** One file a seed carries. */
+export interface SeedFile {
+  path: string;
+  /** Bytes of text. */
+  size: number;
+  /** Its text, when it names something this computer will run. */
+  content: string | null;
+}
+
+/** What a seed brings beyond a definition. */
+export interface SeedContents {
+  /** Setup steps the new peko will carry out. */
+  steps: string[];
+  /** Files written into its folder. */
+  files: SeedFile[];
+}
+
+/** What a seed will do to this computer; both lists empty when nothing. */
+export async function seedContents(seed: string): Promise<SeedContents> {
+  return invoke<SeedContents>("seed_contents", { seed });
 }
 
 /** One thing a peko did on its first turn. */

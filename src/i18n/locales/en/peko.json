@@ -17,8 +17,10 @@
     "create": "Create {{name}}",
     "fallbackName": "peko",
     "setupTitle": "This seed asks {{name}} to set these up",
-    "setupWarning": "On its first turn it will run commands and download code on this computer, as you. Read each step before you agree.",
-    "setupAccept": "Let {{name}} do this"
+    "setupWarning": "It will run commands and download code on this computer, as you. Read each step before you agree.",
+    "setupAccept": "Let {{name}} do this",
+    "filesTitle": "This seed writes these files into {{name}}'s folder",
+    "fileRuns": "This file names something your computer will run:"
   },
   "status": {
     "online": "Online",

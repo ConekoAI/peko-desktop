@@ -17,8 +17,10 @@
     "create": "Criar {{name}}",
     "fallbackName": "peko",
     "setupTitle": "Esta semente pede que {{name}} prepare o seguinte",
-    "setupWarning": "No primeiro turno, ele vai executar comandos e baixar código neste computador, em seu nome. Leia cada passo antes de concordar.",
-    "setupAccept": "Deixar {{name}} fazer isso"
+    "setupWarning": "Ele vai executar comandos e baixar código neste computador, em seu nome. Leia cada passo antes de concordar.",
+    "setupAccept": "Deixar {{name}} fazer isso",
+    "filesTitle": "Esta semente grava estes arquivos na pasta de {{name}}",
+    "fileRuns": "Este arquivo indica algo que seu computador vai executar:"
   },
   "status": {
     "online": "Online",
