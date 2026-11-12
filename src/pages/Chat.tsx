@@ -31,6 +31,7 @@ import {
   useUndeliveredMessages,
 } from "../hooks/useRemotePrincipals";
 import PekoAvatar from "../components/peko/PekoAvatar";
+import SetupPanel from "../components/peko/SetupPanel";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
 import { shownAddress, timeAgo } from "../lib/format";
@@ -1131,6 +1132,10 @@ export default function Chat() {
               <ChatMessage key={`queued-${item.event.timestamp ?? idx}`} item={item} peko={pekoFace} />
             ))}
           </div>
+        )}
+
+        {selectedPrincipal && !remotePeko && (
+          <SetupPanel name={selectedPrincipal} runtimeId={runtimeId} />
         )}
 
         {runFailure && (

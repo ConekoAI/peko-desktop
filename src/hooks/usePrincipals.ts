@@ -60,14 +60,6 @@ export function isGenesisPending(
 
 /** Poll cadence while any principal is mid-genesis. */
 const GENESIS_POLL_INTERVAL_MS = 2_000;
-/**
- * Hard cap on post-create genesis polling. Matches the runtime's
- * default genesis wait (~300s); if genesis hasn't finished by then
- * something is wrong runtime-side and the list falls back to its
- * normal refresh cadence.
- */
-const GENESIS_POLL_TIMEOUT_MS = 300_000;
-
 // ─── Principal list / detail ─────────────────────────────────────
 
 export function usePrincipals(runtimeId?: RuntimeId) {
@@ -118,8 +110,7 @@ export function usePrincipal(name: string | undefined, runtimeId?: RuntimeId) {
  * returns before genesis completes (the summary still says
  * `genesis_pending` or earlier), keep polling `principal_get` and
  * refreshing the list/detail caches until the principal reaches
- * `organized` — or the ~300s cap hits, matching the runtime's
- * genesis wait. Runs detached so the mutation settles as soon as the
+ * `organized`. Runs detached so the mutation settles as soon as the
  * runtime answers; the UI renders progress from `bootState` on the
  * list query in the meantime.
  */
@@ -128,9 +119,11 @@ async function pollBootStateUntilOrganized(
   name: string,
   rid: string,
 ): Promise<void> {
-  const deadline = Date.now() + GENESIS_POLL_TIMEOUT_MS;
   try {
-    while (Date.now() < deadline) {
+    // No time limit: a first turn takes as long as its setup takes, and
+    // the person can watch and stop it (`SetupPanel`). A peko that is
+    // removed meanwhile reads as not pending, which ends the loop.
+    for (;;) {
       await new Promise((resolve) => setTimeout(resolve, GENESIS_POLL_INTERVAL_MS));
       const current = await principalGet(name, rid).catch(() => null);
       if (!isGenesisPending(current)) break;
@@ -150,11 +143,9 @@ async function pollBootStateUntilOrganized(
  * caller; the modal/walkthrough surfaces them inline.
  *
  * Genesis-aware (ADR-054): the runtime may block inside
- * `principal_create` for the length of the genesis boot (its wait
- * caps at ~300s — the backend extends the IPC request timeout to
- * match), or return early with `bootState: "genesis_pending"`. In
+ * `principal_create` for the length of the genesis boot, or return early with `bootState: "genesis_pending"`. In
  * the early-return case this hook keeps the list/detail caches
- * refreshing until the principal reports `organized` (capped), so
+ * refreshing until the principal reports `organized`, so
  * UI progress states driven by `bootState` resolve on their own.
  */
 export function usePrincipalCreate() {

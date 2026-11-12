@@ -187,6 +187,7 @@ pub async fn principal_create(
     description: Option<String>,
     model_id: String,
     seed: Option<String>,
+    accept_setup: Option<bool>,
     runtime_id: Option<String>,
 ) -> Result<PrincipalSummary, String> {
     if seed.as_deref().is_some_and(|seed| seed.len() > 64 * 1024) {
@@ -209,10 +210,164 @@ pub async fn principal_create(
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
     let value = client
-        .principal_create(&name, description.as_deref(), &model_id, seed.as_deref())
+        .principal_create(
+            &name,
+            description.as_deref(),
+            &model_id,
+            seed.as_deref(),
+            accept_setup.unwrap_or(false),
+        )
         .await
         .map_err(|e| format!("Couldn't create the peko: {e}"))?;
     project_principal_create_envelope(&value, &name)
+}
+
+/// The setup steps a seed lists (`[intent] setup`): what the new peko
+/// will get ready on its first turn, running commands on this computer.
+/// The form shows them so the person can accept them before creating.
+/// Each step is put on one line; blank ones are dropped.
+#[tauri::command]
+pub fn seed_setup_steps(seed: String) -> Result<Vec<String>, String> {
+    if seed.len() > 64 * 1024 {
+        return Err("A seed is at most 64 KB.".to_string());
+    }
+    let doc: toml::Table =
+        toml::from_str(&seed).map_err(|e| format!("This seed could not be read: {e}"))?;
+    let steps = doc
+        .get("intent")
+        .and_then(|intent| intent.get("setup"))
+        .and_then(toml::Value::as_array)
+        .map(|steps| {
+            steps
+                .iter()
+                .filter_map(toml::Value::as_str)
+                .map(|step| step.split_whitespace().collect::<Vec<_>>().join(" "))
+                .filter(|step| !step.is_empty())
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(steps)
+}
+
+/// One thing a peko did on its first turn, as a short line.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SetupStep {
+    pub call_id: String,
+    pub tool: String,
+    pub line: String,
+    /// `None` while it is still running.
+    pub outcome: Option<String>,
+}
+
+/// How a peko's first turn is going.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SetupStatus {
+    /// False once the first turn is over (done, or stopped).
+    pub setting_up: bool,
+    /// Whether it is doing something on its own right now, so there is
+    /// something to stop.
+    pub running: bool,
+    /// The setup steps its seed listed.
+    pub setup: Vec<String>,
+    /// Its most recent tool calls, oldest first.
+    pub steps: Vec<SetupStep>,
+    /// Its own report of how setup went, once written.
+    pub report: Option<String>,
+}
+
+/// Project the daemon's `principal_setup_status` envelope. `None` when
+/// the daemon predates the request (it answers with an error), so the
+/// app shows no setup panel instead of a failure.
+fn project_setup_status(value: &serde_json::Value) -> Option<SetupStatus> {
+    if value.get("type").and_then(|t| t.as_str()) != Some("principal_setup_status") {
+        return None;
+    }
+    let text =
+        |v: &serde_json::Value, key: &str| v.get(key).and_then(|s| s.as_str()).map(str::to_string);
+    let list = |key: &str| {
+        value
+            .get(key)
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default()
+    };
+    Some(SetupStatus {
+        setting_up: text(value, "boot_state").is_some_and(|state| state != "organized"),
+        running: value.get("running").and_then(serde_json::Value::as_bool) == Some(true),
+        setup: list("setup")
+            .iter()
+            .filter_map(|s| s.as_str().map(str::to_string))
+            .collect(),
+        steps: list("steps")
+            .iter()
+            .filter_map(|step| {
+                Some(SetupStep {
+                    call_id: text(step, "call_id")?,
+                    tool: text(step, "tool").unwrap_or_default(),
+                    line: text(step, "line")?,
+                    outcome: text(step, "outcome"),
+                })
+            })
+            .collect(),
+        report: text(value, "report").filter(|r| !r.trim().is_empty()),
+    })
+}
+
+/// How the peko `name` is getting on with its first turn. `None` for a
+/// remote peko, and when this computer's engine is too old to say.
+#[tauri::command]
+pub async fn principal_setup_status(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<Option<SetupStatus>, String> {
+    let resolved = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await;
+    if matches!(resolved, crate::state::ResolvedRuntime::HubRemote(_)) {
+        return Ok(None);
+    }
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_setup_status(&name)
+        .await
+        .map_err(|e| format!("Couldn't check on the peko: {e}"))?;
+    Ok(project_setup_status(&value))
+}
+
+/// Stop what the peko `name` is doing on its own: its first turn, or
+/// scheduled work. Returns whether there was something to stop.
+#[tauri::command]
+pub async fn principal_stop_setup(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<bool, String> {
+    let resolved = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await;
+    if matches!(resolved, crate::state::ResolvedRuntime::HubRemote(_)) {
+        return Err("Stopping is not supported for remote pekos yet".to_string());
+    }
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_stop_main(&name)
+        .await
+        .map_err(|e| format!("Couldn't stop the peko: {e}"))?;
+    if crate::ipc::is_error_response(&value) {
+        return Err(value
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Couldn't stop the peko")
+            .to_string());
+    }
+    Ok(value.get("success").and_then(serde_json::Value::as_bool) == Some(true))
 }
 
 /// Mirror of the runtime's `validate_agent_name` rules
@@ -1382,6 +1537,7 @@ mod tests {
             "gpt-4o".to_string(),
             Some("x".repeat(65 * 1024)),
             None,
+            None,
         )
         .await
         .expect_err("an oversized seed is refused");
@@ -1399,10 +1555,73 @@ mod tests {
             "gpt-4o".to_string(),
             None,
             None,
+            None,
         )
         .await
         .expect_err("invalid name must fail validation");
         assert!(err.contains("invalid peko name"), "got: {err}");
+    }
+
+    /// A seed's setup steps are read for the person to accept: one line
+    /// each, blank ones dropped, none when the seed lists none.
+    #[test]
+    fn test_seed_setup_steps_are_read_from_the_seed() {
+        let seed = "name = \"ada\"\n[intent]\ngoals = [\"Help\"]\n\
+                    setup = [\"  Install\\n ripgrep \", \"\", \"Add the notes skill\"]\n";
+        assert_eq!(
+            seed_setup_steps(seed.to_string()).unwrap(),
+            ["Install ripgrep", "Add the notes skill"]
+        );
+        assert!(seed_setup_steps("name = \"ada\"\n".to_string())
+            .unwrap()
+            .is_empty());
+        assert!(seed_setup_steps("not toml [".to_string()).is_err());
+        assert!(seed_setup_steps("x".repeat(65 * 1024))
+            .unwrap_err()
+            .contains("64 KB"));
+    }
+
+    /// The setup status the app shows, from the engine's reply; an
+    /// engine too old to answer gives none.
+    #[test]
+    fn test_project_setup_status() {
+        let status = project_setup_status(&serde_json::json!({
+            "type": "principal_setup_status",
+            "request_id": 1,
+            "name": "ada",
+            "boot_state": "genesis_pending",
+            "running": true,
+            "setup": ["Install ripgrep"],
+            "steps": [
+                {"call_id": "c1", "tool": "Fetch", "line": "Fetch: https://example.com", "outcome": "ok"},
+                {"call_id": "c2", "tool": "Bash", "line": "Bash: brew install ripgrep"}
+            ]
+        }))
+        .unwrap();
+        assert!(status.setting_up && status.running);
+        assert_eq!(status.setup, ["Install ripgrep"]);
+        assert_eq!(status.steps.len(), 2);
+        assert_eq!(status.steps[0].outcome.as_deref(), Some("ok"));
+        assert_eq!(status.steps[1].outcome, None, "still running");
+        assert_eq!(status.report, None);
+
+        let done = project_setup_status(&serde_json::json!({
+            "type": "principal_setup_status",
+            "boot_state": "organized",
+            "running": false,
+            "setup": [],
+            "steps": [],
+            "report": "- ripgrep: ready"
+        }))
+        .unwrap();
+        assert!(!done.setting_up && !done.running);
+        assert_eq!(done.report.as_deref(), Some("- ripgrep: ready"));
+
+        assert!(project_setup_status(&serde_json::json!({
+            "type": "error",
+            "message": "unknown variant `principal_setup_status`"
+        }))
+        .is_none());
     }
 }
 

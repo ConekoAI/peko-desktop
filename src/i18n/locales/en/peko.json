@@ -15,7 +15,10 @@
     "descriptionPlaceholder": "What this peko is for (optional)",
     "waking": "Waking up {{name}}… this can take a minute",
     "create": "Create {{name}}",
-    "fallbackName": "peko"
+    "fallbackName": "peko",
+    "setupTitle": "This seed asks {{name}} to set these up",
+    "setupWarning": "On its first turn it will run commands and download code on this computer, as you. Read each step before you agree.",
+    "setupAccept": "Let {{name}} do this"
   },
   "status": {
     "online": "Online",
@@ -153,5 +156,15 @@
     "noModels": "No configured models. Add one in Settings → Models first.",
     "noneOption": "— None —",
     "exposureConflict": "This peko is already registered from another computer — a peko can be online in only one place."
+  },
+  "setup": {
+    "title": "{{name}} is setting itself up",
+    "stop": "Stop",
+    "stopping": "Stopping…",
+    "stopHint": "It stops after the step it is on and keeps what it has done.",
+    "empty": "Nothing yet. Steps appear here as it works.",
+    "reportTitle": "Setup report",
+    "hide": "Hide the setup report",
+    "stepFailed": "This step failed"
   }
 }

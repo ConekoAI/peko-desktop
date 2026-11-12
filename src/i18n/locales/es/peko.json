@@ -15,7 +15,10 @@
     "descriptionPlaceholder": "Para qué sirve este peko (opcional)",
     "waking": "Despertando a {{name}}… puede tardar un minuto",
     "create": "Crear {{name}}",
-    "fallbackName": "peko"
+    "fallbackName": "peko",
+    "setupTitle": "Esta semilla pide a {{name}} que prepare lo siguiente",
+    "setupWarning": "En su primer turno ejecutará comandos y descargará código en este equipo, en tu nombre. Lee cada paso antes de aceptar.",
+    "setupAccept": "Permitir que {{name}} lo haga"
   },
   "status": {
     "online": "En línea",
@@ -154,5 +157,15 @@
     "noModels": "No hay modelos configurados. Añade primero uno en Ajustes → Modelos.",
     "noneOption": "— Ninguno —",
     "exposureConflict": "Este peko ya está registrado desde otro ordenador: un peko solo puede estar en línea en un sitio."
+  },
+  "setup": {
+    "title": "{{name}} se está preparando",
+    "stop": "Detener",
+    "stopping": "Deteniendo…",
+    "stopHint": "Se detiene tras el paso en curso y conserva lo que ya ha hecho.",
+    "empty": "Nada todavía. Los pasos aparecen aquí a medida que trabaja.",
+    "reportTitle": "Informe de preparación",
+    "hide": "Ocultar el informe de preparación",
+    "stepFailed": "Este paso ha fallado"
   }
 }

@@ -15,7 +15,10 @@
     "descriptionPlaceholder": "À quoi sert ce peko (facultatif)",
     "waking": "Réveil de {{name}}… cela peut prendre une minute",
     "create": "Créer {{name}}",
-    "fallbackName": "le peko"
+    "fallbackName": "le peko",
+    "setupTitle": "Cette graine demande à {{name}} de préparer ceci",
+    "setupWarning": "Lors de son premier tour, il exécutera des commandes et téléchargera du code sur cet ordinateur, en votre nom. Lisez chaque étape avant d'accepter.",
+    "setupAccept": "Laisser {{name}} le faire"
   },
   "status": {
     "online": "En ligne",
@@ -154,5 +157,15 @@
     "noModels": "Aucun modèle configuré. Ajoutez-en d'abord un dans Réglages → Modèles.",
     "noneOption": "— Aucun —",
     "exposureConflict": "Ce peko est déjà enregistré depuis un autre ordinateur : un peko ne peut être en ligne qu'à un seul endroit."
+  },
+  "setup": {
+    "title": "{{name}} se prépare",
+    "stop": "Arrêter",
+    "stopping": "Arrêt…",
+    "stopHint": "Il s'arrête après l'étape en cours et garde ce qu'il a déjà fait.",
+    "empty": "Rien pour l'instant. Les étapes apparaissent ici au fur et à mesure.",
+    "reportTitle": "Rapport de préparation",
+    "hide": "Masquer le rapport de préparation",
+    "stepFailed": "Cette étape a échoué"
   }
 }

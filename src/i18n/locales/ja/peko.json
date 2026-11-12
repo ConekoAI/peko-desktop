@@ -15,7 +15,10 @@
     "descriptionPlaceholder": "この peko の役割（任意）",
     "waking": "{{name}} を起こしています… 1 分ほどかかることがあります",
     "create": "{{name}} を作成",
-    "fallbackName": "peko"
+    "fallbackName": "peko",
+    "setupTitle": "このシードは {{name}} に次の準備を求めています",
+    "setupWarning": "最初のターンで、あなたの権限でこのコンピューター上のコマンドを実行し、コードをダウンロードします。同意する前に各手順を確認してください。",
+    "setupAccept": "{{name}} に実行させる"
   },
   "status": {
     "online": "オンライン",
@@ -152,5 +155,15 @@
     "noModels": "設定済みのモデルがありません。先に「設定 → モデル」で追加してください。",
     "noneOption": "— なし —",
     "exposureConflict": "この peko はすでに別のコンピューターから登録されています。peko がオンラインになれるのは 1 か所だけです。"
+  },
+  "setup": {
+    "title": "{{name}} が準備中です",
+    "stop": "停止",
+    "stopping": "停止中…",
+    "stopHint": "実行中の手順が終わると停止し、済んだ作業はそのまま残ります。",
+    "empty": "まだ何もありません。作業が進むと手順がここに表示されます。",
+    "reportTitle": "準備レポート",
+    "hide": "準備レポートを隠す",
+    "stepFailed": "この手順は失敗しました"
   }
 }

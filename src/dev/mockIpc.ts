@@ -252,6 +252,43 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       return pekos.find((p) => p.name === args.name) ?? null;
     case "remote_principal_list":
       return remotePekos;
+    case "seed_setup_steps":
+      return String(args.seed ?? "").includes("setup")
+        ? [
+            "Get the release-notes skill from https://example.com/skills/release-notes",
+            "Add the Playwright MCP server (https://github.com/microsoft/playwright-mcp)",
+            "Install ripgrep",
+          ]
+        : [];
+    case "principal_setup_status":
+      // bolt is on its first turn; aria has finished and left a report.
+      if (args.name === "bolt") {
+        return {
+          settingUp: true,
+          running: true,
+          setup: ["Install ripgrep", "Add the Playwright MCP server"],
+          steps: [
+            { callId: "c1", tool: "Read", line: "Read: peko.toml", outcome: "ok" },
+            { callId: "c2", tool: "Fetch", line: "Fetch: https://github.com/microsoft/playwright-mcp", outcome: "ok" },
+            { callId: "c3", tool: "Bash", line: "Bash: sudo apt install ripgrep", outcome: "error" },
+            { callId: "c4", tool: "Bash", line: "Bash: cargo install ripgrep --root ~/.local", outcome: null },
+          ],
+          report: null,
+        };
+      }
+      if (args.name === "aria") {
+        return {
+          settingUp: false,
+          running: false,
+          setup: ["Install ripgrep", "Add the Playwright MCP server"],
+          steps: [],
+          report:
+            "- ripgrep: ready (`rg --version` prints 14.1.0)\n- Playwright MCP server: failed. Node is not installed; run `brew install node`, then ask me to try again.",
+        };
+      }
+      return { settingUp: false, running: false, setup: [], steps: [], report: null };
+    case "principal_stop_setup":
+      return true;
     case "principal_log":
       return {
         principal: args.name,

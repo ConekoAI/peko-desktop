@@ -15,7 +15,10 @@
     "descriptionPlaceholder": "Wofür dieser Peko da ist (optional)",
     "waking": "{{name}} wird geweckt… das kann eine Minute dauern",
     "create": "{{name}} erstellen",
-    "fallbackName": "Peko"
+    "fallbackName": "Peko",
+    "setupTitle": "Dieser Seed bittet {{name}}, Folgendes einzurichten",
+    "setupWarning": "Im ersten Durchlauf führt es auf diesem Computer in deinem Namen Befehle aus und lädt Code herunter. Lies jeden Schritt, bevor du zustimmst.",
+    "setupAccept": "{{name}} das tun lassen"
   },
   "status": {
     "online": "Online",
@@ -153,5 +156,15 @@
     "noModels": "Keine Modelle eingerichtet. Füge zuerst eines unter Einstellungen → Modelle hinzu.",
     "noneOption": "— Keines —",
     "exposureConflict": "Dieser Peko ist bereits von einem anderen Computer aus registriert – ein Peko kann nur an einem Ort online sein."
+  },
+  "setup": {
+    "title": "{{name}} richtet sich ein",
+    "stop": "Stoppen",
+    "stopping": "Wird gestoppt…",
+    "stopHint": "Es stoppt nach dem aktuellen Schritt und behält, was es schon erledigt hat.",
+    "empty": "Noch nichts. Die Schritte erscheinen hier während der Arbeit.",
+    "reportTitle": "Einrichtungsbericht",
+    "hide": "Einrichtungsbericht ausblenden",
+    "stepFailed": "Dieser Schritt ist fehlgeschlagen"
   }
 }
