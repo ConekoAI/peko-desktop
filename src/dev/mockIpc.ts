@@ -261,19 +261,24 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
           ]
         : [];
     case "principal_setup_status":
-      // bolt is on its first turn; aria has finished and left a report.
+      // bolt is going through its setup steps; aria has finished with one
+      // step failed.
       if (args.name === "bolt") {
         return {
-          settingUp: true,
+          settingUp: false,
           running: true,
           setup: ["Install ripgrep", "Add the Playwright MCP server"],
           steps: [
-            { callId: "c1", tool: "Read", line: "Read: peko.toml", outcome: "ok" },
             { callId: "c2", tool: "Fetch", line: "Fetch: https://github.com/microsoft/playwright-mcp", outcome: "ok" },
             { callId: "c3", tool: "Bash", line: "Bash: sudo apt install ripgrep", outcome: "error" },
             { callId: "c4", tool: "Bash", line: "Bash: cargo install ripgrep --root ~/.local", outcome: null },
           ],
           report: null,
+          setupState: "running",
+          results: [
+            { step: "Install ripgrep", status: "pending", note: null },
+            { step: "Add the Playwright MCP server", status: "pending", note: null },
+          ],
         };
       }
       if (args.name === "aria") {
@@ -282,11 +287,21 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
           running: false,
           setup: ["Install ripgrep", "Add the Playwright MCP server"],
           steps: [],
-          report:
-            "- ripgrep: ready (`rg --version` prints 14.1.0)\n- Playwright MCP server: failed. Node is not installed; run `brew install node`, then ask me to try again.",
+          report: null,
+          setupState: "done",
+          results: [
+            { step: "Install ripgrep", status: "ready", note: "`rg --version` prints 14.1.0" },
+            {
+              step: "Add the Playwright MCP server",
+              status: "failed",
+              note: "Node is not installed; run `brew install node`, then try again.",
+            },
+          ],
         };
       }
-      return { settingUp: false, running: false, setup: [], steps: [], report: null };
+      return { settingUp: false, running: false, setup: [], steps: [], report: null, setupState: "none", results: [] };
+    case "principal_setup_run":
+      return null;
     case "principal_stop_setup":
       return true;
     case "principal_log":

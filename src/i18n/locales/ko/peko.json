@@ -164,6 +164,12 @@
     "empty": "아직 없습니다. 작업하는 동안 단계가 여기에 표시됩니다.",
     "reportTitle": "준비 보고서",
     "hide": "준비 보고서 숨기기",
-    "stepFailed": "이 단계는 실패했습니다"
+    "stepFailed": "이 단계는 실패했습니다",
+    "titleSteps": "{{name}}이(가) 준비 단계를 진행 중입니다",
+    "resultsTitle": "준비 단계",
+    "tryAgain": "다시 시도",
+    "starting": "시작하는 중…",
+    "stepReady": "준비됨",
+    "stepPending": "완료되지 않음"
   }
 }

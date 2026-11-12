@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { principalSetupStatus, principalStopSetup, type RuntimeId } from "../lib/api";
+import {
+  principalSetupRun,
+  principalSetupStatus,
+  principalStopSetup,
+  type RuntimeId,
+  type SetupStatus,
+} from "../lib/api";
+
+/** Whether the peko is on its first turn or going through its setup steps. */
+export function isSettingUp(status: SetupStatus | null | undefined): boolean {
+  return !!status && (status.settingUp || status.setupState === "running");
+}
 
 // A peko's first turn: what it has done so far, and stopping it.
 
@@ -23,7 +34,7 @@ export function useSetupStatus(name: string | undefined, runtimeId?: RuntimeId) 
     refetchInterval: (query) => {
       if (typeof document !== "undefined" && document.hidden) return false;
       const status = query.state.data;
-      return status?.settingUp || status?.running ? SETUP_POLL_INTERVAL_MS : false;
+      return isSettingUp(status) || status?.running ? SETUP_POLL_INTERVAL_MS : false;
     },
   });
 }
@@ -37,6 +48,18 @@ export function useStopSetup() {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ["setupStatus"] });
       void qc.invalidateQueries({ queryKey: ["principals"] });
+    },
+  });
+}
+
+/** Have a peko go through its setup steps again, then re-read its status. */
+export function useRunSetup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: { name: string; runtimeId?: RuntimeId }) =>
+      principalSetupRun(req.name, req.runtimeId),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["setupStatus"] });
     },
   });
 }

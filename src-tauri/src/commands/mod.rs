@@ -37,6 +37,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::seed_setup_steps,
         principal::principal_setup_status,
         principal::principal_stop_setup,
+        principal::principal_setup_run,
         principal::remote_peko_models,
         principal::remote_peko_undelivered,
         principal::principal_log_watch_start,

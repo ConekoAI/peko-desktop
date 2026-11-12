@@ -165,6 +165,12 @@
     "empty": "Nothing yet. Steps appear here as it works.",
     "reportTitle": "Setup report",
     "hide": "Hide the setup report",
-    "stepFailed": "This step failed"
+    "stepFailed": "This step failed",
+    "titleSteps": "{{name}} is going through its setup steps",
+    "resultsTitle": "Setup steps",
+    "tryAgain": "Try again",
+    "starting": "Starting…",
+    "stepReady": "Ready",
+    "stepPending": "Not done"
   }
 }

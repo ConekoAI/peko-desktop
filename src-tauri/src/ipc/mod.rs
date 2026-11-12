@@ -1313,6 +1313,21 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Run a peko's setup steps again (`principal_setup_run`). Owner
+    /// only. The daemon answers `done`; `success: false` carries why it
+    /// did not start (no steps, already running, still on its first
+    /// turn).
+    pub async fn principal_setup_run(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_setup_run",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
     /// How a peko's first turn is going (`principal_setup_status`): its
     /// boot state, whether a turn is running, its setup steps, its
     /// recent tool calls, and its setup report once written.

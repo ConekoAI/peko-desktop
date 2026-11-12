@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Check, Loader2, Square, X } from "lucide-react";
+import { Check, Circle, Loader2, RotateCw, Square, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { useSetupStatus, useStopSetup } from "../../hooks/useSetup";
-import type { RuntimeId } from "../../lib/api";
+import { isSettingUp, useRunSetup, useSetupStatus, useStopSetup } from "../../hooks/useSetup";
+import type { RuntimeId, SetupResult } from "../../lib/api";
 
 const DISMISSED_KEY = "peko.setupReportDismissed";
 
@@ -16,22 +16,32 @@ function dismissed(): string[] {
   }
 }
 
+function errorText(error: unknown): string | null {
+  if (!error) return null;
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
- * A peko's first turn, for its owner: what it has done so far, a button
- * that stops it, and its own report of how setup went. Shown above the
- * conversation while the peko is setting itself up, and afterwards until
- * the report is hidden. Renders nothing for a peko that is long set up.
+ * A peko's first turn and its setup steps, for its owner. While the peko
+ * works: what it is doing, and a button that stops it. Afterwards: each
+ * setup step with how it went, and a button that has the peko go through
+ * them again, until the panel is hidden. Renders nothing for a peko that
+ * is set up and has no setup steps.
  */
 export default function SetupPanel({ name, runtimeId }: { name: string; runtimeId?: RuntimeId }) {
   const { t } = useTranslation();
   const { data: status } = useSetupStatus(name, runtimeId);
   const stop = useStopSetup();
+  const run = useRunSetup();
   const [hidden, setHidden] = useState<string[]>(dismissed);
 
   if (!status) return null;
-  const working = status.settingUp;
-  const report = status.setup.length > 0 && !hidden.includes(name) ? status.report : null;
-  if (!working && !report) return null;
+  const working = isSettingUp(status);
+  const steps = status.results;
+  // An engine that predates step-by-step results sends only the report.
+  const report = steps.length === 0 && status.setup.length > 0 ? status.report : null;
+  const hasOutcome = steps.length > 0 || !!report;
+  if (!working && (!hasOutcome || hidden.includes(name))) return null;
 
   function hide() {
     const next = [...new Set([...hidden, name])];
@@ -43,6 +53,26 @@ export default function SetupPanel({ name, runtimeId }: { name: string; runtimeI
     }
   }
 
+  function tryAgain() {
+    // A rerun is worth seeing even if the last outcome was hidden.
+    const next = hidden.filter((n) => n !== name);
+    setHidden(next);
+    try {
+      localStorage.setItem(DISMISSED_KEY, JSON.stringify(next));
+    } catch {
+      // Nothing to undo.
+    }
+    run.mutate({ name, runtimeId });
+  }
+
+  const unfinished = steps.some((step) => step.status !== "ready");
+  const title = !working
+    ? t("peko.setup.resultsTitle")
+    : status.settingUp
+      ? t("peko.setup.title", { name })
+      : t("peko.setup.titleSteps", { name });
+  const failure = errorText(stop.error) ?? errorText(run.error);
+
   return (
     <section
       className="mx-4 mt-3 rounded-lg border border-line bg-surface-sunken p-3 text-xs"
@@ -52,61 +82,82 @@ export default function SetupPanel({ name, runtimeId }: { name: string; runtimeI
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-1.5 font-medium text-fg">
           {working && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          {working ? t("peko.setup.title", { name }) : t("peko.setup.reportTitle")}
+          {title}
         </h2>
-        {working ? (
-          <button
-            type="button"
-            className="btn-secondary inline-flex items-center gap-1"
-            disabled={!status.running || stop.isPending}
-            onClick={() => stop.mutate({ name, runtimeId })}
-            data-testid="setup-stop"
-          >
-            <Square className="h-3 w-3" />
-            {stop.isPending ? t("peko.setup.stopping") : t("peko.setup.stop")}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="text-fg-subtle hover:text-fg-soft"
-            onClick={hide}
-            aria-label={t("peko.setup.hide")}
-            data-testid="setup-hide"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {working ? (
+            <button
+              type="button"
+              className="btn-secondary inline-flex items-center gap-1"
+              disabled={!status.running || stop.isPending}
+              onClick={() => stop.mutate({ name, runtimeId })}
+              data-testid="setup-stop"
+            >
+              <Square className="h-3 w-3" />
+              {stop.isPending ? t("peko.setup.stopping") : t("peko.setup.stop")}
+            </button>
+          ) : (
+            <>
+              {unfinished && (
+                <button
+                  type="button"
+                  className="btn-secondary inline-flex items-center gap-1"
+                  disabled={run.isPending}
+                  onClick={tryAgain}
+                  data-testid="setup-retry"
+                >
+                  <RotateCw className="h-3 w-3" />
+                  {run.isPending ? t("peko.setup.starting") : t("peko.setup.tryAgain")}
+                </button>
+              )}
+              <button
+                type="button"
+                className="text-fg-subtle hover:text-fg-soft"
+                onClick={hide}
+                aria-label={t("peko.setup.hide")}
+                data-testid="setup-hide"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {working && (
-        <>
-          <p className="mt-1 text-fg-subtle">{t("peko.setup.stopHint")}</p>
-          {status.steps.length === 0 ? (
-            <p className="mt-2 text-fg-muted">{t("peko.setup.empty")}</p>
-          ) : (
-            <ol className="mt-2 max-h-40 space-y-0.5 overflow-y-auto font-mono text-[11px] text-fg-soft">
-              {status.steps.map((step) => (
-                <li key={step.callId} className="flex items-start gap-1.5" data-testid="setup-step">
-                  {step.outcome === null ? (
-                    <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin" />
-                  ) : step.outcome === "ok" ? (
-                    <Check className="mt-0.5 h-3 w-3 shrink-0 text-fg-subtle" />
-                  ) : (
-                    <X className="mt-0.5 h-3 w-3 shrink-0 text-danger" aria-label={t("peko.setup.stepFailed")} />
-                  )}
-                  <span className="min-w-0 break-words">{step.line}</span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </>
+      {working && <p className="mt-1 text-fg-subtle">{t("peko.setup.stopHint")}</p>}
+
+      {steps.length > 0 && (
+        <ol className="mt-2 space-y-1.5">
+          {steps.map((step, index) => (
+            <SetupStepRow key={index} step={step} />
+          ))}
+        </ol>
       )}
 
-      {stop.error && (
-        <p className="mt-2 text-danger">
-          {stop.error instanceof Error ? stop.error.message : String(stop.error)}
-        </p>
-      )}
+      {working &&
+        (status.steps.length === 0 ? (
+          <p className="mt-2 text-fg-muted">{t("peko.setup.empty")}</p>
+        ) : (
+          <ol className="mt-2 max-h-32 space-y-0.5 overflow-y-auto border-t border-line pt-2 font-mono text-[11px] text-fg-soft">
+            {status.steps.map((call) => (
+              <li key={call.callId} className="flex items-start gap-1.5" data-testid="setup-step">
+                {call.outcome === null ? (
+                  <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin" />
+                ) : call.outcome === "ok" ? (
+                  <Check className="mt-0.5 h-3 w-3 shrink-0 text-fg-subtle" />
+                ) : (
+                  <X
+                    className="mt-0.5 h-3 w-3 shrink-0 text-danger"
+                    aria-label={t("peko.setup.stepFailed")}
+                  />
+                )}
+                <span className="min-w-0 break-words">{call.line}</span>
+              </li>
+            ))}
+          </ol>
+        ))}
+
+      {failure && <p className="mt-2 text-danger">{failure}</p>}
 
       {report && (
         <pre
@@ -117,5 +168,38 @@ export default function SetupPanel({ name, runtimeId }: { name: string; runtimeI
         </pre>
       )}
     </section>
+  );
+}
+
+/** One setup step: a mark for how it stands, the step, and the peko's note. */
+function SetupStepRow({ step }: { step: SetupResult }) {
+  const { t } = useTranslation();
+  const ready = step.status === "ready";
+  const failed = step.status === "failed";
+  const label = ready
+    ? t("peko.setup.stepReady")
+    : failed
+      ? t("peko.setup.stepFailed")
+      : t("peko.setup.stepPending");
+  return (
+    <li className="flex items-start gap-2" data-testid="setup-result" data-status={step.status}>
+      <span className="mt-0.5 shrink-0" role="img" aria-label={label} title={label}>
+        {ready ? (
+          <Check className="h-3.5 w-3.5 text-ok" />
+        ) : failed ? (
+          <X className="h-3.5 w-3.5 text-danger" />
+        ) : (
+          <Circle className="h-3.5 w-3.5 text-fg-subtle" />
+        )}
+      </span>
+      <span className="min-w-0">
+        <span className="block break-words text-fg">{step.step}</span>
+        {step.note && (
+          <span className={`block break-words ${failed ? "text-danger" : "text-fg-subtle"}`}>
+            {step.note}
+          </span>
+        )}
+      </span>
+    </li>
   );
 }

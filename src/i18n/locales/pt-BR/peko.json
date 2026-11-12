@@ -166,6 +166,12 @@
     "empty": "Nada ainda. Os passos aparecem aqui conforme ele trabalha.",
     "reportTitle": "Relatório de preparação",
     "hide": "Ocultar o relatório de preparação",
-    "stepFailed": "Este passo falhou"
+    "stepFailed": "Este passo falhou",
+    "titleSteps": "{{name}} está seguindo os passos de preparação",
+    "resultsTitle": "Passos de preparação",
+    "tryAgain": "Tentar de novo",
+    "starting": "Iniciando…",
+    "stepReady": "Pronto",
+    "stepPending": "Não feito"
   }
 }
