@@ -165,6 +165,12 @@
     "empty": "Noch nichts. Die Schritte erscheinen hier während der Arbeit.",
     "reportTitle": "Einrichtungsbericht",
     "hide": "Einrichtungsbericht ausblenden",
-    "stepFailed": "Dieser Schritt ist fehlgeschlagen"
+    "stepFailed": "Dieser Schritt ist fehlgeschlagen",
+    "titleSteps": "{{name}} geht seine Einrichtungsschritte durch",
+    "resultsTitle": "Einrichtungsschritte",
+    "tryAgain": "Erneut versuchen",
+    "starting": "Wird gestartet…",
+    "stepReady": "Bereit",
+    "stepPending": "Nicht erledigt"
   }
 }

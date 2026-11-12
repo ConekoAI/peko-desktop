@@ -260,7 +260,19 @@ pub struct SetupStep {
     pub outcome: Option<String>,
 }
 
-/// How a peko's first turn is going.
+/// One setup step from the peko's seed and how it stands.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SetupResult {
+    pub step: String,
+    /// `ready` | `failed` | `pending`.
+    pub status: String,
+    /// The peko's one line about it: how it checked, or why it failed
+    /// and what to do.
+    pub note: Option<String>,
+}
+
+/// How a peko's first turn and its setup steps are going.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SetupStatus {
@@ -275,6 +287,12 @@ pub struct SetupStatus {
     pub steps: Vec<SetupStep>,
     /// Its own report of how setup went, once written.
     pub report: Option<String>,
+    /// Where its setup steps stand: `none` | `pending` | `running` |
+    /// `done`. Empty from an engine that does not say.
+    pub setup_state: String,
+    /// Each setup step with its result, in order. Empty from an engine
+    /// that does not say; `report` is then all there is.
+    pub results: Vec<SetupResult>,
 }
 
 /// Project the daemon's `principal_setup_status` envelope. `None` when
@@ -312,6 +330,17 @@ fn project_setup_status(value: &serde_json::Value) -> Option<SetupStatus> {
             })
             .collect(),
         report: text(value, "report").filter(|r| !r.trim().is_empty()),
+        setup_state: text(value, "setup_state").unwrap_or_default(),
+        results: list("results")
+            .iter()
+            .filter_map(|result| {
+                Some(SetupResult {
+                    step: text(result, "step")?,
+                    status: text(result, "status")?,
+                    note: text(result, "note").filter(|n| !n.trim().is_empty()),
+                })
+            })
+            .collect(),
     })
 }
 
@@ -337,6 +366,44 @@ pub async fn principal_setup_status(
         .await
         .map_err(|e| format!("Couldn't check on the peko: {e}"))?;
     Ok(project_setup_status(&value))
+}
+
+/// Have the peko `name` go through its setup steps again: it checks
+/// each one and carries out those that do not work yet.
+#[tauri::command]
+pub async fn principal_setup_run(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<(), String> {
+    let resolved = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await;
+    if matches!(resolved, crate::state::ResolvedRuntime::HubRemote(_)) {
+        return Err("Setup is not supported for remote pekos yet".to_string());
+    }
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_setup_run(&name)
+        .await
+        .map_err(|e| format!("Couldn't start setup: {e}"))?;
+    setup_run_outcome(&value)
+}
+
+/// The daemon's answer to `principal_setup_run`, as the app shows it.
+fn setup_run_outcome(value: &serde_json::Value) -> Result<(), String> {
+    let text = |key: &str| value.get(key).and_then(|v| v.as_str());
+    if crate::ipc::is_error_response(value) {
+        return Err(text("message")
+            .unwrap_or("Couldn't start setup")
+            .to_string());
+    }
+    if value.get("success").and_then(serde_json::Value::as_bool) == Some(true) {
+        return Ok(());
+    }
+    Err(text("error").unwrap_or("Couldn't start setup").to_string())
 }
 
 /// Stop what the peko `name` is doing on its own: its first turn, or
@@ -1616,6 +1683,41 @@ mod tests {
         .unwrap();
         assert!(!done.setting_up && !done.running);
         assert_eq!(done.report.as_deref(), Some("- ripgrep: ready"));
+        // An engine that predates per-step results gives none.
+        assert!(done.results.is_empty() && done.setup_state.is_empty());
+
+        let stepwise = project_setup_status(&serde_json::json!({
+            "type": "principal_setup_status",
+            "boot_state": "organized",
+            "running": false,
+            "setup": ["Install ripgrep", "Add Playwright"],
+            "steps": [],
+            "setup_state": "done",
+            "results": [
+                {"step": "Install ripgrep", "status": "ready", "note": "rg --version"},
+                {"step": "Add Playwright", "status": "failed", "note": "  "}
+            ]
+        }))
+        .unwrap();
+        assert_eq!(stepwise.setup_state, "done");
+        assert_eq!(stepwise.results[0].note.as_deref(), Some("rg --version"));
+        assert_eq!(stepwise.results[1].status, "failed");
+        assert_eq!(stepwise.results[1].note, None, "a blank note is none");
+
+        // Starting setup again: started, refused with a reason, or an error.
+        assert!(setup_run_outcome(&serde_json::json!({"type": "done", "success": true})).is_ok());
+        assert_eq!(
+            setup_run_outcome(&serde_json::json!({
+                "type": "done", "success": false, "error": "a setup turn is already scheduled"
+            }))
+            .unwrap_err(),
+            "a setup turn is already scheduled"
+        );
+        assert_eq!(
+            setup_run_outcome(&serde_json::json!({"type": "error", "message": "[forbidden] no"}))
+                .unwrap_err(),
+            "[forbidden] no"
+        );
 
         assert!(project_setup_status(&serde_json::json!({
             "type": "error",

@@ -164,6 +164,12 @@
     "empty": "まだ何もありません。作業が進むと手順がここに表示されます。",
     "reportTitle": "準備レポート",
     "hide": "準備レポートを隠す",
-    "stepFailed": "この手順は失敗しました"
+    "stepFailed": "この手順は失敗しました",
+    "titleSteps": "{{name}} が準備手順を進めています",
+    "resultsTitle": "準備手順",
+    "tryAgain": "もう一度試す",
+    "starting": "開始中…",
+    "stepReady": "完了",
+    "stepPending": "未完了"
   }
 }

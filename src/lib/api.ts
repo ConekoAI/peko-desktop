@@ -236,7 +236,15 @@ export interface SetupStep {
   outcome: string | null;
 }
 
-/** How a peko's first turn is going. */
+/** One setup step from the peko's seed and how it stands. */
+export interface SetupResult {
+  step: string;
+  status: "ready" | "failed" | "pending" | string;
+  /** How it checked, or why it failed and what to do. */
+  note: string | null;
+}
+
+/** How a peko's first turn and its setup steps are going. */
 export interface SetupStatus {
   /** False once the first turn is over (done, or stopped). */
   settingUp: boolean;
@@ -247,6 +255,10 @@ export interface SetupStatus {
   steps: SetupStep[];
   /** Its own report of how setup went, once written. */
   report: string | null;
+  /** `none` | `pending` | `running` | `done`; empty when not known. */
+  setupState: string;
+  /** Each setup step with its result; empty when not known. */
+  results: SetupResult[];
 }
 
 /** `null` for a remote peko, or when nothing can be said about it. */
@@ -258,6 +270,11 @@ export async function principalSetupStatus(
     name,
     runtimeId: runtimeId ?? null,
   });
+}
+
+/** Have a peko go through its setup steps again. */
+export async function principalSetupRun(name: string, runtimeId?: RuntimeId): Promise<void> {
+  return invoke<void>("principal_setup_run", { name, runtimeId: runtimeId ?? null });
 }
 
 /**

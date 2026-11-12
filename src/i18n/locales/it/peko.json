@@ -166,6 +166,12 @@
     "empty": "Ancora niente. I passaggi compaiono qui mentre lavora.",
     "reportTitle": "Rapporto di preparazione",
     "hide": "Nascondi il rapporto di preparazione",
-    "stepFailed": "Questo passaggio non è riuscito"
+    "stepFailed": "Questo passaggio non è riuscito",
+    "titleSteps": "{{name}} sta seguendo i passaggi di preparazione",
+    "resultsTitle": "Passaggi di preparazione",
+    "tryAgain": "Riprova",
+    "starting": "Avvio…",
+    "stepReady": "Pronto",
+    "stepPending": "Non fatto"
   }
 }

@@ -164,6 +164,12 @@
     "empty": "还没有内容。它工作时，步骤会显示在这里。",
     "reportTitle": "准备报告",
     "hide": "隐藏准备报告",
-    "stepFailed": "此步骤失败"
+    "stepFailed": "此步骤失败",
+    "titleSteps": "{{name}} 正在执行准备步骤",
+    "resultsTitle": "准备步骤",
+    "tryAgain": "重试",
+    "starting": "正在开始…",
+    "stepReady": "已就绪",
+    "stepPending": "未完成"
   }
 }

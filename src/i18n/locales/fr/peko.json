@@ -166,6 +166,12 @@
     "empty": "Rien pour l'instant. Les étapes apparaissent ici au fur et à mesure.",
     "reportTitle": "Rapport de préparation",
     "hide": "Masquer le rapport de préparation",
-    "stepFailed": "Cette étape a échoué"
+    "stepFailed": "Cette étape a échoué",
+    "titleSteps": "{{name}} suit ses étapes de préparation",
+    "resultsTitle": "Étapes de préparation",
+    "tryAgain": "Réessayer",
+    "starting": "Démarrage…",
+    "stepReady": "Prêt",
+    "stepPending": "Pas fait"
   }
 }
