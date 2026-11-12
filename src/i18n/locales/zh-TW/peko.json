@@ -17,8 +17,10 @@
     "create": "建立 {{name}}",
     "fallbackName": "peko",
     "setupTitle": "這個種子要求 {{name}} 準備以下內容",
-    "setupWarning": "它會在第一輪以你的身分在這台電腦上執行指令並下載程式碼。同意之前請閱讀每個步驟。",
-    "setupAccept": "讓 {{name}} 執行"
+    "setupWarning": "它會以你的身分在這台電腦上執行指令並下載程式碼。同意之前請閱讀每個步驟。",
+    "setupAccept": "讓 {{name}} 執行",
+    "filesTitle": "這個種子會把這些檔案寫入 {{name}} 的資料夾",
+    "fileRuns": "此檔案指定了你的電腦將要執行的內容："
   },
   "status": {
     "online": "線上",

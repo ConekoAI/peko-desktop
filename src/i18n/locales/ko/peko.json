@@ -17,8 +17,10 @@
     "create": "{{name}} 만들기",
     "fallbackName": "peko",
     "setupTitle": "이 시드는 {{name}}에게 다음을 준비하도록 요청합니다",
-    "setupWarning": "첫 턴에 사용자 권한으로 이 컴퓨터에서 명령을 실행하고 코드를 내려받습니다. 동의하기 전에 각 단계를 읽어 보세요.",
-    "setupAccept": "{{name}}이(가) 진행하도록 허용"
+    "setupWarning": "사용자 권한으로 이 컴퓨터에서 명령을 실행하고 코드를 내려받습니다. 동의하기 전에 각 단계를 읽어 보세요.",
+    "setupAccept": "{{name}}이(가) 진행하도록 허용",
+    "filesTitle": "이 시드는 {{name}}의 폴더에 다음 파일을 씁니다",
+    "fileRuns": "이 파일은 이 컴퓨터가 실행할 항목을 지정합니다:"
   },
   "status": {
     "online": "온라인",

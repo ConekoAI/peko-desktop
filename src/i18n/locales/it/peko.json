@@ -17,8 +17,10 @@
     "create": "Crea {{name}}",
     "fallbackName": "peko",
     "setupTitle": "Questo seme chiede a {{name}} di preparare quanto segue",
-    "setupWarning": "Al primo turno eseguirà comandi e scaricherà codice su questo computer, a tuo nome. Leggi ogni passaggio prima di accettare.",
-    "setupAccept": "Lascia che {{name}} lo faccia"
+    "setupWarning": "Eseguirà comandi e scaricherà codice su questo computer, a tuo nome. Leggi ogni passaggio prima di accettare.",
+    "setupAccept": "Lascia che {{name}} lo faccia",
+    "filesTitle": "Questo seme scrive questi file nella cartella di {{name}}",
+    "fileRuns": "Questo file indica qualcosa che il tuo computer eseguirà:"
   },
   "status": {
     "online": "Online",

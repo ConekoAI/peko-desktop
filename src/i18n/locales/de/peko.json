@@ -17,8 +17,10 @@
     "create": "{{name}} erstellen",
     "fallbackName": "Peko",
     "setupTitle": "Dieser Seed bittet {{name}}, Folgendes einzurichten",
-    "setupWarning": "Im ersten Durchlauf führt es auf diesem Computer in deinem Namen Befehle aus und lädt Code herunter. Lies jeden Schritt, bevor du zustimmst.",
-    "setupAccept": "{{name}} das tun lassen"
+    "setupWarning": "Es führt auf diesem Computer in deinem Namen Befehle aus und lädt Code herunter. Lies jeden Schritt, bevor du zustimmst.",
+    "setupAccept": "{{name}} das tun lassen",
+    "filesTitle": "Dieser Seed schreibt diese Dateien in den Ordner von {{name}}",
+    "fileRuns": "Diese Datei benennt etwas, das dein Computer ausführen wird:"
   },
   "status": {
     "online": "Online",

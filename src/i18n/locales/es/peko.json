@@ -17,8 +17,10 @@
     "create": "Crear {{name}}",
     "fallbackName": "peko",
     "setupTitle": "Esta semilla pide a {{name}} que prepare lo siguiente",
-    "setupWarning": "En su primer turno ejecutará comandos y descargará código en este equipo, en tu nombre. Lee cada paso antes de aceptar.",
-    "setupAccept": "Permitir que {{name}} lo haga"
+    "setupWarning": "Ejecutará comandos y descargará código en este equipo, en tu nombre. Lee cada paso antes de aceptar.",
+    "setupAccept": "Permitir que {{name}} lo haga",
+    "filesTitle": "Esta semilla escribe estos archivos en la carpeta de {{name}}",
+    "fileRuns": "Este archivo nombra algo que tu equipo ejecutará:"
   },
   "status": {
     "online": "En línea",

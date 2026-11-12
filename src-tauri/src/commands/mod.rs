@@ -34,7 +34,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_send,
         principal::principal_send_stream,
         principal::principal_stop,
-        principal::seed_setup_steps,
+        principal::seed_contents,
         principal::principal_setup_status,
         principal::principal_stop_setup,
         principal::principal_setup_run,

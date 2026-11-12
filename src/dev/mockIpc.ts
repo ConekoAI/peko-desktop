@@ -252,14 +252,21 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       return pekos.find((p) => p.name === args.name) ?? null;
     case "remote_principal_list":
       return remotePekos;
-    case "seed_setup_steps":
+    case "seed_contents":
       return String(args.seed ?? "").includes("setup")
-        ? [
-            "Get the release-notes skill from https://example.com/skills/release-notes",
-            "Add the Playwright MCP server (https://github.com/microsoft/playwright-mcp)",
-            "Install ripgrep",
-          ]
-        : [];
+        ? {
+            steps: ["Make sure Node is installed", "Install ripgrep"],
+            files: [
+              {
+                path: "mcp/playwright/server.json",
+                size: 58,
+                content: '{ "command": "npx", "args": ["@playwright/mcp@latest"] }',
+              },
+              { path: "roles/researcher.md", size: 127, content: null },
+              { path: "skills/release-notes/SKILL.md", size: 840, content: null },
+            ],
+          }
+        : { steps: [], files: [] };
     case "principal_setup_status":
       // bolt is going through its setup steps; aria has finished with one
       // step failed.

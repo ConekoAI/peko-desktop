@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { usePrincipalCreate, usePrincipalUpdate } from "../../hooks/usePrincipals";
 import { useModels } from "../../hooks/useModels";
-import { seedSetupSteps } from "../../lib/api";
+import { seedContents, type SeedFile } from "../../lib/api";
 import { isValidPrincipalName } from "../../lib/validatePrincipalName";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
 import PekoAvatar from "./PekoAvatar";
@@ -48,6 +48,7 @@ export default function NewPekoForm({
   // What the seed asks the new peko to set up on its first turn. It runs
   // commands on this computer, so the person agrees to the steps first.
   const [setupSteps, setSetupSteps] = useState<string[]>([]);
+  const [seedFiles, setSeedFiles] = useState<SeedFile[]>([]);
   const [setupAccepted, setSetupAccepted] = useState(false);
   const model = chosenModel || enabledModels[0]?.id || "";
 
@@ -68,14 +69,16 @@ export default function NewPekoForm({
       return;
     }
     let steps: string[];
+    let files: SeedFile[];
     try {
-      steps = await seedSetupSteps(text);
+      ({ steps, files } = await seedContents(text));
     } catch (e) {
       setSeedError(e instanceof Error ? e.message : String(e));
       return;
     }
     setSeed({ fileName: file.name, text });
     setSetupSteps(steps);
+    setSeedFiles(files);
     setSetupAccepted(false);
     setAdvanced(true);
   }
@@ -83,10 +86,12 @@ export default function NewPekoForm({
   function removeSeed() {
     setSeed(null);
     setSetupSteps([]);
+    setSeedFiles([]);
     setSetupAccepted(false);
   }
 
-  const needsAccept = setupSteps.length > 0 && !setupAccepted;
+  const bringsSomething = setupSteps.length > 0 || seedFiles.length > 0;
+  const needsAccept = bringsSomething && !setupAccepted;
 
   async function create() {
     try {
@@ -95,7 +100,7 @@ export default function NewPekoForm({
         modelId: model,
         ...(description.trim() && { description: description.trim() }),
         ...(seed && { seed: seed.text }),
-        ...(seed && setupSteps.length > 0 && setupAccepted && { acceptSetup: true }),
+        ...(seed && bringsSomething && setupAccepted && { acceptSetup: true }),
       });
       if (avatar) await updateMut.mutateAsync({ name: trimmed, avatar });
       onCreated(trimmed);
@@ -198,22 +203,48 @@ export default function NewPekoForm({
             {t("peko.new.seedHint")}
           </span>
           {seedError && <span className="mt-1 block text-[11px] text-danger">{seedError}</span>}
-          {setupSteps.length > 0 && (
+          {bringsSomething && (
             <div
               className="mt-2 space-y-2 rounded-lg border border-warn/25 bg-warn-soft p-3 text-xs text-warn"
               data-testid="new-peko-setup"
             >
-              <p className="font-medium">
-                {t("peko.new.setupTitle", { name: trimmed || t("peko.new.fallbackName") })}
-              </p>
-              <ol className="list-decimal space-y-1 pl-5">
-                {setupSteps.map((step, index) => (
-                  <li key={index} className="break-words" data-testid="new-peko-setup-step">
-                    {step}
-                  </li>
-                ))}
-              </ol>
-              <p>{t("peko.new.setupWarning")}</p>
+              {setupSteps.length > 0 && (
+                <>
+                  <p className="font-medium">
+                    {t("peko.new.setupTitle", { name: trimmed || t("peko.new.fallbackName") })}
+                  </p>
+                  <ol className="list-decimal space-y-1 pl-5">
+                    {setupSteps.map((step, index) => (
+                      <li key={index} className="break-words" data-testid="new-peko-setup-step">
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                  <p>{t("peko.new.setupWarning")}</p>
+                </>
+              )}
+              {seedFiles.length > 0 && (
+                <>
+                  <p className="font-medium">
+                    {t("peko.new.filesTitle", { name: trimmed || t("peko.new.fallbackName") })}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {seedFiles.map((file) => (
+                      <li key={file.path} data-testid="new-peko-seed-file">
+                        <span className="break-all font-mono">{file.path}</span>
+                        {file.content !== null && (
+                          <>
+                            <span className="block">{t("peko.new.fileRuns")}</span>
+                            <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-sunken p-2 font-mono text-[11px] text-fg-soft">
+                              {file.content}
+                            </pre>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
               <label className="flex cursor-pointer items-center gap-2 font-medium">
                 <input
                   type="checkbox"
