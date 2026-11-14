@@ -1,6 +1,6 @@
 [package]
 name = "peko-desktop"
-version = "0.1.2"
+version = "0.1.3"
 description = "Desktop GUI for Peko Runtime"
 authors = ["Coneko Team"]
 edition = "2021"
