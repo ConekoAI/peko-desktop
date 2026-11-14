@@ -107,7 +107,7 @@ export default function MemberList({
                 {who.peko ? (
                   <PekoAvatar peko={who.peko} size="sm" />
                 ) : (
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-peko-800 text-peko-100">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-brand-fg">
                     <User className="h-3.5 w-3.5" />
                   </span>
                 )}
@@ -179,7 +179,7 @@ function PeopleList({
         {who.peko ? (
           <PekoAvatar peko={who.peko} size="sm" />
         ) : (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-peko-800 text-peko-100">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-brand-fg">
             <User className="h-3.5 w-3.5" />
           </span>
         )}

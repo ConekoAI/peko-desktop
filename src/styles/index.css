@@ -5,36 +5,37 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * PekoHub design system, shared with the hub (pekohub/frontend): navy
- * `ink` surfaces, one brand-blue `peko` accent, hairline borders, Inter.
- * Raw palettes are available (`bg-ink-900`, `text-peko-300`), but
- * components should reach for the semantic tokens below so one class
- * serves both themes.
+ * Peko design system, shared with the hub (pekohub/frontend): black,
+ * white and neutral grays (`ink`), hairline borders, Inter. Primary
+ * actions are black on light and white on dark. Peko teal (`peko`, the
+ * logo color #008880) is an accent used sparingly: the logo, focus rings,
+ * the online dot and unread counts. Components should reach for the
+ * semantic tokens below so one class serves both themes.
  */
 @theme {
   --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-ink-950: #0a0f1e;
-  --color-ink-900: #0e1527;
-  --color-ink-850: #121a2f;
-  --color-ink-800: #161f37;
-  --color-ink-750: #1b2641;
-  --color-ink-700: #232f4d;
-  --color-ink-600: #2e3b5d;
-  --color-ink-500: #3e4c71;
+  --color-ink-950: #0a0a0a;
+  --color-ink-900: #111111;
+  --color-ink-850: #161616;
+  --color-ink-800: #1c1c1c;
+  --color-ink-750: #222222;
+  --color-ink-700: #2b2b2b;
+  --color-ink-600: #3a3a3a;
+  --color-ink-500: #525252;
 
-  --color-peko-50: #eef3fd;
-  --color-peko-100: #dce6fb;
-  --color-peko-200: #bacdf6;
-  --color-peko-300: #92b0ef;
-  --color-peko-400: #6c92e6;
-  --color-peko-500: #4f79d9;
-  --color-peko-600: #3e64c2;
-  --color-peko-700: #33519d;
-  --color-peko-800: #2d4580;
-  --color-peko-900: #283b67;
-  --color-peko-950: #1a2443;
+  --color-peko-50: #e5fdfa;
+  --color-peko-100: #dbf3f0;
+  --color-peko-200: #b7e6e0;
+  --color-peko-300: #7ed3ca;
+  --color-peko-400: #4eb8af;
+  --color-peko-500: #309f97;
+  --color-peko-600: #008880;
+  --color-peko-700: #006f67;
+  --color-peko-800: #00554f;
+  --color-peko-900: #003f3b;
+  --color-peko-950: #002a27;
 
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
@@ -75,64 +76,69 @@
  *   surface-sunken  hover and pressed fills, code headers
  *   line / line-strong   hairlines; control borders
  *   fg / fg-soft / fg-muted / fg-subtle   text, by emphasis
- *   brand           primary fills (buttons, selection)
- *   brand-text      the accent as text and icons (links, active items)
- *   brand-soft      a tinted fill behind brand-text
+ *   brand           primary fills (buttons): black on light, white on dark
+ *   brand-text      emphasised text and icons (links, active items): fg
+ *   brand-soft      a neutral fill for selected and active rows
+ *   accent(-soft)   Peko teal, sparingly: focus rings, online, unread
  *   danger(-soft) / warn(-soft) / ok(-soft)   status
  *
- * Dark is the hub's own look; light is its daytime counterpart.
+ * Dark matches the hub; light is its daytime counterpart.
  */
 :root {
-  --surface: #f7f9fc;
-  --surface-rail: #e9eef6;
+  --surface: #fafafa;
+  --surface-rail: #efefef;
   --surface-card: #ffffff;
-  --surface-raised: #f0f3f9;
-  --surface-sunken: #e6ebf3;
-  --line: #dde3ee;
-  --line-strong: #c9d2e2;
-  --fg: #0e1527;
-  --fg-soft: #2e3b5d;
-  --fg-muted: #56627f;
-  --fg-subtle: #8690a8;
-  --brand: #3e64c2;
-  --brand-hover: #33519d;
-  --brand-soft: #e6edfc;
+  --surface-raised: #f4f4f4;
+  --surface-sunken: #e9e9e9;
+  --line: #e4e4e4;
+  --line-strong: #d0d0d0;
+  --fg: #0a0a0a;
+  --fg-soft: #2b2b2b;
+  --fg-muted: #5f5f5f;
+  --fg-subtle: #8a8a8a;
+  --brand: #111111;
+  --brand-hover: #2b2b2b;
+  --brand-soft: #ececec;
   --brand-fg: #ffffff;
-  --brand-text: #3e64c2;
+  --brand-text: #0a0a0a;
+  --accent: #008880;
+  --accent-soft: rgb(0 136 128 / 0.2);
   --danger: #c8344f;
   --danger-soft: #fdeef1;
   --warn: #a35c06;
   --warn-soft: #fdf5e6;
   --ok: #17845e;
   --ok-soft: #e7f6ef;
-  --scrollbar: #c9d2e2;
+  --scrollbar: #d0d0d0;
   color-scheme: light;
 }
 
 .dark {
-  --surface: #0a0f1e;
-  --surface-rail: #070b17;
-  --surface-card: #0e1527;
-  --surface-raised: #0d1325;
-  --surface-sunken: #161f37;
-  --line: #1b2641;
-  --line-strong: #2e3b5d;
-  --fg: #f1f5f9;
-  --fg-soft: #cbd5e1;
-  --fg-muted: #94a3b8;
-  --fg-subtle: #64748b;
-  --brand: #3e64c2;
-  --brand-hover: #4f79d9;
-  --brand-soft: rgb(79 121 217 / 0.16);
-  --brand-fg: #ffffff;
-  --brand-text: #92b0ef;
+  --surface: #0a0a0a;
+  --surface-rail: #050505;
+  --surface-card: #141414;
+  --surface-raised: #101010;
+  --surface-sunken: #1c1c1c;
+  --line: #222222;
+  --line-strong: #333333;
+  --fg: #f5f5f5;
+  --fg-soft: #d4d4d4;
+  --fg-muted: #a3a3a3;
+  --fg-subtle: #737373;
+  --brand: #f5f5f5;
+  --brand-hover: #ffffff;
+  --brand-soft: rgb(255 255 255 / 0.08);
+  --brand-fg: #0a0a0a;
+  --brand-text: #fafafa;
+  --accent: #30a097;
+  --accent-soft: rgb(48 160 151 / 0.25);
   --danger: #fb7185;
   --danger-soft: rgb(251 113 133 / 0.1);
   --warn: #fbbf24;
   --warn-soft: rgb(251 191 36 / 0.1);
   --ok: #34d399;
   --ok-soft: rgb(52 211 153 / 0.1);
-  --scrollbar: #232f4d;
+  --scrollbar: #2b2b2b;
   color-scheme: dark;
 }
 
@@ -153,6 +159,8 @@
   --color-brand-soft: var(--brand-soft);
   --color-brand-fg: var(--brand-fg);
   --color-brand-text: var(--brand-text);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-warn: var(--warn);
@@ -214,11 +222,11 @@ body {
 }
 
 ::selection {
-  background: rgb(108 146 230 / 0.35);
+  background: rgb(0 136 128 / 0.25);
 }
 
 :focus-visible {
-  outline: 2px solid rgb(108 146 230 / 0.7);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 input:focus-visible, textarea:focus-visible, select:focus-visible {
@@ -313,7 +321,7 @@ select option {
 
 /* Form controls */
 @utility input {
-  @apply block w-full rounded-lg border border-line-strong bg-surface-card px-3 py-2 text-sm text-fg transition-colors outline-none hover:border-fg-subtle/50 focus:border-peko-500 focus:ring-2 focus:ring-peko-500/20 disabled:opacity-50;
+  @apply block w-full rounded-lg border border-line-strong bg-surface-card px-3 py-2 text-sm text-fg transition-colors outline-none hover:border-fg-subtle/50 focus:border-accent focus:ring-2 focus:ring-accent-soft disabled:opacity-50;
 }
 @utility input-sm {
   @apply rounded-md px-2.5 py-1.5 text-xs;
@@ -377,7 +385,7 @@ select option {
   @apply relative flex items-center gap-2 px-1 py-3 text-sm text-fg-muted transition-colors hover:text-fg;
 }
 @utility tab-active {
-  @apply text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-peko-400 after:content-[''];
+  @apply text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-fg after:content-[''];
 }
 
 /* Segmented control */
@@ -411,7 +419,7 @@ select option {
   @apply badge bg-ok-soft text-ok;
 }
 @utility count-badge {
-  @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-none text-white;
+  @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-white;
 }
 
 /* Notes */
@@ -425,7 +433,7 @@ select option {
   @apply note border-warn/25 bg-warn-soft text-warn;
 }
 @utility note-info {
-  @apply note border-peko-500/25 bg-brand-soft text-brand-text;
+  @apply note border-line-strong bg-brand-soft text-fg-soft;
 }
 
 /* Code */

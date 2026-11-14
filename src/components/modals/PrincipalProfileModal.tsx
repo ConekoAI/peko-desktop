@@ -844,7 +844,7 @@ function LocalPekoProfile({
                         className={[
                           "flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors",
                           avatar === emoji
-                            ? "bg-brand-soft ring-1 ring-peko-500"
+                            ? "bg-brand-soft ring-1 ring-fg"
                             : "hover:bg-surface-sunken",
                         ].join(" ")}
                       >

@@ -154,7 +154,7 @@ function boardLine(text: string, label: string): string {
 function ActorFace({ who }: { who: ActorDisplay }) {
   if (who.peko) return <PekoAvatar peko={who.peko} size="md" />;
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-peko-800 text-peko-100">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-brand-fg">
       <User className="h-4 w-4" />
     </span>
   );

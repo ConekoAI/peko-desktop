@@ -193,7 +193,7 @@ export default function ProfileMenu() {
           isPending
             ? "animate-pulse rounded-full bg-surface-sunken"
             : signedIn
-              ? "rounded-full bg-peko-800 text-peko-100 ring-2 ring-transparent hover:ring-peko-400/60"
+              ? "rounded-full bg-brand text-brand-fg ring-2 ring-transparent hover:ring-fg-subtle/60"
               : "rounded-[22px] bg-surface-sunken text-fg-soft hover:rounded-xl hover:bg-brand hover:text-white",
         ].join(" ")}
       >

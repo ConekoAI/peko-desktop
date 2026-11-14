@@ -161,7 +161,7 @@ function ChatMessage({
     <div className="group relative flex w-full gap-3 rounded-lg px-3 py-1.5 transition-colors hover:bg-surface-raised">
       <div className="mt-0.5 shrink-0">
         {isUser ? (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-peko-800 text-peko-100">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-brand-fg">
             <User className="h-4 w-4" />
           </div>
         ) : isError ? (
@@ -248,7 +248,7 @@ function SuggestedReplies({
           key={reply}
           type="button"
           onClick={() => onPick(reply)}
-          className="rounded-full border border-line-strong bg-surface-card px-3 py-1 text-xs font-medium text-fg-soft transition-colors hover:border-peko-400/60 hover:bg-brand-soft hover:text-fg"
+          className="rounded-full border border-line-strong bg-surface-card px-3 py-1 text-xs font-medium text-fg-soft transition-colors hover:border-fg-subtle/60 hover:bg-brand-soft hover:text-fg"
         >
           {reply}
         </button>
