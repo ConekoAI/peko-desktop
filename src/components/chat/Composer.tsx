@@ -77,7 +77,7 @@ export default function Composer({
         e.preventDefault();
         if (canSend) onSend();
       }}
-      className="rounded-xl border border-line-strong bg-surface-card shadow-sm transition-colors focus-within:border-peko-500 focus-within:ring-2 focus-within:ring-peko-500/20"
+      className="rounded-xl border border-line-strong bg-surface-card shadow-sm transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-soft"
     >
       <PendingAttachments paths={attachments} onRemove={(path) => onRemoveAttachment?.(path)} />
       <textarea
@@ -113,7 +113,7 @@ export default function Composer({
             aria-label={t("chat.composer.modelLabel")}
             value={model ?? ""}
             onChange={(e) => onModelChange(e.target.value || null)}
-            className="max-w-[14rem] truncate rounded-md border-none bg-transparent px-2 py-1 text-xs text-fg-muted outline-none hover:bg-surface-sunken focus:ring-1 focus:ring-peko-500"
+            className="max-w-[14rem] truncate rounded-md border-none bg-transparent px-2 py-1 text-xs text-fg-muted outline-none hover:bg-surface-sunken focus:ring-1 focus:ring-accent"
           >
             <option value="">{t("chat.composer.pekosModel")}</option>
             {models.map((m) => (

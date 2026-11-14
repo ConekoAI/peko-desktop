@@ -22,7 +22,7 @@ const COLOR_TIERS: Record<SpecBadgeKind, string> = {
   video:
     "border-warn/25 bg-warn-soft text-warn",
   tools:
-    "border-peko-500/25 bg-brand-soft text-brand-text",
+    "border-line-strong bg-brand-soft text-fg-soft",
   thinking:
     "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-300",
   json:

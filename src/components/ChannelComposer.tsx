@@ -146,7 +146,7 @@ export default function ChannelComposer({
           </div>
         )
       )}
-      <div className="relative flex items-end gap-2 rounded-xl border border-line-strong bg-surface-card p-1.5 shadow-sm transition-colors focus-within:border-peko-500 focus-within:ring-2 focus-within:ring-peko-500/20">
+      <div className="relative flex items-end gap-2 rounded-xl border border-line-strong bg-surface-card p-1.5 shadow-sm transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-soft">
         {menuOpen && (
           <ul
             role="listbox"

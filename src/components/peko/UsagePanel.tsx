@@ -151,7 +151,7 @@ export default function UsagePanel({
         <label htmlFor="usage-budget" className="text-[11px] text-fg-muted">
           {t("peko.usage.budget")}
         </label>
-        <div className="flex items-center rounded-md border border-line-strong bg-surface-card transition-colors focus-within:border-peko-500 focus-within:ring-2 focus-within:ring-peko-500/20">
+        <div className="flex items-center rounded-md border border-line-strong bg-surface-card transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent-soft">
           <span className="pl-2 text-xs text-fg-subtle">$</span>
           <input
             id="usage-budget"

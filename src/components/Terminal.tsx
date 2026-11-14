@@ -75,7 +75,7 @@ export default function Terminal({ lines, className = "" }: TerminalProps) {
   return (
     <div
       className={[
-        "overflow-auto rounded-lg border border-line bg-ink-950 p-4 font-mono text-slate-100",
+        "overflow-auto rounded-lg border border-line bg-ink-950 p-4 font-mono text-neutral-100",
         className,
       ].join(" ")}
     >
