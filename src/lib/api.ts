@@ -1841,6 +1841,35 @@ export async function setPersonBlocked(account: string, blocked: boolean): Promi
   return invoke<BlockedPerson[]>("set_person_blocked", { account, blocked });
 }
 
+/** Where you have read up to in one conversation (runtime ADR-108 D5). */
+export interface ReadState {
+  channel: string;
+  kind: "dm" | "group" | string;
+  /** A DM's other member: `principal` (a peko), `user` or `visitor`. */
+  peerKind?: string | null;
+  /** A peko on this computer, by its local id. */
+  peerLocalId?: string | null;
+  /** A peko or person on PekoHub, by their ID there. */
+  peerHubId?: string | null;
+  /** Posts after your read mark that you did not write. */
+  unread: number;
+  /** Whether you have a read mark here at all. */
+  marked: boolean;
+}
+
+/** Where you have read up to in each of your conversations. */
+export async function readState(): Promise<ReadState[]> {
+  return invoke<ReadState[]>("read_state");
+}
+
+/**
+ * You have seen `channel` up to `at` (ISO). Your phone and your other
+ * computers are told. Resolves to whether the mark moved.
+ */
+export async function markRead(channel: string, at: string): Promise<boolean> {
+  return invoke<boolean>("mark_read", { channel, at });
+}
+
 /** A phone paired with this computer (runtime ADR-108). */
 export interface PairedPhone {
   deviceId: string;

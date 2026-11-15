@@ -68,6 +68,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         device::paired_phones,
         device::phone_pair_start,
         device::paired_phone_remove,
+        device::read_state,
+        device::mark_read,
         channel::group_join,
         channel::group_register,
         channel::group_link,

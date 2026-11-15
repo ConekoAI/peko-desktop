@@ -1,4 +1,5 @@
-//! Phones paired with this computer (runtime ADR-108).
+//! Phones paired with this computer, and where you have read up to
+//! (runtime ADR-108).
 //!
 //! A paired phone reads and posts as the person through this computer.
 //! The owner pairs one by showing it a code on this screen, and removes
@@ -153,6 +154,85 @@ pub async fn paired_phone_remove(device_id: String) -> Result<Vec<PairedPhone>, 
     phones_from(&value)
 }
 
+/// Where you have read up to in one conversation (runtime ADR-108 D5).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadState {
+    pub channel: String,
+    /// `dm` or `group`.
+    pub kind: String,
+    /// A DM's other member: `principal` (a peko), `user` or `visitor`.
+    pub peer_kind: Option<String>,
+    /// A peko on this computer, by its local id (`prin_…`).
+    pub peer_local_id: Option<String>,
+    /// A peko or person on PekoHub, by their ID there.
+    pub peer_hub_id: Option<String>,
+    /// Posts after your read mark that you did not write.
+    pub unread: u64,
+    /// Whether you have a read mark here at all.
+    pub marked: bool,
+}
+
+fn read_state_from(value: &serde_json::Value) -> Result<Vec<ReadState>, String> {
+    if let Some(message) = refusal_of(value) {
+        return Err(message);
+    }
+    let text = |row: &serde_json::Value, key: &str| {
+        row.get(key).and_then(|v| v.as_str()).map(str::to_string)
+    };
+    Ok(value
+        .get("channels")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|row| {
+            let peer = row.get("peer").filter(|p| p.is_object());
+            Some(ReadState {
+                channel: text(row, "channel")?,
+                kind: text(row, "kind").unwrap_or_else(|| "group".into()),
+                peer_kind: peer.and_then(|p| text(p, "kind")),
+                peer_local_id: peer.and_then(|p| text(p, "local_id")),
+                peer_hub_id: peer.and_then(|p| text(p, "hub_id")),
+                unread: row.get("unread").and_then(|v| v.as_u64()).unwrap_or(0),
+                marked: row.get("read").is_some_and(|v| v.is_string()),
+            })
+        })
+        .collect())
+}
+
+/// Where you have read up to in each of your conversations.
+#[tauri::command]
+pub async fn read_state() -> Result<Vec<ReadState>, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_read_state()
+        .await
+        .map_err(|e| format!("channel_read_state failed: {e}"))?;
+    read_state_from(&value)
+}
+
+/// You have seen `channel` up to `at` (an ISO time). Your phone and your
+/// other computers are told. Returns whether the mark moved.
+#[tauri::command]
+pub async fn mark_read(channel: String, at: String) -> Result<bool, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_mark_read(channel.trim(), at.trim())
+        .await
+        .map_err(|e| format!("channel_mark_read failed: {e}"))?;
+    if let Some(message) = refusal_of(&value) {
+        return Err(message);
+    }
+    Ok(value
+        .get("moved")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,6 +272,31 @@ mod tests {
         // And the picture says what was asked.
         let json = serde_json::to_value(&pairing).unwrap();
         assert!(json.get("expiresAt").is_some() && json.get("qr").is_none());
+    }
+
+    #[test]
+    fn reads_the_read_state() {
+        let value = serde_json::json!({"type": "channel_read_state_result", "request_id": 1, "channels": [
+            {"channel": "dm_aa", "kind": "dm", "unread": 2, "read": "msg_1",
+             "peer": {"address": "principal:local:prin_kit", "local_id": "prin_kit",
+                      "hub_id": "c1e709c9", "kind": "principal", "registration": "private", "name": "kit"}},
+            {"channel": "dm_bb", "kind": "dm", "unread": 0,
+             "peer": {"address": "user:hub:noah-id", "hub_id": "noah-id", "kind": "user", "registration": "private"}},
+            {"channel": "chan_cc", "kind": "group", "unread": 5},
+        ]});
+        let rows = read_state_from(&value).unwrap();
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0].peer_local_id.as_deref(), Some("prin_kit"));
+        assert_eq!((rows[0].unread, rows[0].marked), (2, true));
+        assert_eq!(rows[1].peer_kind.as_deref(), Some("user"));
+        assert_eq!(rows[1].peer_hub_id.as_deref(), Some("noah-id"));
+        assert!(!rows[1].marked);
+        assert_eq!(
+            (rows[2].kind.as_str(), rows[2].peer_kind.clone()),
+            ("group", None)
+        );
+        let json = serde_json::to_value(&rows[0]).unwrap();
+        assert_eq!(json["peerLocalId"], "prin_kit");
     }
 
     #[test]

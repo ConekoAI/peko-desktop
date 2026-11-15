@@ -446,6 +446,7 @@ export default function PrincipalSidebar({
                   person={person}
                   active={active}
                   rowClass={`${ROW_CLASS} ${rowTone(active)}`}
+                  unread={unread[person.channelId] ?? 0}
                 />
               );
             })}

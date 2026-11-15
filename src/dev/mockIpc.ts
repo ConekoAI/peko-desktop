@@ -415,6 +415,7 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
     case "group_invitations":
     case "person_groups":
     case "blocked_people":
+    case "read_state":
     case "remote_peko_undelivered":
       return [];
     default:

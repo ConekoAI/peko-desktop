@@ -18,6 +18,7 @@ import {
   type GroupInvitation,
 } from "../../lib/api";
 import { groupMonogram } from "../../lib/format";
+import { useGroupUnread } from "../../lib/unread";
 import { RailDivider, RailItem, RailPopover } from "./RailItem";
 
 /** How often to look for a group just asked to join. */
@@ -121,10 +122,13 @@ function GroupTile({
   onSelect: () => void;
 }) {
   const { data: info } = useChannelInfo(channelId);
+  // Something here you have not read (the engine's read mark).
+  const unread = (useGroupUnread()[channelId] ?? 0) > 0;
   return (
     <RailItem
       label={info?.name ?? channelId}
       active={active}
+      unread={unread && !active}
       ariaCurrent={active}
       onClick={onSelect}
       testId={`channel-row-${channelId}`}
