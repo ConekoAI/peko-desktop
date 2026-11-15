@@ -69,5 +69,24 @@
     "title": "语言",
     "hint": "Peko Desktop 的显示语言。",
     "system": "跟随系统"
+  },
+  "phones": {
+    "title": "手机",
+    "hint": "已配对的手机会在这台电脑开机时，通过这台电脑以你的身份阅读和发消息。",
+    "empty": "这台电脑还没有配对的手机。",
+    "pair": "配对手机",
+    "scan": "在手机上打开 Peko，扫描此二维码。",
+    "warning": "任何扫描它的人都能以你的身份阅读和发消息。只给你自己的手机看。",
+    "expires": "只能使用一次，{{time}} 前有效。",
+    "expired": "该二维码已过期。",
+    "codeAlt": "配对二维码",
+    "paired": "{{name}} 已配对。",
+    "pairedAt": "{{when}}配对",
+    "lastSeen": "上次使用 {{when}}",
+    "neverSeen": "尚未使用",
+    "removeConfirm": "要移除吗？它将无法再访问这台电脑。",
+    "notSignedIn": "请先登录 PekoHub。手机通过 PekoHub 访问这台电脑。",
+    "platformIos": "iPhone",
+    "platformAndroid": "Android"
   }
 }

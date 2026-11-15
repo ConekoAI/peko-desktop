@@ -69,5 +69,24 @@
     "title": "Sprache",
     "hint": "Die Sprache, in der Peko Desktop angezeigt wird.",
     "system": "Systemstandard"
+  },
+  "phones": {
+    "title": "Telefone",
+    "hint": "Ein gekoppeltes Telefon liest und schreibt in deinem Namen über diesen Computer, solange dieser eingeschaltet ist.",
+    "empty": "Mit diesem Computer ist kein Telefon gekoppelt.",
+    "pair": "Telefon koppeln",
+    "scan": "Öffne Peko auf deinem Telefon und scanne diesen Code.",
+    "warning": "Wer ihn scannt, kann in deinem Namen lesen und schreiben. Zeige ihn nur deinem eigenen Telefon.",
+    "expires": "Er funktioniert einmal, bis {{time}}.",
+    "expired": "Dieser Code ist abgelaufen.",
+    "codeAlt": "Kopplungscode",
+    "paired": "{{name}} ist gekoppelt.",
+    "pairedAt": "Gekoppelt {{when}}",
+    "lastSeen": "zuletzt verwendet {{when}}",
+    "neverSeen": "noch nicht verwendet",
+    "removeConfirm": "Entfernen? Es erreicht diesen Computer dann nicht mehr.",
+    "notSignedIn": "Melde dich zuerst bei PekoHub an. Ein Telefon erreicht diesen Computer über PekoHub.",
+    "platformIos": "iPhone",
+    "platformAndroid": "Android"
   }
 }

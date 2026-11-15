@@ -69,5 +69,24 @@
     "title": "Lingua",
     "hint": "La lingua in cui viene mostrato Peko Desktop.",
     "system": "Predefinita di sistema"
+  },
+  "phones": {
+    "title": "Telefoni",
+    "hint": "Un telefono associato legge e scrive a tuo nome tramite questo computer, finché è acceso.",
+    "empty": "Nessun telefono è associato a questo computer.",
+    "pair": "Associa un telefono",
+    "scan": "Apri Peko sul telefono e scansiona questo codice.",
+    "warning": "Chiunque lo scansioni può leggere e scrivere a tuo nome. Mostralo solo al tuo telefono.",
+    "expires": "Funziona una volta, fino alle {{time}}.",
+    "expired": "Quel codice è scaduto.",
+    "codeAlt": "Codice di associazione",
+    "paired": "{{name}} è associato.",
+    "pairedAt": "Associato {{when}}",
+    "lastSeen": "ultimo utilizzo {{when}}",
+    "neverSeen": "non ancora usato",
+    "removeConfirm": "Rimuoverlo? Non potrà più raggiungere questo computer.",
+    "notSignedIn": "Accedi prima a PekoHub. Un telefono raggiunge questo computer tramite PekoHub.",
+    "platformIos": "iPhone",
+    "platformAndroid": "Android"
   }
 }

@@ -69,5 +69,24 @@
     "title": "語言",
     "hint": "Peko Desktop 的顯示語言。",
     "system": "跟隨系統"
+  },
+  "phones": {
+    "title": "手機",
+    "hint": "已配對的手機會在這台電腦開機時，透過這台電腦以你的身分閱讀和傳送訊息。",
+    "empty": "這台電腦尚未配對任何手機。",
+    "pair": "配對手機",
+    "scan": "在手機上開啟 Peko，掃描此 QR 碼。",
+    "warning": "任何掃描它的人都能以你的身分閱讀和傳送訊息。只給你自己的手機看。",
+    "expires": "只能使用一次，{{time}} 前有效。",
+    "expired": "該 QR 碼已過期。",
+    "codeAlt": "配對 QR 碼",
+    "paired": "{{name}} 已配對。",
+    "pairedAt": "{{when}}配對",
+    "lastSeen": "上次使用 {{when}}",
+    "neverSeen": "尚未使用",
+    "removeConfirm": "要移除嗎？它將無法再存取這台電腦。",
+    "notSignedIn": "請先登入 PekoHub。手機透過 PekoHub 存取這台電腦。",
+    "platformIos": "iPhone",
+    "platformAndroid": "Android"
   }
 }

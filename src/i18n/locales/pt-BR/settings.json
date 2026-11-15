@@ -69,5 +69,24 @@
     "title": "Idioma",
     "hint": "O idioma em que o Peko Desktop é exibido.",
     "system": "Padrão do sistema"
+  },
+  "phones": {
+    "title": "Celulares",
+    "hint": "Um celular pareado lê e escreve em seu nome por meio deste computador, sempre que ele estiver ligado.",
+    "empty": "Nenhum celular está pareado com este computador.",
+    "pair": "Parear um celular",
+    "scan": "Abra o Peko no celular e escaneie este código.",
+    "warning": "Quem escanear poderá ler e escrever em seu nome. Mostre-o apenas ao seu próprio celular.",
+    "expires": "Funciona uma vez, até {{time}}.",
+    "expired": "Esse código expirou.",
+    "codeAlt": "Código de pareamento",
+    "paired": "{{name}} está pareado.",
+    "pairedAt": "Pareado {{when}}",
+    "lastSeen": "último uso {{when}}",
+    "neverSeen": "ainda não usado",
+    "removeConfirm": "Remover? Ele não poderá mais acessar este computador.",
+    "notSignedIn": "Entre no PekoHub primeiro. Um celular acessa este computador pelo PekoHub.",
+    "platformIos": "iPhone",
+    "platformAndroid": "Android"
   }
 }

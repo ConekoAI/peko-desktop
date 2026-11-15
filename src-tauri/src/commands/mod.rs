@@ -1,6 +1,7 @@
 pub mod attachments;
 pub mod channel;
 pub mod daemon;
+pub mod device;
 pub mod engine;
 pub mod hub_http;
 pub mod model_admin;
@@ -64,6 +65,9 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         channel::dm_request_answer,
         channel::blocked_people,
         channel::set_person_blocked,
+        device::paired_phones,
+        device::phone_pair_start,
+        device::paired_phone_remove,
         channel::group_join,
         channel::group_register,
         channel::group_link,
