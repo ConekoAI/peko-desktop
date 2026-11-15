@@ -7,6 +7,23 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 
 const now = Date.now();
+
+/** A picture shaped like a pairing code (not a real one). */
+function mockCode(): string {
+  const n = 33;
+  let cells = "";
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const corner = (x < 7 || x >= n - 7) && y < 7 ? true : x < 7 && y >= n - 7;
+      const on = corner
+        ? x % (n - 7) === 0 || x % (n - 7) === 6 || y % (n - 7) === 0 || y % (n - 7) === 6 ||
+          (x % (n - 7) > 1 && x % (n - 7) < 5 && y % (n - 7) > 1 && y % (n - 7) < 5)
+        : (x * 7 + y * 13 + ((x * y) % 5)) % 3 === 0;
+      if (on) cells += `<rect x="${x + 4}" y="${y + 4}" width="1" height="1"/>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n + 8} ${n + 8}"><rect width="100%" height="100%" fill="#fff"/><g fill="#000">${cells}</g></svg>`;
+}
 const ago = (mins: number) => new Date(now - mins * 60_000).toISOString();
 
 const pekos = [
@@ -382,6 +399,13 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
         { id: "cred_1", namespace: "anthropic", name: "Anthropic key", kind: "api_key", hasKey: true, lastTestedOk: true },
       ];
     case "hub_account":
+    case "paired_phones":
+    case "paired_phone_remove":
+      return [
+        { deviceId: "dev_mock1", name: "Mira's iPhone", platform: "ios", pairedAt: ago(60 * 26), lastSeen: ago(4) },
+      ];
+    case "phone_pair_start":
+      return { svg: mockCode(), expiresAt: new Date(Date.now() + 10 * 60_000).toISOString() };
     case "local_user_account":
       return null;
     case "hub_notifications":

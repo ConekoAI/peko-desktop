@@ -1893,6 +1893,42 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Open a pairing for a phone to scan (runtime ADR-108). Answered
+    /// with `device_pair_started`.
+    pub async fn device_pair_start(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "device_pair_start",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// The phones paired with this computer (runtime ADR-108). Answered
+    /// with `device_list_result`.
+    pub async fn device_list(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "device_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Remove a paired phone (runtime ADR-108). Answered with `done`.
+    pub async fn device_remove(&self, device_id: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "device_remove",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "device_id": device_id,
+        });
+        self.request_response(req).await
+    }
+
     /// Join a group by its invite link, or a public one by its ID (runtime
     /// ADR-092 D5). Answered with `channel_group_joined`.
     pub async fn channel_group_join(&self, link: &str) -> Result<serde_json::Value> {

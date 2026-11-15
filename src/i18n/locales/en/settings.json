@@ -69,5 +69,24 @@
     "title": "Language",
     "hint": "The language Peko Desktop is shown in.",
     "system": "System default"
+  },
+  "phones": {
+    "title": "Phones",
+    "hint": "A paired phone reads and posts as you through this computer, whenever this computer is on.",
+    "empty": "No phone is paired with this computer.",
+    "pair": "Pair a phone",
+    "scan": "Open Peko on your phone and scan this code.",
+    "warning": "Anyone who scans it can read and post as you. Show it only to your own phone.",
+    "expires": "It works once, until {{time}}.",
+    "expired": "That code has expired.",
+    "codeAlt": "Pairing code",
+    "paired": "{{name}} is paired.",
+    "pairedAt": "Paired {{when}}",
+    "lastSeen": "last used {{when}}",
+    "neverSeen": "not used yet",
+    "removeConfirm": "Remove it? It can no longer reach this computer.",
+    "notSignedIn": "Sign in to PekoHub first. A phone reaches this computer through PekoHub.",
+    "platformIos": "iPhone",
+    "platformAndroid": "Android"
   }
 }

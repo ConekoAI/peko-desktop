@@ -1841,6 +1841,44 @@ export async function setPersonBlocked(account: string, blocked: boolean): Promi
   return invoke<BlockedPerson[]>("set_person_blocked", { account, blocked });
 }
 
+/** A phone paired with this computer (runtime ADR-108). */
+export interface PairedPhone {
+  deviceId: string;
+  /** What the phone calls itself. */
+  name: string;
+  /** `ios` or `android`. */
+  platform: string;
+  /** ISO time. */
+  pairedAt: string;
+  /** ISO time; absent until the phone first asks for something. */
+  lastSeen?: string | null;
+}
+
+/** A code for a phone to scan: an SVG picture, and when it stops working (ISO). */
+export interface PhonePairing {
+  svg: string;
+  expiresAt: string;
+}
+
+/** The phones paired with this computer, oldest pairing first. */
+export async function pairedPhones(): Promise<PairedPhone[]> {
+  return invoke<PairedPhone[]>("paired_phones");
+}
+
+/**
+ * Open a pairing and get its code. It works once, for ten minutes.
+ * Rejects with `not_signed_in` when this computer is not signed in to
+ * PekoHub.
+ */
+export async function phonePairStart(): Promise<PhonePairing> {
+  return invoke<PhonePairing>("phone_pair_start");
+}
+
+/** Remove a paired phone; returns the phones still paired. */
+export async function pairedPhoneRemove(deviceId: string): Promise<PairedPhone[]> {
+  return invoke<PairedPhone[]>("paired_phone_remove", { deviceId });
+}
+
 /**
  * Look up a single channel's metadata + member count. Returns
  * `null` when the channel doesn't exist on the runtime.
