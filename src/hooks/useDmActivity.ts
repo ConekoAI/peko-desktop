@@ -1,15 +1,23 @@
 /**
- * Watches every local peko's DM for messages the peko writes, so its own
+ * Keeps what you have not read in step with the engine, so a peko's own
  * initiative (reminders, check-ins, approval requests) is never missed:
- * an unread count per peko, the total on the dock icon, and an OS
- * notification when a peko writes while you aren't looking at its chat.
- * A remote peko's thread is the DM this computer's runtime holds with it,
- * watched the same way.
+ * an unread count per conversation, the total on the dock icon, and an
+ * OS notification when a peko writes while you aren't looking at its
+ * chat.
+ *
+ * The read mark is the engine's (runtime ADR-108 D5): the counts are
+ * read from it every few seconds and whenever a peko writes, so reading
+ * on your phone or another computer clears them here; and looking at a
+ * chat here tells the engine, so your phone is not told about it.
+ *
+ * Every local peko's DM is watched for new rows, and a remote peko's
+ * thread (the DM this computer holds with it) the same way.
  *
  * Mounted once, in the layout. Desktop-only: it reads the same
  * `principal_log` / `principal_log_watch` the chat does.
  */
 import { useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -18,17 +26,17 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 
-import { principalLog, principalLogWatch } from "../lib/api";
+import { principalLog, principalLogWatch, readState } from "../lib/api";
 import {
-  addUnread,
-  forgetPeko,
+  adoptLegacyReadMarks,
   isFromPerson,
-  isLater,
-  markRead,
-  readUpTo,
-  setUnread,
+  markSeen,
+  setReadState,
+  setReadStateRefresher,
   unreadKey,
+  useGroupUnread,
   useUnreadCounts,
+  type KnownPeko,
 } from "../lib/unread";
 import { newestLogCursor, useCallerSubject, usePrincipals } from "./usePrincipals";
 import { useRemotePrincipals } from "./useRemotePrincipals";
@@ -69,11 +77,14 @@ async function notify(peko: string, text: string) {
   sendNotification({ title: peko, body: body.length > 160 ? `${body.slice(0, 157)}…` : body });
 }
 
+/** How often the read state is asked for (ms). */
+const READ_STATE_MS = 5000;
+
 /**
- * Count one peko's thread: rebuild its unread count from the latest
- * page, then follow new rows. A row from a person (you) marks the thread
- * read up to it; a row from the peko counts as unread and notifies,
- * unless its chat is on screen.
+ * Follow one peko's thread from its newest row on. A row from a person
+ * (you) means you have seen the thread up to it. A row from the peko is
+ * seen at once when its chat is on screen; otherwise it is announced and
+ * the counts are read again.
  */
 function follow(opts: {
   key: string;
@@ -83,8 +94,10 @@ function follow(opts: {
   watch: (cursor: string | null, onRow: (raw: unknown) => void) => Promise<() => void>;
   isCancelled: () => boolean;
   stops: (() => void)[];
+  refresh: () => void;
 }) {
   const { key, title } = opts;
+  const since = Date.now();
   const seen = new Set<string>();
   const onRow = (raw: unknown) => {
     const row = raw as Row;
@@ -93,41 +106,26 @@ function follow(opts: {
     const id = `${row.timestamp}|${row.text ?? ""}`;
     if (seen.has(id)) return;
     seen.add(id);
-    if (!isLater(row.timestamp, readUpTo(key))) return;
-    if (isFromPerson(row.sender)) {
-      // You (or someone you share the DM with) wrote: seen up to here.
-      markRead(key, row.timestamp);
+    if (isFromPerson(row.sender) || (opts.isActive() && document.hasFocus())) {
+      // You wrote, or you are looking at it: seen up to here.
+      markSeen(key, row.timestamp);
       return;
     }
-    if (opts.isActive() && document.hasFocus()) {
-      markRead(key, row.timestamp);
-      return;
-    }
-    addUnread(key);
-    void notify(title, row.text ?? "");
+    opts.refresh();
+    // A replay of something from before this window opened is not news.
+    if (Date.parse(row.timestamp) >= since - 60_000) void notify(title, row.text ?? "");
   };
 
   void (async () => {
     try {
       const page = await opts.load();
       if (opts.isCancelled()) return;
-      const read = readUpTo(key);
-      const newest = page.messages[page.messages.length - 1]?.timestamp;
-      if (!read) {
-        // First sight of this peko: its history is not news.
-        if (newest) markRead(key, newest);
-      } else {
-        setUnread(
-          key,
-          page.messages.filter((m) => !isFromPerson(m.sender) && isLater(m.timestamp, read)).length,
-        );
-      }
       for (const m of page.messages) seen.add(`${m.timestamp}|${m.text ?? ""}`);
       const stop = await opts.watch(newestLogCursor(page.messages), onRow);
       if (opts.isCancelled()) stop();
       else opts.stops.push(stop);
     } catch {
-      // A peko with no thread yet answers not_found; nothing to count.
+      // A peko with no thread yet answers not_found; nothing to follow.
     }
   })();
 }
@@ -138,6 +136,9 @@ export function useDmActivity() {
   const { data: remotes } = useRemotePrincipals();
   const { pathname, search } = useLocation();
   const counts = useUnreadCounts();
+  const groupCounts = useGroupUnread();
+  const qc = useQueryClient();
+  const refresh = () => void qc.invalidateQueries({ queryKey: ["read-state"] });
 
   // Read inside watch callbacks without restarting the watches.
   const activeRef = useRef<string | null>(null);
@@ -148,17 +149,45 @@ export function useDmActivity() {
   const remoteKeys = (remotes ?? []).map((r) => unreadKey(r.principalName, r.runtimeId));
   const remotesKey = remoteKeys.join("|");
 
+  // The engine's read state: every few seconds, and when asked.
+  const { data: rows } = useQuery({
+    queryKey: ["read-state"],
+    queryFn: readState,
+    refetchInterval: READ_STATE_MS,
+    staleTime: 0,
+  });
+  const known: KnownPeko[] = [
+    ...(principals ?? []).map((p) => ({ key: p.name, localId: p.localId, hubId: p.hubId })),
+    ...(remotes ?? []).map((r) => ({
+      key: unreadKey(r.principalName, r.runtimeId),
+      hubId: r.hubId,
+    })),
+  ];
+  const knownKey = known.map((p) => `${p.key}:${p.localId ?? ""}:${p.hubId ?? ""}`).join("|");
+  useEffect(() => {
+    setReadStateRefresher(refresh);
+    return () => setReadStateRefresher(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!rows || !principals || !remotes) return;
+    // Once: the positions this window used to keep go to the engine.
+    if (!adoptLegacyReadMarks(rows, known)) setReadState(rows, known);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, knownKey]);
+
   // You are looking at a peko's chat: it is read. Also when the window
-  // comes back into focus.
+  // comes back into focus, and when something new is counted for it.
+  const activeCount = activeRef.current ? (counts[activeRef.current] ?? 0) : 0;
   useEffect(() => {
     const read = () => {
       const active = activeRef.current;
-      if (active && document.hasFocus()) markRead(active);
+      if (active && document.hasFocus()) markSeen(active);
     };
-    read();
+    if (activeCount > 0) read();
     window.addEventListener("focus", read);
     return () => window.removeEventListener("focus", read);
-  }, [pathname, search]);
+  }, [pathname, search, activeCount]);
 
   // One watch per local peko.
   useEffect(() => {
@@ -174,6 +203,7 @@ export function useDmActivity() {
         watch: (cursor, onRow) => principalLogWatch(name, caller, cursor, onRow),
         isCancelled: () => cancelled,
         stops,
+        refresh,
       });
     }
     return () => {
@@ -200,6 +230,7 @@ export function useDmActivity() {
           principalLogWatch(remote.principalName, undefined, cursor, onRow, remote.runtimeId),
         isCancelled: () => cancelled,
         stops,
+        refresh,
       });
     }
     return () => {
@@ -209,17 +240,8 @@ export function useDmActivity() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remotesKey]);
 
-  // Pekos that are gone take their counts with them.
-  useEffect(() => {
-    if (!principals || !remotes) return;
-    for (const key of Object.keys(counts)) {
-      if (!names.includes(key) && !remoteKeys.includes(key)) forgetPeko(key);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [namesKey, remotesKey]);
-
   // The total on the dock icon.
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const total = [...Object.values(counts), ...Object.values(groupCounts)].reduce((a, b) => a + b, 0);
   useEffect(() => {
     void getCurrentWindow()
       .setBadgeCount(total > 0 ? total : undefined)

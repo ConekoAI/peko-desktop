@@ -44,7 +44,11 @@ export function RailItem({
         ? "rounded-xl bg-brand text-white shadow-sm"
         : "rounded-[22px] bg-surface-sunken text-fg-soft group-hover/rail:rounded-xl group-hover/rail:bg-brand group-hover/rail:text-white";
   return (
-    <div className="group/rail relative flex w-full justify-center" {...tip.anchorProps}>
+    <div
+      className="group/rail relative flex w-full justify-center"
+      data-unread={unread && !active ? "true" : undefined}
+      {...tip.anchorProps}
+    >
       <span
         aria-hidden
         className={[

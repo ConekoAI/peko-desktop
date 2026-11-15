@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { markSeen } from "../lib/unread";
 import { Trans, useTranslation } from "react-i18next";
 import ChannelHeader from "../components/ChannelHeader";
 import ChannelComposer from "../components/ChannelComposer";
@@ -85,6 +86,17 @@ export default function ChannelView() {
   // and the page falls back to the `refetchInterval` polling path
   // baked into `useChannelEvents`.
   useChannelEventsWatch(channelId, null, runtimeId);
+  // What is on screen is read (runtime ADR-108 D5): your phone and your
+  // other computers are told, and this group's dot clears.
+  const newestAt = events && events.length > 0 ? events[events.length - 1].at : undefined;
+  useEffect(() => {
+    const read = () => {
+      if (document.hasFocus()) markSeen(channelId, newestAt);
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => window.removeEventListener("focus", read);
+  }, [channelId, newestAt]);
   const { data: detail } = useChannel(channelId, runtimeId);
   const { data: membersData } = useChannelMembers(channelId, runtimeId);
   const { data: principals } = usePrincipals();

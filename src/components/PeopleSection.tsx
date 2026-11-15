@@ -130,10 +130,13 @@ export function PersonRow({
   person,
   active,
   rowClass,
+  unread = 0,
 }: {
   person: ReturnType<typeof usePeople>[number];
   active: boolean;
   rowClass: string;
+  /** Posts from them you have not read. */
+  unread?: number;
 }) {
   const { t } = useTranslation();
   const open = usePersonDmNavigate();
@@ -147,8 +150,21 @@ export function PersonRow({
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-sunken">
         <User className="h-3.5 w-3.5 text-fg-muted" />
       </span>
-      <span className="min-w-0 flex-1 truncate font-medium">{personLabel(person)}</span>
+      <span
+        className={`min-w-0 flex-1 truncate ${unread > 0 ? "font-semibold text-fg" : "font-medium"}`}
+      >
+        {personLabel(person)}
+      </span>
       {person.waiting && <span className="shrink-0 text-xs text-fg-subtle">{t("people.invited")}</span>}
+      {unread > 0 && (
+        <span
+          className="count-badge shrink-0"
+          data-testid={`unread-${person.channelId}`}
+          aria-label={t("sidebar.unread", { n: unread })}
+        >
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
     </button>
   );
 }

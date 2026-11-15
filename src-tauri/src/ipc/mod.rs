@@ -1893,6 +1893,34 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Where you have read up to in each conversation, and how much is
+    /// unread (runtime ADR-108 D5). Answered with
+    /// `channel_read_state_result`.
+    pub async fn channel_read_state(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_read_state",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// You have seen `channel` up to `at` (RFC 3339): the newest post at
+    /// or before then (runtime ADR-108 D5). Answered with
+    /// `channel_read_marked`.
+    pub async fn channel_mark_read(&self, channel: &str, at: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_mark_read",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "at": at,
+        });
+        self.request_response(req).await
+    }
+
     /// Open a pairing for a phone to scan (runtime ADR-108). Answered
     /// with `device_pair_started`.
     pub async fn device_pair_start(&self) -> Result<serde_json::Value> {

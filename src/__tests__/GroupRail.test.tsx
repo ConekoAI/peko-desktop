@@ -112,6 +112,24 @@ describe("GroupRail", () => {
     expect(groupMonogram("—")).toBe("#");
   });
 
+  it("marks a group that has something unread, except the one you are in", async () => {
+    const { resetUnread, setReadState } = await import("../lib/unread");
+    useChannelsMock.mockReturnValue({ data: sampleRows, isLoading: false });
+    setReadState(
+      [
+        { channel: "chan_alpha", kind: "group", unread: 2, marked: true },
+        { channel: "chan_bravo", kind: "group", unread: 1, marked: true },
+      ],
+      [],
+    );
+    renderSidebar();
+    const tile = (id: string) => screen.getByTestId(`channel-row-${id}`).parentElement!;
+    // chan_alpha is the group on screen: nothing to point at.
+    expect(tile("chan_alpha")).not.toHaveAttribute("data-unread");
+    expect(tile("chan_bravo")).toHaveAttribute("data-unread", "true");
+    resetUnread();
+  });
+
   it("renders a tile per group", () => {
     useChannelsMock.mockReturnValue({
       data: sampleRows,

@@ -26,7 +26,9 @@ const personGroupsMock = vi.fn();
 const groupHistoryOlderMock = vi.fn();
 const personDmsMock = vi.fn();
 
+const markReadMock = vi.fn(async (_channel: string, _at: string) => true);
 vi.mock("../lib/api", () => ({
+  markRead: (channel: string, at: string) => markReadMock(channel, at),
   channelEvents: (...args: unknown[]) => channelEventsMock(...args),
   channelEventsWatch: (...args: unknown[]) => channelEventsWatchMock(...args),
   channelGet: (...args: unknown[]) => channelGetMock(...args),
@@ -136,6 +138,32 @@ describe("ChannelView", () => {
     channelEventsMock.mockReturnValue(new Promise(() => {}));
     renderView();
     expect(screen.getByText(/Loading events/)).toBeInTheDocument();
+  });
+
+  it("tells the engine what is on screen has been read, and not while in the background", async () => {
+    const { resetUnread, setReadState, useGroupUnread } = await import("../lib/unread");
+    const { renderHook } = await import("@testing-library/react");
+    resetUnread();
+    markReadMock.mockClear();
+    setReadState([{ channel: "chan_alpha", kind: "group", unread: 3, marked: true }], []);
+    const dot = renderHook(() => useGroupUnread());
+    expect(dot.result.current.chan_alpha).toBe(3);
+
+    const focus = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    channelEventsMock.mockResolvedValue(sampleEvents);
+    renderView();
+    await waitFor(() => expect(screen.getAllByTestId("channel-event-row")).toHaveLength(4));
+    expect(markReadMock).not.toHaveBeenCalled();
+
+    // You come back to the window: read up to the newest event shown.
+    focus.mockReturnValue(true);
+    fireEvent(window, new Event("focus"));
+    await waitFor(() =>
+      expect(markReadMock).toHaveBeenCalledWith("chan_alpha", "2026-08-06T12:05:00Z"),
+    );
+    await waitFor(() => expect(dot.result.current.chan_alpha).toBeUndefined());
+    focus.mockRestore();
+    resetUnread();
   });
 
   it("renders the chronological event list with each kind as a row", async () => {
