@@ -408,6 +408,23 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       return { svg: mockCode(), expiresAt: new Date(Date.now() + 10 * 60_000).toISOString() };
     case "local_user_account":
       return null;
+    case "hub_get":
+      if (args.resource !== "seeds") return null;
+      return {
+        status: 200,
+        body: JSON.stringify({
+          items: [
+            { owner: "peko", name: "briefing", displayName: "Briefing", avatar: "📰", description: "Follows the pages you name and sends you what changed, once a day." },
+            { owner: "peko", name: "notebook", displayName: "Notebook", avatar: "📒", description: "Remembers what you tell it, finds it again, and reminds you on the day." },
+            { owner: "peko", name: "coach", displayName: "Coach", avatar: "🎯", description: "Turns a goal into small steps and checks in with you until it is done." },
+            { owner: "peko", name: "scribe", displayName: "Scribe", avatar: "🗂️", description: "Add it to a group: it keeps the board, tracks who does what, and sums up decisions." },
+            { owner: "peko", name: "repo-watch", displayName: "Repo Watch", avatar: "🔭", description: "Reads the git repositories you point it at and reports what changed. Needs git." },
+          ],
+          total: 5,
+        }),
+      };
+    case "hub_seed":
+      return { status: 200, body: `name = "${String(args.name)}"\npersona = "A starter peko."\n` };
     case "hub_notifications":
       return { status: 200, body: JSON.stringify({ items: [], unread: 0 }) };
     case "person_dms":

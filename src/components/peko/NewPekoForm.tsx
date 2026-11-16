@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowRight, ChevronRight, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { usePrincipalCreate, usePrincipalUpdate } from "../../hooks/usePrincipals";
 import { useModels } from "../../hooks/useModels";
 import { seedContents, type SeedFile } from "../../lib/api";
+import { listStarterSeeds, starterSeedText, type StarterSeed } from "../../lib/starterSeeds";
 import { isValidPrincipalName } from "../../lib/validatePrincipalName";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
 import PekoAvatar from "./PekoAvatar";
@@ -12,8 +13,9 @@ import PekoAvatar from "./PekoAvatar";
 const NAME_IDEAS = ["nova", "pip", "sage", "juno", "miso", "atlas"];
 
 /**
- * Create a peko: a name and an avatar up front; the description and
- * the model sit under "Advanced". The one form behind onboarding and
+ * Create a peko: what to start from (blank, or one of PekoHub's starter
+ * seeds), a name and an avatar up front; the description and the model
+ * sit under "Advanced". The one form behind onboarding and
  * the sidebar's "New peko". Creating it runs the runtime's genesis
  * turn, which can take a minute.
  */
@@ -50,6 +52,25 @@ export default function NewPekoForm({
   const [setupSteps, setSetupSteps] = useState<string[]>([]);
   const [seedFiles, setSeedFiles] = useState<SeedFile[]>([]);
   const [setupAccepted, setSetupAccepted] = useState(false);
+  // PekoHub's starter seeds. None when the hub can't be reached: the form
+  // then offers a blank peko and a seed file, as it does offline.
+  const [starters, setStarters] = useState<StarterSeed[]>([]);
+  const [starter, setStarter] = useState<string | null>(null);
+  const [starterBusy, setStarterBusy] = useState<string | null>(null);
+  const [starterError, setStarterError] = useState(false);
+  const [avatarChosen, setAvatarChosen] = useState(false);
+  useEffect(() => {
+    let gone = false;
+    listStarterSeeds().then(
+      (found) => {
+        if (!gone) setStarters(found);
+      },
+      () => {},
+    );
+    return () => {
+      gone = true;
+    };
+  }, []);
   const model = chosenModel || enabledModels[0]?.id || "";
 
   const trimmed = name.trim();
@@ -63,10 +84,20 @@ export default function NewPekoForm({
       setSeedError(t("peko.new.seedTooBig"));
       return;
     }
-    const text = await file.text();
+    if (await takeSeed(file.name, await file.text())) {
+      setStarter(null);
+      setAdvanced(true);
+    }
+  }
+
+  /**
+   * Take `text` as the seed to grow from. Answers whether it brings setup
+   * steps or files, or null, with the reason shown, when it can't be used.
+   */
+  async function takeSeed(fileName: string, text: string): Promise<{ brings: boolean } | null> {
     if (!/^\s*name\s*=/m.test(text)) {
       setSeedError(t("peko.new.seedInvalid"));
-      return;
+      return null;
     }
     let steps: string[];
     let files: SeedFile[];
@@ -74,16 +105,41 @@ export default function NewPekoForm({
       ({ steps, files } = await seedContents(text));
     } catch (e) {
       setSeedError(e instanceof Error ? e.message : String(e));
-      return;
+      return null;
     }
-    setSeed({ fileName: file.name, text });
+    setSeed({ fileName, text });
     setSetupSteps(steps);
     setSeedFiles(files);
     setSetupAccepted(false);
-    setAdvanced(true);
+    return { brings: steps.length > 0 || files.length > 0 };
+  }
+
+  /** Start from one of PekoHub's starter seeds: fetch its text and use it like a chosen file. */
+  async function chooseStarter(picked: StarterSeed) {
+    setSeedError(null);
+    setStarterError(false);
+    setStarterBusy(picked.name);
+    try {
+      const text = await starterSeedText(picked.name);
+      const taken = await takeSeed(`${picked.name}.seed.toml`, text);
+      // A seed that can't be used, or that would set something up or
+      // write files, is shown under Advanced.
+      if (!taken || taken.brings) setAdvanced(true);
+      if (!taken) return;
+      setStarter(picked.name);
+      // The seed's own avatar, unless the person already picked one.
+      if (picked.avatar && !avatarChosen) setAvatar(picked.avatar);
+    } catch {
+      setStarterError(true);
+    } finally {
+      setStarterBusy(null);
+    }
   }
 
   function removeSeed() {
+    if (starter && !avatarChosen) setAvatar(AVATAR_SUGGESTIONS[0]);
+    setStarter(null);
+    setStarterError(false);
     setSeed(null);
     setSetupSteps([]);
     setSeedFiles([]);
@@ -123,8 +179,43 @@ export default function NewPekoForm({
     );
   }
 
+  const pickedStarter = starters.find((s) => s.name === starter);
+
   return (
     <div className="space-y-4">
+      {starters.length > 0 && (
+        <div data-testid="new-peko-starters">
+          <span className="field-label mb-1.5 block">{t("peko.new.startFrom")}</span>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("peko.new.startFrom")}>
+            <StarterChip
+              label={t("peko.new.startBlank")}
+              pressed={!seed}
+              disabled={busy || starterBusy !== null}
+              onClick={removeSeed}
+            />
+            {starters.map((s) => (
+              <StarterChip
+                key={s.name}
+                avatar={s.avatar}
+                label={s.displayName}
+                pressed={starter === s.name}
+                loading={starterBusy === s.name}
+                disabled={busy || starterBusy !== null}
+                onClick={() => void chooseStarter(s)}
+              />
+            ))}
+          </div>
+          {pickedStarter?.description && (
+            <p className="mt-1.5 text-xs text-fg-muted" data-testid="new-peko-starter-about">
+              {pickedStarter.description}
+            </p>
+          )}
+          {starterError && (
+            <p className="mt-1.5 text-[11px] text-danger">{t("peko.new.starterFailed")}</p>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
         <PekoAvatar peko={pekoIdentity({ name: trimmed || "?", avatar })} size="lg" />
         <label className="block flex-1">
@@ -157,7 +248,10 @@ export default function NewPekoForm({
               key={emoji}
               type="button"
               disabled={busy}
-              onClick={() => setAvatar(emoji)}
+              onClick={() => {
+                setAvatar(emoji);
+                setAvatarChosen(true);
+              }}
               aria-label={t("peko.new.useAvatar", { emoji })}
               aria-pressed={avatar === emoji}
               className={[
@@ -308,6 +402,46 @@ export default function NewPekoForm({
         </PrimaryButton>
       </div>
     </div>
+  );
+}
+
+/** One choice of what to start from: blank, or a starter seed. */
+function StarterChip({
+  avatar,
+  label,
+  pressed,
+  loading,
+  disabled,
+  onClick,
+}: {
+  avatar?: string | null;
+  label: string;
+  pressed: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={pressed}
+      aria-busy={loading || undefined}
+      className={[
+        "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors",
+        pressed
+          ? "border-brand bg-brand-soft text-fg"
+          : "border-line text-fg-muted hover:border-brand hover:text-fg-soft",
+      ].join(" ")}
+    >
+      {loading ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        avatar && <span aria-hidden>{avatar}</span>
+      )}
+      {label}
+    </button>
   );
 }
 
