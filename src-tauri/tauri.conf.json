@@ -52,7 +52,7 @@
       }
     },
     "updater": {
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUwOTgyQkRCRTYyMTE0QUEKUldTcUZDSG0yeXVZVU4vR2xWRzRzTlNqVTNyZndVam5qU0sxOFcxS2VwVU9SRGZBNXN4ZTNJRE4K",
       "endpoints": ["https://github.com/ConekoAI/peko-desktop/releases/latest/download/latest.json"]
     }
   }
