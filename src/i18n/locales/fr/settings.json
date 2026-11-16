@@ -63,7 +63,13 @@
     "report": "Signaler un problème",
     "onboarding": "Configuration initiale",
     "onboardingHint": "Refaire les étapes de connexion d'un modèle et de création d'un peko.",
-    "replay": "Relancer la configuration initiale"
+    "replay": "Relancer la configuration initiale",
+    "updates": "Mises à jour",
+    "checkUpdates": "Rechercher des mises à jour",
+    "checking": "Vérification…",
+    "upToDate": "Vous avez la version la plus récente.",
+    "updateAvailable": "La version {{version}} est disponible.",
+    "checkFailed": "Impossible de rechercher des mises à jour. Vérifiez votre connexion et réessayez."
   },
   "language": {
     "title": "Langue",

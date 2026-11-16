@@ -61,8 +61,14 @@ it has to exist first.
 
 ```bash
 pnpm run sidecar:build-and-fetch   # builds peko-runtime + copies sidecar
-pnpm tauri build
+pnpm tauri build --config src-tauri/tauri.no-updates.conf.json
 ```
+
+The `--config` leaves out the signed files in-app updates use. Without it
+the build asks for the update signing key (`TAURI_SIGNING_PRIVATE_KEY`) and
+fails when it isn't set. The release workflow signs with the key from the
+repository's secrets; see the notes at the top of
+`.github/workflows/release.yml`.
 
 Outputs land in `src-tauri/target/release/bundle/` (`.dmg` / `.msi` /
 `.AppImage` / `.deb`, depending on the host OS). The Rust binary itself is at

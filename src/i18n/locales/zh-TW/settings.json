@@ -63,7 +63,13 @@
     "report": "回報問題",
     "onboarding": "新手導覽",
     "onboardingHint": "重新走一遍連接模型和建立 peko 的流程。",
-    "replay": "重新進行導覽"
+    "replay": "重新進行導覽",
+    "updates": "更新",
+    "checkUpdates": "檢查更新",
+    "checking": "正在檢查…",
+    "upToDate": "已是最新版本。",
+    "updateAvailable": "版本 {{version}} 已可使用。",
+    "checkFailed": "無法檢查更新。請檢查網路連線後再試一次。"
   },
   "language": {
     "title": "語言",

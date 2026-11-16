@@ -6,6 +6,7 @@ import StatusBar from "./StatusBar";
 import TitleBar from "./TitleBar";
 import EngineFailureCard from "./EngineFailureCard";
 import VersionMismatchBanner from "./VersionMismatchBanner";
+import UpdateBanner from "./UpdateBanner";
 import FirstRunWalkthrough from "./FirstRunWalkthrough";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
@@ -221,6 +222,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 />
               </div>
             )}
+            {/* A newer Peko Desktop: renders nothing unless there is one. */}
+            <div className="px-6 pt-4 empty:hidden">
+              <UpdateBanner />
+            </div>
             {children}
           </main>
 

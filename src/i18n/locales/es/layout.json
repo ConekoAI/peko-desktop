@@ -52,5 +52,15 @@
   "tray": {
     "open": "Abrir",
     "quit": "Salir"
+  },
+  "update": {
+    "available": "Peko Desktop {{version}} está disponible. Tus pekos se pausan un momento mientras se reinicia.",
+    "install": "Actualizar y reiniciar",
+    "downloading": "Descargando…",
+    "downloadingPercent": "Descargando… {{percent}} %",
+    "installing": "Instalando…",
+    "failed": "La actualización no se completó. Obtén la nueva versión en la página de descargas.",
+    "downloadPage": "Abrir la página de descargas",
+    "dismiss": "Descartar"
   }
 }

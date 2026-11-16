@@ -52,5 +52,15 @@
   "tray": {
     "open": "Ouvrir",
     "quit": "Quitter"
+  },
+  "update": {
+    "available": "Peko Desktop {{version}} est disponible. Vos pekos se mettent en pause un instant pendant le redémarrage.",
+    "install": "Mettre à jour et redémarrer",
+    "downloading": "Téléchargement…",
+    "downloadingPercent": "Téléchargement… {{percent}} %",
+    "installing": "Installation…",
+    "failed": "La mise à jour n'a pas abouti. Récupérez la nouvelle version sur la page de téléchargement.",
+    "downloadPage": "Ouvrir la page de téléchargement",
+    "dismiss": "Fermer"
   }
 }

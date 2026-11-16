@@ -63,7 +63,13 @@
     "report": "問題を報告",
     "onboarding": "初期セットアップ",
     "onboardingHint": "モデルの接続と peko の作成をもう一度たどります。",
-    "replay": "セットアップをやり直す"
+    "replay": "セットアップをやり直す",
+    "updates": "アップデート",
+    "checkUpdates": "アップデートを確認",
+    "checking": "確認中…",
+    "upToDate": "最新バージョンです。",
+    "updateAvailable": "バージョン {{version}} を利用できます。",
+    "checkFailed": "アップデートを確認できませんでした。接続を確認して、もう一度お試しください。"
   },
   "language": {
     "title": "言語",

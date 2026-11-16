@@ -425,6 +425,14 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       };
     case "hub_seed":
       return { status: 200, body: `name = "${String(args.name)}"\npersona = "A starter peko."\n` };
+    // `?update=1` on the preview's address offers an update; `?update=package`
+    // offers one this install can't apply itself.
+    case "update_check": {
+      const offer = new URLSearchParams(window.location.search).get("update");
+      return { current: "0.1.5", available: offer ? "0.1.6" : null, canInstall: offer !== "package" };
+    }
+    case "update_install":
+      return new Promise((_resolve, reject) => setTimeout(() => reject(new Error("mock: no update to install")), 1500));
     case "hub_notifications":
       return { status: 200, body: JSON.stringify({ items: [], unread: 0 }) };
     case "person_dms":

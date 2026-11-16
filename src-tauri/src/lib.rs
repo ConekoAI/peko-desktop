@@ -50,6 +50,8 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_os::init())
+        // In-app updates (commands/update.rs).
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         // PR #6: deep-link plugin. Wires the platform-specific URL
         // handler (macOS Event Mgr, Windows registry, Linux .desktop).

@@ -13,6 +13,7 @@ import { useModels } from "../hooks/useModels";
 import { useEngineStatus } from "../hooks/useEngine";
 import { getTheme, setTheme } from "../lib/theme";
 import { pekoHomeDir } from "../lib/api";
+import { UpdateRow } from "../components/UpdateBanner";
 import {
   LANGUAGES,
   currentLocale,
@@ -508,6 +509,7 @@ function AboutSection() {
               {engineVersion ?? (engine?.kind === "running" ? "…" : t("settings.about.notRunning"))}
             </dd>
           </div>
+          <UpdateRow />
         </dl>
       </div>
 
