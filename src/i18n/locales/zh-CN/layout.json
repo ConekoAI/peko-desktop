@@ -50,5 +50,15 @@
   "tray": {
     "open": "打开",
     "quit": "退出"
+  },
+  "update": {
+    "available": "Peko Desktop {{version}} 已可用。重启时你的 peko 会暂停片刻。",
+    "install": "更新并重启",
+    "downloading": "正在下载…",
+    "downloadingPercent": "正在下载… {{percent}}%",
+    "installing": "正在安装…",
+    "failed": "更新没有完成。请从下载页面获取新版本。",
+    "downloadPage": "打开下载页面",
+    "dismiss": "关闭"
   }
 }

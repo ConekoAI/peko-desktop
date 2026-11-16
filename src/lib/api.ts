@@ -1130,6 +1130,35 @@ export async function systemStatus(runtimeId?: string): Promise<SystemStatus> {
   return invoke<SystemStatus>("system_status", { runtimeId: runtimeId ?? null });
 }
 
+// ─── App updates ────────────────────────────────────────────────
+
+/** What the app knows about a newer version of itself. */
+export interface UpdateStatus {
+  /** The version running now. */
+  current: string;
+  /** The newer version on offer, or null when this is the newest. */
+  available: string | null;
+  /** False where the app can't replace itself (a Linux package install). */
+  canInstall: boolean;
+}
+
+/** Where a person gets Peko Desktop by hand. */
+export const DOWNLOAD_PAGE_URL = "https://pekohub.ai/download";
+
+/** Ask whether a newer Peko Desktop exists. Rejects when that can't be read. */
+export function updateCheck(): Promise<UpdateStatus> {
+  return invoke<UpdateStatus>("update_check");
+}
+
+/**
+ * Download the newer version, install it and start it. On success the
+ * app restarts and this never resolves; it rejects when the update
+ * didn't go through. Progress arrives as `update-progress` events.
+ */
+export function updateInstall(): Promise<void> {
+  return invoke<void>("update_install");
+}
+
 // ─── Settings ───────────────────────────────────────────────────
 
 export async function settingsGet(key: string): Promise<string | null> {

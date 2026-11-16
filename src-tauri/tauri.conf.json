@@ -42,13 +42,18 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/peko-daemon"]
+    "externalBin": ["binaries/peko-daemon"],
+    "createUpdaterArtifacts": true
   },
   "plugins": {
     "deep-link": {
       "desktop": {
         "schemes": ["peko"]
       }
+    },
+    "updater": {
+      "pubkey": "",
+      "endpoints": ["https://github.com/ConekoAI/peko-desktop/releases/latest/download/latest.json"]
     }
   }
 }

@@ -50,5 +50,15 @@
   "tray": {
     "open": "開く",
     "quit": "終了"
+  },
+  "update": {
+    "available": "Peko Desktop {{version}} を利用できます。再起動の間、peko は少しだけ止まります。",
+    "install": "更新して再起動",
+    "downloading": "ダウンロード中…",
+    "downloadingPercent": "ダウンロード中… {{percent}}%",
+    "installing": "インストール中…",
+    "failed": "更新を完了できませんでした。ダウンロードページから新しいバージョンを入手してください。",
+    "downloadPage": "ダウンロードページを開く",
+    "dismiss": "閉じる"
   }
 }

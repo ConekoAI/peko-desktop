@@ -63,7 +63,13 @@
     "report": "Report a problem",
     "onboarding": "Onboarding",
     "onboardingHint": "Walk through connecting a model and creating a peko again.",
-    "replay": "Replay onboarding"
+    "replay": "Replay onboarding",
+    "updates": "Updates",
+    "checkUpdates": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "You have the newest version.",
+    "updateAvailable": "Version {{version}} is available.",
+    "checkFailed": "Couldn't check for updates. Check your connection and try again."
   },
   "language": {
     "title": "Language",

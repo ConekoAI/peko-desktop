@@ -51,5 +51,15 @@
   "tray": {
     "open": "Öffnen",
     "quit": "Beenden"
+  },
+  "update": {
+    "available": "Peko Desktop {{version}} ist verfügbar. Deine Pekos pausieren kurz, während die App neu startet.",
+    "install": "Aktualisieren und neu starten",
+    "downloading": "Wird heruntergeladen…",
+    "downloadingPercent": "Wird heruntergeladen… {{percent}} %",
+    "installing": "Wird installiert…",
+    "failed": "Die Aktualisierung wurde nicht abgeschlossen. Hol dir die neue Version von der Download-Seite.",
+    "downloadPage": "Download-Seite öffnen",
+    "dismiss": "Schließen"
   }
 }

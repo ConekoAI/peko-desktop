@@ -63,7 +63,13 @@
     "report": "Problem melden",
     "onboarding": "Einrichtung",
     "onboardingHint": "Geh das Verbinden eines Modells und das Erstellen eines Pekos noch einmal durch.",
-    "replay": "Einrichtung wiederholen"
+    "replay": "Einrichtung wiederholen",
+    "updates": "Updates",
+    "checkUpdates": "Nach Updates suchen",
+    "checking": "Wird geprüft…",
+    "upToDate": "Du hast die neueste Version.",
+    "updateAvailable": "Version {{version}} ist verfügbar.",
+    "checkFailed": "Es konnte nicht nach Updates gesucht werden. Prüfe deine Verbindung und versuche es erneut."
   },
   "language": {
     "title": "Sprache",

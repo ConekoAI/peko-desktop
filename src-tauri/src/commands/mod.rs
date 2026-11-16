@@ -11,6 +11,7 @@ pub mod remote_principal;
 pub mod runtime;
 pub mod settings;
 pub mod system;
+pub mod update;
 
 pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static
 {
@@ -104,6 +105,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         settings::credential_list_generic,
         settings::pekohub_logout,
         system::system_status,
+        update::update_check,
+        update::update_install,
         system::peko_home_dir,
         crate::tray::tray_set_labels,
         attachments::attachment_preview,

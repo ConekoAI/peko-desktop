@@ -19,6 +19,19 @@ name: Release
 # release must exist in peko-runtime — `prepare` checks before anything
 # builds. The same file is the oldest runtime the app accepts.
 #
+# In-app updates: with TAURI_SIGNING_PRIVATE_KEY set (and
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD when the key has one), each platform
+# signs its update file and `latest.json`, the feed the app reads, is
+# attached to the release:
+#   macOS    .app.tar.gz + .sig (per architecture)
+#   Windows  the NSIS -setup.exe + .sig
+#   Linux    the .AppImage + .sig
+# The matching public key is `plugins.updater.pubkey` in
+# src-tauri/tauri.conf.json. Without the secret the release builds as it
+# did before, with no update files, and installed apps find no update.
+# Make a key pair with `npx tauri signer generate`. Keep the private key:
+# a release signed with another key is refused by every installed app.
+#
 # Signing (optional; each platform builds unsigned without it):
 #   macOS    APPLE_CERTIFICATE (base64 .p12), APPLE_CERTIFICATE_PASSWORD,
 #            APPLE_SIGNING_IDENTITY; for notarization also APPLE_ID,
@@ -245,15 +258,45 @@ jobs:
             echo "::warning::No APPLE_CERTIFICATE secret: the macOS app is ad-hoc signed and not notarized."
           fi
 
-      # Builds the release-mode Tauri app and uploads its bundles to the
-      # draft created by `prepare`.
-      # For signed auto-updater artifacts, set TAURI_SIGNING_PRIVATE_KEY
-      # and TAURI_SIGNING_PRIVATE_KEY_PASSWORD as repo secrets.
+      # Update files are signed only when the key is set. The config asks
+      # for them (`bundle.createUpdaterArtifacts`), and the bundler fails
+      # without a key, so with no key that setting is turned off for this
+      # build (src-tauri/tauri.no-updates.conf.json; a local `tauri build`
+      # without the key takes the same `--config`). A key with no public key in the config would sign files no
+      # installed app accepts, so that fails here.
+      - name: Configure update signing
+        id: updates
+        env:
+          UPDATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          UPDATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          PUBKEY="$(node -p "require('./src-tauri/tauri.conf.json').plugins.updater.pubkey")"
+          if [ -z "$UPDATE_KEY" ]; then
+            echo "args=--config src-tauri/tauri.no-updates.conf.json" >> "$GITHUB_OUTPUT"
+            echo "::warning::No TAURI_SIGNING_PRIVATE_KEY secret: this release has no update files, so installed apps won't be offered it."
+          elif [ -z "$PUBKEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is set but plugins.updater.pubkey in src-tauri/tauri.conf.json is empty. Put the public key there."
+            exit 1
+          else
+            {
+              echo "TAURI_SIGNING_PRIVATE_KEY=$UPDATE_KEY"
+              echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATE_KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "args=" >> "$GITHUB_OUTPUT"
+            echo "Signing update files"
+          fi
+
+      # Builds the release-mode Tauri app and uploads its bundles, and
+      # the update feed `latest.json` when update files were signed, to
+      # the draft created by `prepare`.
       - name: Build Tauri app (release) and upload to the draft
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          args: ${{ steps.updates.outputs.args }}
+          # Windows updates with the NSIS installer, not the .msi.
+          updaterJsonPreferNsis: true
           projectPath: .
           # The repo carries pnpm-lock.yaml next to package-lock.json, so
           # the action would pick pnpm, which the runner doesn't have
