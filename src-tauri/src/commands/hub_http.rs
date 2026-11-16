@@ -3,7 +3,7 @@
 //! The webview's content security policy (`tauri.conf.json`) allows no
 //! outside hosts, so a `fetch()` to a hub fails in a built app. These
 //! commands make the few hub calls the frontend needs. They are a fixed
-//! set — the OAuth token endpoint, three named resources, the account
+//! set — the OAuth token endpoint, four named resources, one seed's text, the account
 //! (with its picture) and its notifications — not a general proxy, which would undo what
 //! the policy protects. Each returns
 //! the hub's status and body as they came, so the frontend keeps its own
@@ -35,6 +35,9 @@ pub enum HubResource {
     /// `GET /v1/search`: one search over people, pekos and seeds. People
     /// and pekos are found only by their exact ID (hub ADR-009).
     Search,
+    /// `GET /v1/seeds`: published seeds, newest first; `owner=peko` lists
+    /// the official starter seeds.
+    Seeds,
 }
 
 impl HubResource {
@@ -43,6 +46,7 @@ impl HubResource {
             Self::Runtimes => "/v1/runtimes",
             Self::AccessiblePekos => "/v1/me/accessible-pekos",
             Self::Search => "/v1/search",
+            Self::Seeds => "/v1/seeds",
         }
     }
 }
@@ -107,6 +111,48 @@ pub async fn hub_get(
         request = request.bearer_auth(token);
     }
     send(request, &host).await
+}
+
+/// The most seed text taken from a hub: what `principal_create` accepts.
+const MAX_SEED_BYTES: usize = 64 * 1024;
+
+/// A seed's owner or name as the hub writes them: letters, digits, `.`,
+/// `-` and `_`, starting with a letter or digit. Anything else would
+/// let the caller choose another path on the hub.
+fn is_seed_segment(segment: &str) -> bool {
+    let mut chars = segment.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && segment.len() <= 128
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+}
+
+/// Where the hub serves the newest version of the seed `owner/name`.
+fn seed_path(owner: &str, name: &str) -> Result<String, String> {
+    if !is_seed_segment(owner) || !is_seed_segment(name) {
+        return Err(format!("not a seed's ID: {owner}/{name}"));
+    }
+    Ok(format!(
+        "/v1/seeds/{owner}/{name}/versions/latest/seed.toml"
+    ))
+}
+
+/// `GET` the newest text of the seed `owner/name` from the hub at
+/// `base_url`, so a peko can be created from it without a download.
+/// Anonymous: seeds are public. A seed over 64 KB is refused.
+#[tauri::command]
+pub async fn hub_seed(
+    state: tauri::State<'_, AppState>,
+    base_url: String,
+    owner: String,
+    name: String,
+) -> Result<HubResponse, String> {
+    let url = hub_url(&base_url, &seed_path(&owner, &name)?)?;
+    let host = host_of(&url);
+    let answer = send(state.http.get(url), &host).await?;
+    if answer.body.len() > MAX_SEED_BYTES {
+        return Err("A seed is at most 64 KB.".to_string());
+    }
+    Ok(answer)
 }
 
 /// `POST /oauth/token` on the hub at `base_url`: the authorization-code
@@ -440,6 +486,37 @@ mod tests {
         // The peko directory is gone (hub ADR-009).
         assert!(serde_json::from_str::<HubResource>("\"discovery_search\"").is_err());
         assert!(serde_json::from_str::<HubResource>("\"anything_else\"").is_err());
+    }
+
+    #[test]
+    fn a_seed_is_fetched_only_by_a_plain_id() {
+        assert_eq!(
+            seed_path("peko", "repo-watch").unwrap(),
+            "/v1/seeds/peko/repo-watch/versions/latest/seed.toml"
+        );
+        let url = hub_url(
+            "https://pekohub.ai",
+            &seed_path("peko", "briefing").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://api.pekohub.ai/v1/seeds/peko/briefing/versions/latest/seed.toml"
+        );
+        for (owner, name) in [
+            ("peko", "../../me"),
+            ("..", "briefing"),
+            ("peko", "a/b"),
+            ("peko", "a?b"),
+            ("peko", ""),
+            ("", "briefing"),
+            ("peko", "-x"),
+            ("peko", "a b"),
+        ] {
+            assert!(seed_path(owner, name).is_err(), "{owner}/{name}");
+        }
+        let r: HubResource = serde_json::from_str("\"seeds\"").unwrap();
+        assert_eq!(r.path(), "/v1/seeds");
     }
 
     #[test]

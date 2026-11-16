@@ -1376,7 +1376,7 @@ export function configuredHubUrl(settings?: { key: string; value: string }[] | n
 }
 
 /** The hub resources the backend reads for the frontend (`hub_http.rs`). */
-export type HubResource = "runtimes" | "accessible_pekos" | "search";
+export type HubResource = "runtimes" | "accessible_pekos" | "search" | "seeds";
 
 interface HubAnswer {
   status: number;
@@ -1439,6 +1439,14 @@ export function hubGet(
       query: opts.query ? Object.entries(opts.query) : null,
     }),
   );
+}
+
+/**
+ * The newest text of the seed `owner/name` on a hub, through the backend
+ * (see `hubGet`). Seeds are public, so no token is sent.
+ */
+export function hubSeed(baseUrl: string, owner: string, name: string): Promise<Response> {
+  return hubAnswer(invoke<HubAnswer>("hub_seed", { baseUrl, owner, name }));
 }
 
 /**
