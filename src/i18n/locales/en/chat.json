@@ -43,6 +43,8 @@
     "asker": "{{name}} ({{address}})",
     "ownerTask": "You asked {{peko}} for something {{where}} that needs your full access. Approved, it runs as you, outside that conversation, with only this brief:",
     "ownerTaskWhere": "in a shared conversation",
+    "computer": "A new computer signed in to your PekoHub account wants to use your pekos here as you. Approve it only if you just started using Peko on another computer: it can then do anything you can with your pekos here.",
+    "ownerChange": "PekoHub says {{peko}} now belongs to another account. Hand it over? If you didn't give it away, deny: it stays yours.",
     "toolRequest": "<asker/> asks {{peko}} to run <summary/>",
     "approve": "Approve",
     "alwaysTitle": "Approve, and always allow this for {{name}}",

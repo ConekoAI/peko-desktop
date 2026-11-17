@@ -43,6 +43,8 @@
     "asker": "{{name}} ({{address}})",
     "ownerTask": "Vous avez demandé à {{peko}} quelque chose {{where}} qui nécessite votre accès complet. Une fois approuvée, la demande s'exécute en votre nom, hors de cette conversation, avec ces seules instructions :",
     "ownerTaskWhere": "dans une conversation partagée",
+    "computer": "Un nouvel ordinateur connecté à votre compte PekoHub veut utiliser vos pekos ici en votre nom. N'approuvez que si vous venez de commencer à utiliser Peko sur un autre ordinateur : il pourra alors faire avec vos pekos tout ce que vous pouvez faire.",
+    "ownerChange": "PekoHub indique que {{peko}} appartient désormais à un autre compte. Le céder ? Si vous ne l'avez pas donné, refusez : il reste à vous.",
     "toolRequest": "<asker/> demande à {{peko}} d'exécuter <summary/>",
     "approve": "Approuver",
     "alwaysTitle": "Approuver et toujours l'autoriser pour {{name}}",

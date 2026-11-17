@@ -331,6 +331,9 @@ function askerName(request: ApprovalRequest): string {
     : address;
 }
 
+/** Requests approved once, never *always*: a task run as you, a computer, an owner change. */
+const ONCE_ONLY_KINDS = new Set(["owner_task", "computer", "owner_change"]);
+
 /**
  * The requests waiting for you, the peko's owner: what someone else
  * asked it to do that its policy left to you. Approve runs exactly
@@ -367,7 +370,18 @@ function ApprovalCards({
     <div className="space-y-2 border-t border-line bg-surface px-4 pt-3" data-testid="approval-cards">
       {requests.map((r) => (
         <div key={r.id} className="rounded-xl border border-warn/25 bg-warn-soft p-3.5 text-sm">
-          {r.kind === "owner_task" ? (
+          {r.kind === "computer" || r.kind === "owner_change" ? (
+            // ADR-109: a computer on your account, or an owner change
+            // PekoHub reported, waiting for you.
+            <>
+              <p className="text-fg">
+                {r.kind === "computer" ? t("chat.approval.computer") : t("chat.approval.ownerChange", { peko })}
+              </p>
+              <p className="mt-1 text-xs text-fg-muted" data-testid="hub-claim-summary">
+                {r.summary}
+              </p>
+            </>
+          ) : r.kind === "owner_task" ? (
             <>
               <p className="text-fg">
                 {t("chat.approval.ownerTask", {
@@ -406,7 +420,7 @@ function ApprovalCards({
             >
               {t("chat.approval.approve")}
             </button>
-            {r.kind !== "owner_task" && (
+            {!ONCE_ONLY_KINDS.has(r.kind ?? "") && (
               <button
                 type="button"
                 disabled={decide.isPending}
