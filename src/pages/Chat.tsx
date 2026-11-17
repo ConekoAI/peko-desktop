@@ -331,8 +331,11 @@ function askerName(request: ApprovalRequest): string {
     : address;
 }
 
-/** Requests approved once, never *always*: a task run as you, a computer, an owner change. */
-const ONCE_ONLY_KINDS = new Set(["owner_task", "computer", "owner_change"]);
+/**
+ * Requests approved once, never *always*: a task run as you, a computer, an
+ * owner change, a peko's new identity.
+ */
+const ONCE_ONLY_KINDS = new Set(["owner_task", "computer", "owner_change", "key_change"]);
 
 /**
  * The requests waiting for you, the peko's owner: what someone else
@@ -370,12 +373,17 @@ function ApprovalCards({
     <div className="space-y-2 border-t border-line bg-surface px-4 pt-3" data-testid="approval-cards">
       {requests.map((r) => (
         <div key={r.id} className="rounded-xl border border-warn/25 bg-warn-soft p-3.5 text-sm">
-          {r.kind === "computer" || r.kind === "owner_change" ? (
+          {r.kind === "computer" || r.kind === "owner_change" || r.kind === "key_change" ? (
             // ADR-109: a computer on your account, or an owner change
-            // PekoHub reported, waiting for you.
+            // PekoHub reported, waiting for you. Runtime ADR-110 D4: a
+            // peko PekoHub now names with another identity.
             <>
               <p className="text-fg">
-                {r.kind === "computer" ? t("chat.approval.computer") : t("chat.approval.ownerChange", { peko })}
+                {r.kind === "computer"
+                  ? t("chat.approval.computer")
+                  : r.kind === "key_change"
+                    ? t("chat.approval.keyChange")
+                    : t("chat.approval.ownerChange", { peko })}
               </p>
               <p className="mt-1 text-xs text-fg-muted" data-testid="hub-claim-summary">
                 {r.summary}

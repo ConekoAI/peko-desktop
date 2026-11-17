@@ -406,6 +406,27 @@ describe("Chat ToS gate", () => {
     expect(screen.queryByRole("button", { name: "Always allow" })).toBeNull();
   });
 
+  it("asks before using a peko's new identity PekoHub reports", async () => {
+    approvalsState.data = [
+      {
+        id: "apr_keychange0123456789abcdef01",
+        actor: "user:hub:x",
+        actorName: "PekoHub",
+        trust: "owner",
+        summary: "PekoHub says ada has a new identity. Use it?",
+        reason: "A peko keeps its identity when it moves.",
+        createdAt: "2026-11-17T10:00:00Z",
+        expiresAt: "2026-11-18T10:00:00Z",
+        kind: "key_change",
+      },
+    ];
+    render(<Chat />);
+    const cards = screen.getByTestId("approval-cards");
+    expect(cards).toHaveTextContent("PekoHub says a peko you talk with has a new identity.");
+    expect(screen.getByTestId("hub-claim-summary")).toHaveTextContent("ada has a new identity");
+    expect(screen.queryByRole("button", { name: "Always allow" })).toBeNull();
+  });
+
   it("sends on Enter, adds a line on Shift+Enter, and never mid-composition", async () => {
     sendMut.mutateAsync.mockResolvedValue("");
     render(<Chat />);

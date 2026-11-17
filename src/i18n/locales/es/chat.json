@@ -45,6 +45,7 @@
     "ownerTaskWhere": "en una conversación compartida",
     "computer": "Un ordenador nuevo con sesión iniciada en tu cuenta de PekoHub quiere usar aquí tus pekos como tú. Apruébalo solo si acabas de empezar a usar Peko en otro ordenador: después podrá hacer con tus pekos todo lo que tú puedes.",
     "ownerChange": "PekoHub dice que {{peko}} ahora pertenece a otra cuenta. ¿Entregarlo? Si no lo cediste, deniégalo: seguirá siendo tuyo.",
+    "keyChange": "PekoHub dice que un peko con el que hablas tiene una identidad nueva. Un peko conserva su identidad cuando se muda a otro ordenador, así que aprueba solo si su dueño te dijo que lo configuró de nuevo. Hasta que decidas, no le llega nada de lo que envíes.",
     "toolRequest": "<asker/> le pide a {{peko}} que ejecute <summary/>",
     "approve": "Aprobar",
     "alwaysTitle": "Aprobar y permitírselo siempre a {{name}}",

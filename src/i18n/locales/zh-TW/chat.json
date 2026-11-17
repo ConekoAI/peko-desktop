@@ -45,6 +45,7 @@
     "ownerTaskWhere": "在一個共用對話中",
     "computer": "一台登入了你的 PekoHub 帳號的新電腦想以你的身分使用這裡的 peko。只有在你剛開始於另一台電腦上使用 Peko 時才核准：核准後，它可以對這裡的 peko 做你能做的任何事。",
     "ownerChange": "PekoHub 表示 {{peko}} 現在屬於另一個帳號。要移交嗎？如果你沒有轉讓過它，請拒絕：它仍然歸你。",
+    "keyChange": "PekoHub 表示與你交流的一個 peko 換了新身分。peko 搬到另一台電腦時身分不會改變，所以只有在它的主人告訴你重新設定過時才核准。在你決定之前，你傳送的內容都不會送達它。",
     "toolRequest": "<asker/> 請 {{peko}} 執行 <summary/>",
     "approve": "核准",
     "alwaysTitle": "核准，並一律允許 {{name}} 這樣做",
