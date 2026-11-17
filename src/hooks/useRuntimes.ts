@@ -16,6 +16,7 @@ import {
   startOAuthCallbackListener,
   type StoredTokenBundle,
   type OAuthTokenResponse,
+  hubApiBase,
 } from "../lib/api";
 import {
   generateCodeVerifier,
@@ -238,9 +239,10 @@ export async function runOAuthFlow(
 /**
  * Build a token bundle for storage, computing expiry if expires_in is provided.
  */
-function buildTokenBundle(resp: OAuthTokenResponse): StoredTokenBundle {
+function buildTokenBundle(resp: OAuthTokenResponse, hub: string): StoredTokenBundle {
   const bundle: StoredTokenBundle = {
     access_token: resp.access_token,
+    hub: hubApiBase(hub),
   };
   if (resp.refresh_token) {
     bundle.refresh_token = resp.refresh_token;
@@ -297,12 +299,13 @@ export async function refreshStoredToken(
   if (!bundle?.refresh_token) return null;
 
   const resp = await oauthTokenRefresh({
-    baseUrl,
+    // Only the hub that issued the refresh token sees it.
+    baseUrl: bundle.hub ?? baseUrl,
     clientId,
     refreshToken: bundle.refresh_token,
   });
 
-  const newBundle = buildTokenBundle(resp);
+  const newBundle = buildTokenBundle(resp, bundle.hub ?? baseUrl);
   await storeOAuthBundle(newBundle);
   return newBundle;
 }
@@ -340,7 +343,7 @@ export async function exchangeOAuthCode(
   }
 
   // Store full token bundle (access + refresh + expiry) in OS keychain
-  const bundle = buildTokenBundle(tokenResp);
+  const bundle = buildTokenBundle(tokenResp, baseUrl);
   await storeOAuthBundle(bundle);
 
   // Register this computer's runtime under the account (pekohub ADR-007),
@@ -414,7 +417,9 @@ export function usePekohubLogout() {
       // here. A hub that can't be reached doesn't block signing out.
       const bundle = await loadOAuthBundle().catch(() => null);
       if (bundle?.refresh_token) {
-        await hubOAuthRevoke(baseUrl ?? DEFAULT_HUB_URL, bundle.refresh_token).catch(() => undefined);
+        await hubOAuthRevoke(bundle.hub ?? baseUrl ?? DEFAULT_HUB_URL, bundle.refresh_token).catch(
+          () => undefined,
+        );
       }
       await pekohubLogout();
     },

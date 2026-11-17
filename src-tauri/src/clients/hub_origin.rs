@@ -3,6 +3,10 @@
 //! API. Self-hosted hubs serve both from one origin, so only the official
 //! hosts are mapped.
 
+/// The hub the app uses until the user picks another (`pekohub.base_url`;
+/// the frontend's `DEFAULT_HUB_URL`).
+pub const DEFAULT_HUB: &str = "https://api.pekohub.ai";
+
 /// Website hosts whose API lives on `api.pekohub.ai`.
 const OFFICIAL_WEB_HOSTS: &[&str] = &["pekohub.ai", "www.pekohub.ai", "pekohub.org"];
 

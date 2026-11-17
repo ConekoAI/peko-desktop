@@ -1360,6 +1360,11 @@ export interface StoredTokenBundle {
   refresh_token?: string;
   /** ISO 8601 expiry timestamp */
   expires_at?: string;
+  /**
+   * The API base of the hub that issued the tokens. The backend sends
+   * them to that hub only (a share link may name another).
+   */
+  hub?: string;
 }
 
 export interface PekohubRuntime {

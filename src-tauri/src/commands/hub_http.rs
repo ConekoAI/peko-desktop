@@ -99,16 +99,19 @@ pub async fn hub_get(
     }
     let host = host_of(&url);
     let mut request = state.http.get(url).header("Accept", "application/json");
-    if let Some(given) = access_token {
+    let api = crate::clients::hub_origin::hub_api_base(&base_url);
+    if access_token.is_some() && crate::clients::hub_auth::is_signed_in_hub(&api).await {
         // The webview passes the token it read when it signed in; an
         // access token lasts an hour, and after that every read was a
         // 401 (your pekos on other computers stopped updating). Use the
-        // signed-in account's token, refreshed when it's expiring.
-        let api = crate::clients::hub_origin::hub_api_base(&base_url);
+        // signed-in account's token, refreshed when it's expiring. Any
+        // other hub gets no token at all.
         let token = crate::clients::hub_auth::access_token(&state.http, &api)
             .await
-            .unwrap_or(given);
-        request = request.bearer_auth(token);
+            .or(access_token);
+        if let Some(token) = token {
+            request = request.bearer_auth(token);
+        }
     }
     send(request, &host).await
 }
@@ -165,6 +168,9 @@ pub async fn hub_oauth_token(
     params: serde_json::Map<String, serde_json::Value>,
 ) -> Result<HubResponse, String> {
     check_grant(&params)?;
+    if params.get("grant_type").and_then(|v| v.as_str()) == Some("refresh_token") {
+        signed_in_hub_only(&base_url).await?;
+    }
     let url = hub_url(&base_url, "/oauth/token")?;
     let host = host_of(&url);
     send(state.http.post(url).json(&params), &host).await
@@ -178,6 +184,7 @@ pub async fn hub_oauth_revoke(
     base_url: String,
     token: String,
 ) -> Result<HubResponse, String> {
+    signed_in_hub_only(&base_url).await?;
     let url = hub_url(&base_url, "/oauth/revoke")?;
     let host = host_of(&url);
     send(
@@ -188,6 +195,19 @@ pub async fn hub_oauth_revoke(
         &host,
     )
     .await
+}
+
+/// Refuse to send the stored sign-in's refresh token anywhere but the hub
+/// that issued it.
+async fn signed_in_hub_only(base_url: &str) -> Result<(), String> {
+    let api = crate::clients::hub_origin::hub_api_base(base_url);
+    if crate::clients::hub_auth::is_signed_in_hub(&api).await {
+        Ok(())
+    } else {
+        Err(format!(
+            "{api} is not the PekoHub this computer is signed in to"
+        ))
+    }
 }
 
 fn check_grant(params: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
