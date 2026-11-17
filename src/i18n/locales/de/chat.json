@@ -43,6 +43,8 @@
     "asker": "{{name}} ({{address}})",
     "ownerTask": "Du hast {{peko}} {{where}} um etwas gebeten, das deinen vollen Zugriff braucht. Nach der Genehmigung läuft es in deinem Namen, außerhalb dieser Unterhaltung, nur mit diesem Auftrag:",
     "ownerTaskWhere": "in einer geteilten Unterhaltung",
+    "computer": "Ein neuer Computer, der bei deinem PekoHub-Konto angemeldet ist, möchte deine Pekos hier als du verwenden. Genehmige das nur, wenn du gerade auf einem anderen Computer mit Peko angefangen hast: Er kann dann mit deinen Pekos alles tun, was du kannst.",
+    "ownerChange": "PekoHub meldet, dass {{peko}} jetzt einem anderen Konto gehört. Übergeben? Wenn du es nicht weitergegeben hast, lehne ab: Es bleibt deins.",
     "toolRequest": "<asker/> bittet {{peko}}, <summary/> auszuführen",
     "approve": "Genehmigen",
     "alwaysTitle": "Genehmigen und dies für {{name}} immer erlauben",

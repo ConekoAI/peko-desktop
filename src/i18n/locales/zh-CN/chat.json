@@ -43,6 +43,8 @@
     "asker": "{{name}}（{{address}}）",
     "ownerTask": "你{{where}}向 {{peko}} 提出了一项需要你完整权限的请求。批准后，它会以你的身份在那个对话之外执行，并且只依据以下说明：",
     "ownerTaskWhere": "在一个共享对话中",
+    "computer": "一台登录了你的 PekoHub 账号的新电脑想以你的身份使用这里的 peko。只有当你刚在另一台电脑上开始使用 Peko 时才批准：批准后，它可以对这里的 peko 做你能做的任何事。",
+    "ownerChange": "PekoHub 说 {{peko}} 现在属于另一个账号。要移交吗？如果你没有转让过它，请拒绝：它仍然归你。",
     "toolRequest": "<asker/> 请 {{peko}} 运行 <summary/>",
     "approve": "批准",
     "alwaysTitle": "批准，并始终允许 {{name}} 这样做",

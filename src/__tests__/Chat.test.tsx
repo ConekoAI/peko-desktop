@@ -359,6 +359,53 @@ describe("Chat ToS gate", () => {
     );
   });
 
+  it("asks about a new computer on your account, once and never always", async () => {
+    approvalsState.data = [
+      {
+        id: "apr_computer0123456789abcdef0123",
+        actor: "user:hub:x",
+        actorName: "PekoHub",
+        trust: "owner",
+        summary: "A new computer signed in to your PekoHub account wants to use your pekos as you (computer …a1b2c3).",
+        reason: "Approve it only if you just started using Peko on another computer.",
+        createdAt: "2026-11-17T10:00:00Z",
+        expiresAt: "2026-11-18T10:00:00Z",
+        kind: "computer",
+      },
+    ];
+    decideMut.mutateAsync.mockResolvedValue("Approved the new computer.");
+    render(<Chat />);
+    const cards = screen.getByTestId("approval-cards");
+    expect(cards).toHaveTextContent("A new computer signed in to your PekoHub account wants to use your pekos here as you.");
+    expect(screen.getByTestId("hub-claim-summary")).toHaveTextContent("computer …a1b2c3");
+    expect(screen.queryByRole("button", { name: "Always allow" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await waitFor(() =>
+      expect(decideMut.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "apr_computer0123456789abcdef0123", approve: true, always: false }),
+      ),
+    );
+  });
+
+  it("asks before handing a peko to the owner PekoHub reports", async () => {
+    approvalsState.data = [
+      {
+        id: "apr_owner0123456789abcdef0123",
+        actor: "user:hub:x",
+        actorName: "PekoHub",
+        trust: "owner",
+        summary: "PekoHub says this peko now belongs to user:hub:y. Hand it over?",
+        reason: "A transfer was accepted on PekoHub with your sign-in.",
+        createdAt: "2026-11-17T10:00:00Z",
+        expiresAt: "2026-11-18T10:00:00Z",
+        kind: "owner_change",
+      },
+    ];
+    render(<Chat />);
+    expect(screen.getByTestId("approval-cards")).toHaveTextContent("PekoHub says alice now belongs to another account.");
+    expect(screen.queryByRole("button", { name: "Always allow" })).toBeNull();
+  });
+
   it("sends on Enter, adds a line on Shift+Enter, and never mid-composition", async () => {
     sendMut.mutateAsync.mockResolvedValue("");
     render(<Chat />);
