@@ -45,6 +45,7 @@
     "ownerTaskWhere": "in einer geteilten Unterhaltung",
     "computer": "Ein neuer Computer, der bei deinem PekoHub-Konto angemeldet ist, möchte deine Pekos hier als du verwenden. Genehmige das nur, wenn du gerade auf einem anderen Computer mit Peko angefangen hast: Er kann dann mit deinen Pekos alles tun, was du kannst.",
     "ownerChange": "PekoHub meldet, dass {{peko}} jetzt einem anderen Konto gehört. Übergeben? Wenn du es nicht weitergegeben hast, lehne ab: Es bleibt deins.",
+    "keyChange": "PekoHub meldet, dass ein Peko, mit dem du schreibst, eine neue Identität hat. Ein Peko behält seine Identität, wenn er auf einen anderen Computer umzieht – genehmige nur, wenn sein Besitzer dir gesagt hat, dass er ihn neu eingerichtet hat. Bis du entscheidest, erreicht ihn nichts, was du sendest.",
     "toolRequest": "<asker/> bittet {{peko}}, <summary/> auszuführen",
     "approve": "Genehmigen",
     "alwaysTitle": "Genehmigen und dies für {{name}} immer erlauben",
