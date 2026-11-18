@@ -112,5 +112,20 @@
     "itsCode": "Its code",
     "untilNow": "Until now",
     "compare": "Ask its owner to read you the code on their screen. Approve only if it matches."
+  },
+  "privacy": {
+    "title": "Privacy",
+    "noticeTitle": "What Peko sends us",
+    "noticeBody": "Peko can send us two things to help fix and improve it. Neither includes your messages, names, files or keys.",
+    "crash": {
+      "title": "Send crash reports",
+      "hint": "When Peko stops working: the error, the app version and your operating system."
+    },
+    "usage": {
+      "title": "Send usage counts",
+      "hint": "Which features are used, as counts. Never what you or your pekos write."
+    },
+    "changeLater": "You can change this any time in Settings.",
+    "continue": "Continue"
   }
 }

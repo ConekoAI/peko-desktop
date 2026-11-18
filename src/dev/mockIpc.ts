@@ -232,6 +232,8 @@ const settings = [
   { key: "keep_awake", value: "false", category: "general" },
 ];
 
+let privacy = { acknowledged: true, crashReports: true, usageEvents: true };
+
 function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
   switch (cmd) {
     case "engine_status":
@@ -388,6 +390,13 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       return models;
     case "runtime_list":
       return [{ id: "local", name: "This computer", connectionType: "local", status: "connected" }];
+    case "privacy_get":
+      return privacy;
+    case "privacy_set":
+      privacy = args.choices as typeof privacy;
+      return privacy;
+    case "report_ui_error":
+      return null;
     case "settings_list":
       return settings;
     case "settings_get":

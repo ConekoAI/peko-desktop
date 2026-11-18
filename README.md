@@ -176,6 +176,23 @@ contract, see the runtime-side
 and
 [ADR-042](../../../peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md).
 
+## What the app reports
+
+Decided in pekohub ADR-014. The app can send crash reports: the error's
+class and stack, the app version and the OS family, with the home folder
+cut from every path and no messages, names, files or keys
+(`src-tauri/src/telemetry.rs`, `src/lib/errorReporting.ts`). The engine
+sends nothing itself; when it stops unexpectedly the app reports that it
+did. A privacy screen shows once, with the two switches on, and nothing
+is sent before it is passed; Settings → General → Privacy has the same
+switches. The choices are kept in `<peko folder>/desktop/privacy.json`.
+
+Crash reporting exists only in a build made with
+`PEKO_DESKTOP_SENTRY_DSN` set (the release workflow reads the repository
+variable `DESKTOP_SENTRY_DSN`). Without it the app opens no connection
+for this. Usage counts are not sent yet; their switch is stored for when
+they are.
+
 ## Security
 
 The desktop app is built on Tauri's permission model, which means the frontend
