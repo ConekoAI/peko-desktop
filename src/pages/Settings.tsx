@@ -26,7 +26,7 @@ import AddModelModal from "../components/modals/AddModelModal";
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
 import BlockedPeople from "../components/BlockedPeople";
 import KeepAwakeSetting from "../components/KeepAwakeSetting";
-import PairedPhones from "../components/PairedPhones";
+import AccountDevices from "../components/AccountDevices";
 import {
   Save,
   Key,
@@ -115,7 +115,7 @@ function GeneralSection() {
         </div>
       </div>
       <KeepAwakeSetting className={CARD} />
-      <PairedPhones className={CARD} />
+      <AccountDevices className={CARD} />
       <BlockedPeople className={CARD} />
     </div>
   );

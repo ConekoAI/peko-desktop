@@ -1,0 +1,10 @@
+# Trivy (npm audit in CI) exceptions. Like `audit.toml`, each entry says
+# why it does not reach the app and when to look again; an entry past its
+# `exp:` date fails CI again.
+
+# picomatch 4.0.7: denial of service from repeated extglob patterns.
+# Only build tools pull it in (vite, @tanstack/router-plugin via
+# tinyglobby), matching glob patterns this repo writes; nothing in the
+# shipped app uses it. No fixed release yet: upgrade and drop this line
+# once one exists.
+CVE-2026-112366 exp:2027-01-31

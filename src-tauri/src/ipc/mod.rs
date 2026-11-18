@@ -1921,20 +1921,35 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// Open a pairing for a phone to scan (runtime ADR-108). Answered
-    /// with `device_pair_started`.
-    pub async fn device_pair_start(&self) -> Result<serde_json::Value> {
+    /// Show a code that adds a device to this account (runtime ADR-111
+    /// D3). Answered with `device_code_shown`.
+    pub async fn device_add(&self) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
-            "type": "device_pair_start",
+            "type": "device_add",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
         });
         self.request_response(req).await
     }
 
-    /// The phones paired with this computer (runtime ADR-108). Answered
-    /// with `device_list_result`.
+    /// Join this computer to its account's devices with a code shown on
+    /// one of them (runtime ADR-111 D3). Answered with `done` once the
+    /// list has this computer on it, which can take up to two minutes.
+    pub async fn device_join(&self, code: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "device_join",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "code": code,
+        });
+        self.request_response_with_timeout(req, Duration::from_secs(130))
+            .await
+    }
+
+    /// This account's devices, and what waits about it (runtime ADR-111).
+    /// Answered with `device_list_result`.
     pub async fn device_list(&self) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1945,7 +1960,8 @@ impl IpcClient {
         self.request_response(req).await
     }
 
-    /// Remove a paired phone (runtime ADR-108). Answered with `done`.
+    /// Remove a device from this account (runtime ADR-111 D4). Answered
+    /// with `done`.
     pub async fn device_remove(&self, device_id: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({
@@ -1953,6 +1969,21 @@ impl IpcClient {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "device_id": device_id,
+        });
+        self.request_response_with_timeout(req, Duration::from_secs(30))
+            .await
+    }
+
+    /// Decide an owner change, a peko's new identity, or a contact's device
+    /// reset (runtime ADR-111 D6). Answered with `approval_decided`.
+    pub async fn security_decide(&self, id: &str, approve: bool) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "security_decide",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "id": id,
+            "approve": approve,
         });
         self.request_response(req).await
     }
