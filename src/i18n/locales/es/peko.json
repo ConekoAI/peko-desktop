@@ -178,5 +178,11 @@
     "starting": "Iniciando…",
     "stepReady": "Listo",
     "stepPending": "Sin hacer"
+  },
+  "code": {
+    "label": "Código",
+    "ownHint": "Léeselo a quien quiera asegurarse de que llega a {{name}}.",
+    "remoteHint": "Pide al dueño de {{name}} que te lea el código que ve. Si coincide, llegas al {{name}} que conoce.",
+    "unknown": "Este ordenador aún no lo conoce, así que no tiene código."
   }
 }

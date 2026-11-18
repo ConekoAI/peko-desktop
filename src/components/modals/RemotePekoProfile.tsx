@@ -5,6 +5,7 @@ import { useRemotePeko, useRemotePrincipalRemove } from "../../hooks/useRemotePr
 import { statusBadge } from "../../hooks/usePrincipalStatus";
 import PekoAvatar from "../peko/PekoAvatar";
 import { hubWebOrigin } from "../../lib/api";
+import { IdentityCodeRow } from "../IdentityCode";
 
 /** `https://pekohub.org/` → `pekohub.org`. */
 function hostOf(url: string): string {
@@ -130,6 +131,19 @@ export default function RemotePekoProfile({
                 <Row label={t("peko.remote.runsOn")}>{t("peko.remote.yourOtherComputer")}</Row>
               )}
               <Row label={t("peko.remote.reachedThrough")}>{hostOf(record.hubUrl)}</Row>
+              {record.hubId && (
+                <IdentityCodeRow
+                  of={`peko:hub:${record.hubId}`}
+                  label={t("peko.code.label")}
+                  hint={
+                    record.fromAccount
+                      ? t("peko.code.ownHint", { name: principalName })
+                      : t("peko.code.remoteHint", { name: principalName })
+                  }
+                  unknown={t("peko.code.unknown")}
+                  testId="remote-peko-code"
+                />
+              )}
               <Row label={t("peko.remote.access")}>
                 {record.hasInviteToken
                   ? t("peko.remote.accessInvite")

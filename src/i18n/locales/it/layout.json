@@ -62,5 +62,9 @@
     "failed": "L'aggiornamento non è andato a buon fine. Scarica la nuova versione dalla pagina di download.",
     "downloadPage": "Apri la pagina di download",
     "dismiss": "Chiudi"
+  },
+  "deviceList": {
+    "notOn": "Questo computer non è ancora tra i dispositivi del tuo account, quindi ciò che invia a tuo nome resta in attesa.",
+    "join": "Aggiungilo"
   }
 }

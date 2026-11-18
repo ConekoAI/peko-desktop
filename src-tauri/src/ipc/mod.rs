@@ -1960,6 +1960,19 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// The code of an identity as this computer holds it (runtime
+    /// ADR-112). Answered with `identity_code_result`.
+    pub async fn identity_code(&self, of: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "identity_code",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "of": of,
+        });
+        self.request_response(req).await
+    }
+
     /// Remove a device from this account (runtime ADR-111 D4). Answered
     /// with `done`.
     pub async fn device_remove(&self, device_id: &str) -> Result<serde_json::Value> {

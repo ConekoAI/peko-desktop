@@ -178,5 +178,11 @@
     "starting": "Démarrage…",
     "stepReady": "Prêt",
     "stepPending": "Pas fait"
+  },
+  "code": {
+    "label": "Code",
+    "ownHint": "Lisez-le à quelqu'un qui veut être sûr de joindre {{name}}.",
+    "remoteHint": "Demandez au propriétaire de {{name}} de vous lire le code qu'il voit. S'il correspond, vous joignez le {{name}} qu'il connaît.",
+    "unknown": "Cet ordinateur ne l'a pas encore rencontré, il n'a donc pas de code."
   }
 }

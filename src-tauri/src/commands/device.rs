@@ -44,6 +44,10 @@ pub struct SecurityItem {
     pub peko: Option<String>,
     /// RFC 3339.
     pub created_at: String,
+    /// Runtime ADR-112: the code of what it asks you to trust.
+    pub code: Option<String>,
+    /// Runtime ADR-112: a key change's code for the key trusted until now.
+    pub pinned_code: Option<String>,
 }
 
 /// Your account's devices, as this computer holds them.
@@ -58,6 +62,18 @@ pub struct AccountDevices {
     pub on_list: bool,
     pub devices: Vec<AccountDevice>,
     pub security: Vec<SecurityItem>,
+    /// Runtime ADR-112: your account's code, once this computer holds its list.
+    pub code: Option<String>,
+}
+
+/// An identity's code (runtime ADR-112), as this computer holds it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IdentityCode {
+    pub of: String,
+    pub name: Option<String>,
+    /// Absent when this computer has not met it.
+    pub code: Option<String>,
 }
 
 /// A code that adds a device.
@@ -110,6 +126,7 @@ fn devices_from(value: &serde_json::Value) -> Result<AccountDevices, String> {
             .unwrap_or_default()
     };
     Ok(AccountDevices {
+        code: text(value, "code"),
         account: text(value, "account"),
         runtime: text(value, "runtime").unwrap_or_default(),
         on_list: value
@@ -141,6 +158,8 @@ fn devices_from(value: &serde_json::Value) -> Result<AccountDevices, String> {
                     reason: text(row, "reason").unwrap_or_default(),
                     peko: text(row, "peko"),
                     created_at: text(row, "created_at").unwrap_or_default(),
+                    code: text(row, "code"),
+                    pinned_code: text(row, "pinned_code"),
                 })
             })
             .collect(),
@@ -243,6 +262,25 @@ pub async fn device_remove(device_id: String) -> Result<AccountDevices, String> 
         .await
         .map_err(|e| format!("device_list failed: {e}"))?;
     devices_from(&value)
+}
+
+/// The code of `of` (runtime ADR-112): `account`, `peko:hub:<id>`,
+/// `user:hub:<id>`, or one of your pekos by name.
+#[tauri::command]
+pub async fn identity_code(of: String) -> Result<IdentityCode, String> {
+    let value = client()
+        .await?
+        .identity_code(of.trim())
+        .await
+        .map_err(|e| format!("identity_code failed: {e}"))?;
+    if let Some(message) = refusal_of(&value) {
+        return Err(message);
+    }
+    Ok(IdentityCode {
+        of: text(&value, "of").unwrap_or(of),
+        name: text(&value, "name"),
+        code: text(&value, "code"),
+    })
 }
 
 /// Decide something about your account that waits; returns what happened.
@@ -356,7 +394,10 @@ mod tests {
             ],
             "security": [{"id": "apr_keychange0123", "kind": "key_change",
                           "summary": "PekoHub says ada has a new identity. Use it?", "reason": "",
-                          "created_at": "2026-11-18T00:02:00+00:00"}]});
+                          "created_at": "2026-11-18T00:02:00+00:00",
+                          "code": "11111 22222 33333 44444 55555 66666",
+                          "pinned_code": "99999 88888 77777 66666 55555 44444"}],
+            "code": "62659 39535 75152 38949 74100 79799"});
         let devices = devices_from(&value).unwrap();
         assert!(devices.on_list);
         assert_eq!(devices.devices.len(), 2);
@@ -370,6 +411,12 @@ mod tests {
         assert_eq!(
             json["security"][0]["createdAt"],
             "2026-11-18T00:02:00+00:00"
+        );
+        // Runtime ADR-112: the codes reach the window.
+        assert_eq!(json["code"], "62659 39535 75152 38949 74100 79799");
+        assert_eq!(
+            json["security"][0]["pinnedCode"],
+            "99999 88888 77777 66666 55555 44444"
         );
     }
 

@@ -176,5 +176,11 @@
     "starting": "正在開始…",
     "stepReady": "已就緒",
     "stepPending": "未完成"
+  },
+  "code": {
+    "label": "代碼",
+    "ownHint": "唸給想確認聯絡的確實是 {{name}} 的人聽。",
+    "remoteHint": "請 {{name}} 的主人唸出他們看到的代碼。如果一致，你聯絡的就是他們認識的 {{name}}。",
+    "unknown": "這台電腦還沒有遇過它，所以沒有代碼。"
   }
 }

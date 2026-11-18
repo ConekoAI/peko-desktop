@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import PekoAvatar from "../peko/PekoAvatar";
 import RemotePekoProfile from "./RemotePekoProfile";
+import { IdentityCodeRow } from "../IdentityCode";
 import UsagePanel from "../peko/UsagePanel";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
 import { currentLocale, t as translate } from "../../i18n";
@@ -537,6 +538,14 @@ function LocalPekoProfile({
                 }
               />
               <Row label={t("peko.profile.owner")} value={ownerLabel(principal.owner, linkedAccount)} />
+              {!isRemote && (
+                <IdentityCodeRow
+                  of={principal.name}
+                  label={t("peko.code.label")}
+                  hint={t("peko.code.ownHint", { name: principal.name })}
+                  testId="peko-code"
+                />
+              )}
               {!isRemote && <UsagePanel name={principal.name} priced={modelIsPriced} />}
               {/* Public share link (PR-D). Only meaningful when exposure
                   is `public` — otherwise the link would 404 on the

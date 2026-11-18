@@ -118,6 +118,36 @@ describe("AccountDevices", () => {
     expect(await screen.findByText("Kept ada's old identity.")).toBeInTheDocument();
   });
 
+  it("shows the account's code, and the codes a change asks you to compare (runtime ADR-112)", async () => {
+    const item = {
+      id: "apr_keychange0123",
+      kind: "key_change",
+      summary: "PekoHub says ada has a new identity. Use it?",
+      reason: "",
+      createdAt: new Date().toISOString(),
+      code: "11111 22222 33333 44444 55555 66666",
+      pinnedCode: "99999 88888 77777 66666 55555 44444",
+    };
+    accountDevicesMock.mockResolvedValue(
+      view({ code: "62659 39535 75152 38949 74100 79799", security: [item] }),
+    );
+    renderCard();
+    expect(await screen.findByTestId("account-code-value")).toHaveTextContent("62659 39535 75152 38949 74100 79799");
+    expect(screen.getByTestId(`security-code-${item.id}-value`)).toHaveTextContent(item.code);
+    expect(screen.getByTestId(`security-${item.id}`)).toHaveTextContent(item.pinnedCode);
+    expect(screen.getByTestId(`security-${item.id}`)).toHaveTextContent(/Approve only if it matches/);
+    // What waits comes before the devices.
+    const order = screen.getByTestId("account-devices").innerHTML;
+    expect(order.indexOf("account-security")).toBeLessThan(order.indexOf(`device-${desk.id}`));
+  });
+
+  it("shows no account code while this computer is not on the list", async () => {
+    accountDevicesMock.mockResolvedValue(view({ onList: false, code: "12345 12345 12345 12345 12345 12345" }));
+    renderCard();
+    await screen.findByTestId("account-devices-code");
+    expect(screen.queryByTestId("account-code")).toBeNull();
+  });
+
   it("says to sign in first", async () => {
     accountDevicesMock.mockResolvedValue(view({ account: null, onList: false, devices: [] }));
     renderCard();

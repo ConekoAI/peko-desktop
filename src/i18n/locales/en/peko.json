@@ -177,5 +177,11 @@
     "starting": "Starting…",
     "stepReady": "Ready",
     "stepPending": "Not done"
+  },
+  "code": {
+    "label": "Code",
+    "ownHint": "Read it to someone who wants to be sure they reach {{name}}.",
+    "remoteHint": "Ask {{name}}'s owner to read you the code they see. If it matches, you reach the {{name}} they know.",
+    "unknown": "This computer has not met it yet, so it has no code."
   }
 }

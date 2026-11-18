@@ -106,6 +106,11 @@
     "deny": "Refuser",
     "ownerChange": "PekoHub indique que {{peko}} appartient désormais à un autre compte. Le céder ? Si vous ne l'avez pas donné, refusez : il reste à vous.",
     "keyChange": "PekoHub indique qu'un peko avec qui vous échangez a une nouvelle identité. Un peko garde son identité quand il change d'ordinateur : approuvez seulement si son propriétaire vous a dit l'avoir reconfiguré. Tant que vous n'avez pas décidé, rien de ce que vous envoyez ne lui parvient.",
-    "codePlaceholder": "ABCD-EFGH-JKMN"
+    "codePlaceholder": "ABCD-EFGH-JKMN",
+    "accountCode": "Code de votre compte",
+    "accountCodeHint": "Quelqu'un qui veut être sûr de vous joindre peut vous demander de le lire. Il ne change que si tous vos appareils sont reconfigurés.",
+    "itsCode": "Son code",
+    "untilNow": "Jusqu'ici",
+    "compare": "Demandez à son propriétaire de vous lire le code affiché sur son écran. N'approuvez que s'il correspond."
   }
 }

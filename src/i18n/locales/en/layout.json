@@ -61,5 +61,9 @@
     "failed": "The update didn't go through. Get the new version from the download page.",
     "downloadPage": "Open the download page",
     "dismiss": "Dismiss"
+  },
+  "deviceList": {
+    "notOn": "This computer isn't on your account's devices yet, so what it sends as you waits.",
+    "join": "Add it"
   }
 }

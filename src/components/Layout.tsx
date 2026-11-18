@@ -7,6 +7,7 @@ import TitleBar from "./TitleBar";
 import EngineFailureCard from "./EngineFailureCard";
 import VersionMismatchBanner from "./VersionMismatchBanner";
 import UpdateBanner from "./UpdateBanner";
+import DeviceListBanner from "./DeviceListBanner";
 import FirstRunWalkthrough from "./FirstRunWalkthrough";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
@@ -225,6 +226,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {/* A newer Peko Desktop: renders nothing unless there is one. */}
             <div className="px-6 pt-4 empty:hidden">
               <UpdateBanner />
+            </div>
+            {/* This computer signed in but not on its account's devices. */}
+            <div className="px-6 pt-4 empty:hidden">
+              <DeviceListBanner />
             </div>
             {children}
           </main>

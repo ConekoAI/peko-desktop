@@ -6,6 +6,7 @@ import HubNotificationBell from "./HubNotificationBell";
 import GroupRail from "./rail/GroupRail";
 import { RailDivider, RailItem } from "./rail/RailItem";
 import { useUnreadCounts } from "../lib/unread";
+import { useAccountDevices } from "../hooks/useAccountDevices";
 
 /**
  * The far-left rail: Chats on top, then every group you are in as its own
@@ -26,6 +27,8 @@ export default function AppRail({ onCreateGroup }: { onCreateGroup?: () => void 
     location.pathname.startsWith("/people/");
 
   const isSettings = location.pathname === "/settings";
+  // Runtime ADR-111 D6: what waits about your account shows on Settings.
+  const waiting = useAccountDevices().data?.security.length ?? 0;
 
   return (
     <aside className="flex h-full w-[72px] shrink-0 flex-col items-center bg-surface-rail pb-3 pt-3">
@@ -57,7 +60,9 @@ export default function AppRail({ onCreateGroup }: { onCreateGroup?: () => void 
           label={t("layout.rail.settings")}
           active={isSettings}
           ariaCurrent={isSettings}
-          onClick={() => navigate({ to: "/settings" })}
+          unread={waiting > 0}
+          badge={waiting}
+          onClick={() => navigate({ to: "/settings", hash: waiting > 0 ? "devices" : undefined })}
           testId="app-rail-settings"
         >
           <Settings className="h-5 w-5" />
