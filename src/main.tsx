@@ -5,6 +5,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { initTheme } from "./lib/theme";
 import { initLanguage } from "./i18n";
+import { installErrorReporting, reportError } from "./lib/errorReporting";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import "./styles/index.css";
@@ -25,7 +26,11 @@ const queryClient = new QueryClient({
   },
 });
 
-const router = createRouter({ routeTree });
+// Errors the window does not handle go into a crash report, if the owner
+// has left those on (pekohub ADR-014).
+installErrorReporting();
+
+const router = createRouter({ routeTree, defaultOnCatch: (error) => reportError(error) });
 
 declare module "@tanstack/react-router" {
   interface Register {

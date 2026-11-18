@@ -800,6 +800,11 @@ async fn handle_terminated(inner: &Arc<Mutex<Inner>>, app: &AppHandle, payload: 
         push_log_inner(&mut g, format!("[supervisor] {msg}"));
 
         let was_running = matches!(g.state, EngineState::Running { .. } | EngineState::Starting);
+        if was_running {
+            // Nobody asked it to stop: say so in a crash report (exit
+            // code, signal and version only; pekohub ADR-014).
+            crate::telemetry::report_engine_exit(exit_code, signal, g.version.as_deref());
+        }
         if !was_running {
             g.state = EngineState::Stopped;
             g.child = None;

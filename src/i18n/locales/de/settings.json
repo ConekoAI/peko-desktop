@@ -112,5 +112,20 @@
     "itsCode": "Sein Code",
     "untilNow": "Bisher",
     "compare": "Bitte den Besitzer, dir den Code auf seinem Bildschirm vorzulesen. Stimme nur zu, wenn er übereinstimmt."
+  },
+  "privacy": {
+    "title": "Datenschutz",
+    "noticeTitle": "Was Peko an uns sendet",
+    "noticeBody": "Peko kann uns zwei Dinge senden, damit wir es reparieren und verbessern können. Keines enthält deine Nachrichten, Namen, Dateien oder Schlüssel.",
+    "crash": {
+      "title": "Absturzberichte senden",
+      "hint": "Wenn Peko nicht mehr funktioniert: der Fehler, die App-Version und dein Betriebssystem."
+    },
+    "usage": {
+      "title": "Nutzungszahlen senden",
+      "hint": "Welche Funktionen genutzt werden, nur als Zahlen. Nie, was du oder deine Pekos schreiben."
+    },
+    "changeLater": "Du kannst das jederzeit in den Einstellungen ändern.",
+    "continue": "Weiter"
   }
 }

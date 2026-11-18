@@ -9,6 +9,7 @@ import VersionMismatchBanner from "./VersionMismatchBanner";
 import UpdateBanner from "./UpdateBanner";
 import DeviceListBanner from "./DeviceListBanner";
 import FirstRunWalkthrough from "./FirstRunWalkthrough";
+import PrivacyNotice from "./PrivacyNotice";
 import CreatePrincipalModal from "./modals/CreatePrincipalModal";
 import AddRemotePrincipalModal from "./modals/AddRemotePrincipalModal";
 import ImportPekoModal from "./modals/ImportPekoModal";
@@ -272,6 +273,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           own `fixed inset-0 z-50` overlay when active, so it sits
           above everything else in the layout. */}
       <FirstRunWalkthrough />
+      {/* Shown once, above everything else, before anything is sent
+          (pekohub ADR-014). */}
+      <PrivacyNotice />
     </div>
   );
 }

@@ -293,6 +293,10 @@ jobs:
         uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Where crash reports go (pekohub ADR-014; src-tauri/src/telemetry.rs).
+          # Unset, the app is built without crash reporting. A Sentry
+          # address is not a secret: it ships inside the app.
+          PEKO_DESKTOP_SENTRY_DSN: ${{ vars.DESKTOP_SENTRY_DSN }}
         with:
           args: ${{ steps.updates.outputs.args }}
           # Windows updates with the NSIS installer, not the .msi.

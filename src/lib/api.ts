@@ -2255,3 +2255,20 @@ export async function channelEventsWatch(
     runtimeId: runtimeId ?? null,
   });
 }
+
+// ─── Privacy choices and crash reports (pekohub ADR-014) ─────────
+
+/** The owner's two privacy switches, and whether they have seen them. */
+export interface PrivacyChoices {
+  acknowledged: boolean;
+  crashReports: boolean;
+  usageEvents: boolean;
+}
+
+export async function privacyGet(): Promise<PrivacyChoices> {
+  return invoke("privacy_get");
+}
+
+export async function privacySet(choices: PrivacyChoices): Promise<PrivacyChoices> {
+  return invoke("privacy_set", { choices });
+}

@@ -112,5 +112,20 @@
     "itsCode": "Su código",
     "untilNow": "Hasta ahora",
     "compare": "Pide a su dueño que te lea el código de su pantalla. Aprueba solo si coincide."
+  },
+  "privacy": {
+    "title": "Privacidad",
+    "noticeTitle": "Qué nos envía Peko",
+    "noticeBody": "Peko puede enviarnos dos cosas para ayudarnos a corregirlo y mejorarlo. Ninguna incluye tus mensajes, nombres, archivos ni claves.",
+    "crash": {
+      "title": "Enviar informes de fallos",
+      "hint": "Cuando Peko deja de funcionar: el error, la versión de la app y tu sistema operativo."
+    },
+    "usage": {
+      "title": "Enviar recuentos de uso",
+      "hint": "Qué funciones se usan, solo como recuentos. Nunca lo que escribís tú o tus pekos."
+    },
+    "changeLater": "Puedes cambiarlo cuando quieras en Ajustes.",
+    "continue": "Continuar"
   }
 }

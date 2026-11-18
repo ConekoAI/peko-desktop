@@ -7,6 +7,7 @@ pub mod ipc;
 pub mod sidecar;
 pub mod state;
 pub mod storage;
+pub mod telemetry;
 pub mod tray;
 pub mod updater;
 
@@ -21,6 +22,9 @@ fn expected_engine_version() -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Crash reports (pekohub ADR-014). Held until the app ends, so what is
+    // still queued is sent. `None` in a build without a Sentry address.
+    let _crash_reports = telemetry::init();
     tauri::Builder::default()
         // One copy of the app. Its window can be hidden while the engine
         // keeps running (see the close handling in `run` below), so opening

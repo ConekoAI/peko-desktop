@@ -51,6 +51,9 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # The pairing code a phone scans (runtime ADR-108), drawn as SVG.
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 tauri-plugin-updater = "2"
+# Crash reports (pekohub ADR-014; src/telemetry.rs). No default features:
+# no device or OS context, no session tracking, no logs.
+sentry = { version = "0.49", default-features = false, features = ["backtrace", "panic", "reqwest", "rustls"] }
 
 
 [dev-dependencies]
