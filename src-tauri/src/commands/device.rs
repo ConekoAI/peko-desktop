@@ -112,7 +112,10 @@ fn devices_from(value: &serde_json::Value) -> Result<AccountDevices, String> {
     Ok(AccountDevices {
         account: text(value, "account"),
         runtime: text(value, "runtime").unwrap_or_default(),
-        on_list: value.get("on_list").and_then(|v| v.as_bool()).unwrap_or(false),
+        on_list: value
+            .get("on_list")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
         devices: rows("devices")
             .iter()
             .filter_map(|row| {
@@ -162,9 +165,11 @@ fn code_from(value: &serde_json::Value) -> Result<JoinCodeShown, String> {
     if let Some(message) = refusal_of(value) {
         return Err(message);
     }
-    let (Some(code), Some(qr), Some(expires_at)) =
-        (text(value, "code"), text(value, "qr"), text(value, "expires_at"))
-    else {
+    let (Some(code), Some(qr), Some(expires_at)) = (
+        text(value, "code"),
+        text(value, "qr"),
+        text(value, "expires_at"),
+    ) else {
         return Err("unexpected answer to a request for a code".to_string());
     };
     Ok(JoinCodeShown {
@@ -362,7 +367,10 @@ mod tests {
         let json = serde_json::to_value(&devices).unwrap();
         assert_eq!(json["onList"], true);
         assert_eq!(json["devices"][1]["hubDeviceId"], "dev_a1");
-        assert_eq!(json["security"][0]["createdAt"], "2026-11-18T00:02:00+00:00");
+        assert_eq!(
+            json["security"][0]["createdAt"],
+            "2026-11-18T00:02:00+00:00"
+        );
     }
 
     #[test]
