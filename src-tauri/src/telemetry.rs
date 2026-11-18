@@ -37,8 +37,7 @@ pub struct PrivacyChoices {
     pub acknowledged: bool,
     #[serde(default = "on")]
     pub crash_reports: bool,
-    /// Stored now so the screen is shown once; usage events themselves
-    /// arrive with ADR-014 build step (c).
+    /// Usage counts (`usage.rs`).
     #[serde(default = "on")]
     pub usage_events: bool,
 }
@@ -54,6 +53,11 @@ impl Default for PrivacyChoices {
 }
 
 impl PrivacyChoices {
+    /// Usage counts may leave this computer (`usage.rs`).
+    pub fn sends_usage_events(&self) -> bool {
+        self.acknowledged && self.usage_events
+    }
+
     /// Crash reports may leave this computer.
     pub fn sends_crash_reports(&self) -> bool {
         self.acknowledged && self.crash_reports

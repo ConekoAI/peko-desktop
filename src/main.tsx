@@ -1,3 +1,5 @@
+import { getVersion } from "@tauri-apps/api/app";
+import { trackAppOpened } from "./lib/usage";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -40,6 +42,8 @@ declare module "@tanstack/react-router" {
 
 void ready.then(initLanguage).then(() => {
   initTheme();
+  // Counted once per start; the native side decides whether it leaves.
+  void getVersion().then(trackAppOpened, () => {});
   createRoot(document.getElementById("root") as HTMLElement).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>

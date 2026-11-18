@@ -396,6 +396,7 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       privacy = args.choices as typeof privacy;
       return privacy;
     case "report_ui_error":
+    case "usage_event":
       return null;
     case "settings_list":
       return settings;

@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { track } from "../lib/usage";
 import { usePrivacy, useSetPrivacy } from "../hooks/usePrivacy";
 import PrivacySwitches from "./PrivacySwitches";
 
@@ -24,7 +25,14 @@ export default function PrivacySettings({ className }: { className?: string }) {
       <PrivacySwitches
         value={stored}
         disabled={save.isPending}
-        onChange={(next) => save.mutate({ ...stored, ...next })}
+        onChange={(next) => {
+          // Counted before the switch is saved, so turning usage counts
+          // off is itself the last thing counted.
+          track("settings_changed", {
+            setting: next.usageEvents !== stored.usageEvents ? "usage_events" : "crash_reports",
+          });
+          save.mutate({ ...stored, ...next });
+        }}
       />
       {save.error && (
         <p className="mt-2 text-xs text-danger" role="alert">

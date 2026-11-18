@@ -1,3 +1,4 @@
+import { track } from "../lib/usage";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { channelPost, type RuntimeId } from "../lib/api";
@@ -39,6 +40,8 @@ export function useChannelPost(runtimeId?: RuntimeId) {
         rethrowAsChannelError,
       ),
     onSuccess: (_taskId, vars) => {
+      const channel = qc.getQueryData<{ kind?: string }>(["channel", runtimeId ?? "local", vars.channelId]);
+      track("message_sent", { kind: channel?.kind === "dm" ? "dm" : "group", has_attachment: false });
       void qc.invalidateQueries({
         queryKey: ["channel-events", runtimeId ?? "local", vars.channelId],
       });

@@ -190,8 +190,14 @@ switches. The choices are kept in `<peko folder>/desktop/privacy.json`.
 Crash reporting exists only in a build made with
 `PEKO_DESKTOP_SENTRY_DSN` set (the release workflow reads the repository
 variable `DESKTOP_SENTRY_DSN`). Without it the app opens no connection
-for this. Usage counts are not sent yet; their switch is stored for when
-they are.
+for this.
+
+Usage counts (`src-tauri/src/usage.rs`, `src/lib/usage.ts`) are a fixed list
+of events with fixed values; the native side refuses anything else and
+sends only with the usage switch on and a build made with
+`PEKO_DESKTOP_POSTHOG_KEY` (repository variable `DESKTOP_POSTHOG_KEY`).
+Each carries a random install id (`<peko folder>/desktop/install-id`),
+linked once to the account's analytics id after PekoHub sign-in.
 
 ## Security
 
