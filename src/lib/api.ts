@@ -1912,42 +1912,80 @@ export async function markRead(channel: string, at: string): Promise<boolean> {
   return invoke<boolean>("mark_read", { channel, at });
 }
 
-/** A phone paired with this computer (runtime ADR-108). */
-export interface PairedPhone {
-  deviceId: string;
-  /** What the phone calls itself. */
-  name: string;
-  /** `ios` or `android`. */
-  platform: string;
+/** A device on your account's list (runtime ADR-111). */
+export interface AccountDevice {
+  /** Its key as a `did:key` (a computer's runtime id). */
+  id: string;
+  kind: "computer" | "phone";
+  name?: string | null;
+  /** A phone's id at PekoHub. */
+  hubDeviceId?: string | null;
   /** ISO time. */
-  pairedAt: string;
-  /** ISO time; absent until the phone first asks for something. */
+  addedAt: string;
+  /** The device that added it. */
+  addedBy: string;
+  /** Whether it is this computer. */
+  this: boolean;
+  /** ISO time: when a phone last asked this computer for something. */
   lastSeen?: string | null;
 }
 
-/** A code for a phone to scan: an SVG picture, and when it stops working (ISO). */
-export interface PhonePairing {
+/** Something about your account that waits for you (runtime ADR-111 D6). */
+export interface SecurityItem {
+  id: string;
+  kind: "owner_change" | "key_change" | "devices_reset" | string;
+  summary: string;
+  reason: string;
+  /** The peko an owner change is about. */
+  peko?: string | null;
+  createdAt: string;
+}
+
+/** Your account's devices, as this computer holds them. */
+export interface AccountDevices {
+  /** `user:hub:<id>`; absent when this computer is not signed in. */
+  account?: string | null;
+  runtime: string;
+  /** Whether this computer is on the list. */
+  onList: boolean;
+  devices: AccountDevice[];
+  security: SecurityItem[];
+}
+
+/** A code that adds a device: to type, and as an SVG picture to scan. */
+export interface JoinCodeShown {
+  code: string;
   svg: string;
   expiresAt: string;
 }
 
-/** The phones paired with this computer, oldest pairing first. */
-export async function pairedPhones(): Promise<PairedPhone[]> {
-  return invoke<PairedPhone[]>("paired_phones");
+/** Your account's devices, and what waits about it. */
+export async function accountDevices(): Promise<AccountDevices> {
+  return invoke<AccountDevices>("account_devices");
 }
 
 /**
- * Open a pairing and get its code. It works once, for ten minutes.
+ * Show a code that adds a device. It works once, for ten minutes.
  * Rejects with `not_signed_in` when this computer is not signed in to
  * PekoHub.
  */
-export async function phonePairStart(): Promise<PhonePairing> {
-  return invoke<PhonePairing>("phone_pair_start");
+export async function deviceAdd(): Promise<JoinCodeShown> {
+  return invoke<JoinCodeShown>("device_add");
 }
 
-/** Remove a paired phone; returns the phones still paired. */
-export async function pairedPhoneRemove(deviceId: string): Promise<PairedPhone[]> {
-  return invoke<PairedPhone[]>("paired_phone_remove", { deviceId });
+/** Join this computer to your account with a code from another device. */
+export async function deviceJoin(code: string): Promise<AccountDevices> {
+  return invoke<AccountDevices>("device_join", { code });
+}
+
+/** Remove a device from your account; returns the devices left. */
+export async function deviceRemove(deviceId: string): Promise<AccountDevices> {
+  return invoke<AccountDevices>("device_remove", { deviceId });
+}
+
+/** Decide something about your account; resolves to what happened. */
+export async function securityDecide(id: string, approve: boolean): Promise<string> {
+  return invoke<string>("security_decide", { id, approve });
 }
 
 /**

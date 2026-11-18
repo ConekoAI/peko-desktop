@@ -359,72 +359,21 @@ describe("Chat ToS gate", () => {
     );
   });
 
-  it("asks about a new computer on your account, once and never always", async () => {
-    approvalsState.data = [
-      {
-        id: "apr_computer0123456789abcdef0123",
-        actor: "user:hub:x",
-        actorName: "PekoHub",
-        trust: "owner",
-        summary: "A new computer signed in to your PekoHub account wants to use your pekos as you (computer …a1b2c3).",
-        reason: "Approve it only if you just started using Peko on another computer.",
-        createdAt: "2026-11-17T10:00:00Z",
-        expiresAt: "2026-11-18T10:00:00Z",
-        kind: "computer",
-      },
-    ];
-    decideMut.mutateAsync.mockResolvedValue("Approved the new computer.");
+  it("leaves what is about your account to Settings, not to the peko's chat", async () => {
+    approvalsState.data = (["owner_change", "key_change", "devices_reset"] as const).map((kind, n) => ({
+      id: `apr_account${n}`,
+      actor: "user:hub:x",
+      actorName: "PekoHub",
+      trust: "owner",
+      summary: `PekoHub says something about your account (${kind}).`,
+      reason: "",
+      createdAt: "2026-11-17T10:00:00Z",
+      expiresAt: "2026-11-18T10:00:00Z",
+      kind,
+    }));
     render(<Chat />);
-    const cards = screen.getByTestId("approval-cards");
-    expect(cards).toHaveTextContent("A new computer signed in to your PekoHub account wants to use your pekos here as you.");
-    expect(screen.getByTestId("hub-claim-summary")).toHaveTextContent("computer …a1b2c3");
-    expect(screen.queryByRole("button", { name: "Always allow" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-    await waitFor(() =>
-      expect(decideMut.mutateAsync).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "apr_computer0123456789abcdef0123", approve: true, always: false }),
-      ),
-    );
-  });
-
-  it("asks before handing a peko to the owner PekoHub reports", async () => {
-    approvalsState.data = [
-      {
-        id: "apr_owner0123456789abcdef0123",
-        actor: "user:hub:x",
-        actorName: "PekoHub",
-        trust: "owner",
-        summary: "PekoHub says this peko now belongs to user:hub:y. Hand it over?",
-        reason: "A transfer was accepted on PekoHub with your sign-in.",
-        createdAt: "2026-11-17T10:00:00Z",
-        expiresAt: "2026-11-18T10:00:00Z",
-        kind: "owner_change",
-      },
-    ];
-    render(<Chat />);
-    expect(screen.getByTestId("approval-cards")).toHaveTextContent("PekoHub says alice now belongs to another account.");
-    expect(screen.queryByRole("button", { name: "Always allow" })).toBeNull();
-  });
-
-  it("asks before using a peko's new identity PekoHub reports", async () => {
-    approvalsState.data = [
-      {
-        id: "apr_keychange0123456789abcdef01",
-        actor: "user:hub:x",
-        actorName: "PekoHub",
-        trust: "owner",
-        summary: "PekoHub says ada has a new identity. Use it?",
-        reason: "A peko keeps its identity when it moves.",
-        createdAt: "2026-11-17T10:00:00Z",
-        expiresAt: "2026-11-18T10:00:00Z",
-        kind: "key_change",
-      },
-    ];
-    render(<Chat />);
-    const cards = screen.getByTestId("approval-cards");
-    expect(cards).toHaveTextContent("PekoHub says a peko you talk with has a new identity.");
-    expect(screen.getByTestId("hub-claim-summary")).toHaveTextContent("ada has a new identity");
-    expect(screen.queryByRole("button", { name: "Always allow" })).toBeNull();
+    expect(screen.queryByTestId("approval-cards")).toBeNull();
+    expect(screen.queryByText(/something about your account/)).toBeNull();
   });
 
   it("sends on Enter, adds a line on Shift+Enter, and never mid-composition", async () => {
