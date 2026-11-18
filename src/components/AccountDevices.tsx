@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Laptop, Loader2, ShieldAlert, Smartphone, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
-  accountDevices,
   deviceAdd,
   deviceJoin,
   deviceRemove,
@@ -13,12 +12,11 @@ import {
   type SecurityItem,
 } from "../lib/api";
 import { timeAgo } from "../lib/format";
+import { ACCOUNT_DEVICES_KEY as KEY, useAccountDevices } from "../hooks/useAccountDevices";
+import { IdentityCodeView } from "./IdentityCode";
 
-/** How often the list is read again while a code is on screen. */
-const WATCH_MS = 2000;
 /** What the app is told when this computer is not signed in to PekoHub. */
 const NOT_SIGNED_IN = "not_signed_in";
-const KEY = ["account-devices"];
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -42,11 +40,13 @@ export default function AccountDevices({ className }: { className?: string }) {
   /** The devices on the list when the code was shown. */
   const known = useRef<Set<string>>(new Set());
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: KEY,
-    queryFn: accountDevices,
-    refetchInterval: shown ? WATCH_MS : 30_000,
-  });
+  const { data, isLoading, error } = useAccountDevices(!!shown);
+  const panel = useRef<HTMLDivElement>(null);
+
+  // Opened at `#devices` (the banner, the Settings badge): into view.
+  useEffect(() => {
+    if (window.location.hash === "#devices") panel.current?.scrollIntoView?.({ block: "start" });
+  }, []);
 
   const add = useMutation({
     mutationFn: deviceAdd,
@@ -107,7 +107,7 @@ export default function AccountDevices({ className }: { className?: string }) {
   const signedOut = !isLoading && (loadError === NOT_SIGNED_IN || (data && !data.account));
 
   return (
-    <div className={className} data-testid="account-devices">
+    <div className={className} data-testid="account-devices" id="devices" ref={panel}>
       <h3 className="h-section flex items-center gap-1.5">
         <Laptop className="h-4 w-4 text-brand-text" />
         {t("settings.devices.title")}
@@ -125,6 +125,8 @@ export default function AccountDevices({ className }: { className?: string }) {
         </p>
       ) : (
         <>
+          {(data?.security ?? []).length > 0 && <SecurityList items={data!.security} />}
+
           {data && !data.onList && (
             <form
               className="mt-3 space-y-2 rounded-md border border-warn/30 bg-warn-soft p-3"
@@ -246,7 +248,16 @@ export default function AccountDevices({ className }: { className?: string }) {
             </p>
           )}
 
-          {(data?.security ?? []).length > 0 && <SecurityList items={data!.security} />}
+          {data?.onList && data.code && (
+            <div className="mt-5 border-t border-border pt-4">
+              <IdentityCodeView
+                code={data.code}
+                label={t("settings.devices.accountCode")}
+                hint={t("settings.devices.accountCodeHint")}
+                testId="account-code"
+              />
+            </div>
+          )}
         </>
       )}
     </div>
@@ -342,7 +353,7 @@ function SecurityList({ items }: { items: SecurityItem[] }) {
           ? t("settings.devices.devicesReset")
           : item.summary;
   return (
-    <div className="mt-5" data-testid="account-security">
+    <div className="mt-3" data-testid="account-security">
       <h4 className="flex items-center gap-1.5 text-sm font-medium text-fg">
         <ShieldAlert className="h-4 w-4 text-warn" />
         {t("settings.devices.waiting")}
@@ -356,6 +367,19 @@ function SecurityList({ items }: { items: SecurityItem[] }) {
           >
             <p className="text-fg">{headline(item)}</p>
             <p className="mt-1 text-xs text-fg-muted">{item.summary}</p>
+            {item.code && (
+              <div className="mt-2 space-y-2 rounded-md bg-surface/60 p-2.5">
+                <IdentityCodeView
+                  code={item.code}
+                  label={t("settings.devices.itsCode")}
+                  testId={`security-code-${item.id}`}
+                />
+                {item.pinnedCode && (
+                  <IdentityCodeView code={item.pinnedCode} label={t("settings.devices.untilNow")} />
+                )}
+                <p className="text-xs text-fg-muted">{t("settings.devices.compare")}</p>
+              </div>
+            )}
             <div className="mt-2 flex gap-2">
               <button
                 type="button"

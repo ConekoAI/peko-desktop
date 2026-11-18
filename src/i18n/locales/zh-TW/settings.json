@@ -106,6 +106,11 @@
     "deny": "拒絕",
     "ownerChange": "PekoHub 表示 {{peko}} 現在屬於另一個帳號。要移交嗎？如果你沒有轉讓過它，請拒絕：它仍然歸你。",
     "keyChange": "PekoHub 表示與你交流的一個 peko 換了新身分。peko 搬到另一台電腦時身分不會改變，所以只有在它的主人告訴你重新設定過時才核准。在你決定之前，你傳送的內容都不會送達它。",
-    "codePlaceholder": "ABCD-EFGH-JKMN"
+    "codePlaceholder": "ABCD-EFGH-JKMN",
+    "accountCode": "你的帳戶代碼",
+    "accountCodeHint": "想確認聯絡的確實是你的人，可以請你唸出這個代碼。只有在你重新設定所有裝置時它才會改變。",
+    "itsCode": "它的代碼",
+    "untilNow": "先前",
+    "compare": "請它的主人唸出他們螢幕上的代碼。只有一致時才核准。"
   }
 }

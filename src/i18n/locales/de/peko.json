@@ -177,5 +177,11 @@
     "starting": "Wird gestartet…",
     "stepReady": "Bereit",
     "stepPending": "Nicht erledigt"
+  },
+  "code": {
+    "label": "Code",
+    "ownHint": "Lies ihn jemandem vor, der sicher sein will, dass er {{name}} erreicht.",
+    "remoteHint": "Bitte den Besitzer von {{name}}, dir den Code vorzulesen, den er sieht. Stimmt er überein, erreichst du das {{name}}, das er kennt.",
+    "unknown": "Dieser Computer kennt es noch nicht und hat daher keinen Code."
   }
 }

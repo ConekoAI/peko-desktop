@@ -62,5 +62,9 @@
     "failed": "La mise à jour n'a pas abouti. Récupérez la nouvelle version sur la page de téléchargement.",
     "downloadPage": "Ouvrir la page de téléchargement",
     "dismiss": "Fermer"
+  },
+  "deviceList": {
+    "notOn": "Cet ordinateur ne fait pas encore partie des appareils de votre compte : ce qu'il envoie en votre nom attend.",
+    "join": "L'ajouter"
   }
 }

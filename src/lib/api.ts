@@ -1939,6 +1939,10 @@ export interface SecurityItem {
   /** The peko an owner change is about. */
   peko?: string | null;
   createdAt: string;
+  /** Runtime ADR-112: the code of what it asks you to trust. */
+  code?: string | null;
+  /** Runtime ADR-112: a key change's code for the key trusted until now. */
+  pinnedCode?: string | null;
 }
 
 /** Your account's devices, as this computer holds them. */
@@ -1950,6 +1954,25 @@ export interface AccountDevices {
   onList: boolean;
   devices: AccountDevice[];
   security: SecurityItem[];
+  /** Runtime ADR-112: your account's code, once this computer holds its list. */
+  code?: string | null;
+}
+
+/** An identity's code (runtime ADR-112), as this computer holds it. */
+export interface IdentityCode {
+  of: string;
+  name?: string | null;
+  /** Absent when this computer has not met it. */
+  code?: string | null;
+}
+
+/**
+ * The code of `of`: `account`, `peko:hub:<id>`, `user:hub:<id>`, or one of
+ * your pekos by name. Two owners read their codes to each other to check
+ * that PekoHub put them in touch with each other.
+ */
+export async function identityCode(of: string): Promise<IdentityCode> {
+  return invoke<IdentityCode>("identity_code", { of });
 }
 
 /** A code that adds a device: to type, and as an SVG picture to scan. */

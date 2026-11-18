@@ -62,5 +62,9 @@
     "failed": "La actualización no se completó. Obtén la nueva versión en la página de descargas.",
     "downloadPage": "Abrir la página de descargas",
     "dismiss": "Descartar"
+  },
+  "deviceList": {
+    "notOn": "Este ordenador aún no está entre los dispositivos de tu cuenta, así que lo que envía en tu nombre espera.",
+    "join": "Añadirlo"
   }
 }

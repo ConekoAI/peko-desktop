@@ -61,5 +61,9 @@
     "failed": "Die Aktualisierung wurde nicht abgeschlossen. Hol dir die neue Version von der Download-Seite.",
     "downloadPage": "Download-Seite öffnen",
     "dismiss": "Schließen"
+  },
+  "deviceList": {
+    "notOn": "Dieser Computer gehört noch nicht zu den Geräten deines Kontos. Was er in deinem Namen sendet, wartet.",
+    "join": "Hinzufügen"
   }
 }

@@ -71,6 +71,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         device::device_join,
         device::device_remove,
         device::security_decide,
+        device::identity_code,
         device::read_state,
         device::mark_read,
         channel::group_join,

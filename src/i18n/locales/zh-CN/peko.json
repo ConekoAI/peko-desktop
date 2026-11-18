@@ -176,5 +176,11 @@
     "starting": "正在开始…",
     "stepReady": "已就绪",
     "stepPending": "未完成"
+  },
+  "code": {
+    "label": "代码",
+    "ownHint": "读给想确认联系的确实是 {{name}} 的人听。",
+    "remoteHint": "请 {{name}} 的主人读出他们看到的代码。如果一致，你联系的就是他们认识的 {{name}}。",
+    "unknown": "这台电脑还没有遇到过它，所以没有代码。"
   }
 }
