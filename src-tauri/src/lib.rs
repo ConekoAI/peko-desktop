@@ -10,6 +10,7 @@ pub mod storage;
 pub mod telemetry;
 pub mod tray;
 pub mod updater;
+pub mod usage;
 
 /// The peko-runtime version this app needs: the one its release bundles
 /// as the sidecar, and the oldest one it accepts from a daemon it didn't

@@ -266,8 +266,13 @@ pub async fn hub_account(
         namespace: String,
         display_name: Option<String>,
         avatar_url: Option<String>,
+        /// What usage events name the account by (pekohub ADR-014).
+        analytics_id: Option<String>,
     }
     let me: Me = serde_json::from_str(&answer.body).map_err(|e| e.to_string())?;
+    if let Some(analytics_id) = me.analytics_id.as_deref() {
+        crate::usage::link_account(analytics_id);
+    }
     let avatar = match me.avatar_url.as_deref() {
         Some(url) => avatar_data_url(&state.http, url).await,
         None => None,

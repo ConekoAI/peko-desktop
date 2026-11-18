@@ -1,3 +1,4 @@
+import { track } from "../lib/usage";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -60,6 +61,7 @@ function GeneralSection() {
   function choose(next: "light" | "dark" | "system") {
     setThemeState(next);
     setTheme(next);
+    track("settings_changed", { setting: "theme" });
   }
 
   return (
@@ -102,6 +104,7 @@ function GeneralSection() {
               const next = e.target.value as LanguageChoice;
               setLanguageState(next);
               void setLanguage(next);
+              track("settings_changed", { setting: "language" });
             }}
             className="select w-auto"
             data-testid="settings-language"

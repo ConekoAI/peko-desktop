@@ -99,6 +99,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         crate::telemetry::privacy_get,
         crate::telemetry::privacy_set,
         crate::telemetry::report_ui_error,
+        crate::usage::usage_event,
         settings::settings_get,
         settings::settings_set,
         settings::settings_list,

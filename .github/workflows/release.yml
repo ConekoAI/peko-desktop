@@ -297,6 +297,9 @@ jobs:
           # Unset, the app is built without crash reporting. A Sentry
           # address is not a secret: it ships inside the app.
           PEKO_DESKTOP_SENTRY_DSN: ${{ vars.DESKTOP_SENTRY_DSN }}
+          # Where usage counts go (src-tauri/src/usage.rs). Unset, none are
+          # sent. A PostHog project key is not a secret either.
+          PEKO_DESKTOP_POSTHOG_KEY: ${{ vars.DESKTOP_POSTHOG_KEY }}
         with:
           args: ${{ steps.updates.outputs.args }}
           # Windows updates with the NSIS installer, not the .msi.

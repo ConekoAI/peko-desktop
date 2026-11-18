@@ -1,3 +1,4 @@
+import { track } from "../lib/usage";
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -208,6 +209,7 @@ export function useChannelCreate(runtimeId?: RuntimeId) {
       }
     },
     onSuccess: () => {
+      track("group_created");
       qc.invalidateQueries({ queryKey: ["channels", rid] });
     },
   });

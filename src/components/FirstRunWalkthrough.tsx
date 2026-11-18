@@ -1,3 +1,4 @@
+import { track } from "../lib/usage";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
@@ -97,6 +98,7 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
   const [pekoName, setPekoName] = useState<string | null>(null);
 
   function finish(firstMessage: string | null) {
+    track("onboarding_step", { step: "done" });
     onClose();
     if (!pekoName) return;
     navigate({
@@ -117,7 +119,10 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
         </div>
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => {
+            track("onboarding_step", { step: "skipped" });
+            onClose();
+          }}
           className="btn-ghost btn-xs"
         >
           {t("firstRun.skip")}
@@ -143,6 +148,7 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
           <ModelStep
             onNext={(id) => {
               setModelId(id);
+              track("onboarding_step", { step: "model" });
               setStep(2);
             }}
           />
@@ -154,6 +160,7 @@ function Onboarding({ onClose, takenNames }: { onClose: () => void; takenNames: 
             onBack={() => setStep(1)}
             onNext={(name) => {
               setPekoName(name);
+              track("onboarding_step", { step: "peko" });
               setStep(3);
             }}
           />

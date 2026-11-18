@@ -1,3 +1,4 @@
+import { track, usageApiFormat } from "../lib/usage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   remotePekoModels,
@@ -49,7 +50,8 @@ export function useAddModel() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (args: ModelAddArgs) => modelAdd(args),
-    onSuccess: async () => {
+    onSuccess: async (_added, args) => {
+      track("model_key_added", { api_format: usageApiFormat(args.apiFormat) });
       await Promise.all([
         qc.refetchQueries({ queryKey: ["models"] }),
         qc.refetchQueries({ queryKey: ["credentials"] }),

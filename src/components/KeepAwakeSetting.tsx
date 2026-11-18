@@ -1,3 +1,4 @@
+import { track } from "../lib/usage";
 import { Coffee } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSetSetting, useSettings } from "../hooks/useSettings";
@@ -27,9 +28,10 @@ export default function KeepAwakeSetting({ className }: { className?: string }) 
           aria-checked={on}
           checked={on}
           disabled={setSetting.isPending}
-          onChange={(e) =>
-            setSetting.mutate({ key: KEEP_AWAKE_KEY, value: e.target.checked ? "true" : "false" })
-          }
+          onChange={(e) => {
+            setSetting.mutate({ key: KEEP_AWAKE_KEY, value: e.target.checked ? "true" : "false" });
+            track("settings_changed", { setting: "keep_awake" });
+          }}
           className="mt-1 h-4 w-4 shrink-0"
           data-testid="keep-awake-toggle"
         />

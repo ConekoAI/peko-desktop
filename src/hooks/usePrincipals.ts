@@ -1,3 +1,4 @@
+import { track, trackFirstReply } from "../lib/usage";
 import { useEffect, useRef } from "react";
 import {
   useMutation,
@@ -153,6 +154,7 @@ export function usePrincipalCreate() {
   return useMutation({
     mutationFn: (req: PrincipalCreateRequest) => principalCreate(req),
     onSuccess: (created, vars) => {
+      track("peko_created", { from: vars.seed ? "seed" : "blank" });
       const rid = effectiveRuntimeId(vars.runtimeId);
       // Listed at once, so the chat that opens next finds it.
       qc.setQueryData<PrincipalSummary[]>(["principals", rid], (list) =>
@@ -341,6 +343,10 @@ export function usePrincipalSend() {
       );
       return result.content;
     },
+    onSuccess: (_reply, vars) => {
+      track("message_sent", { kind: "dm", has_attachment: (vars.attachments?.length ?? 0) > 0 });
+      trackFirstReply();
+    },
   });
 }
 
@@ -368,6 +374,8 @@ export function useDecideApproval() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: principalDecideApproval,
+    onSuccess: (_data, vars) =>
+      track("approval_decided", { decision: !vars.approve ? "deny" : vars.always ? "always" : "approve" }),
     onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: ["approvals", vars.name] }),
   });
 }
