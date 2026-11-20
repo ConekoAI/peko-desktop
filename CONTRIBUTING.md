@@ -14,7 +14,7 @@ covers this app too.
 | ------------ | -------------- | ---------------------------------------------------- |
 | **Rust**     | 1.74+ stable   | Tauri 2 backend ([`src-tauri/`](src-tauri/)) and the bundled `peko` sidecar (built from [`Peko`](https://github.com/ConekoAI/Peko)) |
 | **Node.js**  | 20+            | Vite + React frontend ([`src/`](src/))               |
-| **pnpm**     | 9+ (or npm 10+)| Install JS dependencies                              |
+| **npm**      | 10+            | Install JS dependencies                              |
 
 > **End users don't need a separate `peko` install.** The desktop app
 > bundles the `peko` runtime as a Tauri sidecar and spawns it
@@ -32,32 +32,32 @@ covers this app too.
 git clone https://github.com/ConekoAI/Peko ../peko-runtime
 
 # 1. Install JS dependencies
-pnpm install
+npm ci
 
 # 2. Build the engine from ../peko-runtime and copy it in
-pnpm run sidecar:build-and-fetch
+npm run sidecar:build-and-fetch
 # (or, if you've already built it elsewhere:)
-#   pnpm run sidecar:fetch /path/to/peko-runtime
+#   npm run sidecar:fetch /path/to/peko-runtime
 
 # 3. Launch the desktop app in dev mode (Vite + Tauri)
-pnpm tauri dev
+npm run tauri dev
 ```
 
-The first `pnpm tauri dev` will compile the Rust side, which can take a few
+The first `npm run tauri dev` will compile the Rust side, which can take a few
 minutes on a cold cache. Subsequent runs are incremental.
 
 ## Testing
 
 ```bash
-pnpm test           # run Vitest suite once (CI mode)
-pnpm test:watch     # watch mode
+npm test            # run Vitest suite once (CI mode)
+npm run test:watch     # watch mode
 ```
 
 ## Building a release binary
 
 ```bash
-pnpm run sidecar:build-and-fetch   # builds the engine + copies it in
-pnpm tauri build --config src-tauri/tauri.no-updates.conf.json
+npm run sidecar:build-and-fetch   # builds the engine + copies it in
+npm run tauri build -- --config src-tauri/tauri.no-updates.conf.json
 ```
 
 The `--config` leaves out the signed files in-app updates use. Without it
