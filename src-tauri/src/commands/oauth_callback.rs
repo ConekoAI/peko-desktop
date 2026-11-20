@@ -345,7 +345,13 @@ mod tests {
     /// callback lands the port is free again.
     #[tokio::test(flavor = "multi_thread")]
     async fn a_new_sign_in_takes_the_port_and_frees_it_when_done() {
-        let port = 40000 + (std::process::id() % 20000) as u16;
+        // A port the system says is free right now. A fixed one can
+        // already be taken, or be in a range Windows reserves.
+        let port = std::net::TcpListener::bind(("127.0.0.1", 0))
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
         let first = tokio::spawn(start_oauth_callback_listener(port, None));
         // Let the first attempt bind.
         for _ in 0..100 {
