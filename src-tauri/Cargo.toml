@@ -30,7 +30,7 @@ reqwest = { version = "0.13.4", features = ["json", "stream"] }
 futures = "0.3"
 which = "8.0.6"
 dirs = "7"
-base64 = "0.22"
+base64 = "0.23"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 toml = "1.1"
 urlencoding = "2"
