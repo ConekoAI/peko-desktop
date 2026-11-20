@@ -80,6 +80,8 @@ vi.mock("../lib/api", () => ({
 
 // The usage panel has its own tests (UsagePanel.test.tsx).
 vi.mock("../components/peko/UsagePanel", () => ({ default: () => null }));
+// So has the sharing panel (SharingPanel.test.tsx).
+vi.mock("../components/peko/SharingPanel", () => ({ default: () => null }));
 
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
 

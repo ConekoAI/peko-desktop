@@ -183,5 +183,33 @@
     "ownHint": "Read it to someone who wants to be sure they reach {{name}}.",
     "remoteHint": "Ask {{name}}'s owner to read you the code they see. If it matches, you reach the {{name}} they know.",
     "unknown": "This computer has not met it yet, so it has no code."
+  },
+  "sharing": {
+    "title": "Sharing",
+    "loading": "Loading sharing…",
+    "intro": "What other people reach when they talk to {{name}}. You always reach everything.",
+    "problem": "{{name}}'s sharing file has a problem, so other people reach only their own conversation with it: {{problem}}",
+    "everyone": "Everyone",
+    "everyoneHint": "Anyone you haven't given their own rules.",
+    "read": "Files they can read",
+    "write": "Files they can also change",
+    "none": "Nothing yet",
+    "addFile": "Add a file",
+    "addFolder": "Add a folder",
+    "remove": "Remove {{path}}",
+    "outside": "Choose something inside {{name}}'s folder.",
+    "web": "Read public web pages",
+    "service": "Use {{server}}",
+    "ask": "When they ask for more",
+    "askOwner": "Ask me",
+    "refuse": "{{name}} says it can't",
+    "people": "People with their own rules",
+    "peopleHint": "Their rules replace Everyone's.",
+    "addPerson": "Give someone their own rules…",
+    "removePerson": "Use Everyone's rules",
+    "noOneYet": "No one else has talked with {{name}} yet.",
+    "own": "Each conversation also keeps its own notes, which only that conversation reaches.",
+    "saved": "Saved",
+    "discard": "Discard changes"
   }
 }

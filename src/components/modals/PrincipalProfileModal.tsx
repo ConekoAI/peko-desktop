@@ -44,6 +44,7 @@ import {
 import PekoAvatar from "../peko/PekoAvatar";
 import RemotePekoProfile from "./RemotePekoProfile";
 import { IdentityCodeRow } from "../IdentityCode";
+import SharingPanel from "../peko/SharingPanel";
 import UsagePanel from "../peko/UsagePanel";
 import { AVATAR_SUGGESTIONS, pekoIdentity } from "../../lib/pekoIdentity";
 import { currentLocale, t as translate } from "../../i18n";
@@ -547,6 +548,7 @@ function LocalPekoProfile({
                 />
               )}
               {!isRemote && <UsagePanel name={principal.name} priced={modelIsPriced} />}
+              {!isRemote && <SharingPanel name={principal.name} />}
               {/* Public share link (PR-D). Only meaningful when exposure
                   is `public` — otherwise the link would 404 on the
                   hub. Mirrors the BundleCard copy-install-command

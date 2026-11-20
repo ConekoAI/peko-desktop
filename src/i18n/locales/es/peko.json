@@ -184,5 +184,33 @@
     "ownHint": "Léeselo a quien quiera asegurarse de que llega a {{name}}.",
     "remoteHint": "Pide al dueño de {{name}} que te lea el código que ve. Si coincide, llegas al {{name}} que conoce.",
     "unknown": "Este ordenador aún no lo conoce, así que no tiene código."
+  },
+  "sharing": {
+    "title": "Compartir",
+    "loading": "Cargando lo compartido…",
+    "intro": "Lo que otras personas alcanzan cuando hablan con {{name}}. Tú siempre alcanzas todo.",
+    "problem": "El archivo de compartir de {{name}} tiene un problema, así que los demás solo alcanzan su propia conversación: {{problem}}",
+    "everyone": "Todos",
+    "everyoneHint": "Cualquiera a quien no hayas dado reglas propias.",
+    "read": "Archivos que pueden leer",
+    "write": "Archivos que también pueden cambiar",
+    "none": "Nada todavía",
+    "addFile": "Añadir un archivo",
+    "addFolder": "Añadir una carpeta",
+    "remove": "Quitar {{path}}",
+    "outside": "Elige algo dentro de la carpeta de {{name}}.",
+    "web": "Leer páginas web públicas",
+    "service": "Usar {{server}}",
+    "ask": "Cuando pidan más",
+    "askOwner": "Preguntarme",
+    "refuse": "{{name}} dice que no puede",
+    "people": "Personas con reglas propias",
+    "peopleHint": "Sus reglas sustituyen a las de Todos.",
+    "addPerson": "Dar reglas propias a alguien…",
+    "removePerson": "Usar las reglas de Todos",
+    "noOneYet": "Nadie más ha hablado todavía con {{name}}.",
+    "own": "Cada conversación guarda también sus propias notas, que solo esa conversación alcanza.",
+    "saved": "Guardado",
+    "discard": "Descartar cambios"
   }
 }

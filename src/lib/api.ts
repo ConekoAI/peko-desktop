@@ -18,6 +18,8 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 import { t } from "../i18n";
 
 import type {
+  AccessPerson,
+  AccessRule,
   ApprovalRequest,
   BoardItem,
   BoardOp,
@@ -37,6 +39,7 @@ import type {
   ModelUpdateArgs,
   PrincipalExposure,
   PekoRegistration,
+  PekoAccess,
   PekoUsage,
   RuntimeConnection,
   Setting,
@@ -563,6 +566,53 @@ export async function principalUsage(name: string): Promise<PekoUsage> {
 /** Replace a local peko's limits; resolves to the usage now in force. */
 export async function principalSetLimits(name: string, config: UsageLimits): Promise<PekoUsage> {
   return invoke<PekoUsage>("principal_set_limits", { name, config });
+}
+
+/** What a local peko's visitors reach (ADR-113). Owner only. */
+export async function principalAccess(name: string): Promise<PekoAccess> {
+  return invoke<PekoAccess>("principal_access", { name });
+}
+
+/**
+ * Replace what a local peko's visitors reach: `visitors` for everyone,
+ * `people` as the whole set of per-person rules. Resolves to the rules
+ * now in force; rejects with the runtime's reason when refused.
+ */
+export async function principalSetAccess(
+  name: string,
+  visitors: AccessRule,
+  people: AccessPerson[],
+): Promise<PekoAccess> {
+  return invoke<PekoAccess>("principal_set_access", {
+    name,
+    visitors,
+    people: people.map(({ address, rule }) => ({ address, rule })),
+  });
+}
+
+/**
+ * Ask for a file or folder to share; resolves to its path relative to
+ * `workspace` (a folder ends in `/`), `null` if cancelled, or
+ * `"outside"` when it is not inside the peko's folder.
+ */
+export async function pickSharedPath(
+  workspace: string,
+  directory: boolean,
+): Promise<string | null | "outside"> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const picked = await open({ multiple: false, directory, defaultPath: workspace });
+  if (!picked || Array.isArray(picked)) return null;
+  return relativeTo(workspace, picked, directory);
+}
+
+/** `path` relative to `root`, `"outside"` when it is not inside it. */
+export function relativeTo(root: string, path: string, directory: boolean): string | "outside" {
+  const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "");
+  const base = norm(root);
+  const full = norm(path);
+  if (!full.startsWith(`${base}/`)) return "outside";
+  const rel = full.slice(base.length + 1);
+  return directory ? `${rel}/` : rel;
 }
 
 /** The request as the engine sends it (snake_case). */

@@ -2122,6 +2122,40 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Mirror of `RequestPacket::PrincipalAccessGet`: what a local peko's
+    /// visitors reach (ADR-113), for the sharing screen. Owner only.
+    pub async fn principal_access_get(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_access_get",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::PrincipalAccessSet`: replace what
+    /// everyone reaches (`visitors`) and the per-person sections
+    /// (`people`, the whole set). Answers with the rules now in force.
+    pub async fn principal_access_set(
+        &self,
+        name: &str,
+        visitors: serde_json::Value,
+        people: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "principal_access_set",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "visitors": visitors,
+            "people": people,
+        });
+        self.request_response(req).await
+    }
+
     /// Mirror of `RequestPacket::ApprovalList`: the approval requests
     /// waiting for the peko's owner (ADR-078), oldest first.
     pub async fn approval_list(&self, name: &str) -> Result<serde_json::Value> {

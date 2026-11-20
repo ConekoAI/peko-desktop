@@ -643,6 +643,45 @@ export interface PekoUsage {
   config: UsageLimits;
 }
 
+/**
+ * Runtime ADR-113: what one group of visitors reaches through a peko.
+ * Paths are relative to the peko's folder.
+ */
+export interface AccessRule {
+  tools: string[];
+  mcp: string[];
+  read: string[];
+  write: string[];
+  /** Whether what they may not do comes to the owner, or is refused. */
+  ask_owner: boolean;
+}
+
+/** One person's own rules, which replace everyone's for them. */
+export interface AccessPerson {
+  address: string;
+  display_name?: string | null;
+  rule: AccessRule;
+}
+
+/** Someone a peko has talked with. */
+export interface AccessKnown {
+  address: string;
+  display_name?: string | null;
+}
+
+/** A local peko's sharing: what visitors reach, and with what. */
+export interface PekoAccess {
+  visitors: AccessRule;
+  people: AccessPerson[];
+  known: AccessKnown[];
+  /** The peko's connected services (MCP servers), by id. */
+  servers: string[];
+  /** The peko's folder, absolute on this computer. */
+  workspace: string;
+  /** Why the peko's rules file is refused, when it is. */
+  problem?: string | null;
+}
+
 /** Runtime ADR-101: where a board item stands. */
 export type BoardState = "open" | "doing" | "blocked" | "done";
 
