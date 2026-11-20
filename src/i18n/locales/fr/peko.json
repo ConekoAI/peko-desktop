@@ -184,5 +184,33 @@
     "ownHint": "Lisez-le à quelqu'un qui veut être sûr de joindre {{name}}.",
     "remoteHint": "Demandez au propriétaire de {{name}} de vous lire le code qu'il voit. S'il correspond, vous joignez le {{name}} qu'il connaît.",
     "unknown": "Cet ordinateur ne l'a pas encore rencontré, il n'a donc pas de code."
+  },
+  "sharing": {
+    "title": "Partage",
+    "loading": "Chargement du partage…",
+    "intro": "Ce à quoi les autres ont accès quand ils parlent à {{name}}. Vous avez toujours accès à tout.",
+    "problem": "Le fichier de partage de {{name}} a un problème : les autres n'ont accès qu'à leur propre conversation. {{problem}}",
+    "everyone": "Tout le monde",
+    "everyoneHint": "Toute personne à qui vous n'avez pas donné ses propres règles.",
+    "read": "Fichiers qu'ils peuvent lire",
+    "write": "Fichiers qu'ils peuvent aussi modifier",
+    "none": "Rien pour l'instant",
+    "addFile": "Ajouter un fichier",
+    "addFolder": "Ajouter un dossier",
+    "remove": "Retirer {{path}}",
+    "outside": "Choisissez un élément dans le dossier de {{name}}.",
+    "web": "Lire des pages web publiques",
+    "service": "Utiliser {{server}}",
+    "ask": "Quand ils demandent plus",
+    "askOwner": "Me demander",
+    "refuse": "{{name}} répond que c'est impossible",
+    "people": "Personnes avec leurs propres règles",
+    "peopleHint": "Leurs règles remplacent celles de Tout le monde.",
+    "addPerson": "Donner ses propres règles à quelqu'un…",
+    "removePerson": "Utiliser les règles de Tout le monde",
+    "noOneYet": "Personne d'autre n'a encore parlé à {{name}}.",
+    "own": "Chaque conversation garde aussi ses propres notes, accessibles à elle seule.",
+    "saved": "Enregistré",
+    "discard": "Annuler les modifications"
   }
 }

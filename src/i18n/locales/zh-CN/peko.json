@@ -182,5 +182,33 @@
     "ownHint": "读给想确认联系的确实是 {{name}} 的人听。",
     "remoteHint": "请 {{name}} 的主人读出他们看到的代码。如果一致，你联系的就是他们认识的 {{name}}。",
     "unknown": "这台电脑还没有遇到过它，所以没有代码。"
+  },
+  "sharing": {
+    "title": "共享",
+    "loading": "正在加载共享设置…",
+    "intro": "别人与 {{name}} 交谈时能用到什么。你始终可以访问全部内容。",
+    "problem": "{{name}} 的共享文件有问题，因此别人只能访问自己的对话：{{problem}}",
+    "everyone": "所有人",
+    "everyoneHint": "你没有单独设置规则的任何人。",
+    "read": "可以读取的文件",
+    "write": "还可以修改的文件",
+    "none": "暂无",
+    "addFile": "添加文件",
+    "addFolder": "添加文件夹",
+    "remove": "移除 {{path}}",
+    "outside": "请选择 {{name}} 文件夹里的内容。",
+    "web": "读取公开网页",
+    "service": "使用 {{server}}",
+    "ask": "当他们要求更多时",
+    "askOwner": "问我",
+    "refuse": "{{name}} 回复无法做到",
+    "people": "有单独规则的人",
+    "peopleHint": "他们的规则会取代所有人的规则。",
+    "addPerson": "为某人设置单独规则…",
+    "removePerson": "改用所有人的规则",
+    "noOneYet": "还没有其他人和 {{name}} 交谈过。",
+    "own": "每段对话还有自己的笔记，只有这段对话能访问。",
+    "saved": "已保存",
+    "discard": "放弃更改"
   }
 }

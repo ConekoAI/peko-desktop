@@ -24,6 +24,24 @@ function mockCode(): string {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n + 8} ${n + 8}"><rect width="100%" height="100%" fill="#fff"/><g fill="#000">${cells}</g></svg>`;
 }
+/** A peko's sharing (runtime ADR-113), changed by `principal_set_access`. */
+let mockAccess = {
+  visitors: {
+    tools: ["Read", "Glob", "Grep", "Fetch", "Attach", "Suggest"],
+    mcp: [] as string[],
+    read: ["public/", "kb/CONVENTIONS.md"],
+    write: [] as string[],
+    ask_owner: false,
+  },
+  people: [] as { address: string; display_name?: string | null; rule: { tools: string[]; mcp: string[]; read: string[]; write: string[]; ask_owner: boolean } }[],
+  known: [
+    { address: "visitor:local:+15550100", display_name: "Ada" },
+    { address: "user:hub:22222222-2222-2222-2222-222222222222", display_name: "Ben" },
+  ],
+  servers: ["orders", "calendar"],
+  workspace: "/Users/you/.peko/pekos/aria",
+  problem: null as string | null,
+};
 const ago = (mins: number) => new Date(now - mins * 60_000).toISOString();
 
 const pekos = [
@@ -345,6 +363,13 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
         state: { tokens_used: 182_000, requests_used: 64, cost_usd: 1.42, cycle_start: ago(60 * 24 * 3) },
         config: { tokens_per_cycle: 1_000_000, requests_per_cycle: 500, budget_per_cycle: 10 },
       };
+    case "principal_access":
+      return mockAccess;
+    case "principal_set_access": {
+      const a = args as { visitors: typeof mockAccess.visitors; people: typeof mockAccess.people };
+      mockAccess = { ...mockAccess, visitors: a.visitors, people: a.people.map((p) => ({ ...p, display_name: mockAccess.known.find((k) => k.address === p.address)?.display_name ?? null })) };
+      return mockAccess;
+    }
     case "principal_approvals":
     case "principal_permissions":
       return cmd === "principal_permissions" ? { permissions: [] } : [];

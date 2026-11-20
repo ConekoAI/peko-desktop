@@ -1912,6 +1912,89 @@ pub async fn principal_set_limits(
     quota_envelope(value)
 }
 
+/// The sharing screen's view of a `principal_access` answer, or the
+/// runtime's refusal.
+fn access_envelope(value: serde_json::Value) -> Result<serde_json::Value, String> {
+    match value.get("type").and_then(|t| t.as_str()) {
+        Some("principal_access") => {
+            let field = |k: &str| value.get(k).cloned().unwrap_or_default();
+            Ok(serde_json::json!({
+                "visitors": field("visitors"),
+                "people": field("people"),
+                "known": field("known"),
+                "servers": field("servers"),
+                "workspace": field("workspace"),
+                "problem": field("problem"),
+            }))
+        }
+        Some("error") => Err(value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("runtime error")
+            .to_string()),
+        _ => Err(format!("unexpected access response: {value}")),
+    }
+}
+
+/// What a local peko's visitors reach (ADR-113): the rules for everyone
+/// and for each person, its services, and the people it has talked with.
+#[tauri::command]
+pub async fn principal_access(name: String) -> Result<serde_json::Value, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_access_get(&name)
+        .await
+        .map_err(|e| format!("principal_access_get failed: {e}"))?;
+    access_envelope(value)
+}
+
+/// Replace what a local peko's visitors reach. Returns the rules now in
+/// force, or why the change was refused.
+#[tauri::command]
+pub async fn principal_set_access(
+    name: String,
+    visitors: serde_json::Value,
+    people: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .principal_access_set(&name, visitors, people)
+        .await
+        .map_err(|e| format!("principal_access_set failed: {e}"))?;
+    access_envelope(value)
+}
+
+#[cfg(test)]
+mod access_tests {
+    use super::access_envelope;
+
+    #[test]
+    fn principal_access_passes_the_rules_through() {
+        let value = serde_json::json!({
+            "type": "principal_access",
+            "request_id": 1,
+            "name": "desk",
+            "visitors": {"tools": ["Read"], "read": ["public/"], "ask_owner": false},
+            "people": [{"address": "visitor:local:+1", "rule": {"read": []}}],
+            "known": [],
+            "servers": ["orders"],
+            "workspace": "/w/desk",
+        });
+        let out = access_envelope(value).unwrap();
+        assert_eq!(out["visitors"]["read"][0], "public/");
+        assert_eq!(out["people"][0]["address"], "visitor:local:+1");
+        assert_eq!(out["servers"][0], "orders");
+        assert_eq!(out["workspace"], "/w/desk");
+        assert!(out["problem"].is_null());
+        let err = access_envelope(serde_json::json!({"type": "error", "message": "nope"}));
+        assert_eq!(err.unwrap_err(), "nope");
+    }
+}
+
 #[cfg(test)]
 mod quota_tests {
     use super::quota_envelope;

@@ -184,5 +184,33 @@
     "ownHint": "Leggilo a chi vuole essere sicuro di raggiungere {{name}}.",
     "remoteHint": "Chiedi al proprietario di {{name}} di leggerti il codice che vede. Se corrisponde, raggiungi il {{name}} che conosce.",
     "unknown": "Questo computer non l'ha ancora incontrato, quindi non ha un codice."
+  },
+  "sharing": {
+    "title": "Condivisione",
+    "loading": "Caricamento della condivisione…",
+    "intro": "Ciò a cui gli altri accedono quando parlano con {{name}}. Tu accedi sempre a tutto.",
+    "problem": "Il file di condivisione di {{name}} ha un problema, quindi gli altri accedono solo alla propria conversazione: {{problem}}",
+    "everyone": "Tutti",
+    "everyoneHint": "Chiunque a cui non hai dato regole proprie.",
+    "read": "File che possono leggere",
+    "write": "File che possono anche modificare",
+    "none": "Ancora niente",
+    "addFile": "Aggiungi un file",
+    "addFolder": "Aggiungi una cartella",
+    "remove": "Rimuovi {{path}}",
+    "outside": "Scegli qualcosa nella cartella di {{name}}.",
+    "web": "Leggere pagine web pubbliche",
+    "service": "Usare {{server}}",
+    "ask": "Quando chiedono di più",
+    "askOwner": "Chiedimelo",
+    "refuse": "{{name}} risponde che non può",
+    "people": "Persone con regole proprie",
+    "peopleHint": "Le loro regole sostituiscono quelle di Tutti.",
+    "addPerson": "Dai a qualcuno regole proprie…",
+    "removePerson": "Usa le regole di Tutti",
+    "noOneYet": "Nessun altro ha ancora parlato con {{name}}.",
+    "own": "Ogni conversazione conserva anche le proprie note, a cui accede solo quella conversazione.",
+    "saved": "Salvato",
+    "discard": "Annulla le modifiche"
   }
 }

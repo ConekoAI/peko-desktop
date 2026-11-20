@@ -183,5 +183,33 @@
     "ownHint": "Lies ihn jemandem vor, der sicher sein will, dass er {{name}} erreicht.",
     "remoteHint": "Bitte den Besitzer von {{name}}, dir den Code vorzulesen, den er sieht. Stimmt er überein, erreichst du das {{name}}, das er kennt.",
     "unknown": "Dieser Computer kennt es noch nicht und hat daher keinen Code."
+  },
+  "sharing": {
+    "title": "Teilen",
+    "loading": "Freigaben werden geladen…",
+    "intro": "Worauf andere zugreifen, wenn sie mit {{name}} sprechen. Du erreichst immer alles.",
+    "problem": "Die Freigabedatei von {{name}} hat einen Fehler, daher erreichen andere nur ihr eigenes Gespräch damit: {{problem}}",
+    "everyone": "Alle",
+    "everyoneHint": "Alle, denen du keine eigenen Regeln gegeben hast.",
+    "read": "Dateien, die sie lesen können",
+    "write": "Dateien, die sie auch ändern können",
+    "none": "Noch nichts",
+    "addFile": "Datei hinzufügen",
+    "addFolder": "Ordner hinzufügen",
+    "remove": "{{path}} entfernen",
+    "outside": "Wähle etwas im Ordner von {{name}}.",
+    "web": "Öffentliche Webseiten lesen",
+    "service": "{{server}} verwenden",
+    "ask": "Wenn sie mehr möchten",
+    "askOwner": "Mich fragen",
+    "refuse": "{{name}} sagt, dass es nicht geht",
+    "people": "Personen mit eigenen Regeln",
+    "peopleHint": "Ihre Regeln ersetzen die für alle.",
+    "addPerson": "Jemandem eigene Regeln geben…",
+    "removePerson": "Regeln für alle verwenden",
+    "noOneYet": "Noch hat niemand sonst mit {{name}} gesprochen.",
+    "own": "Jedes Gespräch hat außerdem eigene Notizen, die nur dieses Gespräch erreicht.",
+    "saved": "Gespeichert",
+    "discard": "Änderungen verwerfen"
   }
 }
