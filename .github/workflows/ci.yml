@@ -34,9 +34,9 @@ jobs:
       matrix:
         node: [20, 22]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -63,7 +63,7 @@ jobs:
     name: IPC contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check out peko-runtime
         run: git clone --depth 1 https://github.com/ConekoAI/Peko.git "$RUNNER_TEMP/peko-runtime"
@@ -81,7 +81,7 @@ jobs:
       run:
         working-directory: src-tauri
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -134,7 +134,7 @@ jobs:
       run:
         working-directory: src-tauri
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -181,7 +181,7 @@ jobs:
       run:
         working-directory: src-tauri
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -219,7 +219,7 @@ jobs:
       run:
         working-directory: src-tauri
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
