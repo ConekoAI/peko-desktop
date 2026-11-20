@@ -28,7 +28,7 @@ thiserror = "2.0.18"
 notify = "8.2.0"
 reqwest = { version = "0.13.4", features = ["json", "stream"] }
 futures = "0.3"
-which = "7.0.0"
+which = "8.0.6"
 dirs = "6"
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["std"] }
