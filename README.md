@@ -1,114 +1,49 @@
-# Peko Desktop
+<p align="center">
+  <img src="docs/media/logo.svg" width="96" alt="Peko">
+</p>
 
-> The desktop app for [Peko](https://github.com/ConekoAI/peko-runtime): AI assistants you own, that keep working when you're away.
+<h1 align="center">Peko Desktop</h1>
 
-Peko Desktop lets you create your pekos, chat with them, and see what they're
-doing, without the command line. Approve or deny what a peko asks before
-acting for someone else, manage who may talk to it, join DMs and group chats
-with people and other pekos, and back pekos up or move them. The app runs the
-Peko runtime for you in the background.
+<p align="center">
+  <b>AI assistants you own, that keep working when you're away.</b><br>
+  The desktop app for <a href="https://github.com/ConekoAI/Peko">Peko</a>.
+</p>
 
----
+<p align="center">
+  <a href="https://github.com/ConekoAI/peko-desktop/releases/latest"><img src="https://img.shields.io/github/v/release/ConekoAI/peko-desktop?label=download" alt="Download"></a>
+  <a href="https://github.com/ConekoAI/peko-desktop/actions/workflows/ci.yml"><img src="https://github.com/ConekoAI/peko-desktop/actions/workflows/ci.yml/badge.svg?branch=master" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="macOS, Windows, Linux">
+</p>
 
-## Prerequisites
+Peko Desktop lets you create your pekos, chat with them, and see what
+they're doing, without the command line. Approve or deny what a peko asks
+before acting for someone else, decide who may talk to it and what they
+reach, join DMs and group chats with people and other pekos, and back pekos
+up or move them.
 
-| Tool         | Version        | Why                                                  |
-| ------------ | -------------- | ---------------------------------------------------- |
-| **Rust**     | 1.74+ stable   | Tauri 2 backend ([`src-tauri/`](src-tauri/)) and the bundled `peko` sidecar (built from [`peko-runtime`](https://github.com/ConekoAI/peko-runtime)) |
-| **Node.js**  | 20+            | Vite + React frontend ([`src/`](src/))               |
-| **pnpm**     | 9+ (or npm 10+)| Install JS dependencies                              |
+## Download
 
-> **End users don't need a separate `peko` install.** The desktop app
-> bundles the `peko` runtime as a Tauri sidecar and spawns it
-> automatically on startup (see [ADR-043](#architecture) and
-> `scripts/fetch-peko-sidecar.sh`). The `peko daemon start | stop |
-> status` CLI commands are still available for headless / server use,
-> but the desktop GUI does not require them.
->
-> **Local dev from source requires building `peko-runtime` first.**
-> See "Quick start" below.
+**[Get the latest release](https://github.com/ConekoAI/peko-desktop/releases/latest)**
 
-## Quick start
+| System | File |
+|---|---|
+| macOS (Apple silicon) | `Peko.Desktop_<version>_aarch64.dmg` |
+| macOS (Intel) | `Peko.Desktop_<version>_x64.dmg` |
+| Windows | `Peko.Desktop_<version>_x64-setup.exe` |
+| Linux | `.AppImage`, `.deb` or `.rpm` |
 
-```bash
-# 1. Install JS dependencies
-pnpm install
+Nothing else to install: the app includes Peko's engine and updates itself.
+You bring a model: any provider that speaks the Anthropic Messages or OpenAI
+API, hosted or local. Your keys stay on your computer.
 
-# 2. Build peko-runtime and copy the sidecar binary in
-pnpm run sidecar:build-and-fetch
-# (or, if you've already built peko-runtime separately:)
-#   pnpm run sidecar:fetch /path/to/peko-runtime
+The app comes in English, Simplified and Traditional Chinese, Japanese,
+Korean, Spanish, French, German, Brazilian Portuguese, Russian and Italian.
 
-# 3. Launch the desktop app in dev mode (Vite + Tauri)
-pnpm tauri dev
-```
+New to Peko? The [main repository](https://github.com/ConekoAI/Peko) says
+what a peko is and what makes it different.
 
-The first `pnpm tauri dev` will compile the Rust side, which can take a few
-minutes on a cold cache. Subsequent runs are incremental.
-
-## Versions
-
-The app and the runtime are released separately (peko-runtime ADR-102).
-[`src-tauri/runtime-version`](src-tauri/runtime-version) holds one runtime
-version: the one a release bundles, and the oldest one the app accepts
-from a daemon it didn't start. A later runtime in the same minor line
-(`0.1.x`) is fine; an older one, or one from a later line, shows a
-warning. Move the file forward when the app needs a newer runtime. The
-release workflow builds the bundled daemon from that runtime release, so
-it has to exist first.
-
-## Building a release binary
-
-```bash
-pnpm run sidecar:build-and-fetch   # builds peko-runtime + copies sidecar
-pnpm tauri build --config src-tauri/tauri.no-updates.conf.json
-```
-
-The `--config` leaves out the signed files in-app updates use. Without it
-the build asks for the update signing key (`TAURI_SIGNING_PRIVATE_KEY`) and
-fails when it isn't set. The release workflow signs with the key from the
-repository's secrets; see the notes at the top of
-`.github/workflows/release.yml`.
-
-Outputs land in `src-tauri/target/release/bundle/` (`.dmg` / `.msi` /
-`.AppImage` / `.deb`, depending on the host OS). The Rust binary itself is at
-`src-tauri/target/release/peko-desktop` (or `peko-desktop.exe` on Windows).
-The `peko` runtime binary is bundled inside the app — end users do not
-need to install anything else.
-
-## Testing
-
-```bash
-pnpm test           # run Vitest suite once (CI mode)
-pnpm test:watch     # watch mode
-```
-
-## Project layout
-
-```
-peko-desktop/
-├── src/                    # React + TanStack Router frontend
-│   ├── routes/             # File-based routes (TanStack Router)
-│   ├── components/         # Shared UI components
-│   ├── hooks/              # React hooks (IPC, auth, etc.)
-│   ├── lib/                # Frontend helpers
-│   ├── i18n/               # The app's text, one folder per language
-│   └── pages/              # Page-level components
-├── src-tauri/              # Rust backend (Tauri 2)
-│   ├── src/
-│   │   ├── ipc/            # Daemon IPC client (UDP / Unix socket)
-│   │   ├── commands/       # Tauri command handlers (one per CLI subcommand)
-│   │   ├── daemon/         # Daemon lifecycle & auto-restart
-│   │   ├── vault/          # OS keyring integration for tokens
-│   │   └── tray/           # System tray icon: opens the app and quits it
-│   ├── capabilities/       # Tauri permission allowlist
-│   └── tauri.conf.json     # Tauri config (CSP, window, bundle)
-├── docs/
-│   └── architecture/adr/   # Architecture Decision Records
-└── public/                 # Static assets
-```
-
-## Window and tray
+## It keeps running
 
 The window is the front end; the tray icon is the app. Closing the window
 hides it and leaves the engine running, so pekos keep working and
@@ -117,68 +52,9 @@ and ends the app (**Quit**), which stops the engine. Opening the app again while
 only one copy runs. On a desktop with no tray icon, closing the window
 quits the app.
 
-## Text and languages
-
-Every string a person reads lives in `src/i18n/locales/en/`, one JSON file
-per area of the app (`chat.json`, `settings.json`, …). Components read it
-with `useTranslation()` from `react-i18next`; other modules import `t` from
-`src/i18n`. Keys are type-checked against the English files, and a test
-(`I18nNoHardcodedText.test.ts`) fails on text written straight into the
-markup.
-
-```tsx
-const { t } = useTranslation();
-<button title={t("common.close")}>{t("chat.working", { name })}</button>
-```
-
-A sentence with markup inside it uses `<Trans>`, so a translation can
-reorder the pieces. Counts pass `count`, which lets a language add its own
-plural forms (`key_one`, `key_other`).
-
-The app ships in English, Simplified and Traditional Chinese, Japanese,
-Korean, Spanish, French, German, Brazilian Portuguese, Russian and Italian
-(`src/i18n/languages.ts`). It follows the system's language, and Settings →
-General → Language picks another. English is bundled; any other language is
-loaded when it is first shown.
-
-To add a language, copy `locales/en/*.json` to `locales/<code>/`, translate
-the values, and add it to `LANGUAGES`. `I18nLanguages.test.ts` then holds it
-to English: the same keys, the same `{{values}}` and `<tags>` in each
-string, and every plural form the language uses. A string added to English
-must be added to every language, or that test fails.
-
-The translations were machine-drafted and have not been reviewed by native
-speakers. Right-to-left languages are not supported yet (the layout is not
-mirrored). Text that comes from the runtime (its error messages, a peko's
-replies) is not translated.
-
-## Architecture
-
-The desktop app is intentionally thin: all real work happens in
-[`peko-runtime`](https://github.com/ConekoAI/peko-runtime). It speaks to the
-runtime over two transports — see the ADRs for the rationale.
-
-- **[ADR-002 — Desktop Remote Runtime Support](docs/architecture/adr/ADR-002-desktop-remote-runtime-support.md)** —
-  multi-runtime model (local + remote) fronted by a `RuntimeConnection`
-  abstraction, with PekoHub as the broker for remote principals.
-- **[ADR-043 — Sidecar Lifecycle: Desktop Owns the Engine](../../../peko-runtime/docs/architecture/adr/ADR-043-sidecar-lifecycle.md)**
-  *(runtime-side)* — the desktop bundles `peko` as a Tauri sidecar, owns the
-  engine lifecycle, and exposes no Start/Stop buttons. The runtime is invisible
-  to end users.
-- **[ADR-001 — Desktop GUI Communication (CLI shell-out vs direct IPC)](docs/architecture/adr/ADR-001-desktop-ipc-vs-cli-shellout.md)** —
-  *Superseded 2026-07-05 by ADR-041/042.* Kept for historical context.
-- **[Post-migration checklist](docs/phase3/Pre_Migration_Checklist.md)** —
-  current source of truth for the desktop's v0 launch surface.
-
-For the Principal-as-container model and the `peko log` privacy
-contract, see the runtime-side
-[ADR-041](../../../peko-runtime/docs/architecture/adr/ADR-041-principal-as-container.md)
-and
-[ADR-042](../../../peko-runtime/docs/architecture/adr/ADR-042-no-external-session-concept.md).
-
 ## What the app reports
 
-Decided in pekohub ADR-014. The app can send crash reports: the error's
+The app can send crash reports: the error's
 class and stack, the app version and the OS family, with the home folder
 cut from every path and no messages, names, files or keys
 (`src-tauri/src/telemetry.rs`, `src/lib/errorReporting.ts`). The engine
@@ -201,40 +77,36 @@ linked once to the account's analytics id after PekoHub sign-in.
 
 ## Security
 
-The desktop app is built on Tauri's permission model, which means the frontend
-**cannot** touch the host OS, filesystem, or network directly — every privileged
-operation has to go through a Rust `#[tauri::command]` exposed via a capability
-file. The current allowlist
+The app is built on Tauri's permission model: the interface cannot touch the
+operating system, the filesystem or the network directly. Every privileged
+action goes through a Rust command, and the allowlist
 ([`src-tauri/capabilities/default.json`](src-tauri/capabilities/default.json))
-is intentionally narrow:
+is short:
 
-- `core:default` + a small set of window controls (minimize / maximize /
-  unmaximize / close / drag / is-maximized)
-- `opener:default` — open external URLs in the user's default browser
-- **No** filesystem, shell, HTTP, or dialog permissions
+- window controls and the dock badge
+- opening a link in your default browser
+- notifications
+- the system's "open file" dialog, for attaching a file
+- no shell, no general filesystem access, no HTTP from the interface
 
-A strict [Content-Security-Policy](src-tauri/tauri.conf.json) is enforced at
-the WebView layer (`default-src 'self'`, no remote scripts, IPC traffic only
-over `ipc:` / `http://ipc.localhost`), and `react-markdown` output is
-sanitized through `rehype-sanitize` before rendering.
+A strict [Content-Security-Policy](src-tauri/tauri.conf.json) allows no
+remote scripts, and Markdown in messages is sanitized before it is shown.
 
-For remote runtimes, authentication uses OAuth2 PKCE against
-[PekoHub](https://github.com/ConekoAI/pekohub) and tokens are stored in the OS
-keyring ([`src-tauri/src/vault/`](src-tauri/src/vault/)). The runtime→PekoHub
-handshake uses a tunnel allowlist + nonce challenge (see issue 001 in
-`pekohub` and `peko-runtime`).
+Signing in to [PekoHub](https://pekohub.ai) uses OAuth2 with PKCE. The
+tokens, like your model keys, are kept in the engine's encrypted vault, not
+in the app. What Peko protects beyond the app itself is in the
+[security model](https://github.com/ConekoAI/Peko/blob/master/docs/SECURITY_MODEL.md).
 
-## Recommended IDE Setup
+## Contributing
 
-- [VS Code](https://code.visualstudio.com/) +
-  [Tauri extension](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) +
-  [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+[CONTRIBUTING.md](CONTRIBUTING.md) has how to run the app from source, the
+project layout, and how to add a language.
 
-## Related repositories
+## Related projects
 
-- [`ConekoAI/peko-runtime`](https://github.com/ConekoAI/peko-runtime) — the
-  daemon this UI talks to
-- [`ConekoAI/pekohub`](https://github.com/ConekoAI/pekohub) — the broker used
-  for remote runtime support
-- [`ConekoAI/.github`](https://github.com/ConekoAI/.github) — org-wide
-  development standards and documentation
+- [Peko](https://github.com/ConekoAI/Peko): the engine and the `peko` command
+- [PekoHub](https://pekohub.ai): find public pekos and reach people on other computers
+
+## License
+
+[MIT](LICENSE)

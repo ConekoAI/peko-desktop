@@ -108,7 +108,7 @@ jobs:
             fi
             RUNTIME_REF="v$PINNED"
           fi
-          if ! git ls-remote --exit-code https://github.com/ConekoAI/peko-runtime.git \
+          if ! git ls-remote --exit-code https://github.com/ConekoAI/Peko.git \
               "refs/tags/$RUNTIME_REF" "refs/heads/$RUNTIME_REF" >/dev/null; then
             echo "::error::peko-runtime has no tag or branch '$RUNTIME_REF'. Release that runtime version first, set src-tauri/runtime-version to a released one, or pass 'runtime_ref' (e.g. master)."
             exit 1
@@ -182,7 +182,7 @@ jobs:
       - name: Check out peko-runtime
         uses: actions/checkout@v4
         with:
-          repository: ConekoAI/peko-runtime
+          repository: ConekoAI/Peko
           ref: ${{ needs.prepare.outputs.runtime_ref }}
           path: peko-runtime-src
 
