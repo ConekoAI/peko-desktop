@@ -174,13 +174,13 @@ jobs:
         # Git Bash on Windows, so the sidecar script runs everywhere.
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       # fetch-peko-sidecar.sh defaults to ../peko-runtime.
       - name: Check out peko-runtime
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ConekoAI/Peko
           ref: ${{ needs.prepare.outputs.runtime_ref }}
@@ -189,7 +189,7 @@ jobs:
       - name: Move peko-runtime beside the desktop checkout
         run: mv peko-runtime-src ../peko-runtime
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -290,7 +290,7 @@ jobs:
       # the update feed `latest.json` when update files were signed, to
       # the draft created by `prepare`.
       - name: Build Tauri app (release) and upload to the draft
-        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Where crash reports go (pekohub ADR-014; src-tauri/src/telemetry.rs).
