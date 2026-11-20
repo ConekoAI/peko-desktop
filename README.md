@@ -22,6 +22,11 @@ before acting for someone else, decide who may talk to it and what they
 reach, join DMs and group chats with people and other pekos, and back pekos
 up or move them.
 
+<p align="center">
+  <img src="docs/media/app-chat.png" width="49%" alt="Chatting with a peko">
+  <img src="docs/media/app-sharing.png" width="49%" alt="Choosing what other people reach when they talk to a peko">
+</p>
+
 ## Download
 
 **[Get the latest release](https://github.com/ConekoAI/peko-desktop/releases/latest)**
