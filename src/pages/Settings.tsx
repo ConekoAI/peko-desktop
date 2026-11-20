@@ -476,7 +476,7 @@ function AdvancedSection() {
 const LINKS = [
   {
     key: "gettingStarted",
-    url: "https://github.com/ConekoAI/peko-runtime/blob/master/docs/getting-started/GETTING_STARTED.md",
+    url: "https://github.com/ConekoAI/Peko/blob/master/docs/getting-started/GETTING_STARTED.md",
   },
   { key: "report", url: "https://github.com/ConekoAI/peko-desktop/issues" },
 ] as const;
