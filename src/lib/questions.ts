@@ -81,13 +81,22 @@ export function dmCardStates(items: CardThreadItem[]): (CardState | undefined)[]
 export interface GroupCardPost {
   author: string;
   msgId?: string;
+  /** Not a reply to another post. */
+  root?: boolean;
   ask?: Ask;
   answers?: Answers;
 }
 
+/** Whether `author` is a person (not a peko). */
+function isPerson(author: string): boolean {
+  return author.startsWith("user:") || author.startsWith("visitor:");
+}
+
 /**
- * A group's cards (ADR-114 D3): open until an answer names it or the
- * same peko asks a newer card. Other members' posts leave it open.
+ * A group's cards (ADR-114 D3): open until an answer names it, the same
+ * peko asks a newer card, or whom it is for (anyone, when it names no
+ * one) writes a message of their own — their answer in their own words,
+ * which wakes the peko too. Pekos' posts and replies leave it open.
  */
 export function groupCardStates(posts: GroupCardPost[]): (CardState | undefined)[] {
   return posts.map((post, i) => {
@@ -97,6 +106,10 @@ export function groupCardStates(posts: GroupCardPost[]): (CardState | undefined)
       ? later.find((l) => l.answers?.to === post.msgId)?.answers
       : undefined;
     const replaced = later.some((l) => l.author === post.author && l.ask);
-    return { open: !answered && !replaced, ...(answered && { answered }) };
+    const forWho = post.ask.for;
+    const inWords = later.some(
+      (l) => l.root && isPerson(l.author) && (!forWho || l.author === forWho),
+    );
+    return { open: !answered && !replaced && !inWords, ...(answered && { answered }) };
   });
 }

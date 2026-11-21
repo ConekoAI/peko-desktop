@@ -29,10 +29,16 @@ describe("question cards (runtime ADR-114)", () => {
     expect(dmCardStates([{ isUser: false }])[0]).toBeUndefined();
   });
 
-  it("keeps a group card open while others talk, until answered or the peko asks again", () => {
+  it("keeps a group card open while others talk, until answered, replaced, or answered in words", () => {
     const asked = { author: "principal:local:p", ask, msgId: "m1" };
-    const chat = { author: "user:hub:x" };
-    expect(groupCardStates([asked, chat])[0]?.open).toBe(true);
+    const forBob = { ...asked, ask: { ...ask, for: "user:hub:bob" } };
+    const peko = { author: "principal:local:q", root: true };
+    const reply = { author: "user:hub:x", root: false };
+    expect(groupCardStates([asked, peko, reply])[0]?.open).toBe(true);
+    // Whom it is for writing on their own is their answer in words.
+    expect(groupCardStates([asked, { author: "user:hub:x", root: true }])[0]?.open).toBe(false);
+    expect(groupCardStates([forBob, { author: "user:hub:x", root: true }])[0]?.open).toBe(true);
+    expect(groupCardStates([forBob, { author: "user:hub:bob", root: true }])[0]?.open).toBe(false);
     expect(groupCardStates([asked, { author: "principal:local:p", ask }])[0]?.open).toBe(false);
     expect(groupCardStates([asked, { author: "principal:local:q", ask }])[0]?.open).toBe(true);
     expect(

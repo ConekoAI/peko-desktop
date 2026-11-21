@@ -150,7 +150,13 @@ export default function ChannelView() {
       groupCardStates(
         shown.map((e) =>
           e.kind === "posted"
-            ? { author: e.author, msgId: e.msg_id, ask: e.ask, answers: e.answers }
+            ? {
+                author: e.author,
+                msgId: e.msg_id,
+                root: e.parent == null,
+                ask: e.ask,
+                answers: e.answers,
+              }
             : { author: "" },
         ),
       ),
