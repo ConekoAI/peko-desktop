@@ -51,12 +51,16 @@ import {
 import Markdown from "../components/chat/Markdown";
 import { copyText } from "../components/chat/copy";
 import type {
+  Answers,
   ApprovalRequest,
+  Ask,
   ChatLogAttachment,
   ChatLogMessage,
   RunFailure,
   StreamEvent,
 } from "../types";
+import QuestionCard from "../components/chat/QuestionCard";
+import { dmCardStates, type CardState } from "../lib/questions";
 import type { ChatStreamMsg } from "../lib/api";
 import { currentLocale, t as translate } from "../i18n";
 
@@ -69,8 +73,12 @@ interface ChatItem {
   attachments?: ChatLogAttachment[];
   /** Replies the peko suggested with this message (runtime ADR-093). */
   options?: string[];
-  /** The post's own id (a remote peko's thread), to match undelivered ones. */
+  /** The post's own id: answers name it, and undelivered ones match it. */
   msgId?: string;
+  /** Questions the peko asks with this message (runtime ADR-114). */
+  ask?: Ask;
+  /** Your answers to an earlier message's questions (runtime ADR-114). */
+  answers?: Answers;
 }
 
 /**
@@ -127,8 +135,14 @@ function ChatMessage({
   onRetry,
   onPick,
   waitingFor,
+  card,
+  onAnswer,
 }: {
   item: ChatItem;
+  /** The state of this message's question card, if it asks any. */
+  card?: CardState;
+  /** Present while you may answer this message's card. */
+  onAnswer?: (text: string, answers: Answers) => Promise<void> | void;
   /**
    * Set on your message that hasn't reached the peko yet: the computer it
    * waits for (asleep or off), named as it names itself.
@@ -199,6 +213,15 @@ function ChatMessage({
             <Clock className="h-3 w-3" />
             {t("chat.waitingFor", { name: waitingFor })}
           </p>
+        )}
+        {item.ask && card && (
+          <QuestionCard
+            ask={item.ask}
+            msgId={item.msgId}
+            open={card.open}
+            answered={card.answered}
+            onSend={onAnswer}
+          />
         )}
         {onPick && item.options && item.options.length > 0 && (
           <SuggestedReplies replies={item.options} onPick={onPick} />
@@ -467,6 +490,8 @@ export function chatLogMessagesToChatItems(
     if (!m.text && attachments.length === 0) continue;
     const isUser = m.sender.startsWith("user:");
     const options = isUser ? [] : (m.options ?? []);
+    const ask = isUser ? undefined : m.ask;
+    const answers = isUser ? m.answers : undefined;
     out.push({
       event: {
         type: "chunk",
@@ -477,6 +502,8 @@ export function chatLogMessagesToChatItems(
       ...(m.msgId && { msgId: m.msgId }),
       ...(attachments.length > 0 && { attachments }),
       ...(options.length > 0 && { options }),
+      ...(ask && ask.questions.length > 0 && { ask }),
+      ...(answers && { answers }),
     });
   }
   return out;
@@ -821,7 +848,7 @@ export default function Chat() {
    * Send `message` to the peko, streaming its reply — from the
    * composer, or again from a message's Retry.
    */
-  async function sendText(message: string, files: string[] = []) {
+  async function sendText(message: string, files: string[] = [], answers?: Answers) {
     if ((!message && files.length === 0) || !selectedPrincipal) return;
     setError(null);
 
@@ -875,6 +902,7 @@ export default function Chat() {
         runtimeId,
         overrideModel: effectiveModel ?? undefined,
         attachments: files,
+        answers,
         onEvent: (msg: ChatStreamMsg) => {
           if (msg.kind === "queued" || msg.kind === "runSummary") return;
           promote();
@@ -985,6 +1013,9 @@ export default function Chat() {
     !isStreaming && queuedItems.length === 0 && displayItems.length > 0
       ? displayItems.length - 1
       : -1;
+  // Question cards (runtime ADR-114) stay open past the peko's other
+  // messages, until answered, replaced, or you write again.
+  const cardStates = useMemo(() => dmCardStates(displayItems), [displayItems]);
 
   if (isLoading) {
     return (
@@ -1116,6 +1147,12 @@ export default function Chat() {
                       : undefined
                   }
                   onPick={idx === pickIdx ? (reply) => void sendText(reply) : undefined}
+                  card={cardStates[idx]}
+                  onAnswer={
+                    cardStates[idx]?.open && !isStreaming
+                      ? (text, answers) => sendText(text, [], answers)
+                      : undefined
+                  }
                   waitingFor={
                     item.isUser && item.msgId && waiting.has(item.msgId)
                       ? hostLabel

@@ -121,19 +121,21 @@ impl HubRemoteClient {
     /// computer; the peko's runtime pulls them through PekoHub, runtime
     /// ADR-094). The reply arrives later, on the thread. `model` asks the
     /// peko to answer with one of its host's models (runtime ADR-097); its
-    /// host honours it only for the peko's owner.
+    /// host honours it only for the peko's owner. `answers` answer one of
+    /// its messages' questions (runtime ADR-114).
     pub async fn send(
         &self,
         text: &str,
         attachments: &[String],
         model: Option<&str>,
+        answers: Option<&serde_json::Value>,
     ) -> Result<(), String> {
         let channel = self.open_dm().await?;
         let client = crate::ipc::IpcClient::new()
             .await
             .map_err(|e| format!("IpcClient::new failed: {e}"))?;
         let answer = client
-            .channel_post(&channel, None, text, None, attachments, model)
+            .channel_post(&channel, None, text, None, attachments, model, answers)
             .await
             .map_err(|e| format!("channel_post failed: {e}"))?;
         if crate::ipc::is_error_response(&answer) {

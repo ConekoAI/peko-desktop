@@ -20,6 +20,7 @@ import { t } from "../i18n";
 import type {
   AccessPerson,
   AccessRule,
+  Answers,
   ApprovalRequest,
   BoardItem,
   BoardOp,
@@ -540,6 +541,7 @@ export async function principalSendStream(
   runtimeId?: RuntimeId,
   overrideModel?: string,
   attachments?: string[],
+  answers?: Answers,
 ): Promise<PrincipalSendStreamResult> {
   const channel = new Channel<ChatStreamMsg>();
   channel.onmessage = onEvent;
@@ -555,6 +557,9 @@ export async function principalSendStream(
     // Absolute paths; the engine copies each file into the peko's
     // workspace (ADR-088). Local runtime only.
     attachments: attachments ?? [],
+    // Answers to a message's questions (ADR-114); `message` is their
+    // readable text.
+    answers: answers ?? null,
   });
 }
 
@@ -2210,6 +2215,8 @@ export async function channelPost(
   runtimeId?: RuntimeId,
   /** Absolute paths on this computer (runtime ADR-094). */
   attachments?: string[],
+  /** Answers to a post's questions (runtime ADR-114); a root post only. */
+  answers?: Answers,
 ): Promise<string> {
   return invoke<string>("channel_post", {
     channelId,
@@ -2218,6 +2225,7 @@ export async function channelPost(
     parent: parent ?? null,
     runtimeId: runtimeId ?? null,
     attachments: attachments ?? null,
+    answers: answers ?? null,
   });
 }
 

@@ -690,7 +690,7 @@ pub async fn principal_send(
         }
         // A remote peko: post to the DM; its reply arrives on the thread.
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            client.send(&message, &[], None).await?;
+            client.send(&message, &[], None, None).await?;
             Ok(String::new())
         }
     }
@@ -732,6 +732,7 @@ pub async fn principal_send_stream(
     runtime_id: Option<String>,
     override_model: Option<String>,
     attachments: Option<Vec<String>>,
+    answers: Option<serde_json::Value>,
 ) -> Result<PrincipalSendStreamResult, String> {
     let attachments = attachments.unwrap_or_default();
     // Route by runtime_id. Local → the daemon's streamed run; a remote
@@ -758,6 +759,7 @@ pub async fn principal_send_stream(
                         message,
                         override_model,
                         attachments,
+                        answers,
                     },
                     {
                         let channel = on_event.clone();
@@ -779,7 +781,12 @@ pub async fn principal_send_stream(
         // busy local peko.
         crate::state::ResolvedRuntime::HubRemote(client) => {
             client
-                .send(&message, &attachments, override_model.as_deref())
+                .send(
+                    &message,
+                    &attachments,
+                    override_model.as_deref(),
+                    answers.as_ref(),
+                )
                 .await?;
             let _ = on_event.send(crate::ipc::ChatStreamMsg::Queued { message });
             String::new()

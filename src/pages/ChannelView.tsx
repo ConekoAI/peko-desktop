@@ -27,7 +27,9 @@ import { usePrincipals } from "../hooks/usePrincipals";
 import { isChannelForbidden } from "../lib/channelErrors";
 import { groupHistoryOlder, personDms, personGroups } from "../lib/api";
 import { personLabel } from "../lib/people";
-import type { ChannelEvent } from "../types";
+import type { Answers, ChannelEvent } from "../types";
+import { useChannelPost } from "../hooks/useChannelPost";
+import { groupCardStates } from "../lib/questions";
 
 /**
  * Channel view. PR-1 read-only + PR-2a composer + PR-3
@@ -142,6 +144,22 @@ export default function ChannelView() {
     setOlderError(null);
   }, [channelId]);
   const shown = useMemo(() => [...older, ...(events ?? [])], [older, events]);
+  // Question cards (runtime ADR-114): open until answered or replaced.
+  const cardStates = useMemo(
+    () =>
+      groupCardStates(
+        shown.map((e) =>
+          e.kind === "posted"
+            ? { author: e.author, msgId: e.msg_id, ask: e.ask, answers: e.answers }
+            : { author: "" },
+        ),
+      ),
+    [shown],
+  );
+  const answerPost = useChannelPost(runtimeId);
+  async function answer(text: string, answers: Answers) {
+    await answerPost.mutateAsync({ channelId, senderName: null, text, parent: null, answers });
+  }
   const oldestId = useMemo(() => {
     for (const e of shown) {
       if (e.kind === "posted" && e.msg_id) return e.msg_id;
@@ -291,7 +309,13 @@ export default function ChannelView() {
             <ul className="space-y-1">
               {shown.map((e, i) => (
                 <li key={i} data-testid="channel-event-row">
-                  <ChannelEventRow event={e} people={personNames} channelId={channelId} />
+                  <ChannelEventRow
+                    event={e}
+                    people={personNames}
+                    channelId={channelId}
+                    card={cardStates[i]}
+                    onAnswer={isMember || person ? answer : undefined}
+                  />
                 </li>
               ))}
             </ul>

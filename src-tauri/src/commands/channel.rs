@@ -526,6 +526,7 @@ fn project_channel_info_envelope(value: &serde_json::Value) -> Result<ChannelInf
 /// inbound peko-stream event back to its outbound post when PR-2b
 /// lights up the live stream.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn channel_post(
     state: tauri::State<'_, AppState>,
     channel_id: String,
@@ -534,6 +535,7 @@ pub async fn channel_post(
     parent: Option<String>,
     runtime_id: Option<String>,
     attachments: Option<Vec<String>>,
+    answers: Option<serde_json::Value>,
 ) -> Result<String, String> {
     let attachments = attachments.unwrap_or_default();
     let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
@@ -560,6 +562,7 @@ pub async fn channel_post(
             parent.as_deref(),
             &attachments,
             None,
+            answers.as_ref(),
         )
         .await
         .map_err(|e| format!("channel_post failed: {e}"))?;

@@ -1,4 +1,5 @@
 import { track, trackFirstReply } from "../lib/usage";
+import type { Answers } from "../types";
 import { useEffect, useRef } from "react";
 import {
   useMutation,
@@ -327,6 +328,8 @@ export function usePrincipalSend() {
       overrideModel?: string;
       /** Absolute paths of files to attach (local pekos only). */
       attachments?: string[];
+      /** Answers to a message's questions (runtime ADR-114). */
+      answers?: Answers;
     }): Promise<string> => {
       const rid = effectiveRuntimeId(vars.runtimeId);
       if (!vars.onEvent) {
@@ -340,6 +343,7 @@ export function usePrincipalSend() {
         rid,
         vars.overrideModel,
         vars.attachments,
+        vars.answers,
       );
       return result.content;
     },

@@ -31,6 +31,39 @@ vi.mock("../hooks/useChannels", () => ({
 import ChannelEventRow from "../components/ChannelEventRow";
 
 describe("ChannelEventRow", () => {
+  // Runtime ADR-114: a card meant for another member is theirs to answer.
+  it("shows a peko's question card, answerable only by whom it is for", () => {
+    channelInfo.data = {
+      people: [
+        { address: "principal:hub:b1ec", aliases: [], kind: "principal", name: "ada", you: false, here: false },
+        { address: "user:hub:7777", aliases: [], kind: "user", name: "Gina", you: false, here: false },
+        { address: "user:local:local", aliases: [], kind: "user", name: "Frank", you: true, here: true },
+      ],
+    };
+    const posted = (forWho?: string) => ({
+      kind: "posted" as const,
+      channel: "group:tinytodo",
+      author: "principal:hub:b1ec",
+      parent: null,
+      text: "Quick one:",
+      at: "2026-11-21T10:00:00Z",
+      msg_id: "msg_q",
+      ask: { ...(forWho && { for: forWho }), questions: [{ text: "Ship it?", options: ["Yes", "Not yet"] }] },
+    });
+    const onAnswer = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = render(
+      <ChannelEventRow event={posted("user:hub:7777")} card={{ open: true }} onAnswer={onAnswer} />,
+    );
+    expect(screen.getByTestId("question-card-for")).toHaveTextContent("For Gina");
+    expect(screen.queryByTestId("question-card-send")).toBeNull();
+    unmount();
+    render(<ChannelEventRow event={posted("user:local:local")} card={{ open: true }} onAnswer={onAnswer} />);
+    expect(screen.queryByTestId("question-card-for")).toBeNull();
+    expect(screen.getByTestId("question-card-send")).toBeInTheDocument();
+    channelInfo.data = undefined;
+  });
+
+
   // Found live: a copy from another computer showed raw ids.
   it("names members on other computers and their address mentions", () => {
     channelInfo.data = {

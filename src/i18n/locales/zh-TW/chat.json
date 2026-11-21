@@ -30,6 +30,16 @@
   "hostOfflineSince": "<computer/> 已離線（上次上線：{{ago}}），所以 {{peko}} 現在無法工作。你傳送的內容會先等待，等那台電腦恢復後送達 {{peko}}；{{peko}} 回覆時你會收到通知。",
   "waitingFor": "正在等待 {{name}} 上線",
   "suggestedReplies": "建議回覆",
+  "questions": {
+    "label": "問題",
+    "for": "給 {{name}}",
+    "pickAny": "（可多選）",
+    "otherPlaceholder": "或用自己的話回答…",
+    "answerPlaceholder": "你的回答…",
+    "otherLabel": "你對「{{question}}」的回答",
+    "send": "傳送回答",
+    "answered": "已回答"
+  },
   "runFailure": {
     "reason": {
       "peko_limit": "已達到它的支出上限",

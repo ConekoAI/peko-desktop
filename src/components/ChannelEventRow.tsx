@@ -8,6 +8,9 @@ import { useChannelDirectory } from "../hooks/useChannelDirectory";
 import { shownAddress } from "../lib/format";
 import { Trans, useTranslation } from "react-i18next";
 import { currentLocale } from "../i18n";
+import QuestionCard from "./chat/QuestionCard";
+import type { Answers } from "../types";
+import type { CardState } from "../lib/questions";
 
 /**
  * PR-2a: per-event row, extracted from `ChannelView.tsx` so the
@@ -28,8 +31,14 @@ export default function ChannelEventRow({
   showRuntimeBadge = true,
   people,
   channelId,
+  card,
+  onAnswer,
 }: {
   event: ChannelEvent;
+  /** This post's question card state (runtime ADR-114), if it asks. */
+  card?: CardState;
+  /** Answer a card as you; absent when you can't post here. */
+  onAnswer?: (text: string, answers: Answers) => Promise<void>;
   showRuntimeBadge?: boolean;
   /** The channel, so members on other computers read by name. */
   channelId?: string;
@@ -78,6 +87,21 @@ export default function ChannelEventRow({
                 <Markdown>{directory.named(event.text)}</Markdown>
               )}
             </div>
+            {event.ask && card && (() => {
+              // A card for someone else reads as theirs to answer.
+              const forWho = event.ask.for ? directory.resolve(event.ask.for) : undefined;
+              const mine = !forWho || forWho.isYou;
+              return (
+                <QuestionCard
+                  ask={event.ask}
+                  msgId={event.msg_id}
+                  open={card.open}
+                  answered={card.answered}
+                  forLabel={forWho && !forWho.isYou ? forWho.label : undefined}
+                  onSend={mine ? onAnswer : undefined}
+                />
+              );
+            })()}
           </div>
         </div>
       );

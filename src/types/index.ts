@@ -169,6 +169,43 @@ export interface ChatLogMessage {
    * runtime names a message still waiting to be delivered by.
    */
   msgId?: string | null;
+  /** Questions the sender asks with the message (runtime ADR-114). */
+  ask?: Ask;
+  /** Your answers to an earlier message's questions (runtime ADR-114). */
+  answers?: Answers;
+}
+
+/**
+ * Questions a peko asks with a message (runtime ADR-114): one card the
+ * person answers together. They carry no authority; an answer is only
+ * the person's message.
+ */
+export interface Ask {
+  /** In a group: the member who should answer (an actor address). */
+  for?: string;
+  questions: Question[];
+}
+
+/** One question on an {@link Ask} card. */
+export interface Question {
+  text: string;
+  /** 2–4 choices; absent for a free-text question. */
+  options?: string[];
+  /** Whether several options may be chosen. */
+  multi?: boolean;
+}
+
+/** A person's answers to the questions of the message `to` (its msg id). */
+export interface Answers {
+  to: string;
+  /** One per question, in order. */
+  picks: Pick[];
+}
+
+/** The answer to one {@link Question}. */
+export interface Pick {
+  chosen?: string[];
+  other?: string;
 }
 
 /**
@@ -534,6 +571,10 @@ export type ChannelEvent =
       msg_id?: string;
       /** Runtime ADR-101: the board change this post makes. */
       board?: BoardOp;
+      /** Runtime ADR-114: questions the peko asks with this post. */
+      ask?: Ask;
+      /** Runtime ADR-114: a person's answers to a post's questions. */
+      answers?: Answers;
     }
   | {
       kind: "member_joined";
