@@ -86,6 +86,9 @@ describe("ChannelComposer", () => {
         "hello world",
         null,
         undefined,
+        // No files, and no answers (runtime ADR-114) on a typed post.
+        undefined,
+        undefined,
       );
     });
   });

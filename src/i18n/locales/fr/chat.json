@@ -30,6 +30,16 @@
   "hostOfflineSince": "<computer/> est hors ligne (dernière connexion : {{ago}}), donc {{peko}} ne peut pas travailler pour l'instant. Ce que vous envoyez est mis en attente et parviendra à {{peko}} au retour de cet ordinateur ; vous recevrez une notification quand {{peko}} répondra.",
   "waitingFor": "En attente du retour en ligne de {{name}}",
   "suggestedReplies": "Réponses suggérées",
+  "questions": {
+    "label": "Questions",
+    "for": "Pour {{name}}",
+    "pickAny": "(plusieurs choix possibles)",
+    "otherPlaceholder": "Ou avec vos propres mots…",
+    "answerPlaceholder": "Votre réponse…",
+    "otherLabel": "Votre réponse à : {{question}}",
+    "send": "Envoyer les réponses",
+    "answered": "Répondu"
+  },
   "runFailure": {
     "reason": {
       "peko_limit": "sa limite de dépenses est atteinte",

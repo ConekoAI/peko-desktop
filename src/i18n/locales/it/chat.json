@@ -30,6 +30,16 @@
   "hostOfflineSince": "<computer/> è offline (ultima volta online: {{ago}}), quindi {{peko}} non può lavorare in questo momento. Quello che invii resta in attesa e arriva a {{peko}} quando quel computer torna online; riceverai una notifica quando {{peko}} risponde.",
   "waitingFor": "In attesa che {{name}} torni online",
   "suggestedReplies": "Risposte suggerite",
+  "questions": {
+    "label": "Domande",
+    "for": "Per {{name}}",
+    "pickAny": "(scegli quante vuoi)",
+    "otherPlaceholder": "Oppure con parole tue…",
+    "answerPlaceholder": "La tua risposta…",
+    "otherLabel": "La tua risposta a: {{question}}",
+    "send": "Invia risposte",
+    "answered": "Risposto"
+  },
   "runFailure": {
     "reason": {
       "peko_limit": "ha raggiunto il limite di spesa",

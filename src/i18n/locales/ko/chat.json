@@ -30,6 +30,16 @@
   "hostOfflineSince": "<computer/>이(가) 오프라인(마지막 접속: {{ago}})이라 {{peko}}이(가) 지금은 작업할 수 없습니다. 보낸 내용은 대기했다가 그 컴퓨터가 돌아오면 {{peko}}에게 전달됩니다. {{peko}}이(가) 답하면 알림을 받습니다.",
   "waitingFor": "{{name}}이(가) 온라인이 되기를 기다리는 중",
   "suggestedReplies": "추천 답장",
+  "questions": {
+    "label": "질문",
+    "for": "{{name}}님에게",
+    "pickAny": "(여러 개 선택 가능)",
+    "otherPlaceholder": "또는 직접 입력…",
+    "answerPlaceholder": "답변…",
+    "otherLabel": "{{question}}에 대한 답변",
+    "send": "답변 보내기",
+    "answered": "답변함"
+  },
   "runFailure": {
     "reason": {
       "peko_limit": "지출 한도에 도달했습니다",

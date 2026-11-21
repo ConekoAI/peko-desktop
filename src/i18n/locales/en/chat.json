@@ -30,6 +30,16 @@
   "hostOfflineSince": "<computer/> is offline (last online {{ago}}), so {{peko}} can't work right now. What you send waits and reaches {{peko}} when that computer is back; you'll get a notification when {{peko}} answers.",
   "waitingFor": "Waiting for {{name}} to come online",
   "suggestedReplies": "Suggested replies",
+  "questions": {
+    "label": "Questions",
+    "for": "For {{name}}",
+    "pickAny": "(pick any)",
+    "otherPlaceholder": "Or in your own words…",
+    "answerPlaceholder": "Your answer…",
+    "otherLabel": "Your answer to: {{question}}",
+    "send": "Send answers",
+    "answered": "Answered"
+  },
   "runFailure": {
     "reason": {
       "peko_limit": "its spending limit is reached",

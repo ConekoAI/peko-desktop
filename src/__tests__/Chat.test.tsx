@@ -629,6 +629,87 @@ describe("Chat ToS gate", () => {
     expect(screen.queryByTestId("suggested-replies")).toBeNull();
   });
 
+  // Runtime ADR-114: a peko's questions are one card you answer together.
+  const card = {
+    id: "chan_1",
+    sender: "principal:prin_a",
+    text: "A few quick questions:",
+    timestamp: "1",
+    msgId: "msg_card",
+    ask: {
+      questions: [
+        { text: "Which day?", options: ["Tue", "Thu"] },
+        { text: "Which rooms?", options: ["A", "B", "C"], multi: true },
+        { text: "Anything else?" },
+      ],
+    },
+  };
+
+  it("answers a question card as one message carrying the answers", async () => {
+    logState.data = { messages: [card] };
+    sendMut.mutateAsync.mockResolvedValue("");
+    render(<Chat />);
+    const box = screen.getByTestId("question-card");
+    const send = within(box).getByRole("button", { name: /send answers/i }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.click(within(box).getByRole("button", { name: "Tue" }));
+    fireEvent.click(within(box).getByRole("button", { name: "Thu" }));
+    fireEvent.click(within(box).getByRole("button", { name: "A" }));
+    fireEvent.click(within(box).getByRole("button", { name: "C" }));
+    expect(send.disabled).toBe(true);
+    fireEvent.change(within(box).getByRole("textbox", { name: /Anything else/ }), {
+      target: { value: " bring snacks " },
+    });
+    expect(send.disabled).toBe(false);
+    fireEvent.click(send);
+    await waitFor(() => expect(sendMut.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(sendMut.mutateAsync.mock.calls[0][0]).toMatchObject({
+      message: "Which day? → Thu\nWhich rooms? → A, C\nAnything else? → bring snacks",
+      answers: {
+        to: "msg_card",
+        picks: [{ chosen: ["Thu"] }, { chosen: ["A", "C"] }, { other: "bring snacks" }],
+      },
+    });
+  });
+
+  it("keeps a card open past the peko's other messages, and closes it when you write", () => {
+    logState.data = {
+      messages: [
+        card,
+        { id: "chan_2", sender: "principal:prin_a", text: "Morning check-in.", timestamp: "2" },
+      ],
+    };
+    const { unmount } = render(<Chat />);
+    expect(screen.getByTestId("question-card").dataset.open).toBe("true");
+    unmount();
+    logState.data = {
+      messages: [card, { id: "chan_2", sender: "user:local", text: "Tuesday, two rooms", timestamp: "2" }],
+    };
+    render(<Chat />);
+    expect(screen.getByTestId("question-card").dataset.open).toBe("false");
+  });
+
+  it("shows what was chosen on an answered card", () => {
+    logState.data = {
+      messages: [
+        card,
+        {
+          id: "chan_2",
+          sender: "user:local",
+          text: "Which day? → Tue",
+          timestamp: "2",
+          answers: { to: "msg_card", picks: [{ chosen: ["Tue"] }, { chosen: ["B"] }, { other: "no" }] },
+        },
+      ],
+    };
+    render(<Chat />);
+    const box = screen.getByTestId("question-card");
+    expect(box.dataset.open).toBe("false");
+    expect(within(box).getByTestId("question-card-answered")).toBeTruthy();
+    expect(within(box).getByRole("button", { name: "Tue" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(box).getByRole("button", { name: "Thu" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
   it("shows the peko's name on its replies", () => {
     logState.data = {
       messages: [{ id: "chan_1", sender: "principal:prin_a", text: "hi", timestamp: "1" }],

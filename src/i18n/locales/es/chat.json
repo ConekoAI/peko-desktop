@@ -30,6 +30,16 @@
   "hostOfflineSince": "<computer/> está sin conexión (última conexión: {{ago}}), así que {{peko}} no puede trabajar ahora. Lo que envíes esperará y le llegará a {{peko}} cuando ese ordenador vuelva; recibirás una notificación cuando {{peko}} responda.",
   "waitingFor": "Esperando a que {{name}} se conecte",
   "suggestedReplies": "Respuestas sugeridas",
+  "questions": {
+    "label": "Preguntas",
+    "for": "Para {{name}}",
+    "pickAny": "(elige las que quieras)",
+    "otherPlaceholder": "O con tus propias palabras…",
+    "answerPlaceholder": "Tu respuesta…",
+    "otherLabel": "Tu respuesta a: {{question}}",
+    "send": "Enviar respuestas",
+    "answered": "Respondido"
+  },
   "runFailure": {
     "reason": {
       "peko_limit": "ha alcanzado su límite de gasto",

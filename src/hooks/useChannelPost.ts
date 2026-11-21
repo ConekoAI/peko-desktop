@@ -2,6 +2,7 @@ import { track } from "../lib/usage";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { channelPost, type RuntimeId } from "../lib/api";
+import type { Answers } from "../types";
 import { rethrowAsChannelError, type ChannelError } from "../lib/channelErrors";
 
 // ─── Mutation: post a message to a channel ───────────────────────
@@ -29,14 +30,16 @@ export interface UseChannelPostArgs {
   text: string;
   parent?: string | null;
   runtimeId?: RuntimeId;
+  /** Answers to a post's questions (runtime ADR-114). */
+  answers?: Answers;
 }
 
 export function useChannelPost(runtimeId?: RuntimeId) {
   const qc = useQueryClient();
 
   return useMutation<string, ChannelError, UseChannelPostArgs>({
-    mutationFn: ({ channelId, senderName, text, parent }) =>
-      channelPost(channelId, senderName, text, parent, runtimeId).catch(
+    mutationFn: ({ channelId, senderName, text, parent, answers }) =>
+      channelPost(channelId, senderName, text, parent, runtimeId, undefined, answers).catch(
         rethrowAsChannelError,
       ),
     onSuccess: (_taskId, vars) => {

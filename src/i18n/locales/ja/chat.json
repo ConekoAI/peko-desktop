@@ -30,6 +30,16 @@
   "hostOfflineSince": "<computer/> がオフライン（最終オンライン: {{ago}}）のため、{{peko}} は今は作業できません。送信した内容は保留され、そのコンピューターが復帰すると {{peko}} に届きます。{{peko}} が返信すると通知が届きます。",
   "waitingFor": "{{name}} がオンラインになるのを待っています",
   "suggestedReplies": "返信の候補",
+  "questions": {
+    "label": "質問",
+    "for": "{{name}}さん宛て",
+    "pickAny": "（複数選択可）",
+    "otherPlaceholder": "または自分の言葉で…",
+    "answerPlaceholder": "回答…",
+    "otherLabel": "「{{question}}」への回答",
+    "send": "回答を送信",
+    "answered": "回答済み"
+  },
   "runFailure": {
     "reason": {
       "peko_limit": "利用上限額に達しました",

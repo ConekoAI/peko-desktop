@@ -178,6 +178,9 @@ pub struct StreamSend {
     /// Absolute paths of files to attach (runtime ADR-088); the engine
     /// copies them into the peko's workspace.
     pub attachments: Vec<String>,
+    /// Answers to a message's questions (runtime ADR-114), passed through
+    /// as the runtime's `Answers` shape; `message` is their readable text.
+    pub answers: Option<serde_json::Value>,
 }
 
 /// The `[queued]` prefix the runtime puts on a streaming send's
@@ -873,6 +876,7 @@ impl IpcClient {
             message,
             override_model,
             attachments,
+            answers,
         } = send;
 
         let request = serde_json::json!({
@@ -887,6 +891,9 @@ impl IpcClient {
             // Files the engine copies into the peko's workspace
             // (ADR-088); empty for a text-only message.
             "attachments": attachments,
+            // Answers to a message's questions (runtime ADR-114);
+            // `null` for an ordinary message.
+            "answers": answers,
             // ADR-057: caller-declared identity was removed from the
             // wire — the runtime derives the caller's subject from the
             // connection (`CallerContext`), so there is no `user`
@@ -2261,6 +2268,7 @@ impl IpcClient {
     /// ADR-094): the runtime copies them into the channel's file store,
     /// and a peko on another computer pulls them through PekoHub — at
     /// most 10 MB a file and 25 MB a message there.
+    #[allow(clippy::too_many_arguments)]
     pub async fn channel_post(
         &self,
         channel: &str,
@@ -2269,10 +2277,12 @@ impl IpcClient {
         parent: Option<&str>,
         attachments: &[String],
         model: Option<&str>,
+        answers: Option<&serde_json::Value>,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         // `model`: a model of the peko's host to answer this post with
         // (runtime ADR-097); the host honours it only for the owner.
+        // `answers`: the post answers a message's questions (ADR-114).
         let req = serde_json::json!({
             "type": "channel_post",
             "protocol_version": PROTOCOL_VERSION,
@@ -2283,6 +2293,7 @@ impl IpcClient {
             "parent": parent,
             "attachments": attachments,
             "model": model,
+            "answers": answers,
         });
         self.request_response(req).await
     }
