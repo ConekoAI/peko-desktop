@@ -15,6 +15,62 @@ const MAX_PREVIEW_BYTES: u64 = 10 * 1024 * 1024;
 /// The largest pasted file, the engine's per-attachment limit.
 const MAX_STAGED_BYTES: usize = 20 * 1024 * 1024;
 
+/// The largest page served (runtime ADR-118).
+pub const MAX_PAGE_BYTES: u64 = 2 * 1024 * 1024;
+
+/// What a page may do: run its own inline scripts and styles, show
+/// `data:` images, fonts and media, and nothing else — no network, no
+/// frames, no forms, in an opaque origin (runtime ADR-118 D2).
+pub const PAGE_POLICY: &str = "sandbox allow-scripts; default-src 'none'; \
+    script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; \
+    font-src data:; media-src data: blob:; base-uri 'none'; form-action 'none'";
+
+/// `path` names a page.
+fn is_page(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
+}
+
+/// The page `encoded` names (the percent-encoded absolute path
+/// `convertFileSrc(path, "pekopage")` puts in the URL), when it is a page
+/// inside `root` no larger than [`MAX_PAGE_BYTES`].
+fn read_page(encoded: &str, root: &Path) -> Result<Vec<u8>, String> {
+    let decoded = urlencoding::decode(encoded.trim_start_matches('/'))
+        .map_err(|e| format!("bad page address: {e}"))?;
+    let path = confined(&decoded, root)?;
+    if !is_page(&path) {
+        return Err("not a page".to_string());
+    }
+    let size = std::fs::metadata(&path).map_err(|e| e.to_string())?.len();
+    if size > MAX_PAGE_BYTES {
+        return Err("page is too large to show".to_string());
+    }
+    std::fs::read(&path).map_err(|e| e.to_string())
+}
+
+/// Serve a page for the `pekopage:` protocol, with its own policy.
+pub fn serve_page(
+    request: &tauri::http::Request<Vec<u8>>,
+) -> tauri::http::Response<std::borrow::Cow<'static, [u8]>> {
+    let page = peko_root().and_then(|root| read_page(request.uri().path(), &root));
+    let builder = tauri::http::Response::builder()
+        .header("Content-Security-Policy", PAGE_POLICY)
+        .header("X-Content-Type-Options", "nosniff")
+        .header("Cache-Control", "no-store");
+    match page {
+        Ok(bytes) => builder
+            .status(200)
+            .header("Content-Type", "text/html; charset=utf-8")
+            .body(std::borrow::Cow::Owned(bytes)),
+        Err(e) => builder
+            .status(404)
+            .header("Content-Type", "text/plain; charset=utf-8")
+            .body(std::borrow::Cow::Owned(e.into_bytes())),
+    }
+    .unwrap_or_else(|_| tauri::http::Response::new(std::borrow::Cow::Borrowed(&b""[..])))
+}
+
 /// `path`, resolved, when it lies inside `root`.
 fn confined(path: &str, root: &Path) -> Result<PathBuf, String> {
     let root = root
@@ -128,6 +184,33 @@ pub async fn attachment_open(app: tauri::AppHandle, path: String) -> Result<(), 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn serves_only_pages_inside_the_peko_folder() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let page = root.path().join("chart.html");
+        std::fs::write(&page, b"<h1>hi</h1>").unwrap();
+        let text = root.path().join("notes.txt");
+        std::fs::write(&text, b"hi").unwrap();
+        let elsewhere = outside.path().join("x.html");
+        std::fs::write(&elsewhere, b"<h1>no</h1>").unwrap();
+        let big = root.path().join("big.html");
+        std::fs::File::create(&big)
+            .unwrap()
+            .set_len(MAX_PAGE_BYTES + 1)
+            .unwrap();
+        let enc = |p: &Path| format!("/{}", urlencoding::encode(&p.display().to_string()));
+
+        assert_eq!(read_page(&enc(&page), root.path()).unwrap(), b"<h1>hi</h1>");
+        assert!(read_page(&enc(&text), root.path()).is_err());
+        assert!(read_page(&enc(&elsewhere), root.path()).is_err());
+        assert!(read_page(&enc(&big), root.path()).is_err());
+        assert!(read_page("/%2Fetc%2Fpasswd", root.path()).is_err());
+        assert!(PAGE_POLICY.starts_with("sandbox allow-scripts;"));
+        assert!(PAGE_POLICY.contains("default-src 'none'"));
+        assert!(!PAGE_POLICY.contains("connect-src"));
+    }
 
     #[test]
     fn previews_only_images_inside_the_peko_folder() {

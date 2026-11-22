@@ -6,7 +6,9 @@
     "play": "Reproduzir {{name}}",
     "cantPlay": "Não dá para reproduzir aqui; abra o arquivo",
     "missingTitle": "{{name}} ainda não chegou do outro computador",
-    "missing": "ainda não recebido"
+    "missing": "ainda não recebido",
+    "pageFull": "Abrir {{name}} em tamanho cheio",
+    "pageBrowser": "Abrir {{name}} no navegador"
   },
   "composer": {
     "label": "Mensagem",

@@ -36,6 +36,11 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tray::show_main_window(app);
         }))
+        // Pages a peko answers with (runtime ADR-118), served with their
+        // own sandboxing policy so their scripts run away from the app.
+        .register_uri_scheme_protocol("pekopage", |_ctx, request| {
+            commands::attachments::serve_page(&request)
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())

@@ -6,7 +6,9 @@
     "play": "{{name}} 재생",
     "cantPlay": "여기서는 재생할 수 없습니다. 파일을 열어 주세요",
     "missingTitle": "{{name}}이(가) 아직 다른 컴퓨터에서 도착하지 않았습니다",
-    "missing": "아직 받지 못함"
+    "missing": "아직 받지 못함",
+    "pageFull": "{{name}} 크게 열기",
+    "pageBrowser": "{{name}} 브라우저에서 열기"
   },
   "composer": {
     "label": "메시지",
