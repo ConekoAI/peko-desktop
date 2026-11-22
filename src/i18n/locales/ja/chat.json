@@ -59,6 +59,17 @@
     "always": "常に許可",
     "deny": "拒否"
   },
+  "secret": {
+    "request": "{{peko}} が <name/> を求めています",
+    "mcpRequest": "{{peko}} が MCP サーバー <server/> 用に <name/> を求めています",
+    "label": "{{name}} の値",
+    "placeholder": "ここに貼り付けるか入力",
+    "show": "表示",
+    "hide": "隠す",
+    "save": "安全に保存",
+    "decline": "断る",
+    "hint": "このコンピューターの保管庫に入ります。{{peko}} には保存されたことだけが伝わり、値は伝わりません。チャットにシークレットを貼り付けないでください。"
+  },
   "yourPeko": "あなたの peko",
   "onComputer": "· {{computer}} 上",
   "ownersPeko": "{{owner}} の peko",

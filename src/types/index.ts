@@ -253,6 +253,23 @@ export interface RunFailure {
 }
 
 /** A request from someone else that waits for the owner (runtime ADR-078). */
+/**
+ * A secret a peko asked its owner for (runtime ADR-116). Names only: the
+ * value is typed into the card and goes to the engine's vault.
+ */
+export interface SecretRequest {
+  /** `sec_…` */
+  id: string;
+  /** `GITHUB_TOKEN`, or `notion/api_token` for an MCP server's slot. */
+  secret: string;
+  /** `peko` (an environment variable for its commands) or `mcp`. */
+  kind: string;
+  /** What the peko needs it for. */
+  why: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
 export interface ApprovalRequest {
   id: string;
   /** Address of whoever asked (`user:hub:…`, `principal:local:…`). */

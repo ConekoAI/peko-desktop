@@ -371,6 +371,10 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       mockAccess = { ...mockAccess, visitors: a.visitors, people: a.people.map((p) => ({ ...p, display_name: mockAccess.known.find((k) => k.address === p.address)?.display_name ?? null })) };
       return mockAccess;
     }
+    case "principal_secret_requests":
+      return [];
+    case "principal_answer_secret":
+      return args.decline ? "Declined." : "Saved.";
     case "principal_approvals":
     case "principal_permissions":
       return cmd === "principal_permissions" ? { permissions: [] } : [];

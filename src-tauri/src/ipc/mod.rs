@@ -2221,6 +2221,53 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Mirror of `RequestPacket::SecretList` (runtime ADR-116): a peko's
+    /// secret names and the secret requests waiting for its owner.
+    pub async fn secret_list(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "secret_list",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::SecretProvide`: the owner's value for a
+    /// waiting request. The value goes to the engine's vault; no response
+    /// carries it.
+    pub async fn secret_provide(
+        &self,
+        name: &str,
+        id: &str,
+        value: &str,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "secret_provide",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "id": id,
+            "value": value,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::SecretDecline`.
+    pub async fn secret_decline(&self, name: &str, id: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "secret_decline",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "id": id,
+        });
+        self.request_response(req).await
+    }
+
     /// Mirror of `RequestPacket::ApprovalDecide`: the owner approves
     /// (`always` adds a standing rule) or denies a waiting request.
     pub async fn approval_decide(

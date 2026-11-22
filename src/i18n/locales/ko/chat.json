@@ -59,6 +59,17 @@
     "always": "항상 허용",
     "deny": "거부"
   },
+  "secret": {
+    "request": "{{peko}}이(가) <name/>을(를) 요청합니다",
+    "mcpRequest": "{{peko}}이(가) MCP 서버 <server/>용 <name/>을(를) 요청합니다",
+    "label": "{{name}} 값",
+    "placeholder": "여기에 붙여넣거나 입력하세요",
+    "show": "보기",
+    "hide": "숨기기",
+    "save": "안전하게 저장",
+    "decline": "거절",
+    "hint": "이 컴퓨터의 보관함에 저장됩니다. {{peko}}에게는 저장되었다는 사실만 전해지고 값은 전해지지 않습니다. 채팅에 비밀 값을 붙여넣지 마세요."
+  },
   "yourPeko": "내 peko",
   "onComputer": "· {{computer}}에서",
   "ownersPeko": "{{owner}}의 peko",

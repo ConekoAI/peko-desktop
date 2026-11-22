@@ -59,6 +59,17 @@
     "always": "Always allow",
     "deny": "Deny"
   },
+  "secret": {
+    "request": "{{peko}} asks for <name/>",
+    "mcpRequest": "{{peko}} asks for <name/> for its MCP server <server/>",
+    "label": "Value of {{name}}",
+    "placeholder": "Paste or type it here",
+    "show": "Show",
+    "hide": "Hide",
+    "save": "Save securely",
+    "decline": "Decline",
+    "hint": "It goes to this computer's vault. {{peko}} is told it was saved, never the value. Don't paste secrets into the chat."
+  },
   "yourPeko": "Your peko",
   "onComputer": "· on {{computer}}",
   "ownersPeko": "{{owner}}'s peko",

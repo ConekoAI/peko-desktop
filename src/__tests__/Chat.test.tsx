@@ -41,6 +41,8 @@ vi.mock("../hooks/usePrincipals", () => ({
     approvalsState.asked.push(args), { data: approvalsState.data, refetch: vi.fn() }
   ),
   useDecideApproval: () => decideMut,
+  usePrincipalSecretRequests: () => ({ data: secretsState.data, refetch: vi.fn() }),
+  useAnswerSecret: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePrincipalLogWatch: () => logWatch,
   useCallerSubject: () => "user:local",
   newestLogCursor: () => null,
@@ -48,6 +50,7 @@ vi.mock("../hooks/usePrincipals", () => ({
 }));
 
 const fetchOlderMock = vi.fn();
+const secretsState: { data: unknown[] } = { data: [] };
 
 const modelsState: { data: unknown } = { data: [] };
 // The pekos on other computers this desktop added, and the one open.
@@ -127,6 +130,7 @@ describe("Chat ToS gate", () => {
     decideMut.mutateAsync.mockReset();
     approvalsState.data = [];
     approvalsState.asked = [];
+    secretsState.data = [];
     logWatch.flush.mockReset();
     logWatch.pausedRef.current = false;
     logState.data = undefined;
@@ -327,6 +331,24 @@ describe("Chat ToS gate", () => {
         expect.objectContaining({ approve: false }),
       ),
     );
+  });
+
+  it("shows a secret the peko asked for above the composer", () => {
+    secretsState.data = [
+      {
+        id: "sec_0123456789ab",
+        secret: "GITHUB_TOKEN",
+        kind: "peko",
+        why: "to open pull requests with gh",
+        createdAt: "2026-11-22T10:00:00Z",
+        expiresAt: "2026-11-23T10:00:00Z",
+      },
+    ];
+    render(<Chat />);
+    const card = screen.getByTestId("secret-card-sec_0123456789ab");
+    expect(card).toHaveTextContent("alice asks for GITHUB_TOKEN");
+    expect(card).toHaveTextContent("to open pull requests with gh");
+    expect(screen.getByTestId("secret-input-sec_0123456789ab")).toHaveAttribute("type", "password");
   });
 
   it("shows a task handed to the owner whole, and approves it only once", async () => {

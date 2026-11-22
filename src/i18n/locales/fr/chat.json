@@ -59,6 +59,17 @@
     "always": "Toujours autoriser",
     "deny": "Refuser"
   },
+  "secret": {
+    "request": "{{peko}} demande <name/>",
+    "mcpRequest": "{{peko}} demande <name/> pour son serveur MCP <server/>",
+    "label": "Valeur de {{name}}",
+    "placeholder": "Collez-la ou saisissez-la ici",
+    "show": "Afficher",
+    "hide": "Masquer",
+    "save": "Enregistrer en sécurité",
+    "decline": "Refuser",
+    "hint": "Elle va dans le coffre de cet ordinateur. {{peko}} apprend qu'elle a été enregistrée, jamais sa valeur. Ne collez pas de secrets dans la conversation."
+  },
   "yourPeko": "Votre peko",
   "onComputer": "· sur {{computer}}",
   "ownersPeko": "Peko de {{owner}}",
