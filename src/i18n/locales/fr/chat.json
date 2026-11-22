@@ -70,6 +70,23 @@
     "decline": "Refuser",
     "hint": "Elle va dans le coffre de cet ordinateur. {{peko}} apprend qu'elle a été enregistrée, jamais sa valeur. Ne collez pas de secrets dans la conversation."
   },
+  "changes": {
+    "summary_one": "{{peko}} a modifié {{count}} fichier",
+    "summary_other": "{{peko}} a modifié {{count}} fichiers",
+    "summary_many": "{{peko}} a modifié {{count}} fichiers",
+    "undo": "Annuler",
+    "dismiss": "Masquer",
+    "kind": {
+      "added": "ajouté",
+      "modified": "modifié",
+      "deleted": "supprimé"
+    },
+    "shell": "Il a aussi lancé des commandes shell ; ce qu'elles ont modifié hors de son espace de travail n'est ni listé ni annulé.",
+    "restored_one": "{{count}} fichier restauré.",
+    "restored_other": "{{count}} fichiers restaurés.",
+    "restored_many": "{{count}} fichiers restaurés.",
+    "skipped": "{{path}} laissé tel quel : {{why}}"
+  },
   "yourPeko": "Votre peko",
   "onComputer": "· sur {{computer}}",
   "ownersPeko": "Peko de {{owner}}",

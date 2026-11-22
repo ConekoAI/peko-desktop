@@ -70,6 +70,23 @@
     "decline": "Rifiuta",
     "hint": "Va nel portachiavi di questo computer. {{peko}} sa che è stato salvato, mai il valore. Non incollare segreti nella chat."
   },
+  "changes": {
+    "summary_one": "{{peko}} ha modificato {{count}} file",
+    "summary_other": "{{peko}} ha modificato {{count}} file",
+    "summary_many": "{{peko}} ha modificato {{count}} file",
+    "undo": "Annulla",
+    "dismiss": "Nascondi",
+    "kind": {
+      "added": "aggiunto",
+      "modified": "modificato",
+      "deleted": "eliminato"
+    },
+    "shell": "Ha anche eseguito comandi di shell; ciò che hanno modificato fuori dal suo spazio di lavoro non è elencato né annullato.",
+    "restored_one": "Ripristinato {{count}} file.",
+    "restored_other": "Ripristinati {{count}} file.",
+    "restored_many": "Ripristinati {{count}} file.",
+    "skipped": "{{path}} lasciato com'è: {{why}}"
+  },
   "yourPeko": "Il tuo peko",
   "onComputer": "· su {{computer}}",
   "ownersPeko": "Peko di {{owner}}",

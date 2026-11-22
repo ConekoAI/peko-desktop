@@ -23,6 +23,8 @@ import type {
   Answers,
   ApprovalRequest,
   SecretRequest,
+  TurnChanges,
+  UndoResult,
   BoardItem,
   BoardOp,
   BootState,
@@ -678,6 +680,38 @@ export async function principalDecideApproval(params: {
     always: params.always ?? false,
     runtimeId: runtimeId === "local" ? null : runtimeId,
   });
+}
+
+/** A turn's changes as the engine sends them (snake_case). */
+interface WireTurnChanges {
+  turn: string;
+  updated_at: string;
+  files: { path: string; change: string }[];
+  shell: boolean;
+  undone_at?: string | null;
+}
+
+/**
+ * Recent turns in your DM with a peko on this computer that changed files
+ * (runtime ADR-117), newest first. A peko elsewhere lists none.
+ */
+export async function principalTurnChanges(name: string, runtimeId = "local"): Promise<TurnChanges[]> {
+  const wire = await invoke<WireTurnChanges[]>("principal_turn_changes", {
+    name,
+    runtimeId: runtimeId === "local" ? null : runtimeId,
+  });
+  return wire.map((t) => ({
+    turn: t.turn,
+    updatedAt: t.updated_at,
+    files: t.files.map((f) => ({ path: f.path, change: f.change as TurnChanges["files"][number]["change"] })),
+    shell: t.shell,
+    undoneAt: t.undone_at ?? null,
+  }));
+}
+
+/** Undo one turn's file changes; resolves to what was put back and what was left. */
+export async function principalUndoTurn(params: { name: string; turn: string }): Promise<UndoResult> {
+  return invoke<UndoResult>("principal_undo_turn", { name: params.name, turn: params.turn });
 }
 
 /** A secret request as the engine sends it (snake_case). */

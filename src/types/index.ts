@@ -253,6 +253,29 @@ export interface RunFailure {
 }
 
 /** A request from someone else that waits for the owner (runtime ADR-078). */
+/** One file a turn changed (runtime ADR-117). */
+export interface ChangedFile {
+  /** Relative to the peko's workspace when inside it. */
+  path: string;
+  change: "added" | "modified" | "deleted";
+}
+
+/** A peko's turn that changed files, which its owner can undo (runtime ADR-117). */
+export interface TurnChanges {
+  turn: string;
+  updatedAt: string;
+  files: ChangedFile[];
+  /** It ran shell commands: changes outside the workspace aren't listed. */
+  shell: boolean;
+  undoneAt: string | null;
+}
+
+/** What undoing a turn did. */
+export interface UndoResult {
+  restored: string[];
+  skipped: { path: string; why: string }[];
+}
+
 /**
  * A secret a peko asked its owner for (runtime ADR-116). Names only: the
  * value is typed into the card and goes to the engine's vault.

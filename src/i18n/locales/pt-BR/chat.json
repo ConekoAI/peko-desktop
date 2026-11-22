@@ -70,6 +70,23 @@
     "decline": "Recusar",
     "hint": "Vai para o cofre deste computador. {{peko}} fica sabendo que foi salvo, nunca o valor. Não cole segredos no chat."
   },
+  "changes": {
+    "summary_one": "{{peko}} alterou {{count}} arquivo",
+    "summary_other": "{{peko}} alterou {{count}} arquivos",
+    "summary_many": "{{peko}} alterou {{count}} arquivos",
+    "undo": "Desfazer",
+    "dismiss": "Ocultar",
+    "kind": {
+      "added": "novo",
+      "modified": "alterado",
+      "deleted": "excluído"
+    },
+    "shell": "Também executou comandos de shell; o que eles alteraram fora do espaço de trabalho não é listado nem desfeito.",
+    "restored_one": "{{count}} arquivo restaurado.",
+    "restored_other": "{{count}} arquivos restaurados.",
+    "restored_many": "{{count}} arquivos restaurados.",
+    "skipped": "{{path}} ficou como estava: {{why}}"
+  },
   "yourPeko": "Seu peko",
   "onComputer": "· em {{computer}}",
   "ownersPeko": "Peko de {{owner}}",

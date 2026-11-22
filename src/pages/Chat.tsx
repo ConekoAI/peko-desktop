@@ -8,6 +8,7 @@ import {
   usePrincipalLogWatch,
   usePrincipalApprovals,
   usePrincipalSecretRequests,
+  usePrincipalTurnChanges,
   useDecideApproval,
   useCallerSubject,
   newestLogCursor,
@@ -62,6 +63,7 @@ import type {
 } from "../types";
 import QuestionCard from "../components/chat/QuestionCard";
 import SecretRequestCards from "../components/chat/SecretRequestCard";
+import TurnChangesStrip from "../components/chat/TurnChanges";
 import { dmCardStates, type CardState } from "../lib/questions";
 import type { ChatStreamMsg } from "../lib/api";
 import { currentLocale, t as translate } from "../i18n";
@@ -1006,6 +1008,14 @@ export default function Chat() {
     if (ownsSecrets && selectedPrincipal) void refetchSecrets();
   }, [logData, ownsSecrets, selectedPrincipal, refetchSecrets]);
 
+  // What the peko's last turns here changed in your files (runtime
+  // ADR-117), to undo: a peko on this computer only.
+  const turnChanges = usePrincipalTurnChanges(selectedPrincipal || undefined, ownsSecrets);
+  const refetchTurnChanges = turnChanges.refetch;
+  useEffect(() => {
+    if (ownsSecrets && selectedPrincipal && !isStreaming) void refetchTurnChanges();
+  }, [logData, ownsSecrets, selectedPrincipal, isStreaming, refetchTurnChanges]);
+
   // Why the last run here didn't go through, shown beside the thread.
   const runFailure = !isStreaming ? (logData?.runFailure ?? null) : null;
 
@@ -1218,6 +1228,10 @@ export default function Chat() {
         peko={selectedPrincipal}
         requests={ownsSecrets ? (secretRequests.data ?? []) : []}
       />
+
+      {!isStreaming && (
+        <TurnChangesStrip peko={selectedPrincipal} turns={ownsSecrets ? (turnChanges.data ?? []) : []} />
+      )}
 
       {hostOffline && (
         <HostOfflineNotice

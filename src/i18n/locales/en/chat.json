@@ -70,6 +70,21 @@
     "decline": "Decline",
     "hint": "It goes to this computer's vault. {{peko}} is told it was saved, never the value. Don't paste secrets into the chat."
   },
+  "changes": {
+    "summary_one": "{{peko}} changed {{count}} file",
+    "summary_other": "{{peko}} changed {{count}} files",
+    "undo": "Undo",
+    "dismiss": "Hide",
+    "kind": {
+      "added": "added",
+      "modified": "changed",
+      "deleted": "deleted"
+    },
+    "shell": "It also ran shell commands; files they changed outside its workspace aren't listed or undone.",
+    "restored_one": "Put back {{count}} file.",
+    "restored_other": "Put back {{count}} files.",
+    "skipped": "Left {{path}} alone: {{why}}"
+  },
   "yourPeko": "Your peko",
   "onComputer": "· on {{computer}}",
   "ownersPeko": "{{owner}}'s peko",

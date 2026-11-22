@@ -70,6 +70,21 @@
     "decline": "Ablehnen",
     "hint": "Er kommt in den Tresor dieses Computers. {{peko}} erfährt, dass er gespeichert wurde, nie den Wert. Füge Geheimnisse nicht in den Chat ein."
   },
+  "changes": {
+    "summary_one": "{{peko}} hat {{count}} Datei geändert",
+    "summary_other": "{{peko}} hat {{count}} Dateien geändert",
+    "undo": "Rückgängig",
+    "dismiss": "Ausblenden",
+    "kind": {
+      "added": "neu",
+      "modified": "geändert",
+      "deleted": "gelöscht"
+    },
+    "shell": "Es hat auch Shell-Befehle ausgeführt; was die außerhalb seines Arbeitsbereichs geändert haben, ist nicht aufgeführt und wird nicht rückgängig gemacht.",
+    "restored_one": "{{count}} Datei wiederhergestellt.",
+    "restored_other": "{{count}} Dateien wiederhergestellt.",
+    "skipped": "{{path}} unverändert gelassen: {{why}}"
+  },
   "yourPeko": "Dein Peko",
   "onComputer": "· auf {{computer}}",
   "ownersPeko": "Peko von {{owner}}",

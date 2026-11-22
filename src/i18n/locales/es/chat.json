@@ -70,6 +70,23 @@
     "decline": "Rechazar",
     "hint": "Se guarda en la bóveda de este ordenador. {{peko}} sabe que se guardó, nunca el valor. No pegues secretos en el chat."
   },
+  "changes": {
+    "summary_one": "{{peko}} cambió {{count}} archivo",
+    "summary_other": "{{peko}} cambió {{count}} archivos",
+    "summary_many": "{{peko}} cambió {{count}} archivos",
+    "undo": "Deshacer",
+    "dismiss": "Ocultar",
+    "kind": {
+      "added": "nuevo",
+      "modified": "cambiado",
+      "deleted": "borrado"
+    },
+    "shell": "También ejecutó comandos de shell; lo que cambiaron fuera de su espacio de trabajo no se lista ni se deshace.",
+    "restored_one": "Se restauró {{count}} archivo.",
+    "restored_other": "Se restauraron {{count}} archivos.",
+    "restored_many": "Se restauraron {{count}} archivos.",
+    "skipped": "No se tocó {{path}}: {{why}}"
+  },
   "yourPeko": "Tu peko",
   "onComputer": "· en {{computer}}",
   "ownersPeko": "Peko de {{owner}}",
