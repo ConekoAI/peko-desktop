@@ -73,6 +73,23 @@
     "conflict": "Ein Modell namens <name/> gibt es schon – lege unter „Erweitert“ einen anderen Namen fest.",
     "adding": "Wird hinzugefügt…"
   },
+  "plan": {
+    "title": "Dein ChatGPT-Abo nutzen",
+    "starting": "Anmeldung wird gestartet…",
+    "waitingIntro": "Melde dich im Browser bei ChatGPT an und erlaube Peko, dein Abo zu nutzen. OpenAI-Modelle, die du hier hinzufügst, werden über dein Abo statt über einen API-Schlüssel abgerechnet.",
+    "waiting": "Warte auf die Anmeldung…",
+    "openAgain": "Anmeldeseite erneut öffnen",
+    "pasteLabel": "Browser auf einem anderen Computer?",
+    "pasteHint": "Füge die Adresse ein, bei der der Browser gelandet ist – auch wenn die Seite nicht geladen wurde.",
+    "usePasted": "Adresse verwenden",
+    "signedIn": "Angemeldet als {{account}}.",
+    "pickModels": "Füge die Modelle hinzu, die deine Pekos nutzen sollen:",
+    "addedAs": "Hinzugefügt als {{name}}",
+    "noModels": "Die Modelle deines Abos konnten nicht geladen werden. Füge eines über „Modell hinzufügen“ hinzu: API-Format OpenAI Responses, Basis-URL https://api.openai.com/v1 und die gespeicherte ChatGPT-Anmeldung.",
+    "limits": "Die Nutzung zählt zu den Limits deines Abos. Die Anmeldung erneuert sich selbst; endet sie, melde dich hier erneut an – deine Modelle funktionieren weiter.",
+    "gone": "Die Anmeldung ist beendet. Versuche es erneut.",
+    "tryAgain": "Erneut versuchen"
+  },
   "card": {
     "testPassed": "Test bestanden",
     "testPassedWith": "Test bestanden · {{model}}",
@@ -80,6 +97,7 @@
     "disabled": "Deaktiviert",
     "noKey": "Kein Schlüssel – füge unter „Bearbeiten“ einen hinzu",
     "keySet": "Schlüssel hinterlegt",
+    "onPlan": "ChatGPT-Abo",
     "context": "{{n}} Kontext",
     "maxOutput": "{{n}} Ausgabe",
     "test": "Modell testen",

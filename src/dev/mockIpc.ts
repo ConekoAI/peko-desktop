@@ -251,6 +251,7 @@ const settings = [
 ];
 
 let privacy = { acknowledged: true, crashReports: true, usageEvents: true };
+let planPolls = 0;
 
 function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
   switch (cmd) {
@@ -478,6 +479,25 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
     case "read_state":
     case "remote_peko_undelivered":
       return [];
+    // ChatGPT plan sign-in (runtime ADR-115): done on the second ask.
+    case "chatgpt_sign_in_start":
+      planPolls = 0;
+      return { flowId: "mock-flow", url: "https://auth.openai.com/api/accounts/authorize?mock" };
+    case "chatgpt_sign_in_status":
+      planPolls += 1;
+      return planPolls < 2
+        ? { state: "waiting" }
+        : {
+            state: "done",
+            credentialId: "mock-plan-credential",
+            account: "you@example.com",
+            models: [
+              { slug: "gpt-6.2-sol", displayName: "GPT-6.2-Sol" },
+              { slug: "gpt-6-luna", displayName: "GPT-6-Luna" },
+            ],
+          };
+    case "chatgpt_sign_in_cancel":
+      return null;
     default:
       return null;
   }

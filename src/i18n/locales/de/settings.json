@@ -41,6 +41,7 @@
   "models": {
     "intro": "Die Endpunkte, mit denen deine Pekos denken. Jedes Modell hat seinen eigenen API-Schlüssel; ändere ihn unter „Bearbeiten“.",
     "add": "Modell hinzufügen",
+    "usePlan": "ChatGPT-Abo nutzen",
     "loading": "Modelle werden geladen…",
     "empty": "Noch keine Modelle eingerichtet",
     "emptyHint": "Füge einen Endpunkt und seinen API-Schlüssel hinzu, um mit deinen Pekos zu sprechen.",

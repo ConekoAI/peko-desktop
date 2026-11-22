@@ -74,6 +74,23 @@
     "conflict": "Un modèle nommé <name/> existe déjà : indiquez un autre nom dans Avancé.",
     "adding": "Ajout…"
   },
+  "plan": {
+    "title": "Utiliser votre abonnement ChatGPT",
+    "starting": "Démarrage de la connexion…",
+    "waitingIntro": "Connectez-vous à ChatGPT dans votre navigateur et autorisez Peko à utiliser votre abonnement. Les modèles OpenAI ajoutés ici sont facturés sur votre abonnement plutôt que sur une clé d'API.",
+    "waiting": "En attente de la connexion…",
+    "openAgain": "Rouvrir la page de connexion",
+    "pasteLabel": "Navigateur sur un autre ordinateur ?",
+    "pasteHint": "Collez l'adresse sur laquelle le navigateur s'est arrêté, même si la page ne s'est pas chargée.",
+    "usePasted": "Utiliser l'adresse",
+    "signedIn": "Connecté en tant que {{account}}.",
+    "pickModels": "Ajoutez les modèles que vos pekos doivent utiliser :",
+    "addedAs": "Ajouté sous {{name}}",
+    "noModels": "Impossible de lister les modèles de votre abonnement. Ajoutez-en un via Ajouter un modèle : format d'API OpenAI Responses, URL de base https://api.openai.com/v1 et l'identifiant ChatGPT enregistré.",
+    "limits": "L'utilisation compte dans les limites de votre abonnement. La connexion se renouvelle seule ; si elle prend fin, reconnectez-vous ici et vos modèles continuent de fonctionner.",
+    "gone": "La connexion a pris fin. Réessayez.",
+    "tryAgain": "Réessayer"
+  },
   "card": {
     "testPassed": "Test réussi",
     "testPassedWith": "Test réussi · {{model}}",
@@ -81,6 +98,7 @@
     "disabled": "Désactivé",
     "noKey": "Pas de clé : ajoutez-en une dans Modifier",
     "keySet": "Clé définie",
+    "onPlan": "Abonnement ChatGPT",
     "context": "{{n}} de contexte",
     "maxOutput": "{{n}} en sortie",
     "test": "Tester le modèle",

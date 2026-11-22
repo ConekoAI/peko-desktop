@@ -532,6 +532,130 @@ pub async fn model_reload() -> Result<(usize, usize), String> {
     Ok((models_count, keys_count))
 }
 
+/// A ChatGPT sign-in the engine started (runtime ADR-115): open `url`.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSignInStarted {
+    pub flow_id: String,
+    pub url: String,
+}
+
+/// A model a ChatGPT plan offers.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanModel {
+    pub slug: String,
+    pub display_name: String,
+}
+
+/// Where a ChatGPT sign-in stands.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum PlanSignInState {
+    Waiting,
+    #[serde(rename_all = "camelCase")]
+    Done {
+        credential_id: String,
+        account: String,
+        models: Vec<PlanModel>,
+    },
+    Failed {
+        message: String,
+    },
+    Gone,
+}
+
+fn project_plan_sign_in_started(value: &serde_json::Value) -> Option<PlanSignInStarted> {
+    Some(PlanSignInStarted {
+        flow_id: value.get("flow_id")?.as_str()?.to_string(),
+        url: value.get("url")?.as_str()?.to_string(),
+    })
+}
+
+fn project_plan_sign_in_state(value: &serde_json::Value) -> Option<PlanSignInState> {
+    let state = value.get("state")?;
+    let text = |key: &str| state.get(key).and_then(|v| v.as_str()).map(str::to_string);
+    Some(match state.get("state")?.as_str()? {
+        "waiting" => PlanSignInState::Waiting,
+        "done" => PlanSignInState::Done {
+            credential_id: text("credential_id")?,
+            account: text("account").unwrap_or_default(),
+            models: state
+                .get("models")
+                .and_then(|v| v.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|m| {
+                    let slug = m.get("slug")?.as_str()?.to_string();
+                    Some(PlanModel {
+                        display_name: m
+                            .get("display_name")
+                            .and_then(|v| v.as_str())
+                            .map_or_else(|| slug.clone(), str::to_string),
+                        slug,
+                    })
+                })
+                .collect(),
+        },
+        "failed" => PlanSignInState::Failed {
+            message: text("message").unwrap_or_default(),
+        },
+        _ => PlanSignInState::Gone,
+    })
+}
+
+/// Start signing in with ChatGPT. The engine runs the sign-in; the app
+/// opens the returned address in the browser.
+#[tauri::command]
+pub async fn chatgpt_sign_in_start() -> Result<PlanSignInStarted, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .chatgpt_sign_in_start(None)
+        .await
+        .map_err(|e| format!("chatgpt_sign_in_start failed: {e}"))?;
+    check_runtime_error(&value)?;
+    project_plan_sign_in_started(&value)
+        .ok_or_else(|| "chatgpt_sign_in_start response missing required fields".to_string())
+}
+
+/// How a ChatGPT sign-in is going. `pasted_url` hands it the address a
+/// browser on another computer ended on.
+#[tauri::command]
+pub async fn chatgpt_sign_in_status(
+    flow_id: String,
+    pasted_url: Option<String>,
+) -> Result<PlanSignInState, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let pasted = pasted_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|p| !p.is_empty());
+    let value = client
+        .chatgpt_sign_in_status(&flow_id, pasted)
+        .await
+        .map_err(|e| format!("chatgpt_sign_in_status failed: {e}"))?;
+    check_runtime_error(&value)?;
+    project_plan_sign_in_state(&value)
+        .ok_or_else(|| "chatgpt_sign_in_status response missing required fields".to_string())
+}
+
+/// Stop waiting for a ChatGPT sign-in.
+#[tauri::command]
+pub async fn chatgpt_sign_in_cancel(flow_id: String) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .chatgpt_sign_in_cancel(&flow_id)
+        .await
+        .map_err(|e| format!("chatgpt_sign_in_cancel failed: {e}"))?;
+    check_runtime_error(&value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -806,5 +930,62 @@ mod tests {
         assert_eq!(r.http_status, Some(200));
         assert_eq!(r.model_used.as_deref(), Some("claude-3-5-haiku-latest"));
         assert_eq!(r.tested_at, "2026-07-16T00:00:00Z");
+    }
+
+    #[test]
+    fn plan_sign_in_replies_are_projected() {
+        let started = serde_json::json!({
+            "type": "chatgpt_sign_in_started", "request_id": 1,
+            "flow_id": "f-1", "url": "https://auth.openai.com/api/accounts/authorize?x"
+        });
+        assert_eq!(
+            project_plan_sign_in_started(&started),
+            Some(PlanSignInStarted {
+                flow_id: "f-1".into(),
+                url: "https://auth.openai.com/api/accounts/authorize?x".into()
+            })
+        );
+        let state = |s: serde_json::Value| {
+            project_plan_sign_in_state(&serde_json::json!({
+                "type": "chatgpt_sign_in_state", "request_id": 1, "flow_id": "f-1", "state": s
+            }))
+        };
+        assert_eq!(
+            state(serde_json::json!({"state": "waiting"})),
+            Some(PlanSignInState::Waiting)
+        );
+        assert_eq!(
+            state(serde_json::json!({
+                "state": "done", "credential_id": "c-1", "account": "a@example.com",
+                "models": [{"slug": "gpt-6.2-sol", "display_name": "GPT-6.2-Sol"}]
+            })),
+            Some(PlanSignInState::Done {
+                credential_id: "c-1".into(),
+                account: "a@example.com".into(),
+                models: vec![PlanModel {
+                    slug: "gpt-6.2-sol".into(),
+                    display_name: "GPT-6.2-Sol".into()
+                }],
+            })
+        );
+        assert_eq!(
+            state(serde_json::json!({"state": "failed", "message": "declined"})),
+            Some(PlanSignInState::Failed {
+                message: "declined".into()
+            })
+        );
+        assert_eq!(
+            state(serde_json::json!({"state": "gone"})),
+            Some(PlanSignInState::Gone)
+        );
+        // The front end reads camelCase and a `state` tag.
+        let done = serde_json::to_value(PlanSignInState::Done {
+            credential_id: "c-1".into(),
+            account: "a".into(),
+            models: vec![],
+        })
+        .unwrap();
+        assert_eq!(done["state"], "done");
+        assert_eq!(done["credentialId"], "c-1");
     }
 }

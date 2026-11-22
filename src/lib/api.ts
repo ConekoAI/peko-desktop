@@ -37,6 +37,8 @@ import type {
   ModelAddArgs,
   ModelSummary,
   ModelTestResult,
+  PlanSignInStarted,
+  PlanSignInState,
   ModelUpdateArgs,
   PrincipalExposure,
   PekoRegistration,
@@ -1169,6 +1171,31 @@ export async function modelRemove(id: string): Promise<boolean> {
 /** Test connectivity for a configured model. */
 export async function modelTest(id: string): Promise<ModelTestResult> {
   return invoke<ModelTestResult>("model_test", { id });
+}
+
+/**
+ * Start signing in with ChatGPT so OpenAI models bill a ChatGPT plan
+ * (runtime ADR-115). The engine runs the sign-in; open `url` in the
+ * browser, then follow it with {@link chatgptSignInStatus}.
+ */
+export async function chatgptSignInStart(): Promise<PlanSignInStarted> {
+  return invoke<PlanSignInStarted>("chatgpt_sign_in_start");
+}
+
+/**
+ * How a ChatGPT sign-in is going. `pastedUrl` hands it the address a
+ * browser on another computer ended on.
+ */
+export async function chatgptSignInStatus(
+  flowId: string,
+  pastedUrl?: string,
+): Promise<PlanSignInState> {
+  return invoke<PlanSignInState>("chatgpt_sign_in_status", { flowId, pastedUrl: pastedUrl ?? null });
+}
+
+/** Stop waiting for a ChatGPT sign-in. */
+export async function chatgptSignInCancel(flowId: string): Promise<void> {
+  await invoke("chatgpt_sign_in_cancel", { flowId });
 }
 
 /**

@@ -41,6 +41,7 @@
   "models": {
     "intro": "The endpoints your pekos think with. Each model keeps its own API key; change it under Edit.",
     "add": "Add model",
+    "usePlan": "Use ChatGPT plan",
     "loading": "Loading models…",
     "empty": "No models configured yet",
     "emptyHint": "Add an endpoint and its API key to start talking to your pekos.",

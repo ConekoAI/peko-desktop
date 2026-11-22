@@ -72,6 +72,23 @@
     "conflict": "已存在名为 <name/> 的模型——请在“高级”中设置其他名称。",
     "adding": "正在添加…"
   },
+  "plan": {
+    "title": "使用你的 ChatGPT 套餐",
+    "starting": "正在开始登录…",
+    "waitingIntro": "在浏览器中登录 ChatGPT，并允许 Peko 使用你的套餐。在这里添加的 OpenAI 模型将按你的套餐计费，而不是 API 密钥。",
+    "waiting": "正在等待登录…",
+    "openAgain": "重新打开登录页面",
+    "pasteLabel": "浏览器在另一台电脑上？",
+    "pasteHint": "粘贴浏览器最后停留的地址，即使页面没有加载出来。",
+    "usePasted": "使用此地址",
+    "signedIn": "已登录为 {{account}}。",
+    "pickModels": "添加你的 peko 要使用的模型：",
+    "addedAs": "已添加为 {{name}}",
+    "noModels": "无法列出你套餐中的模型。请通过“添加模型”手动添加：API 格式选 OpenAI Responses，基础 URL 为 https://api.openai.com/v1，并选择已保存的 ChatGPT 凭据。",
+    "limits": "用量计入你套餐的限额。登录会自动续期；如果登录失效，在这里重新登录即可，已添加的模型会继续可用。",
+    "gone": "登录已结束，请重试。",
+    "tryAgain": "重试"
+  },
   "card": {
     "testPassed": "测试通过",
     "testPassedWith": "测试通过 · {{model}}",
@@ -79,6 +96,7 @@
     "disabled": "已停用",
     "noKey": "没有密钥——请在“编辑”中添加",
     "keySet": "已设置密钥",
+    "onPlan": "ChatGPT 套餐",
     "context": "上下文 {{n}}",
     "maxOutput": "输出 {{n}}",
     "test": "测试模型",

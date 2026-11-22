@@ -74,6 +74,23 @@
     "conflict": "Esiste già un modello chiamato <name/>: imposta un altro nome in Avanzate.",
     "adding": "Aggiunta…"
   },
+  "plan": {
+    "title": "Usa il tuo piano ChatGPT",
+    "starting": "Avvio dell'accesso…",
+    "waitingIntro": "Accedi a ChatGPT nel browser e consenti a Peko di usare il tuo piano. I modelli OpenAI aggiunti qui vengono addebitati al tuo piano invece che a una chiave API.",
+    "waiting": "In attesa dell'accesso…",
+    "openAgain": "Apri di nuovo la pagina di accesso",
+    "pasteLabel": "Browser su un altro computer?",
+    "pasteHint": "Incolla l'indirizzo su cui si è fermato il browser, anche se la pagina non si è caricata.",
+    "usePasted": "Usa indirizzo",
+    "signedIn": "Accesso effettuato come {{account}}.",
+    "pickModels": "Aggiungi i modelli che i tuoi peko devono usare:",
+    "addedAs": "Aggiunto come {{name}}",
+    "noModels": "Impossibile elencare i modelli del tuo piano. Aggiungine uno con Aggiungi modello: formato API OpenAI Responses, URL di base https://api.openai.com/v1 e la credenziale ChatGPT salvata.",
+    "limits": "L'uso rientra nei limiti del tuo piano. L'accesso si rinnova da solo; se termina, accedi di nuovo qui e i tuoi modelli continuano a funzionare.",
+    "gone": "L'accesso è terminato. Riprova.",
+    "tryAgain": "Riprova"
+  },
   "card": {
     "testPassed": "Test superato",
     "testPassedWith": "Test superato · {{model}}",
@@ -81,6 +98,7 @@
     "disabled": "Disattivato",
     "noKey": "Nessuna chiave: aggiungine una in Modifica",
     "keySet": "Chiave impostata",
+    "onPlan": "Piano ChatGPT",
     "context": "{{n}} di contesto",
     "maxOutput": "{{n}} di output",
     "test": "Prova il modello",
