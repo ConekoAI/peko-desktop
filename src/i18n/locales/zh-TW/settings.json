@@ -41,6 +41,7 @@
   "models": {
     "intro": "你的 peko 用來思考的端點。每個模型各自保存 API 金鑰；可在「編輯」中變更。",
     "add": "新增模型",
+    "usePlan": "使用 ChatGPT 方案",
     "loading": "正在載入模型…",
     "empty": "還沒有設定模型",
     "emptyHint": "新增一個端點及其 API 金鑰，開始和你的 peko 對話。",

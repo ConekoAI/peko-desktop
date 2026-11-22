@@ -41,6 +41,7 @@
   "models": {
     "intro": "Os endpoints com que seus pekos pensam. Cada modelo guarda a própria chave de API; altere-a em Editar.",
     "add": "Adicionar modelo",
+    "usePlan": "Usar plano do ChatGPT",
     "loading": "Carregando modelos…",
     "empty": "Ainda não há modelos configurados",
     "emptyHint": "Adicione um endpoint e a chave de API dele para começar a conversar com seus pekos.",

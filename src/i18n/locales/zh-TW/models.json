@@ -72,6 +72,23 @@
     "conflict": "已存在名為 <name/> 的模型——請在「進階」中設定其他名稱。",
     "adding": "正在新增…"
   },
+  "plan": {
+    "title": "使用你的 ChatGPT 方案",
+    "starting": "正在開始登入…",
+    "waitingIntro": "在瀏覽器中登入 ChatGPT，並允許 Peko 使用你的方案。在這裡新增的 OpenAI 模型會以你的方案計費，而不是 API 金鑰。",
+    "waiting": "正在等待登入…",
+    "openAgain": "重新開啟登入頁面",
+    "pasteLabel": "瀏覽器在另一台電腦上？",
+    "pasteHint": "貼上瀏覽器最後停留的網址，即使頁面沒有載入。",
+    "usePasted": "使用此網址",
+    "signedIn": "已登入為 {{account}}。",
+    "pickModels": "新增你的 peko 要使用的模型：",
+    "addedAs": "已新增為 {{name}}",
+    "noModels": "無法列出你方案中的模型。請透過「新增模型」手動新增：API 格式選 OpenAI Responses，基礎 URL 為 https://api.openai.com/v1，並選擇已儲存的 ChatGPT 憑證。",
+    "limits": "用量會計入你方案的限額。登入會自動續期；若登入失效，在這裡重新登入即可，已新增的模型會繼續可用。",
+    "gone": "登入已結束，請重試。",
+    "tryAgain": "重試"
+  },
   "card": {
     "testPassed": "測試通過",
     "testPassedWith": "測試通過 · {{model}}",
@@ -79,6 +96,7 @@
     "disabled": "已停用",
     "noKey": "沒有金鑰——請在「編輯」中新增",
     "keySet": "已設定金鑰",
+    "onPlan": "ChatGPT 方案",
     "context": "上下文 {{n}}",
     "maxOutput": "輸出 {{n}}",
     "test": "測試模型",

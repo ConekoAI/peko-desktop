@@ -72,6 +72,23 @@
     "conflict": "<name/> という名前のモデルはすでにあります。「詳細設定」で別の名前を指定してください。",
     "adding": "追加中…"
   },
+  "plan": {
+    "title": "ChatGPT プランを使う",
+    "starting": "サインインを開始しています…",
+    "waitingIntro": "ブラウザで ChatGPT にサインインし、Peko にプランの利用を許可してください。ここで追加した OpenAI モデルは、API キーではなくプランに課金されます。",
+    "waiting": "サインインを待っています…",
+    "openAgain": "サインインページをもう一度開く",
+    "pasteLabel": "ブラウザが別のコンピューターにありますか？",
+    "pasteHint": "ページが読み込まれなくても、ブラウザが最後に表示したアドレスを貼り付けてください。",
+    "usePasted": "アドレスを使う",
+    "signedIn": "{{account}} としてサインインしました。",
+    "pickModels": "Peko に使わせるモデルを追加してください:",
+    "addedAs": "{{name}} として追加済み",
+    "noModels": "プランのモデル一覧を取得できませんでした。「モデルを追加」から追加してください: API 形式は OpenAI Responses、ベース URL は https://api.openai.com/v1、保存済みの ChatGPT 資格情報を選びます。",
+    "limits": "利用量はプランの上限に含まれます。サインインは自動で更新されます。切れた場合はここで再度サインインすれば、モデルはそのまま使えます。",
+    "gone": "サインインが終了しました。もう一度お試しください。",
+    "tryAgain": "再試行"
+  },
   "card": {
     "testPassed": "テスト成功",
     "testPassedWith": "テスト成功 · {{model}}",
@@ -79,6 +96,7 @@
     "disabled": "無効",
     "noKey": "キーなし —「編集」で追加してください",
     "keySet": "キー設定済み",
+    "onPlan": "ChatGPT プラン",
     "context": "コンテキスト {{n}}",
     "maxOutput": "出力 {{n}}",
     "test": "モデルをテスト",

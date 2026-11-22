@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import EditModelModal from "../modals/EditModelModal";
+import { useGenericCredentialList } from "../../hooks/useSettings";
 import {
   useRemoveModel,
   useTestModel,
@@ -34,6 +35,12 @@ interface ModelGalleryCardProps {
 
 export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
   const { t } = useTranslation();
+  // A sign-in credential (runtime ADR-115) means the model runs on a
+  // ChatGPT plan, not an API key.
+  const { data: credentials } = useGenericCredentialList();
+  const onPlan =
+    !!model.credentialId &&
+    (credentials ?? []).some((c) => c.id === model.credentialId && c.kind === "oauth_token");
   const [showEdit, setShowEdit] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(
@@ -123,9 +130,9 @@ export default function ModelGalleryCard({ model }: ModelGalleryCardProps) {
             </span>
           )}
           {model.credentialId && (
-            <span className="badge-ok">
+            <span className="badge-ok" data-testid={`model-card-key-${model.id}`}>
               <Check className="h-2.5 w-2.5" />
-              {t("models.card.keySet")}
+              {onPlan ? t("models.card.onPlan") : t("models.card.keySet")}
             </span>
           )}
       </div>

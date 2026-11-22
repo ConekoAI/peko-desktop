@@ -74,6 +74,23 @@
     "conflict": "Ya existe un modelo llamado <name/>: indica otro nombre en Avanzado.",
     "adding": "Añadiendo…"
   },
+  "plan": {
+    "title": "Usa tu plan de ChatGPT",
+    "starting": "Iniciando el inicio de sesión…",
+    "waitingIntro": "Inicia sesión con ChatGPT en tu navegador y permite que Peko use tu plan. Los modelos de OpenAI que añadas aquí se cobran a tu plan en lugar de a una clave de API.",
+    "waiting": "Esperando el inicio de sesión…",
+    "openAgain": "Abrir de nuevo la página de inicio de sesión",
+    "pasteLabel": "¿El navegador está en otro ordenador?",
+    "pasteHint": "Pega la dirección en la que terminó el navegador, aunque la página no haya cargado.",
+    "usePasted": "Usar dirección",
+    "signedIn": "Sesión iniciada como {{account}}.",
+    "pickModels": "Añade los modelos que deben usar tus pekos:",
+    "addedAs": "Añadido como {{name}}",
+    "noModels": "No se pudieron listar los modelos de tu plan. Añade uno con Añadir modelo: formato de API OpenAI Responses, URL base https://api.openai.com/v1 y la credencial de ChatGPT guardada.",
+    "limits": "El uso cuenta para los límites de tu plan. El inicio de sesión se renueva solo; si termina, vuelve a iniciar sesión aquí y tus modelos seguirán funcionando.",
+    "gone": "El inicio de sesión terminó. Inténtalo de nuevo.",
+    "tryAgain": "Reintentar"
+  },
   "card": {
     "testPassed": "Prueba superada",
     "testPassedWith": "Prueba superada · {{model}}",
@@ -81,6 +98,7 @@
     "disabled": "Desactivado",
     "noKey": "Sin clave: añade una en Editar",
     "keySet": "Clave configurada",
+    "onPlan": "Plan de ChatGPT",
     "context": "{{n}} de contexto",
     "maxOutput": "{{n}} de salida",
     "test": "Probar el modelo",

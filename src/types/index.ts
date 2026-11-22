@@ -439,6 +439,25 @@ export function resolveSpec(m: { spec?: ModelSpec | null }): ModelSpec {
   return m.spec ?? MODEL_SPEC_DEFAULT;
 }
 
+/** A ChatGPT sign-in the engine started (runtime ADR-115): open `url`. */
+export interface PlanSignInStarted {
+  flowId: string;
+  url: string;
+}
+
+/** A model a ChatGPT plan offers. */
+export interface PlanModel {
+  slug: string;
+  displayName: string;
+}
+
+/** Where a ChatGPT sign-in stands. */
+export type PlanSignInState =
+  | { state: "waiting" }
+  | { state: "done"; credentialId: string; account: string; models: PlanModel[] }
+  | { state: "failed"; message: string }
+  | { state: "gone" };
+
 export interface ModelAddArgs {
   name?: string;
   displayName?: string;

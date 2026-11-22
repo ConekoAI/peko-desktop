@@ -62,7 +62,11 @@ export default function AddModelModal({
   const credentialOptions = useMemo(
     () =>
       (credentials ?? [])
-        .filter((c) => c.hasKey && (c.kind === "api_key" || c.kind === "bearer_token"))
+        .filter(
+          (c) =>
+            c.hasKey &&
+            (c.kind === "api_key" || c.kind === "bearer_token" || c.kind === "oauth_token"),
+        )
         .map((c) => ({ value: c.id, label: `${c.namespace}/${c.name}` })),
     [credentials],
   );

@@ -19,6 +19,11 @@ vi.mock("../hooks/useModels", () => ({
   useTestModel: () => ({ mutate: testMutate, isPending: false }),
 }));
 
+const credentialsState: { data: unknown[] } = { data: [] };
+vi.mock("../hooks/useSettings", () => ({
+  useGenericCredentialList: () => ({ data: credentialsState.data, isLoading: false }),
+}));
+
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
 import type { ModelSpec, ModelSummary } from "../types";
 
@@ -55,6 +60,7 @@ const fullSpec: ModelSpec = {
 
 describe("ModelGalleryCard", () => {
   beforeEach(() => {
+    credentialsState.data = [];
     updateMutate.mockReset();
     removeMutate.mockReset();
     testMutate.mockReset();
@@ -200,5 +206,11 @@ describe("ModelGalleryCard", () => {
   it("says the key is missing when one is required and none is set", () => {
     renderCard({ ...baseModel, requiresKey: true, credentialId: undefined });
     expect(screen.getByText(/No key/)).toBeInTheDocument();
+  });
+
+  it("says a model runs on a ChatGPT plan when its credential is a sign-in", () => {
+    credentialsState.data = [{ id: "plan-cred", kind: "oauth_token", hasKey: true }];
+    renderCard({ ...baseModel, credentialId: "plan-cred" });
+    expect(screen.getByTestId(`model-card-key-${baseModel.id}`)).toHaveTextContent("ChatGPT plan");
   });
 });

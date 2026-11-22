@@ -41,6 +41,7 @@
   "models": {
     "intro": "Les points de terminaison avec lesquels vos pekos pensent. Chaque modèle conserve sa propre clé d'API ; changez-la dans Modifier.",
     "add": "Ajouter un modèle",
+    "usePlan": "Utiliser l'abonnement ChatGPT",
     "loading": "Chargement des modèles…",
     "empty": "Aucun modèle configuré pour l'instant",
     "emptyHint": "Ajoutez un point de terminaison et sa clé d'API pour commencer à parler à vos pekos.",

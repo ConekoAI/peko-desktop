@@ -812,6 +812,51 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Start signing in with ChatGPT so OpenAI models bill a ChatGPT
+    /// plan (runtime ADR-115). The engine listens for the browser's
+    /// return and stores the sign-in in its vault; the reply carries the
+    /// address to open and a flow id to ask about.
+    pub async fn chatgpt_sign_in_start(&self, name: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "chatgpt_sign_in_start",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
+    /// How a ChatGPT sign-in is going; `pasted_url` hands it the address
+    /// a browser on another computer ended on.
+    pub async fn chatgpt_sign_in_status(
+        &self,
+        flow_id: &str,
+        pasted_url: Option<&str>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "chatgpt_sign_in_status",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "flow_id": flow_id,
+            "pasted_url": pasted_url,
+        });
+        self.request_response(req).await
+    }
+
+    /// Stop waiting for a ChatGPT sign-in.
+    pub async fn chatgpt_sign_in_cancel(&self, flow_id: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "chatgpt_sign_in_cancel",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "flow_id": flow_id,
+        });
+        self.request_response(req).await
+    }
+
     /// Live-test a configured model.
     pub async fn model_test(&self, id: &str) -> Result<serde_json::Value> {
         ensure_daemon().await?;

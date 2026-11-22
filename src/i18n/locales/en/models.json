@@ -73,6 +73,23 @@
     "conflict": "A model named <name/> already exists — set another name under Advanced.",
     "adding": "Adding…"
   },
+  "plan": {
+    "title": "Use your ChatGPT plan",
+    "starting": "Starting the sign-in…",
+    "waitingIntro": "Sign in with ChatGPT in your browser and allow Peko to use your plan. OpenAI models you add here are billed to your plan instead of an API key.",
+    "waiting": "Waiting for the sign-in…",
+    "openAgain": "Open the sign-in page again",
+    "pasteLabel": "Browser on another computer?",
+    "pasteHint": "Paste the address the browser ended on, even if the page didn't load.",
+    "usePasted": "Use address",
+    "signedIn": "Signed in as {{account}}.",
+    "pickModels": "Add the models your pekos should use:",
+    "addedAs": "Added as {{name}}",
+    "noModels": "Couldn't list your plan's models. Add one with Add model: API format OpenAI Responses, base URL https://api.openai.com/v1, and the stored ChatGPT credential.",
+    "limits": "Usage counts toward your plan's limits. The sign-in renews itself; if it ends, sign in here again and your models keep working.",
+    "gone": "The sign-in ended. Try again.",
+    "tryAgain": "Try again"
+  },
   "card": {
     "testPassed": "Test passed",
     "testPassedWith": "Test passed · {{model}}",
@@ -80,6 +97,7 @@
     "disabled": "Disabled",
     "noKey": "No key — add one under Edit",
     "keySet": "Key set",
+    "onPlan": "ChatGPT plan",
     "context": "{{n}} ctx",
     "maxOutput": "{{n}} out",
     "test": "Test model",

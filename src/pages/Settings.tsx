@@ -24,12 +24,14 @@ import {
 } from "../i18n";
 import { ONBOARDING_KEY, REPLAY_EVENT } from "../components/FirstRunWalkthrough";
 import AddModelModal from "../components/modals/AddModelModal";
+import ChatgptPlanModal from "../components/modals/ChatgptPlanModal";
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
 import BlockedPeople from "../components/BlockedPeople";
 import KeepAwakeSetting from "../components/KeepAwakeSetting";
 import PrivacySettings from "../components/PrivacySettings";
 import AccountDevices from "../components/AccountDevices";
 import {
+  Sparkles,
   Save,
   Key,
   Info,
@@ -349,6 +351,7 @@ function ModelsSection() {
   const { t } = useTranslation();
   const { data: models, isLoading, isError } = useModels();
   const [showAdd, setShowAdd] = useState(false);
+  const [showPlan, setShowPlan] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -359,14 +362,24 @@ function ModelsSection() {
               {t("settings.models.intro")}
             </p>
           </div>
-          <button
-            onClick={() => setShowAdd(true)}
-            data-testid="open-add-model-modal"
-            className="btn-primary btn-sm"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("settings.models.add")}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => setShowPlan(true)}
+              data-testid="open-chatgpt-plan-modal"
+              className="btn-secondary btn-sm"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {t("settings.models.usePlan")}
+            </button>
+            <button
+              onClick={() => setShowAdd(true)}
+              data-testid="open-add-model-modal"
+              className="btn-primary btn-sm"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("settings.models.add")}
+            </button>
+          </div>
         </div>
 
         {isLoading && (
@@ -430,6 +443,7 @@ function ModelsSection() {
         onClose={() => setShowAdd(false)}
         onSuccess={() => {}}
       />
+      <ChatgptPlanModal open={showPlan} onClose={() => setShowPlan(false)} />
     </div>
   );
 }

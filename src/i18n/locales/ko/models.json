@@ -72,6 +72,23 @@
     "conflict": "<name/>(이)라는 모델이 이미 있습니다. '고급'에서 다른 이름을 지정하세요.",
     "adding": "추가하는 중…"
   },
+  "plan": {
+    "title": "ChatGPT 요금제 사용",
+    "starting": "로그인을 시작하는 중…",
+    "waitingIntro": "브라우저에서 ChatGPT에 로그인하고 Peko가 요금제를 사용하도록 허용하세요. 여기서 추가한 OpenAI 모델은 API 키 대신 요금제로 청구됩니다.",
+    "waiting": "로그인을 기다리는 중…",
+    "openAgain": "로그인 페이지 다시 열기",
+    "pasteLabel": "브라우저가 다른 컴퓨터에 있나요?",
+    "pasteHint": "페이지가 열리지 않았더라도 브라우저가 마지막으로 연 주소를 붙여 넣으세요.",
+    "usePasted": "주소 사용",
+    "signedIn": "{{account}}(으)로 로그인했습니다.",
+    "pickModels": "Peko가 사용할 모델을 추가하세요:",
+    "addedAs": "{{name}}(으)로 추가됨",
+    "noModels": "요금제의 모델 목록을 가져오지 못했습니다. 모델 추가에서 직접 추가하세요: API 형식은 OpenAI Responses, 기본 URL은 https://api.openai.com/v1, 저장된 ChatGPT 자격 증명을 선택합니다.",
+    "limits": "사용량은 요금제 한도에 포함됩니다. 로그인은 자동으로 갱신되며, 끝나면 여기서 다시 로그인하면 모델은 계속 작동합니다.",
+    "gone": "로그인이 끝났습니다. 다시 시도하세요.",
+    "tryAgain": "다시 시도"
+  },
   "card": {
     "testPassed": "테스트 통과",
     "testPassedWith": "테스트 통과 · {{model}}",
@@ -79,6 +96,7 @@
     "disabled": "사용 안 함",
     "noKey": "키 없음 — '편집'에서 추가하세요",
     "keySet": "키 설정됨",
+    "onPlan": "ChatGPT 요금제",
     "context": "컨텍스트 {{n}}",
     "maxOutput": "출력 {{n}}",
     "test": "모델 테스트",
