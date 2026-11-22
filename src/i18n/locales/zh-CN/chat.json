@@ -59,6 +59,17 @@
     "always": "始终允许",
     "deny": "拒绝"
   },
+  "secret": {
+    "request": "{{peko}} 请求 <name/>",
+    "mcpRequest": "{{peko}} 为其 MCP 服务器 <server/> 请求 <name/>",
+    "label": "{{name}} 的值",
+    "placeholder": "在此粘贴或输入",
+    "show": "显示",
+    "hide": "隐藏",
+    "save": "安全保存",
+    "decline": "拒绝",
+    "hint": "它会存入这台电脑的保险库。{{peko}} 只会得知已保存，不会看到值。请不要把密钥粘贴到聊天里。"
+  },
   "yourPeko": "你的 peko",
   "onComputer": "· 在 {{computer}} 上",
   "ownersPeko": "{{owner}} 的 peko",

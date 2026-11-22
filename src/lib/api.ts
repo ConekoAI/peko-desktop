@@ -22,6 +22,7 @@ import type {
   AccessRule,
   Answers,
   ApprovalRequest,
+  SecretRequest,
   BoardItem,
   BoardOp,
   BootState,
@@ -676,6 +677,54 @@ export async function principalDecideApproval(params: {
     approve: params.approve,
     always: params.always ?? false,
     runtimeId: runtimeId === "local" ? null : runtimeId,
+  });
+}
+
+/** A secret request as the engine sends it (snake_case). */
+interface WireSecretRequest {
+  id: string;
+  secret: string;
+  kind: string;
+  why: string;
+  created_at: string;
+  expires_at: string;
+}
+
+/**
+ * The secrets a peko on this computer asked you for (runtime ADR-116),
+ * oldest first. A peko on another computer lists none: a secret is given
+ * only on the computer that runs it.
+ */
+export async function principalSecretRequests(
+  name: string,
+  runtimeId = "local",
+): Promise<SecretRequest[]> {
+  const wire = await invoke<WireSecretRequest[]>("principal_secret_requests", {
+    name,
+    runtimeId: runtimeId === "local" ? null : runtimeId,
+  });
+  return wire.map((r) => ({
+    id: r.id,
+    secret: r.secret,
+    kind: r.kind,
+    why: r.why,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+  }));
+}
+
+/** Save the value for a secret request, or decline it; resolves to what happened. */
+export async function principalAnswerSecret(params: {
+  name: string;
+  id: string;
+  value?: string;
+  decline?: boolean;
+}): Promise<string> {
+  return invoke<string>("principal_answer_secret", {
+    name: params.name,
+    id: params.id,
+    value: params.value ?? null,
+    decline: params.decline ?? false,
   });
 }
 

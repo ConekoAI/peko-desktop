@@ -59,6 +59,17 @@
     "always": "Immer erlauben",
     "deny": "Ablehnen"
   },
+  "secret": {
+    "request": "{{peko}} bittet um <name/>",
+    "mcpRequest": "{{peko}} bittet um <name/> für seinen MCP-Server <server/>",
+    "label": "Wert von {{name}}",
+    "placeholder": "Hier einfügen oder eingeben",
+    "show": "Anzeigen",
+    "hide": "Verbergen",
+    "save": "Sicher speichern",
+    "decline": "Ablehnen",
+    "hint": "Er kommt in den Tresor dieses Computers. {{peko}} erfährt, dass er gespeichert wurde, nie den Wert. Füge Geheimnisse nicht in den Chat ein."
+  },
   "yourPeko": "Dein Peko",
   "onComputer": "· auf {{computer}}",
   "ownersPeko": "Peko von {{owner}}",

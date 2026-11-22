@@ -1872,6 +1872,69 @@ pub async fn principal_decide_approval(
         .to_string())
 }
 
+/// The secret requests waiting for you, the owner of a peko on this
+/// computer (runtime ADR-116), oldest first: `[{ id, secret, kind, why,
+/// created_at, expires_at }]`, snake_case, passed through. Only a peko on
+/// this computer: a secret is never sent through PekoHub, so a peko on
+/// another of your computers lists none here.
+#[tauri::command]
+pub async fn principal_secret_requests(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    if let crate::state::ResolvedRuntime::HubRemote(_) = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await
+    {
+        return Ok(serde_json::json!([]));
+    }
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .secret_list(&name)
+        .await
+        .map_err(|e| format!("secret_list failed: {e}"))?;
+    if let Some(err) = runtime_error(&value) {
+        return Err(err);
+    }
+    Ok(value
+        .get("waiting")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([])))
+}
+
+/// Give a waiting secret request its value (`decline` instead declines
+/// it). Resolves to what the engine did ("Saved GITHUB_TOKEN for …").
+#[tauri::command]
+pub async fn principal_answer_secret(
+    name: String,
+    id: String,
+    value: Option<String>,
+    decline: bool,
+) -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = match (decline, value) {
+        (true, _) => client.secret_decline(&name, &id).await,
+        (false, Some(value)) if !value.trim().is_empty() => {
+            client.secret_provide(&name, &id, &value).await
+        }
+        (false, _) => return Err("Enter the secret first.".to_string()),
+    }
+    .map_err(|e| format!("secret answer failed: {e}"))?;
+    if let Some(err) = runtime_error(&value) {
+        return Err(err);
+    }
+    Ok(value
+        .get("message")
+        .and_then(|m| m.as_str())
+        .unwrap_or_default()
+        .to_string())
+}
+
 /// A peko's usage this cycle and its limits: the runtime's
 /// `quota_status` (`{ state, config }`, snake_case, passed through).
 fn quota_envelope(value: serde_json::Value) -> Result<serde_json::Value, String> {

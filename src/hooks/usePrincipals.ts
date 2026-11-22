@@ -13,6 +13,8 @@ import {
   localUserAccount,
   principalCreate,
   principalDecideApproval,
+  principalSecretRequests,
+  principalAnswerSecret,
   principalExport,
   principalGet,
   principalImport,
@@ -381,6 +383,29 @@ export function useDecideApproval() {
     onSuccess: (_data, vars) =>
       track("approval_decided", { decision: !vars.approve ? "deny" : vars.always ? "always" : "approve" }),
     onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: ["approvals", vars.name] }),
+  });
+}
+
+/**
+ * The secrets a peko on this computer asked you for (runtime ADR-116).
+ * Refetched when the peko's thread changes (its notice lands there) and
+ * every 30 s.
+ */
+export function usePrincipalSecretRequests(name: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["secret-requests", name],
+    queryFn: () => principalSecretRequests(name!),
+    enabled: !!name && enabled,
+    refetchInterval: 30_000,
+  });
+}
+
+/** Save or decline a secret request; the list refreshes after. */
+export function useAnswerSecret() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: principalAnswerSecret,
+    onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: ["secret-requests", vars.name] }),
   });
 }
 

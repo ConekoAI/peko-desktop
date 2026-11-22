@@ -7,6 +7,7 @@ import {
   usePrincipalLog,
   usePrincipalLogWatch,
   usePrincipalApprovals,
+  usePrincipalSecretRequests,
   useDecideApproval,
   useCallerSubject,
   newestLogCursor,
@@ -60,6 +61,7 @@ import type {
   StreamEvent,
 } from "../types";
 import QuestionCard from "../components/chat/QuestionCard";
+import SecretRequestCards from "../components/chat/SecretRequestCard";
 import { dmCardStates, type CardState } from "../lib/questions";
 import type { ChatStreamMsg } from "../lib/api";
 import { currentLocale, t as translate } from "../i18n";
@@ -995,6 +997,15 @@ export default function Chat() {
     if (ownsApprovals && selectedPrincipal) void refetchApprovals();
   }, [logData, ownsApprovals, selectedPrincipal, refetchApprovals]);
 
+  // Secrets the peko asked you for (runtime ADR-116): only a peko on this
+  // computer, since a secret is never sent through PekoHub.
+  const ownsSecrets = runtimeId === "local";
+  const secretRequests = usePrincipalSecretRequests(selectedPrincipal || undefined, ownsSecrets);
+  const refetchSecrets = secretRequests.refetch;
+  useEffect(() => {
+    if (ownsSecrets && selectedPrincipal) void refetchSecrets();
+  }, [logData, ownsSecrets, selectedPrincipal, refetchSecrets]);
+
   // Why the last run here didn't go through, shown beside the thread.
   const runFailure = !isStreaming ? (logData?.runFailure ?? null) : null;
 
@@ -1201,6 +1212,11 @@ export default function Chat() {
         peko={selectedPrincipal}
         runtimeId={runtimeId}
         requests={ownsApprovals ? (approvals.data ?? []).filter((r) => !ACCOUNT_KINDS.has(r.kind ?? "")) : []}
+      />
+
+      <SecretRequestCards
+        peko={selectedPrincipal}
+        requests={ownsSecrets ? (secretRequests.data ?? []) : []}
       />
 
       {hostOffline && (
