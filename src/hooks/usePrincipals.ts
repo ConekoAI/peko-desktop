@@ -15,6 +15,8 @@ import {
   principalDecideApproval,
   principalSecretRequests,
   principalAnswerSecret,
+  principalTurnChanges,
+  principalUndoTurn,
   principalExport,
   principalGet,
   principalImport,
@@ -406,6 +408,27 @@ export function useAnswerSecret() {
   return useMutation({
     mutationFn: principalAnswerSecret,
     onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: ["secret-requests", vars.name] }),
+  });
+}
+
+/**
+ * Recent turns in your DM with a peko on this computer that changed files
+ * (runtime ADR-117). Refetched when the thread changes.
+ */
+export function usePrincipalTurnChanges(name: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["turn-changes", name],
+    queryFn: () => principalTurnChanges(name!),
+    enabled: !!name && enabled,
+  });
+}
+
+/** Undo a turn's file changes; the list refreshes after. */
+export function useUndoTurn() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: principalUndoTurn,
+    onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: ["turn-changes", vars.name] }),
   });
 }
 

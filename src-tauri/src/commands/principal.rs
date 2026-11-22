@@ -1872,6 +1872,58 @@ pub async fn principal_decide_approval(
         .to_string())
 }
 
+/// Recent turns in your DM with a peko on this computer that changed
+/// files (runtime ADR-117), newest first: `[{ turn, updated_at, files:
+/// [{ path, change }], shell, undone_at? }]`, snake_case, passed through.
+/// A peko on another computer lists none.
+#[tauri::command]
+pub async fn principal_turn_changes(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    if let crate::state::ResolvedRuntime::HubRemote(_) = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await
+    {
+        return Ok(serde_json::json!([]));
+    }
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .turn_changes(&name, 5)
+        .await
+        .map_err(|e| format!("turn_changes failed: {e}"))?;
+    if let Some(err) = runtime_error(&value) {
+        return Err(err);
+    }
+    Ok(value
+        .get("turns")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([])))
+}
+
+/// Undo one turn's file changes: `{ restored: [path], skipped: [{ path,
+/// why }] }`.
+#[tauri::command]
+pub async fn principal_undo_turn(name: String, turn: String) -> Result<serde_json::Value, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .turn_undo(&name, &turn)
+        .await
+        .map_err(|e| format!("turn_undo failed: {e}"))?;
+    if let Some(err) = runtime_error(&value) {
+        return Err(err);
+    }
+    Ok(serde_json::json!({
+        "restored": value.get("restored").cloned().unwrap_or_else(|| serde_json::json!([])),
+        "skipped": value.get("skipped").cloned().unwrap_or_else(|| serde_json::json!([])),
+    }))
+}
+
 /// The secret requests waiting for you, the owner of a peko on this
 /// computer (runtime ADR-116), oldest first: `[{ id, secret, kind, why,
 /// created_at, expires_at }]`, snake_case, passed through. Only a peko on

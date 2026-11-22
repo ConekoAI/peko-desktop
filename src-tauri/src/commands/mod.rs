@@ -59,6 +59,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_decide_approval,
         principal::principal_secret_requests,
         principal::principal_answer_secret,
+        principal::principal_turn_changes,
+        principal::principal_undo_turn,
         principal::principal_revoke_invite,
         channel::channel_list,
         channel::group_invitations,

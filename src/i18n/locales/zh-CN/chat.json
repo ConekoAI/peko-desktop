@@ -70,6 +70,19 @@
     "decline": "拒绝",
     "hint": "它会存入这台电脑的保险库。{{peko}} 只会得知已保存，不会看到值。请不要把密钥粘贴到聊天里。"
   },
+  "changes": {
+    "summary_other": "{{peko}} 修改了 {{count}} 个文件",
+    "undo": "撤销",
+    "dismiss": "隐藏",
+    "kind": {
+      "added": "新增",
+      "modified": "修改",
+      "deleted": "删除"
+    },
+    "shell": "它还运行了 shell 命令；它们在工作区之外修改的文件不会列出，也不会撤销。",
+    "restored_other": "已恢复 {{count}} 个文件。",
+    "skipped": "未改动 {{path}}：{{why}}"
+  },
   "yourPeko": "你的 peko",
   "onComputer": "· 在 {{computer}} 上",
   "ownersPeko": "{{owner}} 的 peko",

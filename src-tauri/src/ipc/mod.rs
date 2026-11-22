@@ -2268,6 +2268,34 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Mirror of `RequestPacket::TurnChanges` (runtime ADR-117): recent
+    /// turns in your DM with the peko that changed files.
+    pub async fn turn_changes(&self, name: &str, limit: u32) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "turn_changes",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "dm": true,
+            "limit": limit,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::TurnUndo`.
+    pub async fn turn_undo(&self, name: &str, turn: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "turn_undo",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "turn": turn,
+        });
+        self.request_response(req).await
+    }
+
     /// Mirror of `RequestPacket::ApprovalDecide`: the owner approves
     /// (`always` adds a standing rule) or denies a waiting request.
     pub async fn approval_decide(

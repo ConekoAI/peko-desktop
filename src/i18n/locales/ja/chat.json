@@ -70,6 +70,19 @@
     "decline": "断る",
     "hint": "このコンピューターの保管庫に入ります。{{peko}} には保存されたことだけが伝わり、値は伝わりません。チャットにシークレットを貼り付けないでください。"
   },
+  "changes": {
+    "summary_other": "{{peko}} が {{count}} 個のファイルを変更しました",
+    "undo": "元に戻す",
+    "dismiss": "閉じる",
+    "kind": {
+      "added": "追加",
+      "modified": "変更",
+      "deleted": "削除"
+    },
+    "shell": "シェルコマンドも実行しました。ワークスペースの外で変更されたファイルは表示されず、元に戻せません。",
+    "restored_other": "{{count}} 個のファイルを元に戻しました。",
+    "skipped": "{{path}} はそのままにしました: {{why}}"
+  },
   "yourPeko": "あなたの peko",
   "onComputer": "· {{computer}} 上",
   "ownersPeko": "{{owner}} の peko",

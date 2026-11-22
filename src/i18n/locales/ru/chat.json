@@ -70,6 +70,25 @@
     "decline": "Отказать",
     "hint": "Оно попадёт в хранилище этого компьютера. {{peko}} узнает, что оно сохранено, но не само значение. Не вставляйте секреты в чат."
   },
+  "changes": {
+    "summary_one": "{{peko}} изменил {{count}} файл",
+    "summary_few": "{{peko}} изменил {{count}} файла",
+    "summary_many": "{{peko}} изменил {{count}} файлов",
+    "summary_other": "{{peko}} изменил {{count}} файла",
+    "undo": "Отменить",
+    "dismiss": "Скрыть",
+    "kind": {
+      "added": "добавлен",
+      "modified": "изменён",
+      "deleted": "удалён"
+    },
+    "shell": "Он также выполнял команды оболочки; изменения вне его рабочей папки не показаны и не отменяются.",
+    "restored_one": "Восстановлен {{count}} файл.",
+    "restored_few": "Восстановлено {{count}} файла.",
+    "restored_many": "Восстановлено {{count}} файлов.",
+    "restored_other": "Восстановлено {{count}} файла.",
+    "skipped": "{{path}} оставлен как есть: {{why}}"
+  },
   "yourPeko": "Ваш peko",
   "onComputer": "· на {{computer}}",
   "ownersPeko": "Peko пользователя {{owner}}",

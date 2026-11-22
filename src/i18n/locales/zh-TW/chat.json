@@ -70,6 +70,19 @@
     "decline": "拒絕",
     "hint": "它會存入這台電腦的保險庫。{{peko}} 只會得知已儲存，不會看到值。請不要把金鑰貼到聊天裡。"
   },
+  "changes": {
+    "summary_other": "{{peko}} 修改了 {{count}} 個檔案",
+    "undo": "復原",
+    "dismiss": "隱藏",
+    "kind": {
+      "added": "新增",
+      "modified": "修改",
+      "deleted": "刪除"
+    },
+    "shell": "它也執行了 shell 指令；在工作區之外修改的檔案不會列出，也不會復原。",
+    "restored_other": "已還原 {{count}} 個檔案。",
+    "skipped": "未變更 {{path}}：{{why}}"
+  },
   "yourPeko": "你的 peko",
   "onComputer": "· 在 {{computer}} 上",
   "ownersPeko": "{{owner}} 的 peko",
