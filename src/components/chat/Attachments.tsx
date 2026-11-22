@@ -2,7 +2,18 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { File, FileText, Film, Image as ImageIcon, Music, Play, X } from "lucide-react";
+import {
+  AppWindow,
+  ExternalLink,
+  File,
+  FileText,
+  Film,
+  Image as ImageIcon,
+  Maximize2,
+  Music,
+  Play,
+  X,
+} from "lucide-react";
 
 import { attachmentOpen, attachmentPreview } from "../../lib/api";
 import type { ChatLogAttachment } from "../../types";
@@ -10,7 +21,10 @@ import type { ChatLogAttachment } from "../../types";
 /** At most this many files per message (the engine's limit). */
 export const MAX_ATTACHMENTS = 8;
 
-type Kind = "image" | "audio" | "video" | "text" | "file";
+type Kind = "image" | "audio" | "video" | "page" | "text" | "file";
+
+/** The largest page shown inline (runtime ADR-118); larger ones are files. */
+export const MAX_PAGE_BYTES = 2 * 1024 * 1024;
 
 const EXTENSION_KIND: Record<string, Kind> = {
   png: "image",
@@ -29,6 +43,8 @@ const EXTENSION_KIND: Record<string, Kind> = {
   avi: "video",
   wmv: "video",
   webm: "video",
+  html: "page",
+  htm: "page",
   txt: "text",
   md: "text",
   csv: "text",
@@ -43,6 +59,7 @@ export function attachmentKind(nameOrPath: string, mime?: string): Kind {
   if (mime?.startsWith("image/")) return "image";
   if (mime?.startsWith("audio/")) return "audio";
   if (mime?.startsWith("video/")) return "video";
+  if (mime === "text/html") return "page";
   if (mime?.startsWith("text/") || mime === "application/pdf") return "text";
   if (mime && mime !== "application/octet-stream") return "file";
   const ext = nameOrPath.split(".").pop()?.toLowerCase() ?? "";
@@ -64,6 +81,7 @@ const ICONS: Record<Kind, typeof File> = {
   image: ImageIcon,
   audio: Music,
   video: Film,
+  page: AppWindow,
   text: FileText,
   file: File,
 };
@@ -187,6 +205,67 @@ function Playable({ attachment, kind }: { attachment: ChatLogAttachment; kind: "
   );
 }
 
+/**
+ * A page the peko answered with (runtime ADR-118): shown in a frame served
+ * by the app's `pekopage:` protocol, which runs its scripts in a sandbox
+ * with no network and no reach into the app.
+ */
+function PageView({ attachment }: { attachment: ChatLogAttachment }) {
+  const { t } = useTranslation();
+  const [full, setFull] = useState(false);
+  const src = convertFileSrc(attachment.path, "pekopage");
+  const frame = (className: string) => (
+    <iframe
+      src={src}
+      title={attachment.name}
+      sandbox="allow-scripts"
+      referrerPolicy="no-referrer"
+      className={className}
+      data-testid="page-frame"
+    />
+  );
+  return (
+    <div className="w-full max-w-[40rem] overflow-hidden rounded-xl border border-line bg-surface-card" data-testid="page-view">
+      <div className="flex items-center gap-1.5 border-b border-line px-2.5 py-1.5 text-xs text-fg-soft">
+        <AppWindow className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+        <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+        <button
+          type="button"
+          onClick={() => setFull(true)}
+          aria-label={t("chat.attachments.pageFull", { name: attachment.name })}
+          title={t("chat.attachments.pageFull", { name: attachment.name })}
+          className="btn-icon"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => void attachmentOpen(attachment.path)}
+          aria-label={t("chat.attachments.pageBrowser", { name: attachment.name })}
+          title={t("chat.attachments.pageBrowser", { name: attachment.name })}
+          className="btn-icon"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {frame("block h-80 w-full bg-white")}
+      {full && (
+        <div className="modal-backdrop" role="dialog" aria-label={attachment.name}>
+          <div className="modal-panel flex h-[90vh] w-[90vw] max-w-none flex-col">
+            <div className="modal-header shrink-0 justify-between">
+              <h2 className="modal-title truncate">{attachment.name}</h2>
+              <button onClick={() => setFull(false)} aria-label={t("common.close")} className="btn-icon -mr-1.5">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {frame("block min-h-0 w-full flex-1 bg-white")}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** A file from another computer that did not arrive (runtime ADR-094). */
 function MissingChip({ attachment }: { attachment: ChatLogAttachment }) {
   const { t } = useTranslation();
@@ -205,6 +284,7 @@ export function AttachmentView({ attachment }: { attachment: ChatLogAttachment }
   if (!attachment.path) return <MissingChip attachment={attachment} />;
   const kind = attachmentKind(attachment.name, attachment.mime);
   if (kind === "image") return <Thumbnail attachment={attachment} />;
+  if (kind === "page" && attachment.size <= MAX_PAGE_BYTES) return <PageView attachment={attachment} />;
   if (kind === "audio" || kind === "video") {
     return <Playable attachment={attachment} kind={kind} />;
   }

@@ -6,7 +6,9 @@
     "play": "{{name}} abspielen",
     "cantPlay": "Lässt sich hier nicht abspielen; öffne die Datei stattdessen",
     "missingTitle": "{{name}} ist noch nicht vom anderen Computer angekommen",
-    "missing": "noch nicht empfangen"
+    "missing": "noch nicht empfangen",
+    "pageFull": "{{name}} groß öffnen",
+    "pageBrowser": "{{name}} im Browser öffnen"
   },
   "composer": {
     "label": "Nachricht",

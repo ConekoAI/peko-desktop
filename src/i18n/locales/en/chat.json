@@ -6,7 +6,9 @@
     "play": "Play {{name}}",
     "cantPlay": "Can't play this here; open it instead",
     "missingTitle": "{{name}} didn't arrive from the other computer yet",
-    "missing": "not received yet"
+    "missing": "not received yet",
+    "pageFull": "Open {{name}} full size",
+    "pageBrowser": "Open {{name}} in your browser"
   },
   "composer": {
     "label": "Message",

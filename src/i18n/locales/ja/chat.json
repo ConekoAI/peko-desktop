@@ -6,7 +6,9 @@
     "play": "{{name}} を再生",
     "cantPlay": "ここでは再生できません。ファイルを開いてください",
     "missingTitle": "{{name}} はまだ別のコンピューターから届いていません",
-    "missing": "未受信"
+    "missing": "未受信",
+    "pageFull": "{{name}} を大きく開く",
+    "pageBrowser": "{{name}} をブラウザで開く"
   },
   "composer": {
     "label": "メッセージ",

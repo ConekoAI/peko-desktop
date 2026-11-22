@@ -6,7 +6,9 @@
     "play": "播放 {{name}}",
     "cantPlay": "无法在此播放；请直接打开文件",
     "missingTitle": "{{name}} 尚未从另一台电脑传到",
-    "missing": "尚未收到"
+    "missing": "尚未收到",
+    "pageFull": "全屏打开 {{name}}",
+    "pageBrowser": "在浏览器中打开 {{name}}"
   },
   "composer": {
     "label": "消息",

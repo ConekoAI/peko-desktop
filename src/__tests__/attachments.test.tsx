@@ -18,7 +18,7 @@ vi.mock("../hooks/useRemotePrincipals", () => ({
 
 vi.mock("../lib/api", () => api);
 vi.mock("@tauri-apps/api/core", () => ({
-  convertFileSrc: (path: string) => `asset://localhost${path}`,
+  convertFileSrc: (path: string, protocol = "asset") => `${protocol}://localhost${path}`,
 }));
 
 import {
@@ -241,5 +241,46 @@ describe("model price", () => {
     expect(priceDraftChanged(back, { ...back, cacheRead: " 0.3 " })).toBe(false);
     expect(priceDraftChanged(back, { ...back, cacheWrite: "" })).toBe(true);
     expect(pricingFromDraft({ ...EMPTY_PRICE_DRAFT, cacheRead: "x" })).toBeNull();
+  });
+});
+
+// Pages a peko answers with (runtime ADR-118).
+describe("pages", () => {
+  it("are their own kind, by extension or MIME type", () => {
+    expect(attachmentKind("chart.html")).toBe("page");
+    expect(attachmentKind("chart.HTM")).toBe("page");
+    expect(attachmentKind("x", "text/html")).toBe("page");
+    expect(attachmentKind("notes.txt", "text/plain")).toBe("text");
+  });
+
+  it("show in a sandboxed frame from the page protocol, with full-size and browser buttons", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <MessageAttachments
+          attachments={[{ name: "chart.html", path: "/p/attachments/chart.html", mime: "text/html", size: 900 }]}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = screen.getByTestId("page-frame");
+    expect(frame).toHaveAttribute("src", "pekopage://localhost/p/attachments/chart.html");
+    expect(frame).toHaveAttribute("sandbox", "allow-scripts");
+    fireEvent.click(screen.getByRole("button", { name: /full size/i }));
+    expect(screen.getAllByTestId("page-frame")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: /in your browser/i }));
+    expect(api.attachmentOpen).toHaveBeenCalledWith("/p/attachments/chart.html");
+  });
+
+  it("stay a file when too large to show", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <MessageAttachments
+          attachments={[{ name: "huge.html", path: "/p/huge.html", mime: "text/html", size: 3 * 1024 * 1024 }]}
+        />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByTestId("page-frame")).toBeNull();
+    expect(screen.getByText("huge.html")).toBeInTheDocument();
   });
 });

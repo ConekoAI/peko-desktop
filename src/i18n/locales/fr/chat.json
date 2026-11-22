@@ -6,7 +6,9 @@
     "play": "Lire {{name}}",
     "cantPlay": "Lecture impossible ici ; ouvrez plutôt le fichier",
     "missingTitle": "{{name}} n'est pas encore arrivé depuis l'autre ordinateur",
-    "missing": "pas encore reçu"
+    "missing": "pas encore reçu",
+    "pageFull": "Ouvrir {{name}} en grand",
+    "pageBrowser": "Ouvrir {{name}} dans le navigateur"
   },
   "composer": {
     "label": "Message",
