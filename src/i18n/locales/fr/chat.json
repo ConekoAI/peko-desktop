@@ -84,6 +84,7 @@
     "take": "Prendre la main",
     "release": "Rendre la main",
     "watching": "Vous regardez. {{peko}} utilise le navigateur.",
+    "handoff": "{{peko}} vous attend. Prenez le contrôle pour intervenir.",
     "controlling": "Vous avez la main. {{peko}} attend que vous la rendiez.",
     "other": "Un autre de vos appareils a la main.",
     "waiting": "En attente de la page…",

@@ -84,6 +84,7 @@
     "take": "Steuerung übernehmen",
     "release": "Zurückgeben",
     "watching": "Du siehst zu. {{peko}} benutzt den Browser.",
+    "handoff": "{{peko}} wartet auf dich. Übernimm die Steuerung, um einzugreifen.",
     "controlling": "Du steuerst. {{peko}} wartet, bis du zurückgibst.",
     "other": "Ein anderes deiner Geräte steuert gerade.",
     "waiting": "Warte auf die Seite…",

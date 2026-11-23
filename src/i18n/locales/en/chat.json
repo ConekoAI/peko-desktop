@@ -84,6 +84,7 @@
     "take": "Take control",
     "release": "Hand back",
     "watching": "You're watching. {{peko}} is using the browser.",
+    "handoff": "{{peko}} is waiting for you. Take control to step in.",
     "controlling": "You have control. {{peko}} waits until you hand back.",
     "other": "Another of your devices has control.",
     "waiting": "Waiting for the page…",

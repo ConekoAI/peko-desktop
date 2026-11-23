@@ -53,7 +53,8 @@ describe("PekoBrowser", () => {
     const frame = await screen.findByTestId("browser-frame");
     expect(calls("frame")[0][3]).toMatchObject({ tab: "t1", after: 0 });
 
-    // Watching only: a click on the page goes nowhere.
+    // Watching only: the peko waits for you, and a click on the page goes nowhere.
+    expect(screen.getByTestId("browser-status")).toHaveTextContent("mochi is waiting for you");
     fireEvent.click(frame, { clientX: 10, clientY: 10 });
     expect(calls("input")).toHaveLength(0);
 
