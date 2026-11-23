@@ -84,6 +84,7 @@
     "take": "Tomar el control",
     "release": "Devolver",
     "watching": "Estás mirando. {{peko}} está usando el navegador.",
+    "handoff": "{{peko}} te está esperando. Toma el control para intervenir.",
     "controlling": "Tienes el control. {{peko}} espera hasta que lo devuelvas.",
     "other": "Otro de tus dispositivos tiene el control.",
     "waiting": "Esperando la página…",

@@ -84,6 +84,7 @@
     "take": "接管",
     "release": "交还",
     "watching": "你正在观看。{{peko}} 正在使用浏览器。",
+    "handoff": "{{peko}} 在等你。接管控制后即可操作。",
     "controlling": "你正在操作。交还之前 {{peko}} 会等待。",
     "other": "你的另一台设备正在操作。",
     "waiting": "正在等待页面…",

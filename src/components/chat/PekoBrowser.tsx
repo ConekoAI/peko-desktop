@@ -254,7 +254,9 @@ function BrowserViewer({
     ? t("chat.browser.controlling", { peko })
     : controller
       ? t("chat.browser.other")
-      : t("chat.browser.watching", { peko });
+      : state.handoff
+        ? t("chat.browser.handoff", { peko })
+        : t("chat.browser.watching", { peko });
 
   return (
     <div className="modal-backdrop" data-testid="browser-viewer">
