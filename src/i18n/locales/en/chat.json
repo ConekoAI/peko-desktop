@@ -72,6 +72,25 @@
     "decline": "Decline",
     "hint": "It goes to this computer's vault. {{peko}} is told it was saved, never the value. Don't paste secrets into the chat."
   },
+  "browser": {
+    "needsYou": "{{peko}} needs you in its browser",
+    "open": "{{peko}} has a browser open",
+    "openButton": "Open browser",
+    "title": "{{peko}}'s browser",
+    "tab": "Tab",
+    "back": "Back",
+    "reload": "Reload",
+    "address": "Address",
+    "take": "Take control",
+    "release": "Hand back",
+    "watching": "You're watching. {{peko}} is using the browser.",
+    "controlling": "You have control. {{peko}} waits until you hand back.",
+    "other": "Another of your devices has control.",
+    "waiting": "Waiting for the page…",
+    "typeHere": "Type or paste text to send to the page",
+    "send": "Send",
+    "hint": "What you click and type goes straight to the page on the computer that runs {{peko}}. It isn't kept in the chat, and {{peko}} never sees it."
+  },
   "changes": {
     "summary_one": "{{peko}} changed {{count}} file",
     "summary_other": "{{peko}} changed {{count}} files",

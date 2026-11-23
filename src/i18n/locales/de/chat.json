@@ -72,6 +72,25 @@
     "decline": "Ablehnen",
     "hint": "Er kommt in den Tresor dieses Computers. {{peko}} erfährt, dass er gespeichert wurde, nie den Wert. Füge Geheimnisse nicht in den Chat ein."
   },
+  "browser": {
+    "needsYou": "{{peko}} braucht dich in seinem Browser",
+    "open": "{{peko}} hat einen Browser geöffnet",
+    "openButton": "Browser öffnen",
+    "title": "Browser von {{peko}}",
+    "tab": "Tab",
+    "back": "Zurück",
+    "reload": "Neu laden",
+    "address": "Adresse",
+    "take": "Steuerung übernehmen",
+    "release": "Zurückgeben",
+    "watching": "Du siehst zu. {{peko}} benutzt den Browser.",
+    "controlling": "Du steuerst. {{peko}} wartet, bis du zurückgibst.",
+    "other": "Ein anderes deiner Geräte steuert gerade.",
+    "waiting": "Warte auf die Seite…",
+    "typeHere": "Text eingeben oder einfügen, der an die Seite geht",
+    "send": "Senden",
+    "hint": "Was du klickst und tippst, geht direkt an die Seite auf dem Computer, auf dem {{peko}} läuft. Es wird nicht im Chat gespeichert, und {{peko}} sieht es nie."
+  },
   "changes": {
     "summary_one": "{{peko}} hat {{count}} Datei geändert",
     "summary_other": "{{peko}} hat {{count}} Dateien geändert",

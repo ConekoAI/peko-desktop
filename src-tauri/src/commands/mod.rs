@@ -57,6 +57,7 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         principal::principal_set_access,
         principal::principal_approvals,
         principal::principal_decide_approval,
+        principal::principal_browser,
         principal::principal_secret_requests,
         principal::principal_answer_secret,
         principal::principal_turn_changes,

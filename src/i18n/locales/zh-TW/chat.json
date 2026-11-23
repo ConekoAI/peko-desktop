@@ -72,6 +72,25 @@
     "decline": "拒絕",
     "hint": "它會存入這台電腦的保險庫。{{peko}} 只會得知已儲存，不會看到值。請不要把金鑰貼到聊天裡。"
   },
+  "browser": {
+    "needsYou": "{{peko}} 需要你到它的瀏覽器裡幫忙",
+    "open": "{{peko}} 開啟了瀏覽器",
+    "openButton": "開啟瀏覽器",
+    "title": "{{peko}} 的瀏覽器",
+    "tab": "分頁",
+    "back": "上一頁",
+    "reload": "重新整理",
+    "address": "網址",
+    "take": "接手",
+    "release": "交還",
+    "watching": "你正在觀看。{{peko}} 正在使用瀏覽器。",
+    "controlling": "你正在操作。交還之前 {{peko}} 會等待。",
+    "other": "你的另一台裝置正在操作。",
+    "waiting": "正在等待頁面…",
+    "typeHere": "輸入或貼上要傳送到頁面的文字",
+    "send": "傳送",
+    "hint": "你的點擊和輸入會直接傳到執行 {{peko}} 的電腦上的頁面，不會保存在聊天裡，{{peko}} 也看不到。"
+  },
   "changes": {
     "summary_other": "{{peko}} 修改了 {{count}} 個檔案",
     "undo": "復原",
