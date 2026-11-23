@@ -190,6 +190,23 @@ impl HubRemoteClient {
         peko_approvals(&answer)
     }
 
+    /// One thing you ask of this peko's browser on its host (runtime
+    /// ADR-119 D6): the raw `browser_result` or `error` answer.
+    pub async fn browser(
+        &self,
+        verb: &str,
+        args: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let channel = self.open_dm().await?;
+        let client = crate::ipc::IpcClient::new()
+            .await
+            .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+        client
+            .channel_peko_browser(&channel, verb, args)
+            .await
+            .map_err(|e| format!("channel_peko_browser failed: {e}"))
+    }
+
     /// Approve (`always`: and remember it) or deny a waiting request on
     /// this peko's host (runtime ADR-099 D2). Resolves to what the host
     /// did ("Approved apr_… Running it …"), or its reason it didn't.

@@ -7,6 +7,7 @@ import {
   usePrincipalLog,
   usePrincipalLogWatch,
   usePrincipalApprovals,
+  usePekoBrowser,
   usePrincipalSecretRequests,
   usePrincipalTurnChanges,
   useDecideApproval,
@@ -62,6 +63,7 @@ import type {
   StreamEvent,
 } from "../types";
 import QuestionCard from "../components/chat/QuestionCard";
+import PekoBrowser from "../components/chat/PekoBrowser";
 import SecretRequestCards from "../components/chat/SecretRequestCard";
 import TurnChangesStrip from "../components/chat/TurnChanges";
 import { dmCardStates, type CardState } from "../lib/questions";
@@ -1008,6 +1010,14 @@ export default function Chat() {
     if (ownsSecrets && selectedPrincipal) void refetchSecrets();
   }, [logData, ownsSecrets, selectedPrincipal, refetchSecrets]);
 
+  // The peko's browser (runtime ADR-119): yours on this computer, or on
+  // another of your computers through its host.
+  const pekoBrowser = usePekoBrowser(selectedPrincipal || undefined, runtimeId, ownsApprovals);
+  const refetchBrowser = pekoBrowser.refetch;
+  useEffect(() => {
+    if (ownsApprovals && selectedPrincipal && !isStreaming) void refetchBrowser();
+  }, [logData, ownsApprovals, selectedPrincipal, isStreaming, refetchBrowser]);
+
   // What the peko's last turns here changed in your files (runtime
   // ADR-117), to undo: a peko on this computer only.
   const turnChanges = usePrincipalTurnChanges(selectedPrincipal || undefined, ownsSecrets);
@@ -1227,6 +1237,13 @@ export default function Chat() {
       <SecretRequestCards
         peko={selectedPrincipal}
         requests={ownsSecrets ? (secretRequests.data ?? []) : []}
+      />
+
+      <PekoBrowser
+        peko={selectedPrincipal}
+        runtimeId={runtimeId}
+        state={ownsApprovals ? pekoBrowser.data : undefined}
+        onChanged={() => void refetchBrowser()}
       />
 
       {!isStreaming && (

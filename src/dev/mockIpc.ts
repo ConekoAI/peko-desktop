@@ -375,6 +375,8 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       return [];
     case "principal_undo_turn":
       return { restored: [], skipped: [] };
+    case "principal_browser":
+      return { running: false, available: true, tabs: [], controller: null, handoff: null };
     case "principal_secret_requests":
       return [];
     case "principal_answer_secret":

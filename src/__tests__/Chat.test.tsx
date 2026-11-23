@@ -44,6 +44,7 @@ vi.mock("../hooks/usePrincipals", () => ({
   usePrincipalSecretRequests: () => ({ data: secretsState.data, refetch: vi.fn() }),
   useAnswerSecret: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePrincipalTurnChanges: () => ({ data: [], refetch: vi.fn() }),
+  usePekoBrowser: () => ({ data: undefined, refetch: vi.fn() }),
   useUndoTurn: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePrincipalLogWatch: () => logWatch,
   useCallerSubject: () => "user:local",

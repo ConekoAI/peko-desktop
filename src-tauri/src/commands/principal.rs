@@ -1924,6 +1924,78 @@ pub async fn principal_undo_turn(name: String, turn: String) -> Result<serde_jso
     }))
 }
 
+/// What the engine answered a browser request with, with a `frame`'s
+/// picture read from the file the engine named and carried as base64
+/// (`data`). The file is the engine's own, on this computer.
+fn browser_body(value: serde_json::Value) -> Result<serde_json::Value, String> {
+    use base64::Engine as _;
+    if let Some(err) = runtime_error(&value) {
+        return Err(err);
+    }
+    let mut body = value
+        .get("body")
+        .cloned()
+        .ok_or_else(|| "the engine gave no browser answer".to_string())?;
+    let path = body
+        .get("path")
+        .and_then(|p| p.as_str())
+        .map(std::path::PathBuf::from);
+    if let (Some(path), Some(fields)) = (path, body.as_object_mut()) {
+        fields.remove("path");
+        // Replaced by a newer picture between the answer and this read
+        // is fine; gone means the watch ended.
+        match std::fs::read(&path) {
+            Ok(bytes) => {
+                fields.insert(
+                    "data".into(),
+                    serde_json::json!(base64::engine::general_purpose::STANDARD.encode(bytes)),
+                );
+            }
+            Err(_) => {
+                fields.insert("seq".into(), serde_json::Value::Null);
+            }
+        }
+    }
+    Ok(body)
+}
+
+/// One thing you ask of your peko's browser (runtime ADR-119): `state`,
+/// `frame`, `control`, `input`, `open`. A peko on another of your
+/// computers (`runtime_id = hub:…`) is asked through its host. A `frame`
+/// resolves to `{ seq, tab, width, height, data, controller }` with the
+/// picture as base64 JPEG, or `{ seq: null }` when nothing changed.
+#[tauri::command]
+pub async fn principal_browser(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+    verb: String,
+    args: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    if !matches!(
+        verb.as_str(),
+        "state" | "frame" | "control" | "input" | "open"
+    ) {
+        return Err(format!("unknown browser request: {verb}"));
+    }
+    let args = args.unwrap_or_else(|| serde_json::json!({}));
+    if let crate::state::ResolvedRuntime::HubRemote(client) = state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await
+    {
+        return browser_body(client.browser(&verb, &args).await?);
+    }
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    browser_body(
+        client
+            .browser(&name, &verb, &args)
+            .await
+            .map_err(|e| format!("browser failed: {e}"))?,
+    )
+}
+
 /// The secret requests waiting for you, the owner of a peko on this
 /// computer (runtime ADR-116), oldest first: `[{ id, secret, kind, why,
 /// created_at, expires_at }]`, snake_case, passed through. Only a peko on

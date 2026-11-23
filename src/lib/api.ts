@@ -747,6 +747,25 @@ export async function principalSecretRequests(
   }));
 }
 
+/**
+ * One thing you ask of your peko's browser (runtime ADR-119): `state`,
+ * `frame`, `control`, `input`, `open`. A peko on another of your
+ * computers is asked through its host.
+ */
+export async function principalBrowser(
+  name: string,
+  runtimeId: string,
+  verb: string,
+  args: Record<string, unknown> = {},
+): Promise<unknown> {
+  return invoke<unknown>("principal_browser", {
+    name,
+    runtimeId: runtimeId === "local" ? null : runtimeId,
+    verb,
+    args,
+  });
+}
+
 /** Save the value for a secret request, or decline it; resolves to what happened. */
 export async function principalAnswerSecret(params: {
   name: string;

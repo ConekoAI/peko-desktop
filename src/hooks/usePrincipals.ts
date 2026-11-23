@@ -1,5 +1,5 @@
 import { track, trackFirstReply } from "../lib/usage";
-import type { Answers } from "../types";
+import type { Answers, BrowserState } from "../types";
 import { useEffect, useRef } from "react";
 import {
   useMutation,
@@ -13,6 +13,7 @@ import {
   localUserAccount,
   principalCreate,
   principalDecideApproval,
+  principalBrowser,
   principalSecretRequests,
   principalAnswerSecret,
   principalTurnChanges,
@@ -399,6 +400,21 @@ export function usePrincipalSecretRequests(name: string | undefined, enabled: bo
     queryFn: () => principalSecretRequests(name!),
     enabled: !!name && enabled,
     refetchInterval: 30_000,
+  });
+}
+
+/**
+ * Your peko's browser (runtime ADR-119): whether it is running, its tabs,
+ * and whether the peko waits for you to step in. Refetched when the
+ * thread changes (the peko's notice lands there).
+ */
+export function usePekoBrowser(name: string | undefined, runtimeId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["peko-browser", name, runtimeId],
+    queryFn: async () => (await principalBrowser(name!, runtimeId, "state")) as BrowserState,
+    enabled: !!name && enabled,
+    refetchInterval: 30_000,
+    retry: false,
   });
 }
 

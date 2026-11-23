@@ -280,6 +280,18 @@ export interface UndoResult {
  * A secret a peko asked its owner for (runtime ADR-116). Names only: the
  * value is typed into the card and goes to the engine's vault.
  */
+/** A peko's browser as a viewer sees it (runtime ADR-119). */
+export interface BrowserState {
+  running: boolean;
+  /** Whether the peko's computer has a browser to start. */
+  available: boolean;
+  tabs: { tab: string; url: string; title: string }[];
+  /** Who holds control: `local`, `device:<id>` or `computer:<id>`. */
+  controller: { viewer: string; since: string } | null;
+  /** The peko waits for you to step in. */
+  handoff: { why: string; tab: string; url: string; at: string } | null;
+}
+
 export interface SecretRequest {
   /** `sec_…` */
   id: string;

@@ -72,6 +72,25 @@
     "decline": "拒绝",
     "hint": "它会存入这台电脑的保险库。{{peko}} 只会得知已保存，不会看到值。请不要把密钥粘贴到聊天里。"
   },
+  "browser": {
+    "needsYou": "{{peko}} 需要你到它的浏览器里帮忙",
+    "open": "{{peko}} 打开了浏览器",
+    "openButton": "打开浏览器",
+    "title": "{{peko}} 的浏览器",
+    "tab": "标签页",
+    "back": "后退",
+    "reload": "刷新",
+    "address": "地址",
+    "take": "接管",
+    "release": "交还",
+    "watching": "你正在观看。{{peko}} 正在使用浏览器。",
+    "controlling": "你正在操作。交还之前 {{peko}} 会等待。",
+    "other": "你的另一台设备正在操作。",
+    "waiting": "正在等待页面…",
+    "typeHere": "输入或粘贴要发送到页面的文字",
+    "send": "发送",
+    "hint": "你的点击和输入会直接发送到运行 {{peko}} 的电脑上的页面，不会保存在聊天里，{{peko}} 也看不到。"
+  },
   "changes": {
     "summary_other": "{{peko}} 修改了 {{count}} 个文件",
     "undo": "撤销",

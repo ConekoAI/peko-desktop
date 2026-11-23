@@ -2221,6 +2221,52 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Mirror of `RequestPacket::Browser` (runtime ADR-119): one thing you
+    /// ask of the browser of a peko on this computer (`state`, `frame`,
+    /// `control`, `input`, `open`, `stop`), or with an empty name the
+    /// runtime's own browser (`status`, `install`). Answered with
+    /// `browser_result { body }`; a `frame` names its picture as a file.
+    pub async fn browser(
+        &self,
+        name: &str,
+        verb: &str,
+        args: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "browser",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+            "verb": verb,
+            "args": args,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::ChannelPekoBrowser` (runtime ADR-119
+    /// D6): the same, for your peko on another of your computers, asked
+    /// through its host in DM `channel`.
+    pub async fn channel_peko_browser(
+        &self,
+        channel: &str,
+        verb: &str,
+        args: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_peko_browser",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "verb": verb,
+            "args": args,
+        });
+        // The engine waits for the other computer, which may be asleep.
+        self.request_response_with_timeout(req, Duration::from_secs(30))
+            .await
+    }
+
     /// Mirror of `RequestPacket::SecretList` (runtime ADR-116): a peko's
     /// secret names and the secret requests waiting for its owner.
     pub async fn secret_list(&self, name: &str) -> Result<serde_json::Value> {

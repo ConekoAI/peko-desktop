@@ -72,6 +72,25 @@
     "decline": "Rifiuta",
     "hint": "Va nel portachiavi di questo computer. {{peko}} sa che è stato salvato, mai il valore. Non incollare segreti nella chat."
   },
+  "browser": {
+    "needsYou": "{{peko}} ha bisogno di te nel suo browser",
+    "open": "{{peko}} ha un browser aperto",
+    "openButton": "Apri il browser",
+    "title": "Browser di {{peko}}",
+    "tab": "Scheda",
+    "back": "Indietro",
+    "reload": "Ricarica",
+    "address": "Indirizzo",
+    "take": "Prendi il controllo",
+    "release": "Restituisci",
+    "watching": "Stai guardando. {{peko}} sta usando il browser.",
+    "controlling": "Hai il controllo. {{peko}} aspetta finché non lo restituisci.",
+    "other": "Un altro dei tuoi dispositivi ha il controllo.",
+    "waiting": "In attesa della pagina…",
+    "typeHere": "Scrivi o incolla il testo da inviare alla pagina",
+    "send": "Invia",
+    "hint": "Ciò che clicchi e scrivi va direttamente alla pagina sul computer dove gira {{peko}}. Non resta nella chat e {{peko}} non lo vede mai."
+  },
   "changes": {
     "summary_one": "{{peko}} ha modificato {{count}} file",
     "summary_other": "{{peko}} ha modificato {{count}} file",
