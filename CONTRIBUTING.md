@@ -159,5 +159,7 @@ replies) is not translated.
 
 ## License
 
-By contributing you agree that your work is released under the
-[MIT License](LICENSE).
+Unless you say otherwise, any contribution you submit for inclusion in
+this project, as defined in the Apache-2.0 license, is dual-licensed under
+the [MIT license](LICENSE-MIT) and the [Apache License, Version 2.0](LICENSE-APACHE),
+without any additional terms or conditions.
