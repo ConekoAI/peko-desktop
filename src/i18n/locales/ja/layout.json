@@ -64,5 +64,27 @@
   "deviceList": {
     "notOn": "このコンピューターはまだアカウントのデバイスに入っていないため、あなたとして送るものは保留されています。",
     "join": "追加する"
+  },
+  "computer": {
+    "strip": {
+      "using": "{{peko}} がこのコンピュータを使っています",
+      "paused": "{{peko}} は一時停止中です：あなたがコンピュータを操作しました",
+      "stop": "停止",
+      "continue": "続けさせる",
+      "somePeko": "ペコ"
+    },
+    "setting": {
+      "title": "ペコにこのコンピュータを使わせる",
+      "hint": "あなたのために働くペコは、ほかのツールではできないことのために、画面を見てアプリをクリックしたり入力したりできます。マウスを動かすか入力すると一時停止し、{{shortcut}} でどのアプリからでも停止できます。",
+      "permissions": "{{app}} の権限",
+      "permissionsPlain": "権限",
+      "screenRecording": "画面収録",
+      "accessibility": "アクセシビリティ",
+      "granted": "許可済み",
+      "notGranted": "未許可",
+      "ask": "権限をリクエスト",
+      "restartHint": "画面収録は Peko の再起動後に有効になります。",
+      "unavailable": "このコンピュータでは使えません：{{why}}"
+    }
   }
 }

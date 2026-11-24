@@ -65,5 +65,27 @@
   "deviceList": {
     "notOn": "This computer isn't on your account's devices yet, so what it sends as you waits.",
     "join": "Add it"
+  },
+  "computer": {
+    "strip": {
+      "using": "{{peko}} is using this computer",
+      "paused": "{{peko}} is paused: you used the computer",
+      "stop": "Stop",
+      "continue": "Let it continue",
+      "somePeko": "A peko"
+    },
+    "setting": {
+      "title": "Let pekos use this computer",
+      "hint": "A peko working for you can see the screen and click and type in apps, to do what no other tool can. Moving the mouse or typing pauses it; {{shortcut}} stops it from any app.",
+      "permissions": "Permissions for {{app}}",
+      "permissionsPlain": "Permissions",
+      "screenRecording": "Screen Recording",
+      "accessibility": "Accessibility",
+      "granted": "Granted",
+      "notGranted": "Not granted",
+      "ask": "Ask for permissions",
+      "restartHint": "Screen Recording takes effect after Peko restarts.",
+      "unavailable": "Not available on this computer: {{why}}"
+    }
   }
 }

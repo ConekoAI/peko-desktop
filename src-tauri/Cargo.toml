@@ -52,12 +52,19 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # The pairing code a phone scans (runtime ADR-108), drawn as SVG.
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 tauri-plugin-updater = "2"
+# The shortcut that stops a peko using the screen (runtime ADR-123).
+tauri-plugin-global-shortcut = "2"
 # The install id usage events carry (src/usage.rs).
 getrandom = "0.4"
 # Crash reports (pekohub ADR-014; src/telemetry.rs). No default features:
 # no device or OS context, no session tracking, no logs.
 sentry = { version = "0.49", default-features = false, features = ["backtrace", "panic", "reqwest", "rustls"] }
 
+
+# The indicator strip is left out of screen captures
+# (`NSWindow.sharingType`), runtime ADR-123.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
 
 [dev-dependencies]
 tempfile = "3"

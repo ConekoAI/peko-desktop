@@ -66,5 +66,27 @@
   "deviceList": {
     "notOn": "Cet ordinateur ne fait pas encore partie des appareils de votre compte : ce qu'il envoie en votre nom attend.",
     "join": "L'ajouter"
+  },
+  "computer": {
+    "strip": {
+      "using": "{{peko}} utilise cet ordinateur",
+      "paused": "{{peko}} est en pause : vous avez utilisé l’ordinateur",
+      "stop": "Arrêter",
+      "continue": "Le laisser continuer",
+      "somePeko": "Un peko"
+    },
+    "setting": {
+      "title": "Laisser les pekos utiliser cet ordinateur",
+      "hint": "Un peko qui travaille pour vous peut voir l’écran, cliquer et taper dans les apps, pour ce qu’aucun autre outil ne sait faire. Bouger la souris ou taper le met en pause ; {{shortcut}} l’arrête depuis n’importe quelle app.",
+      "permissions": "Autorisations pour {{app}}",
+      "permissionsPlain": "Autorisations",
+      "screenRecording": "Enregistrement de l’écran",
+      "accessibility": "Accessibilité",
+      "granted": "Accordée",
+      "notGranted": "Non accordée",
+      "ask": "Demander les autorisations",
+      "restartHint": "L’enregistrement de l’écran prend effet après le redémarrage de Peko.",
+      "unavailable": "Indisponible sur cet ordinateur : {{why}}"
+    }
   }
 }

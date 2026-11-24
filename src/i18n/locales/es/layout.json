@@ -66,5 +66,27 @@
   "deviceList": {
     "notOn": "Este ordenador aún no está entre los dispositivos de tu cuenta, así que lo que envía en tu nombre espera.",
     "join": "Añadirlo"
+  },
+  "computer": {
+    "strip": {
+      "using": "{{peko}} está usando este ordenador",
+      "paused": "{{peko}} está en pausa: usaste el ordenador",
+      "stop": "Detener",
+      "continue": "Dejar que continúe",
+      "somePeko": "Un peko"
+    },
+    "setting": {
+      "title": "Permitir que los pekos usen este ordenador",
+      "hint": "Un peko que trabaja para ti puede ver la pantalla y hacer clic y escribir en las apps, para lo que ninguna otra herramienta puede hacer. Si mueves el ratón o escribes, se pausa; {{shortcut}} lo detiene desde cualquier app.",
+      "permissions": "Permisos para {{app}}",
+      "permissionsPlain": "Permisos",
+      "screenRecording": "Grabación de pantalla",
+      "accessibility": "Accesibilidad",
+      "granted": "Concedido",
+      "notGranted": "No concedido",
+      "ask": "Pedir permisos",
+      "restartHint": "La grabación de pantalla se aplica cuando Peko se reinicia.",
+      "unavailable": "No disponible en este ordenador: {{why}}"
+    }
   }
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Runtime ADR-123: a peko using this computer. macOS shows these when
+       the engine Peko started asks for the grants. -->
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>A peko working for you takes pictures of the screen to see the apps it uses for you.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>A peko working for you brings the app it uses to the front, so what it types goes to that app.</string>
+</dict>
+</plist>

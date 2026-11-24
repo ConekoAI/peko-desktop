@@ -2244,6 +2244,55 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Mirror of `RequestPacket::ComputerState` (runtime ADR-123 D5):
+    /// whether a peko is using this computer's screen, doing what, and
+    /// whether your hand paused it. Answered with `computer_result { body }`.
+    pub async fn computer_state(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "computer_state",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::ComputerResume`: **Let it continue**.
+    pub async fn computer_resume(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "computer_resume",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::ComputerStop`: **Stop** the peko using
+    /// the screen, wherever its run is.
+    pub async fn computer_stop(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "computer_stop",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Mirror of `RequestPacket::ComputerSetup`: ask macOS for Screen
+    /// Recording and Accessibility for the app that started the engine
+    /// (this one, when it did).
+    pub async fn computer_setup(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "computer_setup",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
     /// Mirror of `RequestPacket::ChannelPekoBrowser` (runtime ADR-119
     /// D6): the same, for your peko on another of your computers, asked
     /// through its host in DM `channel`.

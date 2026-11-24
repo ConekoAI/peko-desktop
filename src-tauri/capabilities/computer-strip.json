@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "computer-strip",
+  "description": "The strip shown while a peko uses this computer (runtime ADR-123)",
+  "windows": ["computer-strip"],
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
+}
