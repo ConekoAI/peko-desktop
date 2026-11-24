@@ -28,6 +28,7 @@ import ChatgptPlanModal from "../components/modals/ChatgptPlanModal";
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
 import BlockedPeople from "../components/BlockedPeople";
 import KeepAwakeSetting from "../components/KeepAwakeSetting";
+import ComputerSetting from "../components/ComputerSetting";
 import PrivacySettings from "../components/PrivacySettings";
 import AccountDevices from "../components/AccountDevices";
 import {
@@ -121,6 +122,7 @@ function GeneralSection() {
         </div>
       </div>
       <KeepAwakeSetting className={CARD} />
+      <ComputerSetting className={CARD} />
       <AccountDevices className={CARD} />
       <BlockedPeople className={CARD} />
       <PrivacySettings className={CARD} />

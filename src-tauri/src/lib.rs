@@ -2,6 +2,7 @@ use tauri::{AppHandle, Emitter, Listener, Manager};
 
 pub mod clients;
 pub mod commands;
+pub mod computer;
 pub mod fs;
 pub mod ipc;
 pub mod sidecar;
@@ -42,6 +43,8 @@ pub fn run() {
             commands::attachments::serve_page(&request)
         })
         .plugin(tauri_plugin_opener::init())
+        // The shortcut that stops a peko using the screen (runtime ADR-123).
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         // Size, position, and the like are restored; decorations and
@@ -139,6 +142,11 @@ pub fn run() {
             if let Err(e) = tray::build_tray(app.handle()) {
                 eprintln!("[peko-desktop] no tray icon: {e}");
             }
+
+            // A peko using this computer (runtime ADR-123): the indicator
+            // strip and the global stop shortcut.
+            computer::start(app.handle());
+            computer::register_shortcut(app.handle());
 
             // Install the sidecar supervisor (ADR-043). This is the
             // canonical owner of the engine lifecycle from now on —

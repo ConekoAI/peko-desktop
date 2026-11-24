@@ -1353,6 +1353,33 @@ export async function settingsSet(key: string, value: string): Promise<void> {
   return invoke("settings_set", { key, value });
 }
 
+// ─── A peko using this computer (runtime ADR-123) ──────────────────
+
+/** Whether a peko uses the screen, and on macOS the grants. */
+export async function computerStatus(): Promise<unknown> {
+  return invoke<unknown>("computer_status");
+}
+
+/** **Let it continue**: a peko your hand paused goes on. */
+export async function computerResume(): Promise<unknown> {
+  return invoke<unknown>("computer_resume");
+}
+
+/** **Stop**: the peko using the screen stops. */
+export async function computerStop(): Promise<unknown> {
+  return invoke<unknown>("computer_stop");
+}
+
+/** Ask macOS for Screen Recording and Accessibility. */
+export async function computerSetup(): Promise<unknown> {
+  return invoke<unknown>("computer_setup");
+}
+
+/** The global shortcut that stops every peko using the screen. */
+export async function computerStopShortcut(): Promise<string> {
+  return invoke<string>("computer_stop_shortcut");
+}
+
 /** Relabel the tray menu, so it follows the app's language. */
 export async function traySetLabels(labels: {
   open: string;

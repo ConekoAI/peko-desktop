@@ -65,8 +65,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # A change that adds a request lands in both repos on a branch of the
+      # same name; check against that branch while it is open, else master.
       - name: Check out peko-runtime
-        run: git clone --depth 1 https://github.com/ConekoAI/Peko.git "$RUNNER_TEMP/peko-runtime"
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ConekoAI/Peko.git "$BRANCH" >/dev/null; then
+            git clone --depth 1 --branch "$BRANCH" https://github.com/ConekoAI/Peko.git "$RUNNER_TEMP/peko-runtime"
+          else
+            git clone --depth 1 https://github.com/ConekoAI/Peko.git "$RUNNER_TEMP/peko-runtime"
+          fi
 
       - name: Check desktop requests against the runtime fixture
         run: python3 -I scripts/check-ipc-contract.py "$RUNNER_TEMP/peko-runtime"

@@ -21,6 +21,16 @@ export default defineConfig(async () => ({
     react(),
     tailwindcss(),
   ],
+  // Two pages: the app, and the strip shown while a peko uses this
+  // computer (runtime ADR-123).
+  build: {
+    rollupOptions: {
+      input: {
+        main: "index.html",
+        "computer-strip": "computer-strip.html",
+      },
+    },
+  },
   test: {
     globals: true,
     environment: "jsdom",

@@ -64,5 +64,27 @@
   "deviceList": {
     "notOn": "這台電腦還不在你帳戶的裝置中，所以它以你的身分傳送的內容會先等待。",
     "join": "新增"
+  },
+  "computer": {
+    "strip": {
+      "using": "{{peko}} 正在使用這台電腦",
+      "paused": "{{peko}} 已暫停：你使用了電腦",
+      "stop": "停止",
+      "continue": "讓它繼續",
+      "somePeko": "一個 peko"
+    },
+    "setting": {
+      "title": "允許 peko 使用這台電腦",
+      "hint": "為你工作的 peko 可以看到螢幕，並在應用程式中點按和輸入，去做其他工具做不到的事。移動滑鼠或打字會讓它暫停；按 {{shortcut}} 可在任何應用程式中停止它。",
+      "permissions": "{{app}} 的權限",
+      "permissionsPlain": "權限",
+      "screenRecording": "螢幕錄製",
+      "accessibility": "輔助使用",
+      "granted": "已授權",
+      "notGranted": "未授權",
+      "ask": "要求權限",
+      "restartHint": "螢幕錄製在 Peko 重新啟動後生效。",
+      "unavailable": "這台電腦上無法使用：{{why}}"
+    }
   }
 }

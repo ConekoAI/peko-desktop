@@ -65,5 +65,27 @@
   "deviceList": {
     "notOn": "Dieser Computer gehört noch nicht zu den Geräten deines Kontos. Was er in deinem Namen sendet, wartet.",
     "join": "Hinzufügen"
+  },
+  "computer": {
+    "strip": {
+      "using": "{{peko}} benutzt diesen Computer",
+      "paused": "{{peko}} pausiert: Sie haben den Computer benutzt",
+      "stop": "Stoppen",
+      "continue": "Weitermachen lassen",
+      "somePeko": "Ein Peko"
+    },
+    "setting": {
+      "title": "Pekos diesen Computer benutzen lassen",
+      "hint": "Ein Peko, das für Sie arbeitet, kann den Bildschirm sehen und in Apps klicken und tippen, wenn kein anderes Werkzeug es kann. Bewegen Sie die Maus oder tippen Sie, pausiert es; {{shortcut}} stoppt es aus jeder App.",
+      "permissions": "Berechtigungen für {{app}}",
+      "permissionsPlain": "Berechtigungen",
+      "screenRecording": "Bildschirmaufnahme",
+      "accessibility": "Bedienungshilfen",
+      "granted": "Erteilt",
+      "notGranted": "Nicht erteilt",
+      "ask": "Berechtigungen anfordern",
+      "restartHint": "Die Bildschirmaufnahme gilt nach einem Neustart von Peko.",
+      "unavailable": "Auf diesem Computer nicht verfügbar: {{why}}"
+    }
   }
 }

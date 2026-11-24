@@ -64,5 +64,27 @@
   "deviceList": {
     "notOn": "这台电脑还不在你账户的设备中，所以它以你的身份发送的内容会先等待。",
     "join": "添加"
+  },
+  "computer": {
+    "strip": {
+      "using": "{{peko}} 正在使用这台电脑",
+      "paused": "{{peko}} 已暂停：你使用了电脑",
+      "stop": "停止",
+      "continue": "让它继续",
+      "somePeko": "一个 peko"
+    },
+    "setting": {
+      "title": "允许 peko 使用这台电脑",
+      "hint": "为你工作的 peko 可以看到屏幕，并在应用中点击和输入，去做其他工具做不到的事。移动鼠标或打字会让它暂停；按 {{shortcut}} 可在任何应用中停止它。",
+      "permissions": "{{app}} 的权限",
+      "permissionsPlain": "权限",
+      "screenRecording": "屏幕录制",
+      "accessibility": "辅助功能",
+      "granted": "已授权",
+      "notGranted": "未授权",
+      "ask": "请求权限",
+      "restartHint": "屏幕录制在 Peko 重启后生效。",
+      "unavailable": "这台电脑上不可用：{{why}}"
+    }
   }
 }
