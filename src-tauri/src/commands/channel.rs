@@ -98,6 +98,12 @@ pub enum ChannelEvent {
         /// Runtime ADR-101: the board change this post makes.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         board: Option<serde_json::Value>,
+        /// Runtime ADR-126 D6: the `msg_id` of the post this one answers.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reply_to: Option<String>,
+        /// Runtime ADR-126 D1: the reaction this post is; not a message.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        react: Option<serde_json::Value>,
     },
     MemberJoined {
         channel: String,
@@ -529,6 +535,32 @@ fn project_channel_info_envelope(value: &serde_json::Value) -> Result<ChannelInf
 /// envelope. Returns the `task_id` so the frontend can correlate an
 /// inbound peko-stream event back to its outbound post when PR-2b
 /// lights up the live stream.
+/// Put your `emoji` on the message `to` (its `msg_id`) in a group or
+/// DM, or take it off (`remove`): runtime ADR-126. It wakes no one.
+#[tauri::command]
+pub async fn channel_react(
+    channel_id: String,
+    to: String,
+    emoji: String,
+    remove: Option<bool>,
+) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_react(&channel_id, &to, &emoji, remove.unwrap_or(false))
+        .await
+        .map_err(|e| format!("Couldn't react: {e}"))?;
+    if crate::ipc::is_error_response(&value) {
+        return Err(value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("Couldn't react.")
+            .to_string());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn channel_post(
@@ -540,6 +572,7 @@ pub async fn channel_post(
     runtime_id: Option<String>,
     attachments: Option<Vec<String>>,
     answers: Option<serde_json::Value>,
+    reply_to: Option<String>,
 ) -> Result<String, String> {
     let attachments = attachments.unwrap_or_default();
     let resolved = state.resolve_runtime(runtime_id.as_deref()).await;
@@ -558,18 +591,28 @@ pub async fn channel_post(
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
-    let value = client
-        .channel_post(
-            &channel_id,
-            sender_name.as_deref(),
-            &text,
-            parent.as_deref(),
-            &attachments,
-            None,
-            answers.as_ref(),
-        )
-        .await
-        .map_err(|e| format!("channel_post failed: {e}"))?;
+    // Runtime ADR-126 D6: a reply you make names its message by `msg_id`.
+    let value = match reply_to.as_deref() {
+        Some(reply_to) if sender_name.is_none() => {
+            client
+                .channel_post_reply(&channel_id, &text, reply_to, &attachments)
+                .await
+        }
+        _ => {
+            client
+                .channel_post(
+                    &channel_id,
+                    sender_name.as_deref(),
+                    &text,
+                    parent.as_deref(),
+                    &attachments,
+                    None,
+                    answers.as_ref(),
+                )
+                .await
+        }
+    }
+    .map_err(|e| format!("channel_post failed: {e}"))?;
 
     Ok(project_channel_posted_envelope(&value))
 }
@@ -967,6 +1010,11 @@ fn parse_channel_event(value: &serde_json::Value, fallback_channel: &str) -> Opt
                 .and_then(|m| m.as_str())
                 .map(str::to_string),
             board: value.get("board").filter(|b| b.is_object()).cloned(),
+            reply_to: value
+                .get("reply_to")
+                .and_then(|m| m.as_str())
+                .map(str::to_string),
+            react: value.get("react").filter(|r| r.is_object()).cloned(),
         }),
         "member_joined" => Some(ChannelEvent::MemberJoined {
             channel,

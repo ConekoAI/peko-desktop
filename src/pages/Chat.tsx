@@ -65,6 +65,15 @@ import type {
   StreamEvent,
 } from "../types";
 import QuestionCard from "../components/chat/QuestionCard";
+import {
+  QuotedLine,
+  ReactButton,
+  ReactionChips,
+  ReplyButton,
+  ReplyingBar,
+} from "../components/chat/Reactions";
+import { showsQuote, type Reaction } from "../lib/reactions";
+import { principalReact } from "../lib/api";
 import PekoBrowser from "../components/chat/PekoBrowser";
 import SecretRequestCards from "../components/chat/SecretRequestCard";
 import TurnChangesStrip from "../components/chat/TurnChanges";
@@ -87,6 +96,10 @@ interface ChatItem {
   ask?: Ask;
   /** Your answers to an earlier message's questions (runtime ADR-114). */
   answers?: Answers;
+  /** The message this one replies to, by `msg_id` (runtime ADR-126). */
+  replyTo?: string;
+  /** The emoji on the message (runtime ADR-126). */
+  reactions?: Reaction[];
 }
 
 /**
@@ -146,8 +159,22 @@ function ChatMessage({
   waitsForNetwork,
   card,
   onAnswer,
+  quote,
+  onJumpToQuote,
+  onReply,
+  onReact,
 }: {
   item: ChatItem;
+  /**
+   * The message this one replies to, when its quote shows (runtime
+   * ADR-126 D6): `null` is one this copy does not hold.
+   */
+  quote?: { author: string; text: string } | null;
+  onJumpToQuote?: () => void;
+  /** Reply to this message; absent where you can't. */
+  onReply?: () => void;
+  /** Put an emoji on this message or take yours off. */
+  onReact?: (emoji: string, remove: boolean) => void;
   /** The state of this message's question card, if it asks any. */
   card?: CardState;
   /** Present while you may answer this message's card. */
@@ -211,6 +238,7 @@ function ChatMessage({
             {formatTime(event.timestamp)}
           </span>
         </div>
+        {quote !== undefined && <QuotedLine quoted={quote} onJump={onJumpToQuote} />}
         <div className="mt-0.5 text-sm text-fg">
           {isUser ? (
             text && <p className="whitespace-pre-wrap break-words">{text}</p>
@@ -241,6 +269,14 @@ function ChatMessage({
             onSend={onAnswer}
           />
         )}
+        {item.reactions && item.reactions.length > 0 && (
+          <ReactionChips
+            reactions={item.reactions}
+            isMine={(a) => a.startsWith("user:")}
+            nameOf={() => peko.name}
+            onToggle={onReact ? (emoji, mine) => onReact(emoji, mine) : undefined}
+          />
+        )}
         {onPick && item.options && item.options.length > 0 && (
           <SuggestedReplies replies={item.options} onPick={onPick} />
         )}
@@ -256,6 +292,8 @@ function ChatMessage({
                 <RotateCcw className="h-3.5 w-3.5" />
               </MessageAction>
             )}
+            {onReply && <ReplyButton onReply={onReply} />}
+            {onReact && <ReactButton onPick={(emoji) => onReact(emoji, false)} />}
           </div>
         )}
       </div>
@@ -522,6 +560,8 @@ export function chatLogMessagesToChatItems(
       ...(options.length > 0 && { options }),
       ...(ask && ask.questions.length > 0 && { ask }),
       ...(answers && { answers }),
+      ...(m.replyTo && { replyTo: m.replyTo }),
+      ...(m.reactions && m.reactions.length > 0 && { reactions: m.reactions }),
     });
   }
   return out;
@@ -671,6 +711,9 @@ export default function Chat() {
   }, [pathname, selectedPrincipal, navigate, runtimeId]);
 
   const [input, setInput] = useState("");
+  // The message you are replying to (runtime ADR-126 D6).
+  const [replying, setReplying] = useState<{ msgId: string; author: string; text: string } | null>(null);
+  const [reactError, setReactError] = useState<string | null>(null);
   // Files going with the next message (paths on this computer).
   const [pendingFiles, setPendingFiles] = useState<string[]>([]);
   // The engine reads attachments from this computer; a peko on another
@@ -875,20 +918,35 @@ export default function Chat() {
     if (!message && files.length === 0) return;
     setInput("");
     setPendingFiles([]);
-    void sendText(message, files);
+    const replyTo = replying?.msgId;
+    setReplying(null);
+    void sendText(message, files, undefined, replyTo);
+  }
+
+  /** Put `emoji` on a message of this thread, or take yours off. */
+  async function react(msgId: string, emoji: string, remove: boolean) {
+    setReactError(null);
+    try {
+      await principalReact(selectedPrincipal, runtimeId, logData?.channel, msgId, emoji, remove);
+      await logQuery.refetch();
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      setReactError(t("chat.message.reactFailed", { reason }));
+    }
   }
 
   /**
    * Send `message` to the peko, streaming its reply — from the
    * composer, or again from a message's Retry.
    */
-  async function sendText(message: string, files: string[] = [], answers?: Answers) {
+  async function sendText(message: string, files: string[] = [], answers?: Answers, replyTo?: string) {
     if ((!message && files.length === 0) || !selectedPrincipal) return;
     setError(null);
 
     const userItem: ChatItem = {
       event: { type: "chunk", content: message, timestamp: Date.now().toString() },
       isUser: true,
+      ...(replyTo && { replyTo }),
       // Shown from the original paths until the thread has the
       // engine's copies.
       ...(files.length > 0 && {
@@ -937,6 +995,7 @@ export default function Chat() {
         overrideModel: effectiveModel ?? undefined,
         attachments: files,
         answers,
+        replyTo,
         onEvent: (msg: ChatStreamMsg) => {
           if (msg.kind === "queued" || msg.kind === "runSummary") return;
           promote();
@@ -1075,6 +1134,25 @@ export default function Chat() {
   // Question cards (runtime ADR-114) stay open past the peko's other
   // messages, until answered, replaced, or you write again.
   const cardStates = useMemo(() => dmCardStates(displayItems), [displayItems]);
+  // Runtime ADR-126 D6: each message by id, for the quote above a reply.
+  const byMsgId = useMemo(() => {
+    const map = new Map<string, ChatItem>();
+    for (const item of displayItems) if (item.msgId) map.set(item.msgId, item);
+    return map;
+  }, [displayItems]);
+  const yourName = useYourName();
+  function quoteOf(idx: number): { author: string; text: string } | null | undefined {
+    const item = displayItems[idx];
+    if (!showsQuote(item.replyTo, displayItems[idx - 1]?.msgId)) return undefined;
+    const quoted = byMsgId.get(item.replyTo!);
+    if (!quoted) return null;
+    return { author: quoted.isUser ? yourName : pekoFace.name, text: quoted.event.content ?? "" };
+  }
+  function jumpTo(msgId: string) {
+    document
+      .querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
   if (isLoading) {
     return (
@@ -1197,9 +1275,23 @@ export default function Chat() {
             )}
             {displayItems.map((item, idx) => (
               <Fragment key={item.event.timestamp ?? idx}>
+                <div data-msg-id={item.msgId}>
                 <ChatMessage
                   item={item}
                   peko={pekoFace}
+                  quote={quoteOf(idx)}
+                  onJumpToQuote={item.replyTo ? () => jumpTo(item.replyTo!) : undefined}
+                  onReply={
+                    item.msgId && item.event.type !== "error"
+                      ? () =>
+                          setReplying({
+                            msgId: item.msgId!,
+                            author: item.isUser ? yourName : pekoFace.name,
+                            text: item.event.content ?? "",
+                          })
+                      : undefined
+                  }
+                  onReact={item.msgId ? (emoji, remove) => void react(item.msgId!, emoji, remove) : undefined}
                   onRetry={
                     idx === retryIdx && retryText && !isStreaming
                       ? () => void sendText(retryText)
@@ -1219,6 +1311,7 @@ export default function Chat() {
                   }
                   waitsForNetwork={!!hostWaits}
                 />
+                </div>
               </Fragment>
             ))}
             {isStreaming && awaitingToken && (
@@ -1288,6 +1381,14 @@ export default function Chat() {
       )}
 
       <div className="bg-surface px-4 pb-4 pt-2">
+        {reactError && <p className="mb-1 text-xs text-danger">{reactError}</p>}
+        {replying && (
+          <ReplyingBar
+            author={replying.author}
+            text={replying.text}
+            onCancel={() => setReplying(null)}
+          />
+        )}
         <Composer
           value={input}
           onChange={setInput}

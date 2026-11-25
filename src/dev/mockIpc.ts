@@ -105,15 +105,42 @@ const remotePekos = [
   },
 ];
 
+/**
+ * Runtime ADR-126: reactions the mock engine holds, by message id: who
+ * put which emoji on it. Seeded with one of the peko's on your message.
+ */
+const mockReactions = new Map<string, { emoji: string; by: string[] }[]>([
+  ["m_aria_3", [{ emoji: "👍", by: ["principal:local:prin_aria"] }]],
+]);
+
+function toggleReaction(to: string, emoji: string, by: string, remove: boolean) {
+  const list = mockReactions.get(to) ?? [];
+  const i = list.findIndex((r) => r.emoji === emoji);
+  if (remove && i >= 0) {
+    list[i] = { ...list[i], by: list[i].by.filter((a) => a !== by) };
+    if (list[i].by.length === 0) list.splice(i, 1);
+  } else if (!remove && i >= 0 && !list[i].by.includes(by)) {
+    list[i] = { ...list[i], by: [...list[i].by, by] };
+  } else if (!remove && i < 0) {
+    list.push({ emoji, by: [by] });
+  }
+  mockReactions.set(to, list);
+}
+
+/** Group reactions as the log holds them: reaction posts. */
+const mockGroupReacts: Record<string, unknown>[] = [];
+
 function messages(peko: string) {
   const p = `principal:local:prin_${peko}`;
   const u = "user:local";
   const m = (i: number, sender: string, text: string, mins: number, extra = {}) => ({
     schemaVersion: 1,
     id: `chat_${peko}_${i}`,
+    msgId: `m_${peko}_${i}`,
     sender,
     timestamp: ago(mins),
     text,
+    reactions: mockReactions.get(`m_${peko}_${i}`) ?? [],
     ...extra,
   });
   return [
@@ -124,13 +151,13 @@ function messages(peko: string) {
       "Sure. Here's where things stand:\n\n1. **Hydrometallurgy** is still the most-cited route — three of the five papers use it.\n2. Two papers compare *direct recycling* costs; both land around **$4–6/kWh**.\n3. Open question: none of them report lithium recovery above 92%.\n\n```python\nrecovery = {\"hydro\": 0.92, \"pyro\": 0.71, \"direct\": 0.88}\n```\n\nWant me to draft a one-page summary?",
       178,
     ),
-    m(3, u, "Yes please, and put it in my notes folder.", 60),
+    m(3, u, "Yes please, and put it in my notes folder.", 60, { replyTo: `m_${peko}_2` }),
     m(
       4,
       p,
       "Done — saved `notes/battery-recycling.md`. I also set a check-in for Friday to look for new preprints.",
       58,
-      { options: ["Show me the summary", "Add two more sources"] },
+      { options: ["Show me the summary", "Add two more sources"], replyTo: `m_${peko}_1` },
     ),
   ];
 }
@@ -173,7 +200,9 @@ function channelEvents(channelId: string) {
       text: "I can handle the release build and the changelog.",
       at: ago(30),
       msg_id: "m3",
+      reply_to: "m1",
     },
+    ...mockGroupReacts.filter((e) => e.channel === ch.channelId),
   ];
 }
 
@@ -383,7 +412,23 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
         messages: messages(String(args.name ?? "aria")),
         next_cursor: null,
         has_more: false,
+        channel: `dm_${String(args.name ?? "aria")}`,
       };
+    case "principal_react":
+      toggleReaction(String(args.to), String(args.emoji), "user:local", !!args.remove);
+      return null;
+    case "channel_react":
+      mockGroupReacts.push({
+        kind: "posted",
+        channel: String(args.channelId),
+        author: "user:local",
+        parent: null,
+        text: `mira reacted ${String(args.emoji)}`,
+        at: new Date().toISOString(),
+        msg_id: `r${mockGroupReacts.length}`,
+        react: { to: String(args.to), emoji: String(args.emoji), ...(args.remove ? { remove: true } : {}) },
+      });
+      return null;
     case "principal_log_watch_start":
       return 1;
     case "principal_usage":

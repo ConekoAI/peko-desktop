@@ -118,5 +118,15 @@
   "begin": "发一条消息开始吧…",
   "working": "{{name}} 正在工作",
   "workingFor": "{{name}} 正在工作 · {{seconds}} 秒",
-  "waitsSameNetwork": "等到你们在同一网络时发送"
+  "waitsSameNetwork": "等到你们在同一网络时发送",
+  "message": {
+    "reply": "回复",
+    "react": "回应",
+    "otherEmoji": "其他表情",
+    "reactedBy": "{{names}}：{{emoji}}",
+    "you": "你",
+    "notLoaded": "未加载的消息",
+    "replyingTo": "回复 {{name}}",
+    "reactFailed": "无法回应：{{reason}}"
+  }
 }

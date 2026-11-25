@@ -1,3 +1,4 @@
+import type { ReactOp, Reaction } from "../lib/reactions";
 export interface RuntimeConnection {
   id: string;
   name: string;
@@ -173,6 +174,10 @@ export interface ChatLogMessage {
   ask?: Ask;
   /** Your answers to an earlier message's questions (runtime ADR-114). */
   answers?: Answers;
+  /** The `msg_id` of the message this one replies to (runtime ADR-126). */
+  replyTo?: string | null;
+  /** The emoji on the message, with who put them there (runtime ADR-126). */
+  reactions?: Reaction[];
 }
 
 /**
@@ -239,6 +244,8 @@ export interface ChatLogPage {
    * succeeds.
    */
   runFailure?: RunFailure | null;
+  /** The DM this thread is (runtime ADR-126), for reacting on it. */
+  channel?: string | null;
 }
 
 /** Why the peko's last run in a conversation did not go through. */
@@ -698,6 +705,10 @@ export type ChannelEvent =
       ask?: Ask;
       /** Runtime ADR-114: a person's answers to a post's questions. */
       answers?: Answers;
+      /** Runtime ADR-126: the `msg_id` of the post this one replies to. */
+      reply_to?: string | null;
+      /** Runtime ADR-126: this post is a reaction, not a message. */
+      react?: ReactOp | null;
     }
   | {
       kind: "member_joined";

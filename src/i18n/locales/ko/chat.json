@@ -118,5 +118,15 @@
   "begin": "메시지를 보내 시작하세요…",
   "working": "{{name}} 작업 중",
   "workingFor": "{{name}} 작업 중 · {{seconds}}초",
-  "waitsSameNetwork": "같은 네트워크에 올 때까지 기다리는 중"
+  "waitsSameNetwork": "같은 네트워크에 올 때까지 기다리는 중",
+  "message": {
+    "reply": "답장",
+    "react": "반응",
+    "otherEmoji": "다른 이모지",
+    "reactedBy": "{{names}}님의 {{emoji}}",
+    "you": "나",
+    "notLoaded": "불러오지 않은 메시지",
+    "replyingTo": "{{name}}님에게 답장",
+    "reactFailed": "반응하지 못했어요: {{reason}}"
+  }
 }

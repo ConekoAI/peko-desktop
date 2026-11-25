@@ -120,5 +120,15 @@
   "begin": "Sende eine Nachricht, um zu beginnen…",
   "working": "{{name}} arbeitet",
   "workingFor": "{{name}} arbeitet · {{seconds}} s",
-  "waitsSameNetwork": "Wartet, bis ihr im selben Netzwerk seid"
+  "waitsSameNetwork": "Wartet, bis ihr im selben Netzwerk seid",
+  "message": {
+    "reply": "Antworten",
+    "react": "Reagieren",
+    "otherEmoji": "Beliebiges Emoji",
+    "reactedBy": "{{emoji}} von {{names}}",
+    "you": "Du",
+    "notLoaded": "Eine Nachricht, die nicht geladen ist",
+    "replyingTo": "Antwort an {{name}}",
+    "reactFailed": "Reaktion fehlgeschlagen: {{reason}}"
+  }
 }

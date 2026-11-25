@@ -32,14 +32,16 @@ export interface UseChannelPostArgs {
   runtimeId?: RuntimeId;
   /** Answers to a post's questions (runtime ADR-114). */
   answers?: Answers;
+  /** Reply to this message, by `msg_id` (runtime ADR-126). */
+  replyTo?: string | null;
 }
 
 export function useChannelPost(runtimeId?: RuntimeId) {
   const qc = useQueryClient();
 
   return useMutation<string, ChannelError, UseChannelPostArgs>({
-    mutationFn: ({ channelId, senderName, text, parent, answers }) =>
-      channelPost(channelId, senderName, text, parent, runtimeId, undefined, answers).catch(
+    mutationFn: ({ channelId, senderName, text, parent, answers, replyTo }) =>
+      channelPost(channelId, senderName, text, parent, runtimeId, undefined, answers, replyTo).catch(
         rethrowAsChannelError,
       ),
     onSuccess: (_taskId, vars) => {

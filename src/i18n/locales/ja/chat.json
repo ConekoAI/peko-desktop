@@ -118,5 +118,15 @@
   "begin": "メッセージを送って始めましょう…",
   "working": "{{name}} が作業中",
   "workingFor": "{{name}} が作業中 · {{seconds}} 秒",
-  "waitsSameNetwork": "同じネットワークに来るまで待っています"
+  "waitsSameNetwork": "同じネットワークに来るまで待っています",
+  "message": {
+    "reply": "返信",
+    "react": "リアクション",
+    "otherEmoji": "ほかの絵文字",
+    "reactedBy": "{{names}} が {{emoji}}",
+    "you": "あなた",
+    "notLoaded": "読み込まれていないメッセージ",
+    "replyingTo": "{{name}} に返信",
+    "reactFailed": "リアクションできませんでした: {{reason}}"
+  }
 }

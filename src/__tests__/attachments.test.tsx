@@ -172,6 +172,24 @@ describe("attachments", () => {
     expect(items[0].isUser).toBe(false);
     expect(items[0].attachments?.[0].mime).toBe("image/svg+xml");
   });
+
+  // Runtime ADR-126: a row's reply and reactions ride to the thread.
+  it("keeps a message's reply and reactions", () => {
+    const items = chatLogMessagesToChatItems([
+      {
+        schemaVersion: 1,
+        id: "chan_3",
+        sender: "user:local",
+        timestamp: "2026-11-25T10:00:00Z",
+        text: "yes",
+        msgId: "m3",
+        replyTo: "m1",
+        reactions: [{ emoji: "👍", by: ["principal:local:prin_x"] }],
+      },
+    ]);
+    expect(items[0].replyTo).toBe("m1");
+    expect(items[0].reactions?.[0].emoji).toBe("👍");
+  });
 });
 
 describe("model inputs", () => {

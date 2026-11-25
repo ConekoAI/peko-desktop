@@ -548,6 +548,8 @@ export async function principalSendStream(
   overrideModel?: string,
   attachments?: string[],
   answers?: Answers,
+  /** The DM message this one replies to, by `msg_id` (runtime ADR-126). */
+  replyTo?: string | null,
 ): Promise<PrincipalSendStreamResult> {
   const channel = new Channel<ChatStreamMsg>();
   channel.onmessage = onEvent;
@@ -566,7 +568,40 @@ export async function principalSendStream(
     // Answers to a message's questions (ADR-114); `message` is their
     // readable text.
     answers: answers ?? null,
+    replyTo: replyTo ?? null,
   });
+}
+
+/**
+ * Put your `emoji` on a message in your DM with a peko, or take it off
+ * (runtime ADR-126). `channel` is the DM (`ChatLogPage.channel`).
+ */
+export async function principalReact(
+  name: string,
+  runtimeId: RuntimeId | undefined,
+  channel: string | null | undefined,
+  to: string,
+  emoji: string,
+  remove = false,
+): Promise<void> {
+  return invoke<void>("principal_react", {
+    name,
+    runtimeId: runtimeId ?? null,
+    channel: channel ?? null,
+    to,
+    emoji,
+    remove,
+  });
+}
+
+/** Put your `emoji` on a message in a group or DM, or take it off (runtime ADR-126). */
+export async function channelReact(
+  channelId: string,
+  to: string,
+  emoji: string,
+  remove = false,
+): Promise<void> {
+  return invoke<void>("channel_react", { channelId, to, emoji, remove });
 }
 
 /** A local peko's usage this cycle (tokens, requests, spend) and limits. */
@@ -2464,6 +2499,8 @@ export async function channelPost(
   attachments?: string[],
   /** Answers to a post's questions (runtime ADR-114); a root post only. */
   answers?: Answers,
+  /** Reply to this message, by `msg_id` (runtime ADR-126). */
+  replyTo?: string | null,
 ): Promise<string> {
   return invoke<string>("channel_post", {
     channelId,
@@ -2473,6 +2510,7 @@ export async function channelPost(
     runtimeId: runtimeId ?? null,
     attachments: attachments ?? null,
     answers: answers ?? null,
+    replyTo: replyTo ?? null,
   });
 }
 

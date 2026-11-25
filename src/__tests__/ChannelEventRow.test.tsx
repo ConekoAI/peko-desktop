@@ -228,4 +228,56 @@ describe("ChannelEventRow", () => {
     expect(row).toHaveTextContent("alice took “run the tests”");
     expect(screen.queryByTestId("channel-event-row-posted")).toBeNull();
   });
+
+  // Runtime ADR-126: a reaction post is no row; a post shows its chips and
+  // the message it replies to.
+  it("draws no reaction post, and shows a post's reactions and quote", () => {
+    channelInfo.data = undefined;
+    const base = {
+      kind: "posted" as const,
+      channel: "group:x",
+      author: "principal:local:prin_alice",
+      parent: null,
+      text: "the tests pass now",
+      at: "2026-11-25T10:00:00Z",
+      msg_id: "m2",
+    };
+    const { container, unmount } = render(
+      <ChannelEventRow event={{ ...base, react: { to: "m1", emoji: "👍" } }} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+    unmount();
+    render(
+      <ChannelEventRow
+        event={{ ...base, reply_to: "m1" }}
+        reactions={[{ emoji: "🎉", by: ["principal:local:prin_bob"] }]}
+        quote={{ author: "maya", text: "can you run the tests?" }}
+        onReact={() => {}}
+        onReply={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("reply-quote")).toHaveTextContent("maya");
+    expect(screen.getByTestId("reply-quote")).toHaveTextContent("can you run the tests?");
+    expect(screen.getByTestId("reaction-chip")).toHaveTextContent("🎉1");
+    expect(screen.getByTestId("message-reply")).toBeInTheDocument();
+  });
+
+  it("says when the replied-to message isn't loaded", () => {
+    render(
+      <ChannelEventRow
+        event={{
+          kind: "posted",
+          channel: "group:x",
+          author: "user:local",
+          parent: null,
+          text: "yes",
+          at: "2026-11-25T10:00:00Z",
+          msg_id: "m3",
+          reply_to: "gone",
+        }}
+        quote={null}
+      />,
+    );
+    expect(screen.getByTestId("reply-quote")).toHaveTextContent(/isn't loaded/);
+  });
 });

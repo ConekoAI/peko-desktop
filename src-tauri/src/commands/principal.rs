@@ -690,7 +690,7 @@ pub async fn principal_send(
         }
         // A remote peko: post to the DM; its reply arrives on the thread.
         crate::state::ResolvedRuntime::HubRemote(client) => {
-            client.send(&message, &[], None, None).await?;
+            client.send(&message, &[], None, None, None).await?;
             Ok(String::new())
         }
     }
@@ -733,6 +733,7 @@ pub async fn principal_send_stream(
     override_model: Option<String>,
     attachments: Option<Vec<String>>,
     answers: Option<serde_json::Value>,
+    reply_to: Option<String>,
 ) -> Result<PrincipalSendStreamResult, String> {
     let attachments = attachments.unwrap_or_default();
     // Route by runtime_id. Local → the daemon's streamed run; a remote
@@ -760,6 +761,7 @@ pub async fn principal_send_stream(
                         override_model,
                         attachments,
                         answers,
+                        reply_to,
                     },
                     {
                         let channel = on_event.clone();
@@ -786,6 +788,7 @@ pub async fn principal_send_stream(
                     &attachments,
                     override_model.as_deref(),
                     answers.as_ref(),
+                    reply_to.as_deref(),
                 )
                 .await?;
             let _ = on_event.send(crate::ipc::ChatStreamMsg::Queued { message });
@@ -797,6 +800,47 @@ pub async fn principal_send_stream(
         request_id,
         content,
     })
+}
+
+/// Put your `emoji` on a message in your DM with a peko, or take it off
+/// (runtime ADR-126): `to` is the message's `msg_id`, `channel` the DM
+/// (`principal_log` names it; a peko on another computer finds its own).
+/// The reaction wakes no one.
+#[tauri::command]
+pub async fn principal_react(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    runtime_id: Option<String>,
+    channel: Option<String>,
+    to: String,
+    emoji: String,
+    remove: Option<bool>,
+) -> Result<(), String> {
+    let remove = remove.unwrap_or(false);
+    let channel = match state
+        .resolve_peko_runtime(runtime_id.as_deref(), &name)
+        .await
+    {
+        crate::state::ResolvedRuntime::HubRemote(client) => client.dm_channel().await?,
+        crate::state::ResolvedRuntime::Local => {
+            channel.ok_or("This conversation can't take reactions yet: reload it.")?
+        }
+    };
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let answer = client
+        .channel_react(&channel, &to, &emoji, remove)
+        .await
+        .map_err(|e| format!("Couldn't react: {e}"))?;
+    if crate::ipc::is_error_response(&answer) {
+        return Err(answer
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("Couldn't react.")
+            .to_string());
+    }
+    Ok(())
 }
 
 /// The models one of your pekos on another computer can answer you with,

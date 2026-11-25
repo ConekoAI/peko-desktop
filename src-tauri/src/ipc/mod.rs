@@ -181,6 +181,10 @@ pub struct StreamSend {
     /// Answers to a message's questions (runtime ADR-114), passed through
     /// as the runtime's `Answers` shape; `message` is their readable text.
     pub answers: Option<serde_json::Value>,
+    /// The `msg_id` of the DM message this one replies to (runtime
+    /// ADR-126); sent only when set, so an older engine is not handed a
+    /// field it does not know.
+    pub reply_to: Option<String>,
 }
 
 /// The `[queued]` prefix the runtime puts on a streaming send's
@@ -922,9 +926,10 @@ impl IpcClient {
             override_model,
             attachments,
             answers,
+            reply_to,
         } = send;
 
-        let request = serde_json::json!({
+        let mut request = serde_json::json!({
             "type": "principal_send_stream",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": request_id,
@@ -946,6 +951,9 @@ impl IpcClient {
             // "local"`; the runtime now rejects unknown fields on
             // these packets.
         });
+        if let Some(reply_to) = reply_to {
+            request["reply_to"] = serde_json::Value::String(reply_to);
+        }
 
         let bytes =
             serde_json::to_vec(&request).map_err(|e| IpcError::Serialization(e.to_string()))?;
@@ -2578,6 +2586,54 @@ impl IpcClient {
             "attachments": attachments,
             "model": model,
             "answers": answers,
+        });
+        self.request_response(req).await
+    }
+
+    /// Post a reply to the message `reply_to` (a `msg_id`, runtime
+    /// ADR-126 D6) on `channel` as yourself.
+    pub async fn channel_post_reply(
+        &self,
+        channel: &str,
+        text: &str,
+        reply_to: &str,
+        attachments: &[String],
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_post",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "sender_name": null,
+            "text": text,
+            "parent": null,
+            "attachments": attachments,
+            "reply_to": reply_to,
+        });
+        self.request_response(req).await
+    }
+
+    /// Put your `emoji` on the message `to` (a `msg_id`) on `channel`,
+    /// or take it off (`remove`): runtime ADR-126 D1. A reaction is a
+    /// post the engine writes; it wakes no one.
+    pub async fn channel_react(
+        &self,
+        channel: &str,
+        to: &str,
+        emoji: &str,
+        remove: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "channel_post",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "sender_name": null,
+            "text": "",
+            "parent": null,
+            "react": { "to": to, "emoji": emoji, "remove": remove },
         });
         self.request_response(req).await
     }

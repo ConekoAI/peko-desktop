@@ -124,5 +124,15 @@
   "begin": "Отправьте сообщение, чтобы начать…",
   "working": "{{name}} работает",
   "workingFor": "{{name}} работает · {{seconds}} с",
-  "waitsSameNetwork": "Ждёт, пока вы не окажетесь в одной сети"
+  "waitsSameNetwork": "Ждёт, пока вы не окажетесь в одной сети",
+  "message": {
+    "reply": "Ответить",
+    "react": "Реакция",
+    "otherEmoji": "Другой эмодзи",
+    "reactedBy": "{{emoji}} от {{names}}",
+    "you": "Вы",
+    "notLoaded": "Сообщение не загружено",
+    "replyingTo": "Ответ для {{name}}",
+    "reactFailed": "Не удалось отреагировать: {{reason}}"
+  }
 }
