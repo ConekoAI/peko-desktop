@@ -119,7 +119,13 @@
     "accountCodeHint": "Someone who wants to be sure they reach you can ask you to read it. It changes only if all your devices are set up again.",
     "itsCode": "Its code",
     "untilNow": "Until now",
-    "compare": "Ask its owner to read you the code on their screen. Approve only if it matches."
+    "compare": "Ask its owner to read you the code on their screen. Approve only if it matches.",
+    "path": {
+      "direct": "Direct",
+      "relay": "Through PekoHub",
+      "waiting": "Waiting for the same network",
+      "offline": "Offline"
+    }
   },
   "privacy": {
     "title": "Privacy",
@@ -135,5 +141,44 @@
     },
     "changeLater": "You can change this any time in Settings.",
     "continue": "Continue"
+  },
+  "network": {
+    "title": "Network",
+    "hint": "How this computer reaches your other computers and the people you talk with. Messages are sealed either way; a direct connection also keeps PekoHub from seeing who talks with whom.",
+    "how": "How this computer connects",
+    "automatic": {
+      "label": "Automatic",
+      "hint": "Directly when the other computer is on the same network, through PekoHub otherwise."
+    },
+    "pekohub": {
+      "label": "PekoHub only",
+      "hint": "Everything goes through PekoHub."
+    },
+    "direct": {
+      "label": "Direct only",
+      "hint": "Never through PekoHub. Messages wait until the other computer is on the same network."
+    },
+    "listenError": "This computer can't accept direct connections: {{reason}}. It still connects to others.",
+    "accepts": "This computer will accept connections from your computers on this network. macOS or Windows may ask you to allow it.",
+    "directStops": "With Direct only, nothing of a conversation goes through PekoHub:",
+    "stopsWait": "Messages to computers on other networks wait until they are on the same network.",
+    "stopsPhones": "Your phones get no answers and no notifications.",
+    "stopsWebChat": "Web chat with your public pekos stops.",
+    "turnOnDirect": "Turn on Direct only",
+    "turnOnAutomatic": "Turn on Automatic",
+    "with": {
+      "title": "Connect directly with",
+      "mine": "My computers",
+      "people": "People I talk with"
+    },
+    "advanced": {
+      "title": "Advanced",
+      "listen": "Listen on",
+      "listenHint": "An address and port on this computer (default 0.0.0.0:11438). Now: {{listening}}",
+      "tell": "Addresses to tell others",
+      "tellHint": "One per line, host:port. Empty: this computer's own network addresses ({{told}}).",
+      "try": "Addresses to try",
+      "tryHint": "One per line, host:port: computers to connect to without being told where they are."
+    }
   }
 }

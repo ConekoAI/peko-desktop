@@ -63,6 +63,17 @@ describe("AccountDevices", () => {
     }
   });
 
+  it("shows how each other computer is reached (runtime ADR-125)", async () => {
+    const laptop = { ...desk, id: "did:key:zLaptop", name: "Laptop", this: false, path: "direct" as const };
+    const studio = { ...desk, id: "did:key:zStudio", name: "Studio", this: false, path: "waiting" as const };
+    accountDevicesMock.mockResolvedValue(view({ devices: [desk, laptop, studio, phone] }));
+    renderCard();
+    expect(await screen.findByTestId("device-path-did:key:zLaptop")).toHaveTextContent("Direct");
+    expect(screen.getByTestId("device-path-did:key:zStudio")).toHaveTextContent("Waiting for the same network");
+    expect(screen.queryByTestId(`device-path-${desk.id}`)).toBeNull();
+    expect(screen.queryByTestId(`device-path-${phone.id}`)).toBeNull();
+  });
+
   it("lists the account's devices and shows a code that adds one", async () => {
     accountDevicesMock.mockResolvedValue(view());
     deviceAddMock.mockResolvedValue({ code: "K7DX-KQ7R-MTPZ", svg: SVG, expiresAt: new Date(Date.now() + 600_000).toISOString() });

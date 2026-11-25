@@ -121,5 +121,6 @@
   "dropFiles": "Solte os arquivos para anexar",
   "begin": "Envie uma mensagem para começar…",
   "working": "{{name}} está trabalhando",
-  "workingFor": "{{name}} está trabalhando · {{seconds}} s"
+  "workingFor": "{{name}} está trabalhando · {{seconds}} s",
+  "waitsSameNetwork": "Espera até vocês estarem na mesma rede"
 }

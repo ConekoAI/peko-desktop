@@ -297,6 +297,12 @@ function DeviceRow({
           {kind}
           {added && ` · ${t("settings.devices.addedAt", { when: added })}`}
           {device.lastSeen && ` · ${t("settings.devices.lastSeen", { when: timeAgo(device.lastSeen) })}`}
+          {device.path && (
+            // Runtime ADR-125 D11: how this computer reaches it now.
+            <span data-testid={`device-path-${device.id}`}>
+              {` · ${t(`settings.devices.path.${device.path}`)}`}
+            </span>
+          )}
         </div>
       </div>
       {!onList ? null : confirming ? (

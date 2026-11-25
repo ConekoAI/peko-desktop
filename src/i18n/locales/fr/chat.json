@@ -121,5 +121,6 @@
   "dropFiles": "Déposez les fichiers pour les joindre",
   "begin": "Envoyez un message pour commencer…",
   "working": "{{name}} travaille",
-  "workingFor": "{{name}} travaille · {{seconds}} s"
+  "workingFor": "{{name}} travaille · {{seconds}} s",
+  "waitsSameNetwork": "Attend que vous soyez sur le même réseau"
 }

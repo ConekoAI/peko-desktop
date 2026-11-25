@@ -117,5 +117,6 @@
   "dropFiles": "放開即可附加檔案",
   "begin": "傳一則訊息開始吧…",
   "working": "{{name}} 正在工作",
-  "workingFor": "{{name}} 正在工作 · {{seconds}} 秒"
+  "workingFor": "{{name}} 正在工作 · {{seconds}} 秒",
+  "waitsSameNetwork": "等到你們在同一網路時送出"
 }

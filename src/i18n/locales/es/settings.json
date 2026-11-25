@@ -119,7 +119,13 @@
     "accountCodeHint": "Quien quiera asegurarse de que te llega puede pedirte que lo leas. Solo cambia si vuelves a configurar todos tus dispositivos.",
     "itsCode": "Su código",
     "untilNow": "Hasta ahora",
-    "compare": "Pide a su dueño que te lea el código de su pantalla. Aprueba solo si coincide."
+    "compare": "Pide a su dueño que te lea el código de su pantalla. Aprueba solo si coincide.",
+    "path": {
+      "direct": "Directo",
+      "relay": "Por PekoHub",
+      "waiting": "Esperando la misma red",
+      "offline": "Sin conexión"
+    }
   },
   "privacy": {
     "title": "Privacidad",
@@ -135,5 +141,44 @@
     },
     "changeLater": "Puedes cambiarlo cuando quieras en Ajustes.",
     "continue": "Continuar"
+  },
+  "network": {
+    "title": "Red",
+    "hint": "Cómo este ordenador llega a tus otros ordenadores y a las personas con las que hablas. Los mensajes van sellados en cualquier caso; una conexión directa además impide que PekoHub vea quién habla con quién.",
+    "how": "Cómo se conecta este ordenador",
+    "automatic": {
+      "label": "Automático",
+      "hint": "Directamente cuando el otro ordenador está en la misma red; por PekoHub si no."
+    },
+    "pekohub": {
+      "label": "Solo PekoHub",
+      "hint": "Todo pasa por PekoHub."
+    },
+    "direct": {
+      "label": "Solo directo",
+      "hint": "Nunca por PekoHub. Los mensajes esperan hasta que el otro ordenador esté en la misma red."
+    },
+    "listenError": "Este ordenador no puede aceptar conexiones directas: {{reason}}. Aun así se conecta con los demás.",
+    "accepts": "Este ordenador aceptará conexiones de tus ordenadores en esta red. macOS o Windows pueden pedirte que lo permitas.",
+    "directStops": "Con Solo directo, nada de una conversación pasa por PekoHub:",
+    "stopsWait": "Los mensajes a ordenadores de otras redes esperan hasta que estén en la misma red.",
+    "stopsPhones": "Tus teléfonos no reciben respuestas ni notificaciones.",
+    "stopsWebChat": "El chat web con tus pekos públicos se detiene.",
+    "turnOnDirect": "Activar Solo directo",
+    "turnOnAutomatic": "Activar Automático",
+    "with": {
+      "title": "Conectar directamente con",
+      "mine": "Mis ordenadores",
+      "people": "Personas con las que hablo"
+    },
+    "advanced": {
+      "title": "Avanzado",
+      "listen": "Escuchar en",
+      "listenHint": "Una dirección y un puerto de este ordenador (por defecto 0.0.0.0:11438). Ahora: {{listening}}",
+      "tell": "Direcciones que se indican a otros",
+      "tellHint": "Una por línea, host:puerto. Vacío: las direcciones de red de este ordenador ({{told}}).",
+      "try": "Direcciones que probar",
+      "tryHint": "Una por línea, host:puerto: ordenadores a los que conectarse sin que digan dónde están."
+    }
   }
 }

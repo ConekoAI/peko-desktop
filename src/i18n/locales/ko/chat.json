@@ -117,5 +117,6 @@
   "dropFiles": "놓아서 첨부",
   "begin": "메시지를 보내 시작하세요…",
   "working": "{{name}} 작업 중",
-  "workingFor": "{{name}} 작업 중 · {{seconds}}초"
+  "workingFor": "{{name}} 작업 중 · {{seconds}}초",
+  "waitsSameNetwork": "같은 네트워크에 올 때까지 기다리는 중"
 }

@@ -252,9 +252,36 @@ const settings = [
 
 let privacy = { acknowledged: true, crashReports: true, usageEvents: true };
 let planPolls = 0;
+// Runtime ADR-125: how this computer connects.
+let network = {
+  connection: "pekohub",
+  directWith: "mine",
+  listening: null as string | null,
+  told: [] as string[],
+  listenError: null as string | null,
+  peers: [
+    { runtimeId: "did:key:z6MkMockLaptop", account: "user:hub:you", name: "Laptop", path: "relay" },
+  ],
+  directListen: null as string | null,
+  directAddresses: [] as string[],
+  directPeers: [] as string[],
+};
 
 function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
   switch (cmd) {
+    case "network_status":
+      return network;
+    case "network_settings_set": {
+      const change = (args.change ?? {}) as Partial<typeof network> & { directListen?: string };
+      network = { ...network, ...change, directListen: change.directListen === "" ? null : (change.directListen ?? network.directListen) };
+      const links = network.connection !== "pekohub";
+      network.listening = links ? (network.directListen ?? "0.0.0.0:11438") : null;
+      network.told = links ? ["192.168.1.20:11438"] : [];
+      network.peers = network.peers.map((p) => ({ ...p, path: links ? "direct" : "relay" }));
+      return network;
+    }
+    case "network_link_retry":
+      return null;
     case "engine_status":
       return { kind: "running", pid: 4242, version: "0.1.0", uptime_secs: 3600 };
     case "engine_diagnostics":

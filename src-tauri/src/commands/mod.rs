@@ -5,6 +5,7 @@ pub mod device;
 pub mod engine;
 pub mod hub_http;
 pub mod model_admin;
+pub mod network;
 pub mod oauth_callback;
 pub mod principal;
 pub mod remote_principal;
@@ -79,6 +80,9 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         channel::blocked_people,
         channel::set_person_blocked,
         device::account_devices,
+        network::network_status,
+        network::network_settings_set,
+        network::network_link_retry,
         device::device_add,
         device::device_join,
         device::device_remove,

@@ -119,7 +119,13 @@
     "accountCodeHint": "Quem quiser ter certeza de que fala com você pode pedir que você o leia. Ele só muda se todos os seus dispositivos forem configurados de novo.",
     "itsCode": "Código",
     "untilNow": "Até agora",
-    "compare": "Peça ao dono que leia para você o código na tela dele. Aprove só se for igual."
+    "compare": "Peça ao dono que leia para você o código na tela dele. Aprove só se for igual.",
+    "path": {
+      "direct": "Direto",
+      "relay": "Pelo PekoHub",
+      "waiting": "Esperando a mesma rede",
+      "offline": "Offline"
+    }
   },
   "privacy": {
     "title": "Privacidade",
@@ -135,5 +141,44 @@
     },
     "changeLater": "Você pode mudar isso quando quiser nos Ajustes.",
     "continue": "Continuar"
+  },
+  "network": {
+    "title": "Rede",
+    "hint": "Como este computador alcança seus outros computadores e as pessoas com quem você conversa. As mensagens vão seladas de qualquer jeito; uma conexão direta também impede o PekoHub de ver quem fala com quem.",
+    "how": "Como este computador se conecta",
+    "automatic": {
+      "label": "Automático",
+      "hint": "Diretamente quando o outro computador está na mesma rede; pelo PekoHub caso contrário."
+    },
+    "pekohub": {
+      "label": "Só PekoHub",
+      "hint": "Tudo passa pelo PekoHub."
+    },
+    "direct": {
+      "label": "Só direto",
+      "hint": "Nunca pelo PekoHub. As mensagens esperam até o outro computador estar na mesma rede."
+    },
+    "listenError": "Este computador não consegue aceitar conexões diretas: {{reason}}. Ele continua se conectando aos outros.",
+    "accepts": "Este computador vai aceitar conexões dos seus computadores nesta rede. O macOS ou o Windows pode pedir que você permita.",
+    "directStops": "Com Só direto, nada de uma conversa passa pelo PekoHub:",
+    "stopsWait": "Mensagens para computadores em outras redes esperam até eles estarem na mesma rede.",
+    "stopsPhones": "Seus celulares não recebem respostas nem notificações.",
+    "stopsWebChat": "O chat web com seus pekos públicos para.",
+    "turnOnDirect": "Ativar Só direto",
+    "turnOnAutomatic": "Ativar Automático",
+    "with": {
+      "title": "Conectar diretamente com",
+      "mine": "Meus computadores",
+      "people": "Pessoas com quem converso"
+    },
+    "advanced": {
+      "title": "Avançado",
+      "listen": "Escutar em",
+      "listenHint": "Um endereço e uma porta deste computador (padrão 0.0.0.0:11438). Agora: {{listening}}",
+      "tell": "Endereços informados aos outros",
+      "tellHint": "Um por linha, host:porta. Vazio: os endereços de rede deste computador ({{told}}).",
+      "try": "Endereços para tentar",
+      "tryHint": "Um por linha, host:porta: computadores para conectar sem que digam onde estão."
+    }
   }
 }
