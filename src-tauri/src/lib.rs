@@ -12,6 +12,7 @@ pub mod telemetry;
 pub mod tray;
 pub mod updater;
 pub mod usage;
+pub mod window_fit;
 
 /// The peko-runtime version this app needs: the one its release bundles
 /// as the sidecar, and the oldest one it accepts from a daemon it didn't
@@ -136,6 +137,10 @@ pub fn run() {
                     }
                 });
             }
+
+            // The last size and position are back (window-state plugin);
+            // a window saved at another scale may not fit the screen now.
+            window_fit::fit_main_window(app.handle());
 
             // The tray icon: it brings the window back and quits the app. A desktop without a tray still
             // gets the app; there, closing the window quits it.
