@@ -383,6 +383,8 @@ export function usePrincipalSend() {
       attachments?: string[];
       /** Answers to a message's questions (runtime ADR-114). */
       answers?: Answers;
+      /** The DM message this one replies to (runtime ADR-126). */
+      replyTo?: string | null;
     }): Promise<string> => {
       const rid = effectiveRuntimeId(vars.runtimeId);
       if (!vars.onEvent) {
@@ -397,6 +399,7 @@ export function usePrincipalSend() {
         vars.overrideModel,
         vars.attachments,
         vars.answers,
+        vars.replyTo,
       );
       return result.content;
     },

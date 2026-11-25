@@ -129,19 +129,35 @@ impl HubRemoteClient {
         attachments: &[String],
         model: Option<&str>,
         answers: Option<&serde_json::Value>,
+        reply_to: Option<&str>,
     ) -> Result<(), String> {
         let channel = self.open_dm().await?;
         let client = crate::ipc::IpcClient::new()
             .await
             .map_err(|e| format!("IpcClient::new failed: {e}"))?;
-        let answer = client
-            .channel_post(&channel, None, text, None, attachments, model, answers)
-            .await
-            .map_err(|e| format!("channel_post failed: {e}"))?;
+        // Runtime ADR-126 D6: a reply names its message by `msg_id`.
+        let answer = match reply_to {
+            Some(reply_to) => {
+                client
+                    .channel_post_reply(&channel, text, reply_to, attachments)
+                    .await
+            }
+            None => {
+                client
+                    .channel_post(&channel, None, text, None, attachments, model, answers)
+                    .await
+            }
+        }
+        .map_err(|e| format!("channel_post failed: {e}"))?;
         if crate::ipc::is_error_response(&answer) {
             return Err(error_message(&answer, "The message wasn't sent."));
         }
         Ok(())
+    }
+
+    /// The DM this computer holds with the peko (runtime ADR-090).
+    pub async fn dm_channel(&self) -> Result<String, String> {
+        self.open_dm().await
     }
 
     /// Your messages in the DM not yet delivered to the peko's computer
@@ -419,7 +435,14 @@ fn posted_row(id: String, event: &serde_json::Value) -> Option<serde_json::Value
     if event.get("kind").and_then(|k| k.as_str()) != Some("posted") {
         return None;
     }
+    // Runtime ADR-126 D2: a reaction is never a row; it shows on its
+    // message (`reactions`).
+    if event.get("react").is_some_and(|r| !r.is_null()) {
+        return None;
+    }
     Some(serde_json::json!({
+        // Runtime ADR-126 D6: the message this one replies to.
+        "replyTo": event.get("reply_to").cloned().unwrap_or(serde_json::Value::Null),
         "schemaVersion": 1,
         "id": id,
         "sender": event.get("author").and_then(|v| v.as_str()).unwrap_or("unknown"),
@@ -485,6 +508,8 @@ fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
         .and_then(|v| v.as_array())
         .unwrap_or(&empty);
     let first_line = ids.first().and_then(|v| v.as_str()).map(str::to_string);
+    // Runtime ADR-126: the reactions on the page's posts, by `msg_id`.
+    let reactions = answer.get("reactions");
     let messages: Vec<serde_json::Value> = events
         .iter()
         .enumerate()
@@ -493,7 +518,15 @@ fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
                 .get(i)
                 .and_then(|v| v.as_str())
                 .map_or_else(|| format!("row_{i}"), |l| format!("chan_{l}"));
-            posted_row(id, event)
+            let mut row = posted_row(id, event)?;
+            if let Some(on) = event
+                .get("msg_id")
+                .and_then(|v| v.as_str())
+                .and_then(|m| reactions.and_then(|r| r.get(m)))
+            {
+                row["reactions"] = on.clone();
+            }
+            Some(row)
         })
         .collect();
     let has_more = answer
@@ -524,6 +557,7 @@ fn log_page(peer: &str, answer: &serde_json::Value) -> serde_json::Value {
         "has_more": next_cursor.is_some(),
         "messages": messages,
         "next_cursor": next_cursor,
+        "channel": answer.get("channel").cloned().unwrap_or(serde_json::Value::Null),
     })
 }
 
@@ -756,6 +790,31 @@ mod tests {
         assert_eq!(row["msgId"], "m1");
         assert_eq!(row["attachments"], serde_json::json!([]));
         assert_eq!(row["options"], serde_json::json!([]));
+    }
+
+    /// Runtime ADR-126: a reaction is no row, a reply names its message,
+    /// and a page's reactions ride their posts.
+    #[test]
+    fn reactions_ride_their_posts_and_replies_name_their_message() {
+        let mut reply = posted("user:local", "yes");
+        reply["reply_to"] = serde_json::json!("m0");
+        reply["msg_id"] = serde_json::json!("m1");
+        let mut reaction = posted("user:local", "you reacted 👍");
+        reaction["react"] = serde_json::json!({ "to": "m1", "emoji": "👍" });
+        reaction["msg_id"] = serde_json::json!("m2");
+        assert!(posted_row("x".into(), &reaction).is_none());
+        let answer = serde_json::json!({
+            "type": "channel_peek_result",
+            "channel": "dm_abc",
+            "events": [reply, reaction],
+            "event_ids": ["4", "5"],
+            "reactions": { "m1": [{ "emoji": "👍", "by": ["user:local"] }] },
+        });
+        let page = log_page("principal:hub:o/p", &answer);
+        let rows = page["messages"].as_array().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["replyTo"], "m0");
+        assert_eq!(rows[0]["reactions"][0]["emoji"], "👍");
     }
 
     #[test]

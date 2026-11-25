@@ -89,6 +89,8 @@ describe("ChannelComposer", () => {
         // No files, and no answers (runtime ADR-114) on a typed post.
         undefined,
         undefined,
+        // Not a reply (runtime ADR-126).
+        null,
       );
     });
   });

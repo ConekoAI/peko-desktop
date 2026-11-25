@@ -118,5 +118,15 @@
   "begin": "傳一則訊息開始吧…",
   "working": "{{name}} 正在工作",
   "workingFor": "{{name}} 正在工作 · {{seconds}} 秒",
-  "waitsSameNetwork": "等到你們在同一網路時送出"
+  "waitsSameNetwork": "等到你們在同一網路時送出",
+  "message": {
+    "reply": "回覆",
+    "react": "回應",
+    "otherEmoji": "其他表情符號",
+    "reactedBy": "{{names}}：{{emoji}}",
+    "you": "你",
+    "notLoaded": "未載入的訊息",
+    "replyingTo": "回覆 {{name}}",
+    "reactFailed": "無法回應：{{reason}}"
+  }
 }

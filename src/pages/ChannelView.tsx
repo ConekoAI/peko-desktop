@@ -30,6 +30,9 @@ import { personLabel } from "../lib/people";
 import type { Answers, ChannelEvent } from "../types";
 import { useChannelPost } from "../hooks/useChannelPost";
 import { groupCardStates } from "../lib/questions";
+import { foldReactions, showsQuote } from "../lib/reactions";
+import { channelReact } from "../lib/api";
+import { useChannelDirectory } from "../hooks/useChannelDirectory";
 
 /**
  * Channel view. PR-1 read-only + PR-2a composer + PR-3
@@ -162,6 +165,49 @@ export default function ChannelView() {
       ),
     [shown],
   );
+  // Runtime ADR-126: reactions folded from the log, the quote above a
+  // reply (not when it directly follows its message), and the post you
+  // reply to.
+  const reactions = useMemo(() => foldReactions(shown), [shown]);
+  const directory = useChannelDirectory(channelId, personNames);
+  const posts = useMemo(() => {
+    const map = new Map<string, Extract<ChannelEvent, { kind: "posted" }>>();
+    for (const e of shown) if (e.kind === "posted" && !e.react && e.msg_id) map.set(e.msg_id, e);
+    return map;
+  }, [shown]);
+  const [replying, setReplying] = useState<{ msgId: string; author: string; text: string } | null>(null);
+  const [reactError, setReactError] = useState<string | null>(null);
+  useEffect(() => setReplying(null), [channelId]);
+  function quoteAt(i: number): { author: string; text: string } | null | undefined {
+    const e = shown[i];
+    if (e.kind !== "posted" || !e.reply_to) return undefined;
+    let previous: string | undefined;
+    for (let j = i - 1; j >= 0; j--) {
+      const p = shown[j];
+      if (p.kind === "posted" && !p.react) {
+        previous = p.msg_id;
+        break;
+      }
+    }
+    if (!showsQuote(e.reply_to, previous)) return undefined;
+    const quoted = posts.get(e.reply_to);
+    return quoted ? { author: directory.resolve(quoted.author).label, text: quoted.text } : null;
+  }
+  async function react(msgId: string, emoji: string, remove: boolean) {
+    setReactError(null);
+    try {
+      await channelReact(channelId, msgId, emoji, remove);
+      await refetchEvents();
+    } catch (err) {
+      setReactError(err instanceof Error ? err.message : String(err));
+    }
+  }
+  function jumpTo(msgId: string) {
+    document
+      .querySelector(`[data-msg-id="${CSS.escape(msgId)}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  const canPost = isMember || !!person;
   const answerPost = useChannelPost(runtimeId);
   async function answer(text: string, answers: Answers) {
     await answerPost.mutateAsync({ channelId, senderName: null, text, parent: null, answers });
@@ -313,17 +359,43 @@ export default function ChannelView() {
               </div>
             )}
             <ul className="space-y-1">
-              {shown.map((e, i) => (
-                <li key={i} data-testid="channel-event-row">
-                  <ChannelEventRow
-                    event={e}
-                    people={personNames}
-                    channelId={channelId}
-                    card={cardStates[i]}
-                    onAnswer={isMember || person ? answer : undefined}
-                  />
-                </li>
-              ))}
+              {shown.map((e, i) =>
+                e.kind === "posted" && e.react ? null : (
+                  <li
+                    key={i}
+                    data-testid="channel-event-row"
+                    data-msg-id={e.kind === "posted" ? e.msg_id : undefined}
+                  >
+                    <ChannelEventRow
+                      event={e}
+                      people={personNames}
+                      channelId={channelId}
+                      card={cardStates[i]}
+                      onAnswer={canPost ? answer : undefined}
+                      reactions={e.kind === "posted" && e.msg_id ? reactions.get(e.msg_id) : undefined}
+                      quote={quoteAt(i)}
+                      onJumpToQuote={
+                        e.kind === "posted" && e.reply_to ? () => jumpTo(e.reply_to!) : undefined
+                      }
+                      onReply={
+                        canPost && e.kind === "posted" && e.msg_id && !e.board
+                          ? () =>
+                              setReplying({
+                                msgId: e.msg_id!,
+                                author: directory.resolve(e.author).label,
+                                text: e.text,
+                              })
+                          : undefined
+                      }
+                      onReact={
+                        canPost && e.kind === "posted" && e.msg_id && !e.board
+                          ? (emoji, remove) => void react(e.msg_id!, emoji, remove)
+                          : undefined
+                      }
+                    />
+                  </li>
+                ),
+              )}
             </ul>
           </>
         ) : (
@@ -371,12 +443,17 @@ export default function ChannelView() {
         </div>
       )}
       {isMember || person ? (
-        <ChannelComposer
-          channelId={channelId}
-          channelName={person ? personLabel(person) : detail?.name}
-          runtimeId={runtimeId}
-          withPerson={!!person}
-        />
+        <>
+          {reactError && <p className="px-4 text-xs text-danger">{reactError}</p>}
+          <ChannelComposer
+            channelId={channelId}
+            channelName={person ? personLabel(person) : detail?.name}
+            runtimeId={runtimeId}
+            withPerson={!!person}
+            replying={replying}
+            onReplyDone={() => setReplying(null)}
+          />
+        </>
       ) : (
         <div
           className="m-4 mt-2 rounded-xl border border-line bg-surface-raised px-4 py-3 text-center text-xs text-fg-muted"

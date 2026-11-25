@@ -7,6 +7,7 @@ import { insertMention, mentionCandidates, mentionQuery } from "../lib/mentions"
 import { mentionablePekos } from "../lib/channelPeople";
 import { isChannelForbidden } from "../lib/channelErrors";
 import type { RuntimeId } from "../lib/api";
+import { ReplyingBar } from "./chat/Reactions";
 
 /**
  * PR-2a post composer. Mounts at the bottom of `<ChannelView>`. The
@@ -29,7 +30,13 @@ export default function ChannelComposer({
   channelName,
   runtimeId,
   withPerson = false,
+  replying = null,
+  onReplyDone,
 }: {
+  /** The message you reply to (runtime ADR-126 D6), if any. */
+  replying?: { msgId: string; author: string; text: string } | null;
+  /** The reply went out, or you cancelled it. */
+  onReplyDone?: () => void;
   channelId: string;
   /** The group's name, for the placeholder. */
   channelName?: string;
@@ -92,8 +99,10 @@ export default function ChannelComposer({
         senderName: null,
         text: trimmed,
         parent: null,
+        replyTo: replying?.msgId ?? null,
       });
       setDraft("");
+      onReplyDone?.();
       textareaRef.current?.focus();
     } catch {
       // Error rendered inline below; keep the draft so the user
@@ -129,6 +138,9 @@ export default function ChannelComposer({
 
   return (
     <div className="bg-surface px-4 pb-4 pt-2">
+      {replying && onReplyDone && (
+        <ReplyingBar author={replying.author} text={replying.text} onCancel={onReplyDone} />
+      )}
       {mutation.isError && (
         isChannelForbidden(mutation.error) ? (
           <div

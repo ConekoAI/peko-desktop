@@ -11,6 +11,8 @@ import { currentLocale } from "../i18n";
 import QuestionCard from "./chat/QuestionCard";
 import type { Answers } from "../types";
 import type { CardState } from "../lib/questions";
+import type { Reaction } from "../lib/reactions";
+import { QuotedLine, ReactButton, ReactionChips, ReplyButton } from "./chat/Reactions";
 
 /**
  * PR-2a: per-event row, extracted from `ChannelView.tsx` so the
@@ -33,8 +35,25 @@ export default function ChannelEventRow({
   channelId,
   card,
   onAnswer,
+  reactions,
+  quote,
+  onJumpToQuote,
+  onReply,
+  onReact,
 }: {
   event: ChannelEvent;
+  /** Runtime ADR-126: the emoji on this post. */
+  reactions?: Reaction[];
+  /**
+   * The message this post replies to, when its quote shows (D6):
+   * `null` is one this copy does not hold.
+   */
+  quote?: { author: string; text: string } | null;
+  onJumpToQuote?: () => void;
+  /** Reply to this post; absent where you can't post. */
+  onReply?: () => void;
+  /** Put an emoji on this post or take yours off. */
+  onReact?: (emoji: string, remove: boolean) => void;
   /** This post's question card state (runtime ADR-114), if it asks. */
   card?: CardState;
   /** Answer a card as you; absent when you can't post here. */
@@ -53,6 +72,9 @@ export default function ChannelEventRow({
   const directory = useChannelDirectory(channelId ?? event.channel, people);
   switch (event.kind) {
     case "posted": {
+      // Runtime ADR-126 D2: a reaction is not a message; it shows on its
+      // post's chips.
+      if (event.react) return null;
       const who = directory.resolve(event.author);
       // Runtime ADR-101: a board change reads as a compact line, not a
       // message; the board itself is above the conversation.
@@ -71,9 +93,10 @@ export default function ChannelEventRow({
         );
       }
       return (
-        <div className="flex gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-raised" data-testid="channel-event-row-posted">
+        <div className="group relative flex gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-raised" data-testid="channel-event-row-posted">
           <ActorFace who={who} />
           <div className="min-w-0 flex-1">
+            {quote !== undefined && <QuotedLine quoted={quote} onJump={onJumpToQuote} />}
             <div className="flex items-baseline gap-2 text-xs">
               <span
                 className="text-sm font-semibold text-fg"
@@ -90,6 +113,14 @@ export default function ChannelEventRow({
                 <Markdown>{directory.named(event.text)}</Markdown>
               )}
             </div>
+            {reactions && reactions.length > 0 && (
+              <ReactionChips
+                reactions={reactions}
+                isMine={(a) => directory.resolve(a).isYou}
+                nameOf={(a) => directory.resolve(a).label}
+                onToggle={onReact}
+              />
+            )}
             {event.ask && card && (() => {
               // A card for someone else reads as theirs to answer.
               const forWho = event.ask.for ? directory.resolve(event.ask.for) : undefined;
@@ -106,6 +137,12 @@ export default function ChannelEventRow({
               );
             })()}
           </div>
+          {(onReply || onReact) && (
+            <div className="absolute -top-3 right-3 flex gap-0.5 rounded-lg border border-line bg-surface-card p-0.5 opacity-0 shadow-pop transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              {onReply && <ReplyButton onReply={onReply} />}
+              {onReact && <ReactButton onPick={(emoji) => onReact(emoji, false)} />}
+            </div>
+          )}
         </div>
       );
     }
