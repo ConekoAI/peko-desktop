@@ -7,6 +7,13 @@
     "advanced": "고급",
     "about": "정보"
   },
+  "yourName": {
+    "title": "내 이름",
+    "hintSignedIn": "사람과 페코가 나를 부르는 이름입니다. PekoHub 이름이라 다른 컴퓨터에도 적용되며, 핸들 @{{handle}}은 그대로입니다.",
+    "hintSignedOut": "페코가 나를 부르는 이름입니다. PekoHub에 로그인할 때까지 이 컴퓨터에만 저장됩니다.",
+    "placeholder": "내 이름",
+    "saving": "저장 중…"
+  },
   "appearance": {
     "title": "모양",
     "hint": "다크는 PekoHub와 같은 모습입니다.",

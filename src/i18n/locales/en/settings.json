@@ -7,6 +7,13 @@
     "advanced": "Advanced",
     "about": "About"
   },
+  "yourName": {
+    "title": "Your name",
+    "hintSignedIn": "What people and pekos call you. It's your PekoHub name, so your other computers follow it; your handle @{{handle}} stays the same.",
+    "hintSignedOut": "What your pekos call you. It stays on this computer until you sign in to PekoHub.",
+    "placeholder": "Your name",
+    "saving": "Saving…"
+  },
   "appearance": {
     "title": "Appearance",
     "hint": "Dark matches PekoHub.",

@@ -18,7 +18,7 @@ import type { CardState } from "../lib/questions";
  * threading, edit/delete) can share the rendering.
  *
  * `Posted` events show the author's face and name (pekos on this
- * runtime by name, the local user as "You") over the markdown body.
+ * runtime by name, the local user by their own name) over the markdown body.
  * `Created` events get a single-line brand notice (channel birth).
  * `MemberJoined` / `MemberLeft` events get a muted meta row. The raw
  * actor id stays available as a tooltip.
@@ -75,7 +75,10 @@ export default function ChannelEventRow({
           <ActorFace who={who} />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 text-xs">
-              <span className="text-sm font-semibold text-fg" title={shownAddress(event.author)}>
+              <span
+                className="text-sm font-semibold text-fg"
+                title={who.handle ? `@${who.handle}` : shownAddress(event.author)}
+              >
                 {who.label}
               </span>
               <span className="text-[11px] text-fg-subtle">{new Date(event.at).toLocaleString(currentLocale())}</span>

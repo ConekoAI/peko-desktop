@@ -154,6 +154,8 @@ pub fn register_commands() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         runtime::runtime_hub_register,
         runtime::runtime_hub_disconnect,
         runtime::local_user_account,
+        runtime::local_person,
+        runtime::person_name_set,
         hub_http::hub_oauth_token,
         hub_http::peko_share_link,
         hub_http::hub_notifications,

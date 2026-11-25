@@ -56,14 +56,17 @@ describe("MemberList", () => {
       people: [
         { address: "user:local:local", aliases: ["user:hub:6666"], kind: "user", name: "Frank", you: true, here: true },
         { address: "principal:hub:b1ec", aliases: ["did:key:z6Mk"], kind: "principal", name: "ada", you: false, here: false },
-        { address: "user:hub:7777", aliases: [], kind: "user", name: "Gina", you: false, here: false },
+        { address: "user:hub:7777", aliases: [], kind: "user", name: "Gina", handle: "gina-r", you: false, here: false },
       ],
     };
     renderList();
+    // No engine to name you in this test: the old "You" stands in.
     expect(screen.getByTestId("channel-members-local")).toHaveTextContent("You");
     const elsewhere = screen.getByTestId("channel-members-remote");
     expect(elsewhere).toHaveTextContent("ada");
     expect(elsewhere).toHaveTextContent("Gina");
+    // Runtime ADR-124: a person's handle beside their name.
+    expect(screen.getByTestId("member-handle")).toHaveTextContent("@gina-r");
     expect(elsewhere).not.toHaveTextContent("did:key");
   });
 

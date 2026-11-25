@@ -372,7 +372,8 @@ describe("Settings sections", () => {
     it("has no data-directory card or raw config editor", () => {
       renderSettings();
       expect(screen.queryByText(/data directory/i)).toBeNull();
-      expect(screen.queryByRole("textbox")).toBeNull();
+      // Your name is the one thing typed here (runtime ADR-124).
+      expect(screen.getAllByRole("textbox").map((el) => el.id)).toEqual(["settings-your-name"]);
     });
   });
 

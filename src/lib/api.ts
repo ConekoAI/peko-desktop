@@ -1535,6 +1535,29 @@ export async function localUserAccount(): Promise<LocalUserAccount | null> {
   return invoke<LocalUserAccount | null>("local_user_account");
 }
 
+/** This computer's person (runtime ADR-124). */
+export interface LocalPerson {
+  /**
+   * Their PekoHub name once signed in, else the name they chose here,
+   * else their login name. `null` from a runtime too old to say.
+   */
+  name: string | null;
+  /** Their PekoHub handle, while signed in. */
+  handle: string | null;
+}
+
+export async function localPerson(): Promise<LocalPerson> {
+  return invoke<LocalPerson>("local_person");
+}
+
+/**
+ * Set what this computer's person is called. Signed in, PekoHub takes
+ * it first and may refuse it (the error says why).
+ */
+export async function setPersonName(name: string): Promise<void> {
+  await invoke("person_name_set", { name });
+}
+
 /**
  * Wait for an OAuth callback redirect on `127.0.0.1:<port>`.
  *
@@ -2307,6 +2330,8 @@ export interface ChannelPerson {
   /** `principal` (a peko) or `user` (a person). */
   kind: string;
   name: string | null;
+  /** A person's PekoHub handle (runtime ADR-124): unique, where names repeat. */
+  handle?: string | null;
   /** This computer's person. */
   you: boolean;
   /** Hosted on this computer. */

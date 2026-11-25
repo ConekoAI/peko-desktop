@@ -5,11 +5,10 @@ import { usePekoDirectory, type ActorDisplay } from "./usePekoDirectory";
 import { pekoIdentity } from "../lib/pekoIdentity";
 import { findPerson, mentionablePekos, namedMentions } from "../lib/channelPeople";
 import { shownAddress } from "../lib/format";
-import { t } from "../i18n";
 
 /**
  * Names for everyone in a channel: pekos on this computer (with their
- * faces) and "You" first, then the channel's own roster — pekos and
+ * faces) and you (by your name) first, then the channel's own roster — pekos and
  * people on other computers by the names the runtime knows. `extra`
  * names people by address (a DM with another person).
  */
@@ -28,12 +27,20 @@ export function useChannelDirectory(
       if (mine.isYou || mine.peko) return mine;
       const who = findPerson(actor, people);
       if (!who) return mine;
-      if (who.you) return { label: t("common.you"), peko: null, isYou: true };
+      if (who.you) {
+        return {
+          label: who.name || local.yourName,
+          peko: null,
+          isYou: true,
+          handle: who.handle ?? local.yourHandle,
+        };
+      }
       const label = who.name ?? shownAddress(who.address.replace(/^user:(hub:)?/, ""));
       return {
         label,
         peko: who.kind === "principal" && who.name ? pekoIdentity({ name: who.name }) : null,
         isYou: false,
+        handle: who.handle ?? null,
       };
     };
     return {

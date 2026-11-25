@@ -1273,6 +1273,19 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Set what this computer's person is called (runtime ADR-124).
+    /// Answered with `done` or `error`.
+    pub async fn person_name_set(&self, name: &str) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "person_name_set",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "name": name,
+        });
+        self.request_response(req).await
+    }
+
     /// Register this runtime and its local user with the hub at `hub`
     /// under the account `token` signs in as; the daemon connects the
     /// tunnel at once. Answered with `runtime_registered`.

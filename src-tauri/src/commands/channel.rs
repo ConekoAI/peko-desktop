@@ -330,6 +330,9 @@ pub struct ChannelPerson {
     /// `principal` (a peko) or `user` (a person).
     pub kind: String,
     pub name: Option<String>,
+    /// A person's PekoHub handle (runtime ADR-124): unique, where names
+    /// repeat.
+    pub handle: Option<String>,
     /// This computer's person.
     pub you: bool,
     /// Hosted on this computer.
@@ -502,6 +505,7 @@ fn project_channel_info_envelope(value: &serde_json::Value) -> Result<ChannelInf
                         .unwrap_or_default(),
                     kind: opt("kind").unwrap_or_default(),
                     name: opt("name"),
+                    handle: opt("handle"),
                     you: flag("you"),
                     here: flag("here"),
                 })
@@ -1132,6 +1136,8 @@ mod tests {
                     "name": "Frank", "you": true, "here": true},
                 {"address": "principal:hub:b1", "aliases": ["did:key:z6Mk"], "kind": "principal",
                     "name": "ada", "you": false, "here": false},
+                {"address": "user:hub:77", "aliases": [], "kind": "user",
+                    "name": "Maya Lin", "handle": "maya", "you": false, "here": false},
             ],
             "created_at": "2026-11-06T14:36:56.811782+00:00",
         });
@@ -1147,10 +1153,12 @@ mod tests {
                 aliases: vec!["did:key:z6Mk".into()],
                 kind: "principal".into(),
                 name: Some("ada".into()),
+                handle: None,
                 you: false,
                 here: false,
             }
         );
+        assert_eq!(info.people[2].handle.as_deref(), Some("maya"));
         assert!(info.people[0].you);
         assert_eq!(info.kind, "group");
         let group = info.group.clone().unwrap();
