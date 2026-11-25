@@ -119,5 +119,6 @@
   "dropFiles": "Dateien zum Anhängen hier ablegen",
   "begin": "Sende eine Nachricht, um zu beginnen…",
   "working": "{{name}} arbeitet",
-  "workingFor": "{{name}} arbeitet · {{seconds}} s"
+  "workingFor": "{{name}} arbeitet · {{seconds}} s",
+  "waitsSameNetwork": "Wartet, bis ihr im selben Netzwerk seid"
 }

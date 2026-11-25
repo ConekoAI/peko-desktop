@@ -69,6 +69,12 @@ const remoteState: {
   record: undefined,
   asked: [],
 };
+// How this computer connects (runtime ADR-125).
+const networkState: { data: unknown } = { data: undefined };
+vi.mock("../hooks/useNetwork", () => ({
+  useNetworkStatus: () => networkState,
+}));
+
 vi.mock("../hooks/useRemotePrincipals", () => ({
   useRemotePrincipals: () => ({ data: remoteState.list }),
   useUndeliveredMessages: () => ({ data: remoteState.undelivered }),
@@ -302,9 +308,23 @@ describe("Chat ToS gate", () => {
     // Back online, everything delivered: nothing to say.
     remoteState.status = { status: "online", lastSeenAt: null };
     remoteState.undelivered = [];
-    render(<Chat />);
+    const { unmount: again } = render(<Chat />);
     expect(screen.queryByTestId("host-offline")).toBeNull();
     expect(screen.queryByTestId("message-waiting")).toBeNull();
+    again();
+
+    // Runtime ADR-125 D7: no link and no relay to it: it waits for the
+    // same network, not for the computer to come online.
+    remoteState.undelivered = ["msg_2"];
+    networkState.data = {
+      connection: "automatic",
+      peers: [{ runtimeId: "did:key:zMini", name: "Mac mini", path: "waiting" }],
+    };
+    render(<Chat />);
+    expect(screen.getByTestId("message-waiting")).toHaveTextContent(
+      "Waits until you are on the same network",
+    );
+    networkState.data = undefined;
   });
 
   it("lets the owner approve or deny a waiting request", async () => {

@@ -32,6 +32,7 @@ import KeepAwakeSetting from "../components/KeepAwakeSetting";
 import ComputerSetting from "../components/ComputerSetting";
 import PrivacySettings from "../components/PrivacySettings";
 import AccountDevices from "../components/AccountDevices";
+import NetworkSetting from "../components/NetworkSetting";
 import {
   Sparkles,
   Save,
@@ -126,6 +127,7 @@ function GeneralSection() {
       <KeepAwakeSetting className={CARD} />
       <ComputerSetting className={CARD} />
       <AccountDevices className={CARD} />
+      <NetworkSetting className={CARD} />
       <BlockedPeople className={CARD} />
       <PrivacySettings className={CARD} />
     </div>

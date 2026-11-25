@@ -2164,6 +2164,11 @@ export interface AccountDevice {
   this: boolean;
   /** ISO time: when a phone last asked this computer for something. */
   lastSeen?: string | null;
+  /**
+   * Runtime ADR-125: how another computer is reached now. Absent for
+   * phones, this computer, and from older engines.
+   */
+  path?: NetworkPath | null;
 }
 
 /** Something about your account that waits for you (runtime ADR-111 D6). */
@@ -2219,6 +2224,65 @@ export interface JoinCodeShown {
 }
 
 /** Your account's devices, and what waits about it. */
+/** How frames to a computer travel now (runtime ADR-125 D9). */
+export type NetworkPath = "direct" | "relay" | "waiting" | "offline";
+
+/** How this computer connects (runtime ADR-125 D2). */
+export type NetworkConnection = "pekohub" | "automatic" | "direct";
+
+/** One computer this one links with, or could. */
+export interface NetworkPeer {
+  runtimeId: string;
+  account?: string | null;
+  name?: string | null;
+  path: NetworkPath;
+  address?: string | null;
+  since?: string | null;
+  lastError?: string | null;
+}
+
+/** How this computer connects, and how each computer is reached. */
+export interface NetworkStatus {
+  connection: NetworkConnection;
+  directWith: "mine" | "people";
+  /** Where the engine listens, while it does. */
+  listening?: string | null;
+  /** What it tells other computers to dial. */
+  told: string[];
+  /** Why it does not listen, when it could not. */
+  listenError?: string | null;
+  peers: NetworkPeer[];
+  /** The settings as written (Advanced); absent `directListen` is the default. */
+  directListen?: string | null;
+  directAddresses: string[];
+  directPeers: string[];
+}
+
+/** A change to how this computer connects; absent fields stay. */
+export interface NetworkChange {
+  connection?: NetworkConnection;
+  directWith?: "mine" | "people";
+  /** An empty string goes back to the default (0.0.0.0:11438). */
+  directListen?: string;
+  directAddresses?: string[];
+  directPeers?: string[];
+}
+
+/** How this computer connects to your other computers (runtime ADR-125). */
+export async function networkStatus(): Promise<NetworkStatus> {
+  return invoke<NetworkStatus>("network_status");
+}
+
+/** Change how this computer connects; the engine applies it at once. */
+export async function networkSettingsSet(change: NetworkChange): Promise<NetworkStatus> {
+  return invoke<NetworkStatus>("network_settings_set", { change });
+}
+
+/** Dial the computers this one knows addresses for, now. */
+export async function networkLinkRetry(runtimeId?: string): Promise<void> {
+  return invoke<void>("network_link_retry", { runtimeId: runtimeId ?? null });
+}
+
 export async function accountDevices(): Promise<AccountDevices> {
   return invoke<AccountDevices>("account_devices");
 }

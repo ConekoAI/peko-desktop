@@ -119,7 +119,13 @@
     "accountCodeHint": "Wer sicher sein will, dass er dich erreicht, kann dich bitten, ihn vorzulesen. Er ändert sich nur, wenn alle deine Geräte neu eingerichtet werden.",
     "itsCode": "Sein Code",
     "untilNow": "Bisher",
-    "compare": "Bitte den Besitzer, dir den Code auf seinem Bildschirm vorzulesen. Stimme nur zu, wenn er übereinstimmt."
+    "compare": "Bitte den Besitzer, dir den Code auf seinem Bildschirm vorzulesen. Stimme nur zu, wenn er übereinstimmt.",
+    "path": {
+      "direct": "Direkt",
+      "relay": "Über PekoHub",
+      "waiting": "Wartet auf dasselbe Netzwerk",
+      "offline": "Offline"
+    }
   },
   "privacy": {
     "title": "Datenschutz",
@@ -135,5 +141,44 @@
     },
     "changeLater": "Du kannst das jederzeit in den Einstellungen ändern.",
     "continue": "Weiter"
+  },
+  "network": {
+    "title": "Netzwerk",
+    "hint": "Wie dieser Computer deine anderen Computer und die Menschen erreicht, mit denen du schreibst. Nachrichten sind in jedem Fall versiegelt; eine direkte Verbindung verhindert außerdem, dass PekoHub sieht, wer mit wem spricht.",
+    "how": "Wie dieser Computer sich verbindet",
+    "automatic": {
+      "label": "Automatisch",
+      "hint": "Direkt, wenn der andere Computer im selben Netzwerk ist, sonst über PekoHub."
+    },
+    "pekohub": {
+      "label": "Nur PekoHub",
+      "hint": "Alles geht über PekoHub."
+    },
+    "direct": {
+      "label": "Nur direkt",
+      "hint": "Nie über PekoHub. Nachrichten warten, bis der andere Computer im selben Netzwerk ist."
+    },
+    "listenError": "Dieser Computer kann keine direkten Verbindungen annehmen: {{reason}}. Er verbindet sich trotzdem mit anderen.",
+    "accepts": "Dieser Computer nimmt Verbindungen von deinen Computern in diesem Netzwerk an. macOS oder Windows fragt dich vielleicht, ob du das erlaubst.",
+    "directStops": "Mit „Nur direkt“ geht nichts von einem Gespräch über PekoHub:",
+    "stopsWait": "Nachrichten an Computer in anderen Netzwerken warten, bis sie im selben Netzwerk sind.",
+    "stopsPhones": "Deine Telefone bekommen keine Antworten und keine Benachrichtigungen.",
+    "stopsWebChat": "Der Web-Chat mit deinen öffentlichen Pekos hört auf.",
+    "turnOnDirect": "„Nur direkt“ einschalten",
+    "turnOnAutomatic": "„Automatisch“ einschalten",
+    "with": {
+      "title": "Direkt verbinden mit",
+      "mine": "Meinen Computern",
+      "people": "Menschen, mit denen ich schreibe"
+    },
+    "advanced": {
+      "title": "Erweitert",
+      "listen": "Lauschen auf",
+      "listenHint": "Eine Adresse und ein Port auf diesem Computer (Standard 0.0.0.0:11438). Jetzt: {{listening}}",
+      "tell": "Adressen, die anderen genannt werden",
+      "tellHint": "Eine pro Zeile, host:port. Leer: die eigenen Netzwerkadressen dieses Computers ({{told}}).",
+      "try": "Adressen zum Ausprobieren",
+      "tryHint": "Eine pro Zeile, host:port: Computer, mit denen sich dieser verbindet, ohne dass sie ihm ihre Adresse nennen."
+    }
   }
 }

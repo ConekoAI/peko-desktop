@@ -117,5 +117,6 @@
   "dropFiles": "ドロップして添付",
   "begin": "メッセージを送って始めましょう…",
   "working": "{{name}} が作業中",
-  "workingFor": "{{name}} が作業中 · {{seconds}} 秒"
+  "workingFor": "{{name}} が作業中 · {{seconds}} 秒",
+  "waitsSameNetwork": "同じネットワークに来るまで待っています"
 }

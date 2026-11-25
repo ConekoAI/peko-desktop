@@ -119,7 +119,13 @@
     "accountCodeHint": "想確認聯絡的確實是你的人，可以請你唸出這個代碼。只有在你重新設定所有裝置時它才會改變。",
     "itsCode": "它的代碼",
     "untilNow": "先前",
-    "compare": "請它的主人唸出他們螢幕上的代碼。只有一致時才核准。"
+    "compare": "請它的主人唸出他們螢幕上的代碼。只有一致時才核准。",
+    "path": {
+      "direct": "直接",
+      "relay": "透過 PekoHub",
+      "waiting": "等待同一網路",
+      "offline": "離線"
+    }
   },
   "privacy": {
     "title": "隱私",
@@ -135,5 +141,44 @@
     },
     "changeLater": "你可以隨時在設定中變更。",
     "continue": "繼續"
+  },
+  "network": {
+    "title": "網路",
+    "hint": "這台電腦如何連到你的其他電腦和與你交談的人。訊息無論如何都會密封；直接連線還能讓 PekoHub 看不到誰在和誰交談。",
+    "how": "這台電腦的連線方式",
+    "automatic": {
+      "label": "自動",
+      "hint": "對方電腦在同一網路時直接連線，否則透過 PekoHub。"
+    },
+    "pekohub": {
+      "label": "僅 PekoHub",
+      "hint": "一切都透過 PekoHub。"
+    },
+    "direct": {
+      "label": "僅直接",
+      "hint": "從不經過 PekoHub。訊息會等到對方電腦在同一網路時再送出。"
+    },
+    "listenError": "這台電腦無法接受直接連線：{{reason}}。它仍會連到其他電腦。",
+    "accepts": "這台電腦會接受同一網路中你其他電腦的連線。macOS 或 Windows 可能會請你允許。",
+    "directStops": "選擇「僅直接」後，對話的任何內容都不經過 PekoHub：",
+    "stopsWait": "傳給其他網路中電腦的訊息，會等到它們在同一網路時再送出。",
+    "stopsPhones": "你的手機收不到回覆和通知。",
+    "stopsWebChat": "與你公開 peko 的網頁聊天會停止。",
+    "turnOnDirect": "開啟「僅直接」",
+    "turnOnAutomatic": "開啟「自動」",
+    "with": {
+      "title": "直接連線對象",
+      "mine": "我的電腦",
+      "people": "與我交談的人"
+    },
+    "advanced": {
+      "title": "進階",
+      "listen": "監聽位址",
+      "listenHint": "這台電腦上的位址和連接埠（預設 0.0.0.0:11438）。目前：{{listening}}",
+      "tell": "告訴其他電腦的位址",
+      "tellHint": "每行一個，host:port。留空則使用這台電腦自己的網路位址（{{told}}）。",
+      "try": "嘗試連線的位址",
+      "tryHint": "每行一個，host:port：即使對方沒有告知位址也要連線的電腦。"
+    }
   }
 }

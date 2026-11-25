@@ -119,7 +119,13 @@
     "accountCodeHint": "Quelqu'un qui veut être sûr de vous joindre peut vous demander de le lire. Il ne change que si tous vos appareils sont reconfigurés.",
     "itsCode": "Son code",
     "untilNow": "Jusqu'ici",
-    "compare": "Demandez à son propriétaire de vous lire le code affiché sur son écran. N'approuvez que s'il correspond."
+    "compare": "Demandez à son propriétaire de vous lire le code affiché sur son écran. N'approuvez que s'il correspond.",
+    "path": {
+      "direct": "Direct",
+      "relay": "Par PekoHub",
+      "waiting": "En attente du même réseau",
+      "offline": "Hors ligne"
+    }
   },
   "privacy": {
     "title": "Confidentialité",
@@ -135,5 +141,44 @@
     },
     "changeLater": "Vous pouvez changer cela à tout moment dans les Réglages.",
     "continue": "Continuer"
+  },
+  "network": {
+    "title": "Réseau",
+    "hint": "Comment cet ordinateur joint vos autres ordinateurs et les personnes avec qui vous parlez. Les messages sont scellés dans tous les cas ; une connexion directe empêche en plus PekoHub de voir qui parle à qui.",
+    "how": "Comment cet ordinateur se connecte",
+    "automatic": {
+      "label": "Automatique",
+      "hint": "Directement quand l’autre ordinateur est sur le même réseau, par PekoHub sinon."
+    },
+    "pekohub": {
+      "label": "PekoHub uniquement",
+      "hint": "Tout passe par PekoHub."
+    },
+    "direct": {
+      "label": "Direct uniquement",
+      "hint": "Jamais par PekoHub. Les messages attendent que l’autre ordinateur soit sur le même réseau."
+    },
+    "listenError": "Cet ordinateur ne peut pas accepter de connexions directes : {{reason}}. Il se connecte quand même aux autres.",
+    "accepts": "Cet ordinateur acceptera les connexions de vos ordinateurs sur ce réseau. macOS ou Windows peut vous demander de l’autoriser.",
+    "directStops": "En Direct uniquement, rien d’une conversation ne passe par PekoHub :",
+    "stopsWait": "Les messages vers des ordinateurs d’autres réseaux attendent qu’ils soient sur le même réseau.",
+    "stopsPhones": "Vos téléphones ne reçoivent ni réponses ni notifications.",
+    "stopsWebChat": "Le chat web avec vos pekos publics s’arrête.",
+    "turnOnDirect": "Activer Direct uniquement",
+    "turnOnAutomatic": "Activer Automatique",
+    "with": {
+      "title": "Se connecter directement avec",
+      "mine": "Mes ordinateurs",
+      "people": "Les personnes avec qui je parle"
+    },
+    "advanced": {
+      "title": "Avancé",
+      "listen": "Écouter sur",
+      "listenHint": "Une adresse et un port de cet ordinateur (par défaut 0.0.0.0:11438). Maintenant : {{listening}}",
+      "tell": "Adresses communiquées aux autres",
+      "tellHint": "Une par ligne, hôte:port. Vide : les adresses réseau de cet ordinateur ({{told}}).",
+      "try": "Adresses à essayer",
+      "tryHint": "Une par ligne, hôte:port : des ordinateurs à joindre sans qu’ils disent où ils sont."
+    }
   }
 }

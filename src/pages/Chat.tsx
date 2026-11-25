@@ -34,6 +34,7 @@ import {
   useRemotePrincipals,
   useUndeliveredMessages,
 } from "../hooks/useRemotePrincipals";
+import { useNetworkStatus } from "../hooks/useNetwork";
 import PekoAvatar from "../components/peko/PekoAvatar";
 import SetupPanel from "../components/peko/SetupPanel";
 import PrincipalProfileModal from "../components/modals/PrincipalProfileModal";
@@ -142,6 +143,7 @@ function ChatMessage({
   onRetry,
   onPick,
   waitingFor,
+  waitsForNetwork,
   card,
   onAnswer,
 }: {
@@ -155,6 +157,12 @@ function ChatMessage({
    * waits for (asleep or off), named as it names itself.
    */
   waitingFor?: string;
+  /**
+   * Runtime ADR-125 D7: it waits because there is no direct link and
+   * PekoHub is not used (Direct only): it goes when you are on the same
+   * network again.
+   */
+  waitsForNetwork?: boolean;
   /** The reply's author. */
   peko: PekoIdentity;
   /** Present on the latest reply: send the message before it again. */
@@ -219,7 +227,9 @@ function ChatMessage({
             data-testid="message-waiting"
           >
             <Clock className="h-3 w-3" />
-            {t("chat.waitingFor", { name: waitingFor })}
+            {waitsForNetwork
+              ? t("chat.waitsSameNetwork")
+              : t("chat.waitingFor", { name: waitingFor })}
           </p>
         )}
         {item.ask && card && (
@@ -720,7 +730,23 @@ export default function Chat() {
   // so while it is offline, and mark what you sent that hasn't reached it.
   const hostLabel = remotePeko?.runtimeName || t("chat.pekosComputer", { name: pekoFace.name });
   const hostOffline = !!remotePeko && remote.status.data?.status === "offline";
-  const undelivered = useUndeliveredMessages(runtimeId, selectedPrincipal, !!remotePeko, hostOffline);
+  // Runtime ADR-125 D7: in Direct only (here or there), a message to a
+  // computer on another network waits for a link.
+  // The host is known here by its name on PekoHub, which its device-list
+  // entry carries too.
+  const { data: network } = useNetworkStatus(!!remotePeko);
+  const hostWaits =
+    !!remotePeko &&
+    (network?.connection === "direct" ||
+      !!network?.peers.some(
+        (p) => p.path === "waiting" && !!p.name && p.name === remotePeko.runtimeName,
+      ));
+  const undelivered = useUndeliveredMessages(
+    runtimeId,
+    selectedPrincipal,
+    !!remotePeko,
+    hostOffline || !!hostWaits,
+  );
   const waiting = useMemo(() => new Set(undelivered.data ?? []), [undelivered.data]);
   const { data: hostModels } = useRemotePekoModels(runtimeId, selectedPrincipal, ownRemote);
   const composerModels = useMemo<ComposerModel[]>(() => {
@@ -1191,6 +1217,7 @@ export default function Chat() {
                       ? hostLabel
                       : undefined
                   }
+                  waitsForNetwork={!!hostWaits}
                 />
               </Fragment>
             ))}

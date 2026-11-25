@@ -29,6 +29,9 @@ pub struct AccountDevice {
     pub this: bool,
     /// RFC 3339: when a phone last asked this computer for something.
     pub last_seen: Option<String>,
+    /// Runtime ADR-125: how another computer is reached now: `direct`,
+    /// `relay`, `waiting` or `offline`. Absent for phones and this one.
+    pub path: Option<String>,
 }
 
 /// Something about your account that waits for you.
@@ -145,6 +148,7 @@ fn devices_from(value: &serde_json::Value) -> Result<AccountDevices, String> {
                     added_by: text(row, "added_by").unwrap_or_default(),
                     this: row.get("this").and_then(|v| v.as_bool()).unwrap_or(false),
                     last_seen: text(row, "last_seen"),
+                    path: text(row, "path"),
                 })
             })
             .collect(),

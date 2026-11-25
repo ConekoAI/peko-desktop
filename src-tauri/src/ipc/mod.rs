@@ -2025,6 +2025,62 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// How this computer connects to other computers, and the path to
+    /// each (runtime ADR-125 D9). Answered with `network_status_result`.
+    pub async fn network_status(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "network_status",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
+    /// Change the `[network]` link settings; the engine writes and applies
+    /// them at once (runtime ADR-125 D9). `None` fields are left out and
+    /// stay as they are. Answered with `network_status_result`.
+    pub async fn network_settings_set(
+        &self,
+        connection: Option<&str>,
+        direct_with: Option<&str>,
+        direct_listen: Option<&str>,
+        direct_addresses: Option<&[String]>,
+        direct_peers: Option<&[String]>,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let mut req = serde_json::json!({
+            "type": "network_settings_set",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "connection": connection,
+            "direct_with": direct_with,
+            "direct_listen": direct_listen,
+            "direct_addresses": direct_addresses,
+            "direct_peers": direct_peers,
+        });
+        if let Some(map) = req.as_object_mut() {
+            map.retain(|_, v| !v.is_null());
+        }
+        self.request_response(req).await
+    }
+
+    /// Dial the computers this one knows addresses for, now (runtime
+    /// ADR-125 D9). Answered with `done`.
+    pub async fn network_link_retry(&self, runtime_id: Option<&str>) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let mut req = serde_json::json!({
+            "type": "network_link_retry",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "runtime_id": runtime_id,
+        });
+        if let Some(map) = req.as_object_mut() {
+            map.retain(|_, v| !v.is_null());
+        }
+        self.request_response(req).await
+    }
+
     /// The code of an identity as this computer holds it (runtime
     /// ADR-112). Answered with `identity_code_result`.
     pub async fn identity_code(&self, of: &str) -> Result<serde_json::Value> {

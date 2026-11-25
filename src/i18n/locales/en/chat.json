@@ -119,5 +119,6 @@
   "dropFiles": "Drop files to attach",
   "begin": "Send a message to begin...",
   "working": "{{name}} is working",
-  "workingFor": "{{name}} is working · {{seconds}}s"
+  "workingFor": "{{name}} is working · {{seconds}}s",
+  "waitsSameNetwork": "Waits until you are on the same network"
 }
