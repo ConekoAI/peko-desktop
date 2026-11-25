@@ -17,6 +17,8 @@ vi.mock("../hooks/useChannels", () => ({
 }));
 vi.mock("../hooks/usePrincipals", () => ({
   useLocalUserAccount: () => ({ data: null }),
+  useYourName: () => "maya",
+  useYou: () => ({ name: "maya", handle: null }),
   usePrincipals: () => ({ data: [{ name: "alice", localId: "prin_alice", runtimeId: "local" }] }),
 }));
 

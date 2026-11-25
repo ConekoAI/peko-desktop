@@ -7,6 +7,13 @@
     "advanced": "Erweitert",
     "about": "Info"
   },
+  "yourName": {
+    "title": "Dein Name",
+    "hintSignedIn": "So nennen dich Menschen und Pekos. Es ist dein PekoHub-Name, deine anderen Computer übernehmen ihn; dein Handle @{{handle}} bleibt gleich.",
+    "hintSignedOut": "So nennen dich deine Pekos. Er bleibt auf diesem Computer, bis du dich bei PekoHub anmeldest.",
+    "placeholder": "Dein Name",
+    "saving": "Wird gespeichert…"
+  },
   "appearance": {
     "title": "Erscheinungsbild",
     "hint": "Dunkel entspricht PekoHub.",

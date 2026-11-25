@@ -1,4 +1,5 @@
 import { track, trackFirstReply } from "../lib/usage";
+import { t as translate } from "../i18n";
 import type { Answers, BrowserState } from "../types";
 import { useEffect, useRef } from "react";
 import {
@@ -11,6 +12,8 @@ import {
 import {
   principalApprovals,
   localUserAccount,
+  localPerson,
+  setPersonName,
   principalCreate,
   principalDecideApproval,
   principalBrowser,
@@ -281,6 +284,51 @@ export function useLocalUserAccount() {
     staleTime: 60_000,
     retry: false,
   });
+}
+
+/**
+ * This computer's person: their name (PekoHub's once signed in, else
+ * the one they chose here, else their login name) and handle. Under the
+ * account's key, so signing in or out refreshes it too.
+ */
+export function useLocalPerson() {
+  return useQuery({
+    queryKey: ["local-user-account", "person"],
+    queryFn: localPerson,
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+/** Set your name; everything that shows it follows. */
+export function useSetPersonName() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => setPersonName(name),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["local-user-account"] });
+      void qc.invalidateQueries({ queryKey: ["channel-info"] });
+    },
+  });
+}
+
+/**
+ * You, as chat shows you: the runtime's name for you, else your
+ * account's name, else "You" (a runtime too old to say); and your
+ * PekoHub handle while signed in.
+ */
+export function useYou(): { name: string; handle: string | null } {
+  const { data: person } = useLocalPerson();
+  const { data: account } = useLocalUserAccount();
+  return {
+    name: person?.name || account?.name || translate("common.you"),
+    handle: person?.handle ?? null,
+  };
+}
+
+/** What to call you where you posted (see `useYou`). */
+export function useYourName(): string {
+  return useYou().name;
 }
 
 // ─── Principal send (chat) ──────────────────────────────────────

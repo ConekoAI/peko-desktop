@@ -7,6 +7,13 @@
     "advanced": "進階",
     "about": "關於"
   },
+  "yourName": {
+    "title": "你的名字",
+    "hintSignedIn": "人們和 peko 對你的稱呼。這是你在 PekoHub 上的名字，你的其他電腦也會同步；你的帳號名稱 @{{handle}} 保持不變。",
+    "hintSignedOut": "你的 peko 對你的稱呼。在你登入 PekoHub 之前，它只會保存在這台電腦上。",
+    "placeholder": "你的名字",
+    "saving": "正在儲存…"
+  },
   "appearance": {
     "title": "外觀",
     "hint": "深色與 PekoHub 一致。",

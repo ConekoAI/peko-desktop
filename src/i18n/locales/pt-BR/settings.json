@@ -7,6 +7,13 @@
     "advanced": "Avançado",
     "about": "Sobre"
   },
+  "yourName": {
+    "title": "Seu nome",
+    "hintSignedIn": "Como pessoas e pekos chamam você. É o seu nome no PekoHub, então seus outros computadores o seguem; seu identificador @{{handle}} continua o mesmo.",
+    "hintSignedOut": "Como seus pekos chamam você. Fica neste computador até você entrar no PekoHub.",
+    "placeholder": "Seu nome",
+    "saving": "Salvando…"
+  },
   "appearance": {
     "title": "Aparência",
     "hint": "O tema escuro combina com o PekoHub.",

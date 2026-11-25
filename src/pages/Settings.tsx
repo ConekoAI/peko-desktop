@@ -27,6 +27,7 @@ import AddModelModal from "../components/modals/AddModelModal";
 import ChatgptPlanModal from "../components/modals/ChatgptPlanModal";
 import ModelGalleryCard from "../components/models/ModelGalleryCard";
 import BlockedPeople from "../components/BlockedPeople";
+import YourNameSetting from "../components/YourNameSetting";
 import KeepAwakeSetting from "../components/KeepAwakeSetting";
 import ComputerSetting from "../components/ComputerSetting";
 import PrivacySettings from "../components/PrivacySettings";
@@ -69,6 +70,7 @@ function GeneralSection() {
 
   return (
     <div className="space-y-4">
+      <YourNameSetting className={CARD} />
       <div className={CARD}>
         <div className="flex items-center justify-between gap-4">
           <div>

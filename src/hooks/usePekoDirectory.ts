@@ -1,16 +1,26 @@
 import { useMemo } from "react";
 
-import { useLocalUserAccount, usePrincipals, type PrincipalSummary } from "./usePrincipals";
+import {
+  useLocalUserAccount,
+  useYou,
+  usePrincipals,
+  type PrincipalSummary,
+} from "./usePrincipals";
 import { pekoIdentity, type PekoIdentity } from "../lib/pekoIdentity";
 import { shownAddress } from "../lib/format";
 import { t } from "../i18n";
 
 /** How an actor (a channel member or author) is shown. */
 export interface ActorDisplay {
-  /** "You", a peko's name, or the actor's own id when unknown. */
+  /**
+   * Your name ("You" from a runtime too old to say), a peko's name,
+   * or the actor's own id when unknown.
+   */
   label: string;
   /** Set for pekos on this runtime. */
   peko: PekoIdentity | null;
+  /** A person's PekoHub handle (runtime ADR-124), when known. */
+  handle?: string | null;
   /** The local user (this computer's person). */
   isYou: boolean;
 }
@@ -30,15 +40,19 @@ export function isLocalUser(actor: string, linkedAccount?: string | null): boole
  * Accepts the forms the runtime uses: `principal:<local id>`,
  * `principal:local:<local id>`, `user:local`, `user:hub:<id>`, a bare
  * local id, or a peko name. `linkedAccount` is the PekoHub account the
- * local user is linked to, so its address reads as "You" too.
+ * local user is linked to, so its address reads as you too. `yourName`
+ * is what the runtime calls you (PekoHub name, else login name); without
+ * it you read as "You".
  */
 export function resolveActor(
   actor: string,
   pekos: PrincipalSummary[],
   linkedAccount?: string | null,
+  yourName?: string | null,
+  yourHandle?: string | null,
 ): ActorDisplay {
   if (isLocalUser(actor, linkedAccount)) {
-    return { label: t("common.you"), peko: null, isYou: true };
+    return { label: yourName || t("common.you"), peko: null, isYou: true, handle: yourHandle ?? null };
   }
   const id = actor.replace(/^principal:(local:)?/, "");
   const peko =
@@ -53,15 +67,20 @@ export function resolveActor(
 export function usePekoDirectory() {
   const { data } = usePrincipals();
   const { data: account } = useLocalUserAccount();
+  const you = useYou();
   const linked = account?.id ?? null;
   return useMemo(() => {
     const pekos = data ?? [];
     return {
-      resolve: (actor: string) => resolveActor(actor, pekos, linked),
+      resolve: (actor: string) => resolveActor(actor, pekos, linked, you.name, you.handle),
+      /** What you are called here (`"You"` when the runtime can't say). */
+      yourName: you.name,
+      /** Your PekoHub handle, while signed in. */
+      yourHandle: you.handle,
       identityOf: (name: string): PekoIdentity => {
         const peko = pekos.find((p) => p.name === name);
         return pekoIdentity(peko ?? { name });
       },
     };
-  }, [data, linked]);
+  }, [data, linked, you.name, you.handle]);
 }

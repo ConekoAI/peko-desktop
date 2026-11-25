@@ -14,6 +14,8 @@ import { render, screen } from "@testing-library/react";
 // Pekos on this runtime: actors resolve to their names.
 vi.mock("../hooks/usePrincipals", () => ({
   useLocalUserAccount: () => ({ data: null }),
+  useYourName: () => "maya",
+  useYou: () => ({ name: "maya", handle: null }),
   usePrincipals: () => ({
     data: [
       { name: "alice", localId: "prin_alice", avatar: "🦊", runtimeId: "local" },
@@ -126,7 +128,7 @@ describe("ChannelEventRow", () => {
     expect(screen.getByText("first message")).toBeInTheDocument();
   });
 
-  it("names the local user You and leaves unknown actors as their id", () => {
+  it("names the local user by their name and leaves unknown actors as their id", () => {
     render(
       <ChannelEventRow
         event={{
@@ -139,7 +141,7 @@ describe("ChannelEventRow", () => {
         }}
       />,
     );
-    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("maya")).toBeInTheDocument();
     render(
       <ChannelEventRow
         event={{

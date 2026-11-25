@@ -7,6 +7,13 @@
     "advanced": "詳細",
     "about": "このアプリについて"
   },
+  "yourName": {
+    "title": "あなたの名前",
+    "hintSignedIn": "人やペコがあなたを呼ぶ名前です。PekoHub の名前なので、ほかのコンピューターにも反映されます。ハンドル @{{handle}} は変わりません。",
+    "hintSignedOut": "ペコがあなたを呼ぶ名前です。PekoHub にサインインするまで、このコンピューターだけに保存されます。",
+    "placeholder": "あなたの名前",
+    "saving": "保存中…"
+  },
   "appearance": {
     "title": "外観",
     "hint": "ダークは PekoHub と同じ見た目です。",

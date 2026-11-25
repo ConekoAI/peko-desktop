@@ -405,7 +405,7 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
         ],
         group: { homeHere: true, owner: "user:local", hubId: null, page: null, visibility: null },
         people: [
-          { address: "user:local", aliases: [], kind: "user", name: "You", you: true, here: true },
+          { address: "user:local", aliases: [], kind: "user", name: "mira", you: true, here: true },
           { address: "principal:local:prin_aria", aliases: [], kind: "principal", name: "aria", you: false, here: true },
           { address: "principal:local:prin_bolt", aliases: [], kind: "principal", name: "bolt", you: false, here: true },
         ],
@@ -453,6 +453,11 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
     case "phone_pair_start":
       return { svg: mockCode(), expiresAt: new Date(Date.now() + 10 * 60_000).toISOString() };
     case "local_user_account":
+      return null;
+    case "local_person":
+      return { name: mockPersonName, handle: null };
+    case "person_name_set":
+      mockPersonName = String(args.name).trim();
       return null;
     case "hub_get":
       if (args.resource !== "seeds") return null;
@@ -538,6 +543,9 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
       return null;
   }
 }
+
+/** What the mock engine calls you (runtime ADR-124). */
+let mockPersonName = "mira";
 
 export function installMockIpc() {
   mockWindows("main");

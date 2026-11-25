@@ -71,4 +71,14 @@ describe("resolveActor", () => {
     expect(resolveActor("user:hub:7777", pekos, "9a2f").isYou).toBe(false);
     expect(resolveActor("user:local", pekos, "9a2f").isYou).toBe(true);
   });
+
+  it("calls you by your name, under either of your addresses", () => {
+    expect(resolveActor("user:local", pekos, null, "maya")).toMatchObject({ label: "maya", isYou: true });
+    expect(resolveActor("user:hub:9a2f", pekos, "9a2f", "Maya Lin")).toMatchObject({
+      label: "Maya Lin",
+      isYou: true,
+    });
+    // Someone else keeps their own name.
+    expect(resolveActor("user:hub:7777", pekos, "9a2f", "Maya Lin").label).toBe("7777");
+  });
 });

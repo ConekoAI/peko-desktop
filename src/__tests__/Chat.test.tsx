@@ -48,6 +48,7 @@ vi.mock("../hooks/usePrincipals", () => ({
   useUndoTurn: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePrincipalLogWatch: () => logWatch,
   useCallerSubject: () => "user:local",
+  useYourName: () => "maya",
   newestLogCursor: () => null,
   fetchOlderPrincipalLog: (args: unknown) => fetchOlderMock(args),
 }));
@@ -238,6 +239,15 @@ describe("Chat ToS gate", () => {
     expect(screen.queryByText("Let me check.")).toBeNull();
     expect(screen.queryByTestId("working-indicator")).toBeNull();
     await act(async () => settle("It is Tuesday."));
+  });
+
+  it("names your own messages by your name, not You", () => {
+    logState.data = {
+      messages: [{ id: "chan_1", sender: "user:local", text: "hi", timestamp: "1" }],
+    };
+    render(<Chat />);
+    expect(screen.getByText("maya")).toBeInTheDocument();
+    expect(screen.queryByText("You")).toBeNull();
   });
 
   it("shows why a reply is waiting beside the thread, not in it", () => {

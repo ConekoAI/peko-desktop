@@ -12,6 +12,7 @@ import {
   usePrincipalTurnChanges,
   useDecideApproval,
   useCallerSubject,
+  useYourName,
   newestLogCursor,
   fetchOlderPrincipalLog,
 } from "../hooks/usePrincipals";
@@ -167,6 +168,7 @@ function ChatMessage({
   const { event, isUser } = item;
   const isError = event.type === "error";
   const { t } = useTranslation();
+  const yourName = useYourName();
   const text = event.content ?? "";
   const [copied, setCopied] = useState(false);
 
@@ -195,7 +197,7 @@ function ChatMessage({
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="flex items-baseline gap-2">
           <span className="text-sm font-semibold text-fg">
-            {isUser ? t("common.you") : isError ? t("common.error") : peko.name}
+            {isUser ? yourName : isError ? t("common.error") : peko.name}
           </span>
           <span className="text-[11px] text-fg-subtle">
             {formatTime(event.timestamp)}

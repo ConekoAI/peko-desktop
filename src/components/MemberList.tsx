@@ -111,7 +111,14 @@ export default function MemberList({
                     <User className="h-3.5 w-3.5" />
                   </span>
                 )}
-                <span className="min-w-0 flex-1 truncate font-medium">{who.label}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-medium">{who.label}</span>
+                  {who.handle && (
+                    <span className="ml-1.5 text-xs text-fg-muted" data-testid="member-handle">
+                      @{who.handle}
+                    </span>
+                  )}
+                </span>
                 {wakePeko ? (
                   <WakePicker channelId={channelId} pekoName={wakePeko.name} wake={wakePeko.wake} />
                 ) : (
@@ -183,7 +190,14 @@ function PeopleList({
             <User className="h-3.5 w-3.5" />
           </span>
         )}
-        <span className="min-w-0 flex-1 truncate font-medium">{who.label}</span>
+        <span className="min-w-0 flex-1 truncate">
+          <span className="font-medium">{who.label}</span>
+          {who.handle && (
+            <span className="ml-1.5 text-xs text-fg-muted" data-testid="member-handle">
+              @{who.handle}
+            </span>
+          )}
+        </span>
         <span className="shrink-0 text-[10px] text-fg-muted">
           {p.kind === "principal" ? t("channel.members.peko") : t("channel.members.person")}
         </span>

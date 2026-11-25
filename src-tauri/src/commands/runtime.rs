@@ -132,6 +132,67 @@ fn local_user_account_from(status: &serde_json::Value) -> Option<LocalUserAccoun
     })
 }
 
+/// What this computer's person is called, and their PekoHub handle
+/// (runtime ADR-124).
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalPerson {
+    /// Their PekoHub name once signed in, else the name they chose here,
+    /// else their login name. `None` from a runtime too old to say.
+    pub name: Option<String>,
+    /// Their PekoHub handle, while signed in.
+    pub handle: Option<String>,
+}
+
+#[tauri::command]
+pub async fn local_person() -> Result<LocalPerson, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let status = client
+        .tunnel_status()
+        .await
+        .map_err(|e| format!("tunnel_status failed: {e}"))?;
+    Ok(person_from(&status))
+}
+
+/// Set what this computer's person is called (runtime `person_name_set`).
+/// Signed in, PekoHub takes it first and may refuse it.
+#[tauri::command]
+pub async fn person_name_set(name: String) -> Result<(), String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .person_name_set(&name)
+        .await
+        .map_err(|e| format!("person_name_set failed: {e}"))?;
+    match value.get("type").and_then(|t| t.as_str()) {
+        Some("done") => Ok(()),
+        Some("error") => Err(value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("the runtime did not take the name")
+            .to_string()),
+        _ => Err("This runtime is too old to set your name. Update Peko.".to_string()),
+    }
+}
+
+fn person_from(status: &serde_json::Value) -> LocalPerson {
+    let text = |key: &str| {
+        status
+            .get(key)
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    LocalPerson {
+        name: text("person_name").or_else(|| text("account_name")),
+        handle: text("person_handle"),
+    }
+}
+
 /// What disconnecting this computer from PekoHub came to.
 #[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -579,5 +640,36 @@ mod hub_registration_tests {
         // Unregistered, or a daemon that predates the field.
         let none = serde_json::json!({"type": "tunnel_status", "connected": false});
         assert_eq!(local_user_account_from(&none), None);
+    }
+
+    #[test]
+    fn the_person_is_named_signed_in_or_not() {
+        let signed_out = serde_json::json!({"type": "tunnel_status", "person_name": "maya"});
+        assert_eq!(
+            person_from(&signed_out),
+            LocalPerson {
+                name: Some("maya".into()),
+                handle: None
+            }
+        );
+        let signed_in = serde_json::json!({
+            "type": "tunnel_status",
+            "account": "acct",
+            "account_name": "Maya Lin",
+            "person_name": "Maya Lin",
+            "person_handle": "maya",
+        });
+        assert_eq!(
+            person_from(&signed_in),
+            LocalPerson {
+                name: Some("Maya Lin".into()),
+                handle: Some("maya".into())
+            }
+        );
+        // A runtime that predates `person_name`.
+        let older = serde_json::json!({"type": "tunnel_status", "account_name": "Maya Lin"});
+        assert_eq!(person_from(&older).name.as_deref(), Some("Maya Lin"));
+        let nameless = serde_json::json!({"type": "tunnel_status", "person_name": "  "});
+        assert_eq!(person_from(&nameless).name, None);
     }
 }
