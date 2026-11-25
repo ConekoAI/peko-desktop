@@ -250,6 +250,26 @@ fn show(window: &WebviewWindow) {
     let _ = window.show();
 }
 
+/// Hide the way `show` showed. On Windows the strip is shown behind the
+/// window library's back (to keep focus where it is), so the library
+/// still counts it hidden and its `hide` changes nothing: the strip
+/// stayed on screen after the peko let go.
+#[cfg(windows)]
+fn hide(window: &WebviewWindow) {
+    #[link(name = "user32")]
+    extern "system" {
+        fn ShowWindow(hwnd: isize, cmd: i32) -> i32;
+    }
+    const SW_HIDE: i32 = 0;
+    if let Ok(hwnd) = window.hwnd() {
+        let hwnd = hwnd.0 as isize;
+        let _ = window.run_on_main_thread(move || unsafe {
+            ShowWindow(hwnd, SW_HIDE);
+        });
+    }
+}
+
+#[cfg(not(windows))]
 fn hide(window: &WebviewWindow) {
     let _ = window.hide();
 }
