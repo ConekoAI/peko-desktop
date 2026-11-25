@@ -428,6 +428,10 @@ export interface ModelSummary {
   // `rename_all = "camelCase"` only affects ModelSummary's own
   // fields, not the nested type.
   spec?: ModelSpec | null;
+  /** How hard the model thinks on every turn; absent = provider's default. */
+  effort?: string;
+  /** The levels the model takes, as listed when it was added. */
+  effortLevels?: string[];
 }
 
 // ── ModelSpec types (PR 4 / feature/model-first-config) ────────────
@@ -501,6 +505,45 @@ export interface PlanSignInStarted {
 export interface PlanModel {
   slug: string;
   displayName: string;
+  /** What the plan's list says about the model. */
+  reported?: ModelFacts;
+  suggested?: ModelFacts;
+}
+
+/**
+ * What a model list or models.dev says about a model. Every field is
+ * optional: absent is "not said", not "no". Snake_case, as `ModelSpec`.
+ */
+export interface ModelFacts {
+  context_window?: number;
+  max_output_tokens?: number;
+  image_input?: boolean;
+  audio_input?: boolean;
+  video_input?: boolean;
+  tools?: boolean;
+  thinking?: ModelThinkingFacts;
+  pricing?: ModelPricingHint;
+}
+
+export interface ModelThinkingFacts {
+  supported: boolean;
+  /** True: thinking cannot be turned off. */
+  required?: boolean;
+  /** Effort levels, lowercase, as the source names them. */
+  efforts?: string[];
+  default_effort?: string;
+}
+
+/**
+ * A model an endpoint lists. `reported` is the endpoint's own word;
+ * `suggested` is what the public models.dev catalog says, for the
+ * person to accept or change.
+ */
+export interface DiscoveredModel {
+  id: string;
+  displayName?: string;
+  reported: ModelFacts;
+  suggested?: ModelFacts;
 }
 
 /** Where a ChatGPT sign-in stands. */
@@ -520,6 +563,13 @@ export interface ModelAddArgs {
   model: string[];
   key?: string;
   credentialId?: string;
+  /** Limits in tokens; omitted leaves them unset. */
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  /** How hard the model thinks (`low` … `max`); omitted = provider's default. */
+  effort?: string;
+  /** The levels the model takes, as its endpoint listed them. */
+  effortLevels?: string[];
   /** Capabilities; omitted leaves the model without a descriptor. */
   spec?: ModelSpec;
 }
@@ -538,6 +588,8 @@ export interface ModelUpdateArgs {
   enabled?: boolean;
   /** Replace the capability descriptor. */
   spec?: ModelSpec;
+  /** Replace the effort; `"none"` clears it. */
+  effort?: string;
 }
 
 export interface ModelTestResult {

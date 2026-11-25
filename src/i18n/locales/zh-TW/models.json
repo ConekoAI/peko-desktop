@@ -70,7 +70,11 @@
     "title": "新增模型",
     "intro": "請使用供應商文件裡的 Base URL、API 格式和模型名稱。寫著「OpenAI 相容」的供應商使用 Chat Completions。",
     "conflict": "已存在名為 <name/> 的模型——請在「進階」中設定其他名稱。",
-    "adding": "正在新增…"
+    "adding": "正在新增…",
+    "fromProvider": "已依服務商的模型清單填寫。",
+    "suggested": "部分數值是 models.dev 的建議，新增前請核對。",
+    "limitsHint": "留空時，peko 會以 300,000 token 的上下文視窗處理。",
+    "limitsInvalid": "上限須為整數個 token。"
   },
   "plan": {
     "title": "使用你的 ChatGPT 方案",
@@ -121,5 +125,18 @@
     "headerValue": "值",
     "saving": "正在儲存…",
     "save": "儲存變更"
+  },
+  "effort": {
+    "label": "思考強度",
+    "default": "服務商預設",
+    "hint": "模型回答前思考的程度。越高越慢，費用也越高。",
+    "unknownLevels": "不清楚這個模型支援哪些檔位——請選擇它支援的檔位，或保留服務商預設。",
+    "levels": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "xhigh": "超高",
+      "max": "最高"
+    }
   }
 }

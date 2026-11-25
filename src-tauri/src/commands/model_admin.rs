@@ -112,6 +112,13 @@ pub struct ModelSummary {
     /// that case.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spec: Option<ModelSpec>,
+    /// How hard the model thinks on every turn (`low` … `max`); `None`
+    /// sends no effort.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+    /// The levels the model takes, as listed when it was added.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effort_levels: Vec<String>,
 }
 
 /// Result of live-testing a configured model.
@@ -152,6 +159,17 @@ pub struct ModelAddArgs {
     pub key: Option<String>,
     #[serde(default)]
     pub credential_id: Option<String>,
+    /// Limits, in tokens; `None` leaves them unset.
+    #[serde(default)]
+    pub context_window: Option<u32>,
+    #[serde(default)]
+    pub max_output_tokens: Option<u32>,
+    /// How hard the model thinks (`low` … `max`); `None` sends no effort.
+    #[serde(default)]
+    pub effort: Option<String>,
+    /// The levels the model takes, as its endpoint listed them.
+    #[serde(default)]
+    pub effort_levels: Vec<String>,
     /// Capabilities (which inputs the model takes, ...); `None` leaves
     /// the entry without a descriptor.
     #[serde(default)]
@@ -190,6 +208,18 @@ impl ModelAddArgs {
         if let Some(v) = self.credential_id {
             value["credential_id"] = v.into();
         }
+        if let Some(v) = self.context_window {
+            value["context_window"] = v.into();
+        }
+        if let Some(v) = self.max_output_tokens {
+            value["max_output_tokens"] = v.into();
+        }
+        if let Some(v) = self.effort {
+            value["effort"] = v.into();
+        }
+        if !self.effort_levels.is_empty() {
+            value["effort_levels"] = self.effort_levels.into();
+        }
         if let Some(spec) = self.spec {
             value["spec"] = serde_json::to_value(spec).unwrap_or_default();
         }
@@ -226,6 +256,9 @@ pub struct ModelUpdateArgs {
     /// Replace the capability descriptor.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spec: Option<ModelSpec>,
+    /// Replace the effort; `"none"` clears it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
 }
 
 impl ModelUpdateArgs {
@@ -264,6 +297,9 @@ impl ModelUpdateArgs {
         }
         if let Some(v) = self.enabled {
             value["enabled"] = v.into();
+        }
+        if let Some(v) = self.effort {
+            value["effort"] = v.into();
         }
         if let Some(spec) = self.spec {
             value["spec"] = serde_json::to_value(spec).unwrap_or_default();
@@ -347,6 +383,14 @@ fn project_model(m: &serde_json::Value) -> Option<ModelSummary> {
         is_local: m.get("is_local").and_then(|v| v.as_bool()).unwrap_or(false),
         enabled: m.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
         spec,
+        effort: m.get("effort").and_then(|v| v.as_str()).map(str::to_string),
+        effort_levels: m
+            .get("effort_levels")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect(),
     })
 }
 
@@ -483,7 +527,7 @@ pub async fn model_discover(
     base_url: String,
     api_format: String,
     key: Option<String>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<DiscoveredModel>, String> {
     let client = crate::ipc::IpcClient::new()
         .await
         .map_err(|e| format!("IpcClient::new failed: {e}"))?;
@@ -500,12 +544,81 @@ pub async fn model_discover(
         .ok_or_else(|| "model_discover response missing models".to_string())
 }
 
-fn project_models_discovered(value: &serde_json::Value) -> Option<Vec<String>> {
-    value.get("models")?.as_array().map(|ids| {
+/// What a model list or models.dev says about a model (runtime
+/// `ModelFactsWire`). Every field is optional: absent is "not said".
+/// The shape stays snake_case, as `ModelSpec` does.
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct ModelFacts {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_output_tokens: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_input: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_input: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_input: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<ModelThinkingFacts>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pricing: Option<ModelPricingHint>,
+}
+
+/// How a model thinks, and the effort levels it takes.
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct ModelThinkingFacts {
+    #[serde(default)]
+    pub supported: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub required: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub efforts: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_effort: Option<String>,
+}
+
+/// A model an endpoint lists: `reported` is the endpoint's own word,
+/// `suggested` what models.dev says (for the person to accept).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all(serialize = "camelCase"))]
+pub struct DiscoveredModel {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub reported: ModelFacts,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested: Option<ModelFacts>,
+}
+
+/// `details` when the runtime sends them; a runtime from before them
+/// sends ids only.
+fn project_models_discovered(value: &serde_json::Value) -> Option<Vec<DiscoveredModel>> {
+    let ids = value.get("models")?.as_array()?;
+    if let Some(details) = value.get("details").and_then(|d| d.as_array()) {
+        if details.len() == ids.len() {
+            return Some(
+                details
+                    .iter()
+                    .filter_map(|d| serde_json::from_value(d.clone()).ok())
+                    .collect(),
+            );
+        }
+    }
+    Some(
         ids.iter()
-            .filter_map(|m| m.as_str().map(str::to_string))
-            .collect()
-    })
+            .filter_map(|m| m.as_str())
+            .map(|id| DiscoveredModel {
+                id: id.to_string(),
+                display_name: None,
+                reported: ModelFacts::default(),
+                suggested: None,
+            })
+            .collect(),
+    )
 }
 
 /// Re-read the model catalog and credential vault from disk.
@@ -546,6 +659,11 @@ pub struct PlanSignInStarted {
 pub struct PlanModel {
     pub slug: String,
     pub display_name: String,
+    /// What the plan's list says about the model.
+    #[serde(default)]
+    pub reported: ModelFacts,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggested: Option<ModelFacts>,
 }
 
 /// Where a ChatGPT sign-in stands.
@@ -587,12 +705,18 @@ fn project_plan_sign_in_state(value: &serde_json::Value) -> Option<PlanSignInSta
                 .flatten()
                 .filter_map(|m| {
                     let slug = m.get("slug")?.as_str()?.to_string();
+                    let facts = |key: &str| {
+                        m.get(key)
+                            .and_then(|v| serde_json::from_value::<ModelFacts>(v.clone()).ok())
+                    };
                     Some(PlanModel {
                         display_name: m
                             .get("display_name")
                             .and_then(|v| v.as_str())
                             .map_or_else(|| slug.clone(), str::to_string),
                         slug,
+                        reported: facts("reported").unwrap_or_default(),
+                        suggested: facts("suggested"),
                     })
                 })
                 .collect(),
@@ -661,13 +785,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn discovered_models_project_to_ids() {
+    fn discovered_models_project_with_their_details() {
+        // A runtime from before `details` sends ids only.
         let v =
             serde_json::json!({"type": "models_discovered", "request_id": 1, "models": ["a", "b"]});
-        assert_eq!(
-            project_models_discovered(&v),
-            Some(vec!["a".to_string(), "b".to_string()])
-        );
+        let ids: Vec<String> = project_models_discovered(&v)
+            .unwrap()
+            .into_iter()
+            .map(|m| m.id)
+            .collect();
+        assert_eq!(ids, ["a", "b"]);
+        let v = serde_json::json!({"type": "models_discovered", "request_id": 1,
+            "models": ["glm-5.3"],
+            "details": [{"id": "glm-5.3",
+                "suggested": {"context_window": 1_000_000, "tools": true,
+                    "thinking": {"supported": true, "efforts": ["low", "high"]}}}]});
+        let m = project_models_discovered(&v).unwrap().remove(0);
+        assert_eq!(m.reported, ModelFacts::default());
+        let s = m.suggested.clone().unwrap();
+        assert_eq!(s.context_window, Some(1_000_000));
+        assert_eq!(s.thinking.unwrap().efforts, ["low", "high"]);
+        // The app reads camelCase keys around snake_case facts.
+        let out = serde_json::to_value(&m).unwrap();
+        assert_eq!(out["suggested"]["context_window"], 1_000_000);
+        assert!(out.get("displayName").is_none());
         assert_eq!(
             project_models_discovered(&serde_json::json!({"type": "x"})),
             None
@@ -687,9 +828,37 @@ mod tests {
         };
         let add = ModelAddArgs {
             spec: Some(spec.clone()),
+            context_window: Some(1_000_000),
+            max_output_tokens: Some(128_000),
             ..Default::default()
         }
         .into_runtime_value();
+        assert_eq!(add["context_window"], 1_000_000);
+        assert_eq!(add["max_output_tokens"], 128_000);
+        let thinking = ModelAddArgs {
+            effort: Some("high".into()),
+            effort_levels: vec!["low".into(), "high".into()],
+            ..Default::default()
+        }
+        .into_runtime_value();
+        assert_eq!(thinking["effort"], "high");
+        assert_eq!(
+            thinking["effort_levels"],
+            serde_json::json!(["low", "high"])
+        );
+        let cleared = ModelUpdateArgs {
+            id: "m".into(),
+            effort: Some("none".into()),
+            ..Default::default()
+        }
+        .into_runtime_value();
+        assert_eq!(cleared["effort"], "none");
+        let summary = project_model(&serde_json::json!({
+            "id": "m", "effort": "max", "effort_levels": ["low", "max"]
+        }))
+        .unwrap();
+        assert_eq!(summary.effort.as_deref(), Some("max"));
+        assert_eq!(summary.effort_levels, ["low", "max"]);
         assert_eq!(add["spec"]["video_input"], true);
         assert_eq!(add["spec"]["tool_support"], "function_calling");
         let update = ModelUpdateArgs {
@@ -713,6 +882,10 @@ mod tests {
             model: vec!["claude-3-5-haiku-latest".to_string()],
             key: Some("secret".to_string()),
             credential_id: None,
+            context_window: None,
+            max_output_tokens: None,
+            effort: None,
+            effort_levels: Vec::new(),
             spec: None,
         };
         let value = args.into_runtime_value();
@@ -752,8 +925,10 @@ mod tests {
             requires_key: Some(true),
             enabled: Some(false),
             spec: None,
+            effort: Some("low".to_string()),
         };
         let value = args.into_runtime_value();
+        assert_eq!(value["effort"], "low");
         assert_eq!(value["id"].as_str(), Some("claude-haiku"));
         assert_eq!(
             value["display_name"].as_str(),
@@ -957,14 +1132,20 @@ mod tests {
         assert_eq!(
             state(serde_json::json!({
                 "state": "done", "credential_id": "c-1", "account": "a@example.com",
-                "models": [{"slug": "gpt-6.2-sol", "display_name": "GPT-6.2-Sol"}]
+                "models": [{"slug": "gpt-6.2-sol", "display_name": "GPT-6.2-Sol",
+                    "reported": {"context_window": 272_000}}]
             })),
             Some(PlanSignInState::Done {
                 credential_id: "c-1".into(),
                 account: "a@example.com".into(),
                 models: vec![PlanModel {
                     slug: "gpt-6.2-sol".into(),
-                    display_name: "GPT-6.2-Sol".into()
+                    display_name: "GPT-6.2-Sol".into(),
+                    reported: ModelFacts {
+                        context_window: Some(272_000),
+                        ..Default::default()
+                    },
+                    suggested: None,
                 }],
             })
         );

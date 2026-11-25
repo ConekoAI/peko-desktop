@@ -502,12 +502,38 @@ function handle(cmd: string, args: Record<string, unknown> = {}): unknown {
             credentialId: "mock-plan-credential",
             account: "you@example.com",
             models: [
-              { slug: "gpt-6.2-sol", displayName: "GPT-6.2-Sol" },
+              { slug: "gpt-6.2-sol", displayName: "GPT-6.2-Sol", reported: { context_window: 272000 } },
               { slug: "gpt-6-luna", displayName: "GPT-6-Luna" },
             ],
           };
     case "chatgpt_sign_in_cancel":
       return null;
+    case "model_discover":
+      // One model the endpoint describes, one models.dev knows, one neither.
+      return [
+        {
+          id: "kimi-for-coding",
+          displayName: "K2.8 Preview",
+          reported: {
+            context_window: 1048576,
+            image_input: true,
+            video_input: true,
+            thinking: { supported: true, required: true, efforts: ["low", "high", "max"] },
+          },
+          suggested: { max_output_tokens: 32768 },
+        },
+        {
+          id: "glm-5.3",
+          reported: {},
+          suggested: {
+            context_window: 1000000,
+            max_output_tokens: 131072,
+            image_input: false,
+            pricing: { input_per_million: 0.75, output_per_million: 3.3, cache_read_per_million: 0.18 },
+          },
+        },
+        { id: "glm-5.4", reported: {} },
+      ];
     default:
       return null;
   }

@@ -72,7 +72,11 @@
     "title": "Aggiungi un modello",
     "intro": "Usa l'URL di base, il formato dell'API e il nome del modello indicati nella documentazione del tuo fornitore. I fornitori che scrivono «compatibile con OpenAI» usano Chat Completions.",
     "conflict": "Esiste già un modello chiamato <name/>: imposta un altro nome in Avanzate.",
-    "adding": "Aggiunta…"
+    "adding": "Aggiunta…",
+    "fromProvider": "Compilato dall'elenco dei modelli del provider.",
+    "suggested": "Alcuni valori sono suggerimenti di models.dev: controllali prima di aggiungere.",
+    "limitsHint": "Se lasciato vuoto, i peko presumono una finestra di contesto di 300.000 token.",
+    "limitsInvalid": "I limiti sono numeri interi di token."
   },
   "plan": {
     "title": "Usa il tuo piano ChatGPT",
@@ -123,5 +127,18 @@
     "headerValue": "Valore",
     "saving": "Salvataggio…",
     "save": "Salva le modifiche"
+  },
+  "effort": {
+    "label": "Impegno di ragionamento",
+    "default": "Predefinito del provider",
+    "hint": "Quanto il modello ragiona prima di rispondere. Di più è più lento e costa di più.",
+    "unknownLevels": "I livelli di questo modello non sono noti: scegline uno che supporta o lascia il predefinito del provider.",
+    "levels": {
+      "low": "Basso",
+      "medium": "Medio",
+      "high": "Alto",
+      "xhigh": "Molto alto",
+      "max": "Massimo"
+    }
   }
 }

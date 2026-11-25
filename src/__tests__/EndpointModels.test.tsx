@@ -6,7 +6,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 
-const discoverMock = vi.fn(async (..._args: unknown[]) => ["gpt-4o", "gpt-5"]);
+const models = (...ids: string[]) => ids.map((id) => ({ id, reported: {} }));
+const discoverMock = vi.fn(async (..._args: unknown[]): Promise<unknown[]> => models("gpt-4o", "gpt-5"));
 vi.mock("../lib/api", () => ({
   modelDiscover: (...args: unknown[]) => discoverMock(...args),
 }));
@@ -33,7 +34,7 @@ const field = (label: RegExp) => screen.getByLabelText(label);
 
 beforeEach(() => {
   discoverMock.mockClear();
-  discoverMock.mockImplementation(async () => ["gpt-4o", "gpt-5"]);
+  discoverMock.mockImplementation(async () => models("gpt-4o", "gpt-5"));
   latest = EMPTY_ENDPOINT;
 });
 
@@ -58,7 +59,7 @@ describe("models from the endpoint", () => {
   });
 
   it("fills in an endpoint's only model", async () => {
-    discoverMock.mockImplementation(async () => ["llama3.2"]);
+    discoverMock.mockImplementation(async () => models("llama3.2"));
     renderForm();
     fireEvent.change(field(/base url/i), { target: { value: "http://localhost:11434/v1" } });
     fireEvent.change(field(/api key/i), { target: { value: "k" } });

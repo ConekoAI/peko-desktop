@@ -29,7 +29,12 @@ const DONE = {
   credentialId: "cred-1",
   account: "you@example.com",
   models: [
-    { slug: "gpt-6.2-sol", displayName: "GPT-6.2-Sol" },
+    {
+      slug: "gpt-6.2-sol",
+      displayName: "GPT-6.2-Sol",
+      reported: { context_window: 272000 },
+      suggested: { max_output_tokens: 128000 },
+    },
     { slug: "gpt-6-luna", displayName: "GPT-6-Luna" },
   ],
 };
@@ -109,9 +114,12 @@ describe("ChatgptPlanModal", () => {
         baseUrl: PLAN_BASE_URL,
         model: ["gpt-6.2-sol"],
         credentialId: "cred-1",
+        // The plan's own limit; a suggestion is not added unseen.
+        contextWindow: 272000,
       }),
       expect.anything(),
     );
+    expect(mutateMock.mock.calls[0][0].maxOutputTokens).toBeUndefined();
   });
 
   it("adds -plan only when the model's own name is taken", async () => {

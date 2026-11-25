@@ -71,7 +71,11 @@
     "title": "Modell hinzufügen",
     "intro": "Verwende die Basis-URL, das API-Format und den Modellnamen aus der Dokumentation deines Anbieters. Anbieter, die „OpenAI-kompatibel“ angeben, nutzen Chat Completions.",
     "conflict": "Ein Modell namens <name/> gibt es schon – lege unter „Erweitert“ einen anderen Namen fest.",
-    "adding": "Wird hinzugefügt…"
+    "adding": "Wird hinzugefügt…",
+    "fromProvider": "Aus der Modellliste des Anbieters übernommen.",
+    "suggested": "Einige Werte sind Vorschläge von models.dev – prüfe sie vor dem Hinzufügen.",
+    "limitsHint": "Leer gelassen, rechnen Pekos mit einem Kontextfenster von 300.000 Tokens.",
+    "limitsInvalid": "Limits sind ganze Zahlen von Tokens."
   },
   "plan": {
     "title": "Dein ChatGPT-Abo nutzen",
@@ -122,5 +126,18 @@
     "headerValue": "Wert",
     "saving": "Wird gespeichert…",
     "save": "Änderungen speichern"
+  },
+  "effort": {
+    "label": "Denkaufwand",
+    "default": "Standard des Anbieters",
+    "hint": "Wie gründlich das Modell nachdenkt, bevor es antwortet. Mehr ist langsamer und teurer.",
+    "unknownLevels": "Die Stufen dieses Modells sind nicht bekannt – wähle eine, die es unterstützt, oder bleib beim Standard des Anbieters.",
+    "levels": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "xhigh": "Sehr hoch",
+      "max": "Maximal"
+    }
   }
 }
