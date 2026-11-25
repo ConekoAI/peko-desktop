@@ -13,8 +13,19 @@ import EndpointForm, {
 } from "../models/EndpointForm";
 import InputsPicker from "../models/InputsPicker";
 import PriceFields from "../models/PriceFields";
+import EffortPicker from "../models/EffortPicker";
+import {
+  EMPTY_PREFILL,
+  type EffortLevel,
+  prefillOf,
+  sourcesOf,
+  tokensFromText,
+  type Prefill,
+} from "../../lib/model-facts";
+import type { DiscoveredModel } from "../../types";
 import {
   NO_MEDIA,
+  priceDraftChanged,
   pricingFromDraft,
   withInputs,
   withPricing,
@@ -46,7 +57,15 @@ export default function AddModelModal({
   const [draft, setDraft] = useState<EndpointDraft>(EMPTY_ENDPOINT);
   const [inputs, setInputs] = useState<ModelInputs>(NO_MEDIA);
   const [price, setPrice] = useState<PriceDraft>(EMPTY_PRICE_DRAFT);
+  const [contextWindow, setContextWindow] = useState("");
+  const [maxOutput, setMaxOutput] = useState("");
+  /** `""` sends no effort: the provider's default. */
+  const [effort, setEffort] = useState<EffortLevel | "">("");
+  /** What was last filled in from the picked model's list entry. */
+  const [prefill, setPrefill] = useState<Prefill>(EMPTY_PREFILL);
   const pricing = pricingFromDraft(price);
+  const contextTokens = tokensFromText(contextWindow);
+  const outputTokens = tokensFromText(maxOutput);
 
   // A reopened dialog starts clean.
   useEffect(() => {
@@ -54,6 +73,10 @@ export default function AddModelModal({
       setDraft(EMPTY_ENDPOINT);
       setInputs(NO_MEDIA);
       setPrice(EMPTY_PRICE_DRAFT);
+      setContextWindow("");
+      setMaxOutput("");
+      setEffort("");
+      setPrefill(EMPTY_PREFILL);
       addMut.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,23 +94,61 @@ export default function AddModelModal({
     [credentials],
   );
 
+  const sameInputs = (a: ModelInputs, b: ModelInputs) =>
+    a.image === b.image && a.audio === b.audio && a.video === b.video;
+
+  // Picking a listed model fills in what its list entry (or models.dev)
+  // says. A part the person already changed stays theirs.
+  function picked(model: DiscoveredModel | null) {
+    const next = prefillOf(model);
+    if (contextWindow === prefill.contextWindow.value) setContextWindow(next.contextWindow.value);
+    if (maxOutput === prefill.maxOutput.value) setMaxOutput(next.maxOutput.value);
+    if (sameInputs(inputs, prefill.inputs.value)) setInputs(next.inputs.value);
+    if (!priceDraftChanged(price, prefill.price.value)) setPrice(next.price.value);
+    // An effort the next model does not take falls back to its default.
+    if (effort && !next.effortLevels.value.includes(effort)) setEffort("");
+    setPrefill(next);
+  }
+
+  // Where what is shown now came from, for the parts still as filled in.
+  const shownSources = sourcesOf({
+    contextWindow: contextWindow === prefill.contextWindow.value ? prefill.contextWindow : { value: "" },
+    maxOutput: maxOutput === prefill.maxOutput.value ? prefill.maxOutput : { value: "" },
+    inputs: sameInputs(inputs, prefill.inputs.value) ? prefill.inputs : { value: NO_MEDIA },
+    price: !priceDraftChanged(price, prefill.price.value) ? prefill.price : { value: EMPTY_PRICE_DRAFT },
+    effortLevels: prefill.effortLevels,
+  });
+  const effortLevels = prefill.effortLevels.value;
+
   const name = endpointName(draft);
   const conflict = !!name && (existingModels ?? []).some((m) => m.id === name);
   const canSubmit =
-    isEndpointValid(draft) && !conflict && pricing !== null && !addMut.isPending;
+    isEndpointValid(draft) &&
+    !conflict &&
+    pricing !== null &&
+    contextTokens !== null &&
+    outputTokens !== null &&
+    !addMut.isPending;
 
   function submit() {
     if (!canSubmit) return;
     // Text only and unpriced: leave the model without a descriptor.
     const media = inputs.image || inputs.audio || inputs.video;
     const priced = pricing ?? undefined;
+    const limits = {
+      ...(contextTokens && { contextWindow: contextTokens }),
+      ...(outputTokens && { maxOutputTokens: outputTokens }),
+      ...(effort && { effort }),
+      ...(effortLevels.length > 0 && { effortLevels }),
+    };
     const args =
       media || priced
         ? {
             ...endpointArgs(draft),
+            ...limits,
             spec: withPricing(withInputs(null, inputs), priced),
           }
-        : endpointArgs(draft);
+        : { ...endpointArgs(draft), ...limits };
     addMut.mutate(args, {
       onSuccess: (info) => {
         onSuccess?.(info.id);
@@ -125,9 +186,56 @@ export default function AddModelModal({
           <EndpointForm
             value={draft}
             onChange={setDraft}
+            onPicked={picked}
             credentialOptions={credentialOptions}
             disabled={addMut.isPending}
           />
+          {shownSources.length > 0 && (
+            <div data-testid="add-model-sources" className="space-y-0.5 text-[11px] text-fg-subtle">
+              {shownSources.includes("provider") && <p>{t("models.add.fromProvider")}</p>}
+              {shownSources.includes("suggested") && <p>{t("models.add.suggested")}</p>}
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="field-label mb-1.5 block">{t("models.edit.contextWindow")}</span>
+              <input
+                inputMode="numeric"
+                data-testid="add-model-context"
+                value={contextWindow}
+                onChange={(e) => setContextWindow(e.target.value)}
+                placeholder="300000"
+                aria-invalid={contextTokens === null}
+                disabled={addMut.isPending}
+                className="input font-mono"
+              />
+            </label>
+            <label className="block">
+              <span className="field-label mb-1.5 block">{t("models.edit.maxOutputTokens")}</span>
+              <input
+                inputMode="numeric"
+                data-testid="add-model-max-output"
+                value={maxOutput}
+                onChange={(e) => setMaxOutput(e.target.value)}
+                aria-invalid={outputTokens === null}
+                disabled={addMut.isPending}
+                className="input font-mono"
+              />
+            </label>
+            <p className="text-[11px] text-fg-subtle sm:col-span-2">
+              {contextTokens === null || outputTokens === null
+                ? t("models.add.limitsInvalid")
+                : t("models.add.limitsHint")}
+            </p>
+          </div>
+          {effortLevels.length > 0 && (
+            <EffortPicker
+              value={effort}
+              onChange={setEffort}
+              levels={effortLevels}
+              disabled={addMut.isPending}
+            />
+          )}
           <InputsPicker value={inputs} onChange={setInputs} disabled={addMut.isPending} />
           <PriceFields
             value={price}

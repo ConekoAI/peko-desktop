@@ -38,6 +38,7 @@ import type {
   DaemonStatus,
   LogResponse,
   ModelAddArgs,
+  DiscoveredModel,
   ModelSummary,
   ModelTestResult,
   PlanSignInStarted,
@@ -1250,14 +1251,15 @@ export async function modelAdd(args: ModelAddArgs): Promise<ModelSummary> {
 
 /**
  * The chat models an endpoint offers, read from the endpoint with `key`
- * (absent for keyless endpoints). Nothing is stored.
+ * (absent for keyless endpoints), with what its list says about each
+ * and what models.dev suggests. Nothing is stored.
  */
 export async function modelDiscover(
   baseUrl: string,
   apiFormat: string,
   key?: string,
-): Promise<string[]> {
-  return invoke<string[]>("model_discover", { baseUrl, apiFormat, key: key ?? null });
+): Promise<DiscoveredModel[]> {
+  return invoke<DiscoveredModel[]>("model_discover", { baseUrl, apiFormat, key: key ?? null });
 }
 
 /** Update an existing configured model. */

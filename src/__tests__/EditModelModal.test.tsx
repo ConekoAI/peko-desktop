@@ -75,4 +75,41 @@ describe("EditModelModal", () => {
     await waitFor(() => expect(setKeyMock).toHaveBeenCalled());
     expect(updateMock).not.toHaveBeenCalled();
   });
+
+  it("shows no effort for a model not known to think", () => {
+    render(<EditModelModal open model={model} onClose={vi.fn()} />);
+    expect(screen.queryByTestId("model-effort")).toBeNull();
+  });
+
+  it("changes the effort among the model's levels, and clears it", () => {
+    const thinker = { ...model, effort: "high", effortLevels: ["low", "high", "max"] };
+    const { unmount } = render(<EditModelModal open model={thinker} onClose={vi.fn()} />);
+    const effort = screen.getByTestId("model-effort") as HTMLSelectElement;
+    expect(Array.from(effort.options).map((o) => o.value)).toEqual(["", "low", "high", "max"]);
+    expect(effort.value).toBe("high");
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(updateMock.mock.calls[0][0].effort).toBeUndefined();
+    fireEvent.change(effort, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(updateMock.mock.calls[1][0].effort).toBe("none");
+    unmount();
+  });
+
+  it("offers every level, with a note, when a thinking model's levels are unknown", () => {
+    const old = {
+      ...model,
+      spec: {
+        image_input: false,
+        audio_input: false,
+        tool_support: "function_calling" as const,
+        streaming: true,
+        thinking: "optional" as const,
+        json_mode: false,
+      },
+    };
+    render(<EditModelModal open model={old} onClose={vi.fn()} />);
+    const effort = screen.getByTestId("model-effort") as HTMLSelectElement;
+    expect(effort.options).toHaveLength(6);
+    expect(screen.getByText(/levels aren't known/i)).toBeInTheDocument();
+  });
 });

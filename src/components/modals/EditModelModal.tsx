@@ -8,6 +8,8 @@ import type { ModelSummary, ModelUpdateArgs } from "../../types";
 import { API_FORMATS, apiFormatLabel } from "../../lib/apiFormats";
 import InputsPicker from "../models/InputsPicker";
 import PriceFields from "../models/PriceFields";
+import EffortPicker from "../models/EffortPicker";
+import { effortLevelsIn, isEffortLevel, type EffortLevel } from "../../lib/model-facts";
 import {
   inputsOf,
   priceDraftChanged,
@@ -63,6 +65,15 @@ export default function EditModelModal({
   const [enabled, setEnabled] = useState(model.enabled);
   const [inputs, setInputs] = useState<ModelInputs>(() => inputsOf(model.spec));
   const [price, setPrice] = useState<PriceDraft>(() => priceDraftOf(model.spec));
+  const savedEffort: EffortLevel | "" = isEffortLevel(model.effort) ? model.effort : "";
+  const [effort, setEffort] = useState<EffortLevel | "">(savedEffort);
+  const effortLevels = effortLevelsIn(model.effortLevels);
+  // The picker shows for a model known to think: levels listed, an
+  // effort set, or a spec that says it thinks.
+  const thinks =
+    effortLevels.length > 0 ||
+    !!savedEffort ||
+    (!!model.spec && model.spec.thinking !== "disabled");
   const pricing = pricingFromDraft(price);
   const [credentialId, setCredentialId] = useState(model.credentialId ?? "");
   const [headers, setHeaders] = useState<HeaderRow[]>(() =>
@@ -82,6 +93,7 @@ export default function EditModelModal({
       setEnabled(model.enabled);
       setInputs(inputsOf(model.spec));
       setPrice(priceDraftOf(model.spec));
+      setEffort(savedEffort);
       setCredentialId(model.credentialId ?? "");
       setNewKey("");
       setKeyMut.reset();
@@ -154,6 +166,7 @@ export default function EditModelModal({
       credentialId: keyId,
       requiresKey,
       enabled,
+      ...(effort !== savedEffort && { effort: effort || "none" }),
     };
     // Only a change of media inputs or price rewrites the descriptor.
     const before = inputsOf(model.spec);
@@ -250,6 +263,14 @@ export default function EditModelModal({
             </div>
           </div>
 
+          {thinks && (
+            <EffortPicker
+              value={effort}
+              onChange={setEffort}
+              levels={effortLevels}
+              disabled={updateMut.isPending}
+            />
+          )}
           <InputsPicker value={inputs} onChange={setInputs} disabled={updateMut.isPending} />
           <PriceFields
             value={price}

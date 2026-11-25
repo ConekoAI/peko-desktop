@@ -71,7 +71,11 @@
     "title": "Add a model",
     "intro": "Use the base URL, API format, and model name from your provider's docs. Providers that say \"OpenAI-compatible\" use Chat Completions.",
     "conflict": "A model named <name/> already exists — set another name under Advanced.",
-    "adding": "Adding…"
+    "adding": "Adding…",
+    "fromProvider": "Filled in from the provider's model list.",
+    "suggested": "Some values are suggestions from models.dev — check them before adding.",
+    "limitsHint": "Left empty, pekos assume a 300,000-token context window.",
+    "limitsInvalid": "Limits are whole numbers of tokens."
   },
   "plan": {
     "title": "Use your ChatGPT plan",
@@ -122,5 +126,18 @@
     "headerValue": "Value",
     "saving": "Saving…",
     "save": "Save changes"
+  },
+  "effort": {
+    "label": "Thinking effort",
+    "default": "Provider's default",
+    "hint": "How hard the model thinks before it answers. Higher is slower and costs more.",
+    "unknownLevels": "This model's levels aren't known — pick one it takes, or keep the provider's default.",
+    "levels": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra high",
+      "max": "Max"
+    }
   }
 }

@@ -5,6 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { useAddModel, useModels } from "../../hooks/useModels";
 import { chatgptSignInCancel, chatgptSignInStart, chatgptSignInStatus } from "../../lib/api";
+import { effortLevelsIn } from "../../lib/model-facts";
 import type { PlanModel, PlanSignInState } from "../../types";
 
 /** Where models on a ChatGPT plan are served (runtime ADR-115). */
@@ -135,6 +136,14 @@ export default function ChatgptPlanModal({
         model: [model.slug],
         requiresKey: true,
         credentialId,
+        // The plan's own word on its limits; nothing suggested is added unseen.
+        ...(model.reported?.context_window && { contextWindow: model.reported.context_window }),
+        ...(model.reported?.max_output_tokens && {
+          maxOutputTokens: model.reported.max_output_tokens,
+        }),
+        ...(effortLevelsIn(model.reported?.thinking?.efforts).length > 0 && {
+          effortLevels: effortLevelsIn(model.reported?.thinking?.efforts),
+        }),
       },
       { onSettled: () => setAdding(null) },
     );

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { useEndpointModels } from "../../hooks/useEndpointModels";
 import { API_FORMATS, apiFormatHint, apiFormatLabel, type ApiFormat } from "../../lib/apiFormats";
-import type { ModelAddArgs } from "../../types";
+import type { DiscoveredModel, ModelAddArgs } from "../../types";
 
 /**
  * A model endpoint as the runtime configures it (ADR-068): a base URL,
@@ -81,11 +81,14 @@ const LABEL = "field-label mb-1.5 block";
 export default function EndpointForm({
   value,
   onChange,
+  onPicked,
   credentialOptions = [],
   disabled,
 }: {
   value: EndpointDraft;
   onChange: (next: EndpointDraft) => void;
+  /** The listed model the model id names, or `null`; told on change. */
+  onPicked?: (model: DiscoveredModel | null) => void;
   credentialOptions?: { value: string; label: string }[];
   disabled?: boolean;
 }) {
@@ -104,7 +107,14 @@ export default function EndpointForm({
     value.needsKey ? value.key : undefined,
     canList,
   );
-  const only = listed.data?.length === 1 ? listed.data[0] : null;
+  const ids = listed.data?.map((m) => m.id);
+  const only = listed.data?.length === 1 ? listed.data[0].id : null;
+  const picked = listed.data?.find((m) => m.id === value.modelId.trim()) ?? null;
+  useEffect(() => {
+    onPicked?.(picked);
+    // A new list or a new model id; the callback's identity is the parent's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked]);
   useEffect(() => {
     if (only && !value.modelId.trim()) onChange({ ...value, modelId: only });
     // Only when a one-model list arrives; typing stays the person's.
@@ -193,7 +203,7 @@ export default function EndpointForm({
             <span className="sr-only">{t("models.endpoint.offeredLabel")}</span>
             <select
               data-testid="endpoint-models"
-              value={listed.data.includes(value.modelId.trim()) ? value.modelId.trim() : ""}
+              value={ids?.includes(value.modelId.trim()) ? value.modelId.trim() : ""}
               onChange={(e) => e.target.value && set({ modelId: e.target.value })}
               className={INPUT}
             >
@@ -201,8 +211,8 @@ export default function EndpointForm({
                 {t("models.endpoint.offered", { count: listed.data.length })}
               </option>
               {listed.data.map((m) => (
-                <option key={m} value={m}>
-                  {m}
+                <option key={m.id} value={m.id}>
+                  {m.id}
                 </option>
               ))}
             </select>
