@@ -8,6 +8,7 @@ import ChannelHeader from "../components/ChannelHeader";
 import ChannelComposer from "../components/ChannelComposer";
 import ChannelEventRow from "../components/ChannelEventRow";
 import BoardPanel from "../components/BoardPanel";
+import HeldWakes from "../components/HeldWakes";
 import ChannelInviteModal from "../components/modals/ChannelInviteModal";
 import ChannelLeaveConfirmModal from "../components/modals/ChannelLeaveConfirmModal";
 import ChannelInviteToast, {
@@ -445,6 +446,8 @@ export default function ChannelView() {
       {isMember || person ? (
         <>
           {reactError && <p className="px-4 text-xs text-danger">{reactError}</p>}
+          {/* Runtime ADR-128: posts to one of your pekos held by its wake limit. */}
+          {!person && <HeldWakes channelId={channelId} />}
           <ChannelComposer
             channelId={channelId}
             channelName={person ? personLabel(person) : detail?.name}

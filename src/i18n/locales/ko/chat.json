@@ -59,7 +59,12 @@
     "approve": "승인",
     "alwaysTitle": "승인하고, {{name}}에게는 이 작업을 항상 허용",
     "always": "항상 허용",
-    "deny": "거부"
+    "deny": "거부",
+    "wakeLimit": "그룹에서 다른 페코가 {{peko}}을(를) 한도만큼 깨웠습니다. {{peko}}에게 온 메시지가 대기 중입니다.",
+    "wakeLimitContinue": "계속하게 하기",
+    "wakeLimitNoLimit": "이 그룹에서는 제한 없음",
+    "wakeLimitNoLimitTitle": "계속하게 하고, 이 그룹에서 다른 페코가 {{peko}}을(를) 깨우는 횟수를 더는 제한하지 않습니다",
+    "wakeLimitNotNow": "나중에"
   },
   "secret": {
     "request": "{{peko}}이(가) <name/>을(를) 요청합니다",

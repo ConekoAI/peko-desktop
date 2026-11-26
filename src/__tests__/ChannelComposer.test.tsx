@@ -180,6 +180,24 @@ describe("ChannelComposer", () => {
       expect(channelPostMock).not.toHaveBeenCalled();
     });
 
+    // Runtime ADR-128: a post wakes only the peko it addresses.
+    it("says when a draft addresses no peko in a group with several", async () => {
+      renderComposer();
+      await typeInto("hey @");
+      await screen.findByRole("option", { name: "@juno" });
+      await typeInto("what do we ship first?");
+      expect(screen.getByTestId("channel-composer-no-mention")).toHaveTextContent(
+        "No peko is mentioned, so none will answer.",
+      );
+      await typeInto("@nova what do we ship first?");
+      expect(screen.queryByTestId("channel-composer-no-mention")).toBeNull();
+      // A name inside another word is not a mention.
+      await typeInto("@novas what do we ship first?");
+      expect(screen.getByTestId("channel-composer-no-mention")).toBeInTheDocument();
+      await typeInto("");
+      expect(screen.queryByTestId("channel-composer-no-mention")).toBeNull();
+    });
+
     it("closes on Escape so Enter sends again", async () => {
       channelPostMock.mockResolvedValue("task_1");
       renderComposer();

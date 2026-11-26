@@ -59,7 +59,12 @@
     "approve": "承認",
     "alwaysTitle": "承認し、今後 {{name}} にはこれを常に許可する",
     "always": "常に許可",
-    "deny": "拒否"
+    "deny": "拒否",
+    "wakeLimit": "グループで他のペコが {{peko}} を上限まで起こしました。{{peko}} 宛てのメッセージが待機しています。",
+    "wakeLimitContinue": "続行させる",
+    "wakeLimitNoLimit": "このグループでは上限なし",
+    "wakeLimitNoLimitTitle": "続行させ、このグループで他のペコが {{peko}} を起こす回数の上限をなくします",
+    "wakeLimitNotNow": "今はしない"
   },
   "secret": {
     "request": "{{peko}} が <name/> を求めています",

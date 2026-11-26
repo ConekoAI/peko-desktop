@@ -19,7 +19,16 @@ const setWakeState = {
   error: null as Error | null,
 };
 
+const wakesState: { data: unknown } = { data: undefined };
+const changeWakesState = {
+  mutate: vi.fn(),
+  isPending: false,
+  error: null as Error | null,
+};
+
 vi.mock("../hooks/useChannels", () => ({
+  useChannelWakes: () => wakesState,
+  useChangeChannelWakes: () => changeWakesState,
   useChannels: () => ({ data: [] }),
   useChannel: () => ({ data: undefined }),
   useChannelMembers: (...args: unknown[]) => useChannelMembersMock(...args),
@@ -45,6 +54,57 @@ describe("MemberList", () => {
     setWakeState.mutate.mockReset();
     setWakeState.isPending = false;
     setWakeState.error = null;
+    wakesState.data = undefined;
+    changeWakesState.mutate.mockReset();
+    changeWakesState.error = null;
+  });
+
+  // Runtime ADR-128: how often other pekos may wake one of yours here.
+  it("shows a peko's wake limit and saves the two numbers", () => {
+    useChannelMembersMock.mockReturnValue({
+      data: { members: ["principal:prin_a", "user:local"] },
+      isLoading: false,
+    });
+    infoState.data = {
+      kind: "group",
+      pekos: [{ name: "alice", localId: "prin_a", wake: "mention" }],
+    };
+    wakesState.data = { perHour: "60", perDay: "none", spentHour: 12, spentDay: 40, held: 0, freeAt: null };
+    renderList();
+    const button = screen.getByTestId("wake-limit-alice");
+    expect(button).toHaveTextContent("12/60 an hour");
+    fireEvent.click(button);
+    const hour = screen.getByRole("textbox", { name: "Per hour" });
+    const day = screen.getByRole("textbox", { name: "Per day" });
+    expect(hour).toHaveValue("60");
+    // No limit shows as an empty field.
+    expect(day).toHaveValue("");
+    expect(screen.getByTestId("wake-limit-form-alice")).toHaveTextContent("Used: 12 this hour, 40 today");
+    fireEvent.change(hour, { target: { value: "" } });
+    fireEvent.change(day, { target: { value: "200" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(changeWakesState.mutate).toHaveBeenCalledWith(
+      { pekoName: "alice", perHour: "none", perDay: "200" },
+      expect.anything(),
+    );
+    // Not a whole number: nothing is saved.
+    changeWakesState.mutate.mockReset();
+    fireEvent.change(day, { target: { value: "lots" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("shows no wake limit on an engine that does not know it", () => {
+    useChannelMembersMock.mockReturnValue({
+      data: { members: ["principal:prin_a"] },
+      isLoading: false,
+    });
+    infoState.data = {
+      kind: "group",
+      pekos: [{ name: "alice", localId: "prin_a", wake: "mention" }],
+    };
+    renderList();
+    expect(screen.queryByTestId("wake-limit-alice")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "When alice replies" })).toBeInTheDocument();
   });
 
   // Found live: members on other computers showed as raw ids.

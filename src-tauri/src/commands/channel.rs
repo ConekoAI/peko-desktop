@@ -373,6 +373,81 @@ pub async fn channel_info(channel_id: String) -> Result<ChannelInfo, String> {
     project_channel_info_envelope(&value)
 }
 
+/// How often other pekos may wake one of your pekos in a group, and what
+/// waits past that (runtime ADR-128, `channel_wakes_result`).
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelWakes {
+    /// A number as text, or `none`.
+    pub per_hour: String,
+    pub per_day: String,
+    pub spent_hour: u32,
+    pub spent_day: u32,
+    /// Posts to the peko that wait for the limit to have room.
+    pub held: u32,
+    /// When the limit next has room (RFC3339), when it holds posts now.
+    pub free_at: Option<String>,
+}
+
+/// Read a `channel_wakes_result` envelope.
+fn project_channel_wakes(value: &serde_json::Value) -> ChannelWakes {
+    let text = |key: &str| {
+        value
+            .get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let count = |key: &str| {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|n| u32::try_from(n).ok())
+            .unwrap_or(0)
+    };
+    ChannelWakes {
+        per_hour: text("per_hour"),
+        per_day: text("per_day"),
+        spent_hour: count("spent_hour"),
+        spent_day: count("spent_day"),
+        held: count("held"),
+        free_at: value
+            .get("free_at")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
+    }
+}
+
+/// Read, set or reset how often other pekos may wake `principal_name`
+/// in a group (`channel_wakes`). `per_hour` / `per_day` are a number or
+/// `none`; `reset` lets the peko continue at once. Only its owner.
+#[tauri::command]
+pub async fn channel_wakes(
+    channel_id: String,
+    principal_name: String,
+    per_hour: Option<String>,
+    per_day: Option<String>,
+    reset: Option<bool>,
+) -> Result<ChannelWakes, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .channel_wakes(
+            &channel_id,
+            &principal_name,
+            per_hour.as_deref(),
+            per_day.as_deref(),
+            reset.unwrap_or(false),
+        )
+        .await
+        .map_err(|e| format!("channel_wakes failed: {e}"))?;
+    if crate::ipc::is_error_response(&value) {
+        return Err(runtime_error_message(&value));
+    }
+    Ok(project_channel_wakes(&value))
+}
+
 /// Set how `principal_name` wakes in a group (`channel_set_wake`):
 /// `human`, `mention`, or `off`. Returns the policy now stored.
 #[tauri::command]
@@ -1041,6 +1116,30 @@ fn parse_channel_event(value: &serde_json::Value, fallback_channel: &str) -> Opt
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn channel_wakes_reads_the_runtime_answer() {
+        let value = serde_json::json!({
+            "type": "channel_wakes_result", "request_id": 1, "channel": "group:team",
+            "principal_name": "otto", "per_hour": "2", "per_day": "none",
+            "spent_hour": 2, "spent_day": 5, "held": 3,
+            "free_at": "2026-11-26T06:44:44+00:00",
+        });
+        assert_eq!(
+            project_channel_wakes(&value),
+            ChannelWakes {
+                per_hour: "2".into(),
+                per_day: "none".into(),
+                spent_hour: 2,
+                spent_day: 5,
+                held: 3,
+                free_at: Some("2026-11-26T06:44:44+00:00".into()),
+            }
+        );
+        let quiet = serde_json::json!({"per_hour": "60", "per_day": "300"});
+        let quiet = project_channel_wakes(&quiet);
+        assert_eq!((quiet.held, quiet.free_at), (0, None));
+    }
     use serde_json::json;
 
     #[test]

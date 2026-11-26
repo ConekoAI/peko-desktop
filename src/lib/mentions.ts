@@ -30,3 +30,21 @@ export function insertMention(
   const after = text.slice(caret).replace(/^\S*/, "").replace(/^ /, "");
   return { text: text.slice(0, start) + inserted + after, caret: start + inserted.length };
 }
+
+/**
+ * Whether `text` mentions one of `names` as `@name` (a whole word,
+ * case-insensitive), as the engine matches it.
+ */
+export function mentionsAny(text: string, names: string[]): boolean {
+  const lower = text.toLowerCase();
+  return names.some((name) => {
+    const at = `@${name.toLowerCase()}`;
+    let from = lower.indexOf(at);
+    while (from !== -1) {
+      const next = lower[from + at.length];
+      if (next === undefined || !/[\w-]/.test(next)) return true;
+      from = lower.indexOf(at, from + 1);
+    }
+    return false;
+  });
+}

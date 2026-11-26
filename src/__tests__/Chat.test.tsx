@@ -414,6 +414,46 @@ describe("Chat ToS gate", () => {
     );
   });
 
+  // Runtime ADR-128 D6: posts to the peko held by its wake limit.
+  it("words a wake-limit request as its own, with its three answers", async () => {
+    approvalsState.data = [
+      {
+        id: "wakes-group.3A.team",
+        actor: "runtime",
+        actorName: "Peko",
+        trust: "owner",
+        summary:
+          "Other pekos reached the limit of 60 wakes an hour in group:team: 3 posts to this peko wait. Let it continue?",
+        reason: "Other pekos may wake it 60 times an hour and 300 a day in this group.",
+        createdAt: "2026-11-26T10:00:00Z",
+        expiresAt: "2026-11-27T10:00:00Z",
+        kind: "wake_limit",
+      },
+    ];
+    decideMut.mutateAsync.mockResolvedValue("It continues in group:team.");
+    render(<Chat />);
+    const cards = screen.getByTestId("approval-cards");
+    expect(cards).toHaveTextContent("Other pekos have woken alice as often as its limit allows");
+    expect(screen.getByTestId("wake-limit-summary")).toHaveTextContent("3 posts to this peko wait");
+    expect(cards).not.toHaveTextContent("asks alice to run");
+    // The runtime's reason speaks of the command line; the card leaves it out.
+    expect(cards).not.toHaveTextContent("Other pekos may wake it 60 times");
+    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Not now" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "No limit in this group" }));
+    await waitFor(() =>
+      expect(decideMut.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "wakes-group.3A.team", approve: true, always: true }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Let it continue" }));
+    await waitFor(() =>
+      expect(decideMut.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "wakes-group.3A.team", approve: true, always: false }),
+      ),
+    );
+  });
+
   it("leaves what is about your account to Settings, not to the peko's chat", async () => {
     approvalsState.data = (["owner_change", "key_change", "devices_reset"] as const).map((kind, n) => ({
       id: `apr_account${n}`,

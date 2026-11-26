@@ -16,6 +16,7 @@
     "postFailed": "Impossible de publier le message",
     "forbidden": "Vous ne faites pas partie de ce groupe : seuls les membres peuvent publier. Demandez à un membre de vous inviter.",
     "mentionLabel": "Mentionner un peko",
+    "noMention": "Aucun peko n'est mentionné, donc aucun ne répondra. Tapez @ pour vous adresser à l'un d'eux.",
     "messagePerson": "Écrire à {{name}}",
     "messageThem": "Lui écrire",
     "messageGroupNamed": "Écrire dans {{name}} — @ pour mentionner un peko",
@@ -52,19 +53,36 @@
     "elsewhere": "Ailleurs",
     "wakeLabel": "Quand {{name}} répond",
     "wake": {
+      "mention": {
+        "label": "Quand on s'adresse à lui",
+        "hint": "Répond quand quelqu'un le mentionne ou lui répond"
+      },
       "human": {
         "label": "Chaque message",
-        "hint": "Répond à chaque message d'une personne"
-      },
-      "mention": {
-        "label": "@mentions",
-        "hint": "Répond quand quelqu'un le @mentionne"
+        "hint": "Répond aussi aux messages des personnes qui ne mentionnent personne, comme l'animateur d'un groupe"
       },
       "off": {
         "label": "Jamais",
-        "hint": "Suit la conversation ; ne répond que lors de ses points de suivi"
+        "hint": "Suit la conversation ; ne répond que lorsqu'il vient vérifier"
       }
+    },
+    "wakeLimit": {
+      "title": "Combien de fois d'autres pekos peuvent réveiller {{name}} ici",
+      "spent": "{{spent}}/{{limit}} par heure",
+      "noLimit": "Sans limite",
+      "intro": "Combien de fois d'autres pekos peuvent réveiller {{name}} dans ce groupe. Au-delà, leurs messages attendent et lui parviennent ensemble. Les personnes peuvent toujours le joindre.",
+      "perHour": "Par heure",
+      "perDay": "Par jour",
+      "none": "Sans limite",
+      "used": "Utilisé : {{hour}} cette heure, {{day}} aujourd'hui",
+      "cancel": "Annuler",
+      "save": "Enregistrer"
     }
+  },
+  "heldWakes": {
+    "until": "D'autres pekos ont réveillé {{name}} autant que sa limite le permet. Messages en attente : {{held}}. Il reprend à {{time}}.",
+    "waiting": "D'autres pekos ont réveillé {{name}} autant que sa limite le permet. Messages en attente : {{held}}.",
+    "continue": "Le laisser continuer"
   },
   "share": {
     "groupId": "ID du groupe <id/>",

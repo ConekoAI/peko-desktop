@@ -455,7 +455,15 @@ function ApprovalCards({
     <div className="space-y-2 border-t border-line bg-surface px-4 pt-3" data-testid="approval-cards">
       {requests.map((r) => (
         <div key={r.id} className="rounded-xl border border-warn/25 bg-warn-soft p-3.5 text-sm">
-          {r.kind === "owner_task" ? (
+          {r.kind === "wake_limit" ? (
+            <>
+              <p className="text-fg">{t("chat.approval.wakeLimit", { peko })}</p>
+              {/* The runtime's reason names the command line; the buttons say it here. */}
+              <p className="mt-1 text-fg-soft" data-testid="wake-limit-summary">
+                {r.summary}
+              </p>
+            </>
+          ) : r.kind === "owner_task" ? (
             <>
               <p className="text-fg">
                 {t("chat.approval.ownerTask", {
@@ -492,17 +500,21 @@ function ApprovalCards({
               onClick={() => void act(r.id, true)}
               className="btn-primary btn-sm"
             >
-              {t("chat.approval.approve")}
+              {r.kind === "wake_limit" ? t("chat.approval.wakeLimitContinue") : t("chat.approval.approve")}
             </button>
             {!ONCE_ONLY_KINDS.has(r.kind ?? "") && (
               <button
                 type="button"
                 disabled={decide.isPending}
                 onClick={() => void act(r.id, true, true)}
-                title={t("chat.approval.alwaysTitle", { name: r.actorName ?? r.actor })}
+                title={
+                  r.kind === "wake_limit"
+                    ? t("chat.approval.wakeLimitNoLimitTitle", { peko })
+                    : t("chat.approval.alwaysTitle", { name: r.actorName ?? r.actor })
+                }
                 className="btn-secondary btn-sm"
               >
-                {t("chat.approval.always")}
+                {r.kind === "wake_limit" ? t("chat.approval.wakeLimitNoLimit") : t("chat.approval.always")}
               </button>
             )}
             <button
@@ -511,7 +523,7 @@ function ApprovalCards({
               onClick={() => void act(r.id, false)}
               className="btn-secondary btn-sm"
             >
-              {t("chat.approval.deny")}
+              {r.kind === "wake_limit" ? t("chat.approval.wakeLimitNotNow") : t("chat.approval.deny")}
             </button>
           </div>
         </div>

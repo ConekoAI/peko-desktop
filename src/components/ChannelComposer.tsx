@@ -3,7 +3,7 @@ import { Send, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useChannelPost } from "../hooks/useChannelPost";
 import { useChannelInfo } from "../hooks/useChannels";
-import { insertMention, mentionCandidates, mentionQuery } from "../lib/mentions";
+import { insertMention, mentionCandidates, mentionQuery, mentionsAny } from "../lib/mentions";
 import { mentionablePekos } from "../lib/channelPeople";
 import { isChannelForbidden } from "../lib/channelErrors";
 import type { RuntimeId } from "../lib/api";
@@ -24,6 +24,11 @@ import { ReplyingBar } from "./chat/Reactions";
  * You post as yourself (ADR-082): a human post is what wakes the
  * group's pekos. Posting as a peko would wake no one. Typing `@` lists
  * the group's pekos; a peko that replies on mentions answers `@name`.
+ *
+ * A post wakes only the peko it addresses (runtime ADR-128). In a group
+ * with several pekos, a draft that mentions none says so before it is
+ * sent, unless it is a reply or one of your pekos here takes posts that
+ * address no one.
  */
 export default function ChannelComposer({
   channelId,
@@ -87,6 +92,15 @@ export default function ChannelComposer({
 
   const trimmed = draft.trim();
   const canSubmit = trimmed.length > 0 && !mutation.isPending;
+  const takesUnaddressed = (info?.pekos ?? []).some((p) => p.wake === "human");
+  const addressesNoOne =
+    !withPerson &&
+    info?.kind === "group" &&
+    pekoNames.length > 1 &&
+    trimmed.length > 0 &&
+    !replying &&
+    !takesUnaddressed &&
+    !mentionsAny(trimmed, pekoNames);
   // Computed outside the JSX: the `isChannelForbidden` type guard
   // narrows `mutation.error` to `never` in the generic branch.
   const errorMessage = mutation.error?.message ?? t("channel.composer.postFailed");
@@ -223,6 +237,11 @@ export default function ChannelComposer({
           )}
         </button>
       </div>
+      {addressesNoOne && (
+        <p className="mt-1.5 px-1 text-[11px] text-fg-muted" data-testid="channel-composer-no-mention">
+          {t("channel.composer.noMention")}
+        </p>
+      )}
     </div>
   );
 }

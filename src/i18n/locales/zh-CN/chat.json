@@ -59,7 +59,12 @@
     "approve": "批准",
     "alwaysTitle": "批准，并始终允许 {{name}} 这样做",
     "always": "始终允许",
-    "deny": "拒绝"
+    "deny": "拒绝",
+    "wakeLimit": "在一个群组里，其他 peko 唤醒 {{peko}} 的次数已达上限。发给它的消息正在等待。",
+    "wakeLimitContinue": "让它继续",
+    "wakeLimitNoLimit": "此群组不限制",
+    "wakeLimitNoLimitTitle": "让它继续，并且不再限制其他 peko 在此群组唤醒 {{peko}} 的次数",
+    "wakeLimitNotNow": "暂不"
   },
   "secret": {
     "request": "{{peko}} 请求 <name/>",

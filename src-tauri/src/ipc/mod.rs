@@ -2525,6 +2525,36 @@ impl IpcClient {
         self.request_response(req).await
     }
 
+    /// Mirror of `RequestPacket::ChannelWakes` (runtime ADR-128): how
+    /// often other pekos may wake `principal_name` in a group, and what
+    /// waits past that. `per_hour` / `per_day` (a number, or `none`) set
+    /// the limits first; `reset` lets the peko continue at once.
+    pub async fn channel_wakes(
+        &self,
+        channel: &str,
+        principal_name: &str,
+        per_hour: Option<&str>,
+        per_day: Option<&str>,
+        reset: bool,
+    ) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let mut req = serde_json::json!({
+            "type": "channel_wakes",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+            "channel": channel,
+            "principal_name": principal_name,
+            "reset": reset,
+        });
+        if let Some(per_hour) = per_hour {
+            req["per_hour"] = serde_json::json!(per_hour);
+        }
+        if let Some(per_day) = per_day {
+            req["per_day"] = serde_json::json!(per_day);
+        }
+        self.request_response(req).await
+    }
+
     pub async fn channel_set_wake(
         &self,
         channel: &str,
