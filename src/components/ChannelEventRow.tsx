@@ -96,7 +96,6 @@ export default function ChannelEventRow({
         <div className="group relative flex gap-3 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-raised" data-testid="channel-event-row-posted">
           <ActorFace who={who} />
           <div className="min-w-0 flex-1">
-            {quote !== undefined && <QuotedLine quoted={quote} onJump={onJumpToQuote} />}
             <div className="flex items-baseline gap-2 text-xs">
               <span
                 className="text-sm font-semibold text-fg"
@@ -106,6 +105,8 @@ export default function ChannelEventRow({
               </span>
               <span className="text-[11px] text-fg-subtle">{new Date(event.at).toLocaleString(currentLocale())}</span>
             </div>
+            {/* Under the name, as in a DM (Chat.tsx). */}
+            {quote !== undefined && <QuotedLine quoted={quote} onJump={onJumpToQuote} />}
             <div className="mt-0.5 text-sm text-fg-soft">
               {who.isYou ? (
                 <p className="whitespace-pre-wrap break-words">{directory.named(event.text)}</p>

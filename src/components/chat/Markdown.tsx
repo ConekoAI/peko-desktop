@@ -32,7 +32,7 @@ export default function Markdown({ children }: { children: string }) {
   return (
     <div className="prose prose-sm max-w-none break-words leading-relaxed [--tw-prose-body:var(--fg-soft)] [--tw-prose-headings:var(--fg)] [--tw-prose-bold:var(--fg)] [--tw-prose-links:var(--brand-text)] [--tw-prose-counters:var(--fg-subtle)] [--tw-prose-bullets:var(--line-strong)] [--tw-prose-hr:var(--line)] [--tw-prose-quotes:var(--fg-muted)] [--tw-prose-quote-borders:var(--line-strong)] [--tw-prose-code:var(--fg)] [--tw-prose-th-borders:var(--line-strong)] [--tw-prose-td-borders:var(--line)] [--tw-prose-captions:var(--fg-subtle)] prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none [&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-surface-sunken [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:text-[0.85em]">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkEmbeds]}
+        remarkPlugins={[remarkGfm, remarkEmbeds, remarkLineBreaks]}
         rehypePlugins={[[rehypeSanitize, SCHEMA], [rehypeHighlight, { detect: false }]]}
         urlTransform={urlTransform}
         components={{
@@ -195,6 +195,38 @@ function replaceEmbeds(parent: MdNode, source: string) {
 function remarkEmbeds() {
   return (tree: MdNode, file: { value?: unknown }) => {
     replaceEmbeds(tree, String(file.value ?? ""));
+  };
+}
+
+// ─── Line breaks ─────────────────────────────────────────────────
+
+function breakLines(parent: MdNode) {
+  const children = parent.children;
+  if (!children) return;
+  for (let i = 0; i < children.length; i++) {
+    const node = children[i];
+    if (node.type === "text" && node.value?.includes("\n")) {
+      const parts: MdNode[] = [];
+      node.value.split("\n").forEach((line, n) => {
+        if (n > 0) parts.push({ type: "break" });
+        if (line) parts.push({ type: "text", value: line });
+      });
+      children.splice(i, 1, ...parts);
+      i += parts.length - 1;
+      continue;
+    }
+    breakLines(node);
+  }
+}
+
+/**
+ * A line break in a reply's text is a line break on screen, as in any
+ * chat: markdown alone joins the lines of a paragraph into one. Code is
+ * untouched (its nodes are not text nodes).
+ */
+function remarkLineBreaks() {
+  return (tree: MdNode) => {
+    breakLines(tree);
   };
 }
 
