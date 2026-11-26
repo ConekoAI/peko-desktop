@@ -49,6 +49,18 @@ describe("Markdown", () => {
     expect(container.querySelector("[class*='hljs-']")).toBeNull();
   });
 
+  it("keeps a reply's line breaks, and leaves code as written", () => {
+    const { container } = render(
+      <Markdown>{"River otter\nSea otter\nGiant otter\n\n- one\n  two\n\n```\na\nb\n```"}</Markdown>,
+    );
+    const first = container.querySelector("p")!;
+    expect(first.querySelectorAll("br")).toHaveLength(2);
+    expect(first.textContent).toContain("Sea otter");
+    expect(container.querySelector("li")!.querySelectorAll("br")).toHaveLength(1);
+    expect(container.querySelector("pre")!.querySelectorAll("br")).toHaveLength(0);
+    expect(container.querySelector("pre")!.textContent).toContain("a\nb");
+  });
+
   it("strips raw HTML", () => {
     const { container } = render(
       <Markdown>{'<img src=x onerror="alert(1)"> and <script>bad()</script> **bold**'}</Markdown>,
