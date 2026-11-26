@@ -2538,20 +2538,16 @@ impl IpcClient {
         reset: bool,
     ) -> Result<serde_json::Value> {
         ensure_daemon().await?;
-        let mut req = serde_json::json!({
+        let req = serde_json::json!({
             "type": "channel_wakes",
             "protocol_version": PROTOCOL_VERSION,
             "request_id": 1u64,
             "channel": channel,
             "principal_name": principal_name,
+            "per_hour": per_hour,
+            "per_day": per_day,
             "reset": reset,
         });
-        if let Some(per_hour) = per_hour {
-            req["per_hour"] = serde_json::json!(per_hour);
-        }
-        if let Some(per_day) = per_day {
-            req["per_day"] = serde_json::json!(per_day);
-        }
         self.request_response(req).await
     }
 
