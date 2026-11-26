@@ -1,4 +1,11 @@
-import { useChannelInfo, useChannelMembers, useSetChannelWake } from "../hooks/useChannels";
+import { useState } from "react";
+import {
+  useChangeChannelWakes,
+  useChannelInfo,
+  useChannelMembers,
+  useChannelWakes,
+  useSetChannelWake,
+} from "../hooks/useChannels";
 import type { ChannelPerson, WakePolicy } from "../lib/api";
 import { useChannelDirectory } from "../hooks/useChannelDirectory";
 import { shownAddress } from "../lib/format";
@@ -120,7 +127,10 @@ export default function MemberList({
                   )}
                 </span>
                 {wakePeko ? (
-                  <WakePicker channelId={channelId} pekoName={wakePeko.name} wake={wakePeko.wake} />
+                  <>
+                    <WakeLimit channelId={channelId} pekoName={wakePeko.name} />
+                    <WakePicker channelId={channelId} pekoName={wakePeko.name} wake={wakePeko.wake} />
+                  </>
                 ) : (
                   <RuntimeBadge runtimeId="local" />
                 )}
@@ -202,7 +212,10 @@ function PeopleList({
           {p.kind === "principal" ? t("channel.members.peko") : t("channel.members.person")}
         </span>
         {wakePeko && (
-          <WakePicker channelId={channelId} pekoName={wakePeko.name} wake={wakePeko.wake} />
+          <>
+            <WakeLimit channelId={channelId} pekoName={wakePeko.name} />
+            <WakePicker channelId={channelId} pekoName={wakePeko.name} wake={wakePeko.wake} />
+          </>
         )}
       </li>
     );
@@ -227,12 +240,121 @@ function PeopleList({
   );
 }
 
-const WAKE_OPTIONS: WakePolicy[] = ["human", "mention", "off"];
+const WAKE_OPTIONS: WakePolicy[] = ["mention", "human", "off"];
+
+/** A limit as the runtime sends it (`"60"`, `"none"`) for a number field. */
+function limitField(limit: string): string {
+  return limit === "none" ? "" : limit;
+}
+
+/** A number field's text as the runtime takes it; `null` when it is not a whole number. */
+function limitValue(field: string): string | null {
+  const text = field.trim();
+  if (text === "") return "none";
+  return /^\d{1,6}$/.test(text) ? String(Number(text)) : null;
+}
 
 /**
- * What starts a turn for one of your pekos in this group (ADR-082):
- * every human message, @mentions (the default), or nothing. Saved as
- * soon as it changes; a refusal (not your peko) shows inline.
+ * How often other pekos may wake one of your pekos in this group
+ * (runtime ADR-128): a small button that shows what is spent of the
+ * hourly limit and opens the two numbers. An empty field is no limit.
+ * Shows nothing on an engine that does not know the request.
+ */
+function WakeLimit({ channelId, pekoName }: { channelId: string; pekoName: string }) {
+  const { t } = useTranslation();
+  const { data: wakes } = useChannelWakes(channelId, pekoName);
+  const change = useChangeChannelWakes(channelId);
+  const [open, setOpen] = useState(false);
+  const [hour, setHour] = useState("");
+  const [day, setDay] = useState("");
+  if (!wakes) return null;
+  const perHour = limitValue(hour);
+  const perDay = limitValue(day);
+  const valid = perHour !== null && perDay !== null;
+  return (
+    <span className="relative shrink-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        title={t("channel.members.wakeLimit.title", { name: pekoName })}
+        data-testid={`wake-limit-${pekoName}`}
+        onClick={() => {
+          setHour(limitField(wakes.perHour));
+          setDay(limitField(wakes.perDay));
+          setOpen((o) => !o);
+        }}
+        className={[
+          "rounded-md border px-1.5 py-1 text-[11px] tabular-nums",
+          wakes.held > 0 ? "border-warn/40 bg-warn-soft text-fg" : "border-line text-fg-muted hover:bg-surface-sunken",
+        ].join(" ")}
+      >
+        {wakes.perHour === "none"
+          ? t("channel.members.wakeLimit.noLimit")
+          : t("channel.members.wakeLimit.spent", { spent: wakes.spentHour, limit: wakes.perHour })}
+      </button>
+      {open && (
+        <form
+          className="popover absolute right-0 top-full z-10 mt-1 w-64 space-y-2 p-3 text-xs"
+          data-testid={`wake-limit-form-${pekoName}`}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!valid) return;
+            change.mutate(
+              { pekoName, perHour: perHour!, perDay: perDay! },
+              { onSuccess: () => setOpen(false) },
+            );
+          }}
+        >
+          <p className="text-fg-soft">{t("channel.members.wakeLimit.intro", { name: pekoName })}</p>
+          <label className="flex items-center justify-between gap-2">
+            <span>{t("channel.members.wakeLimit.perHour")}</span>
+            <input
+              inputMode="numeric"
+              value={hour}
+              onChange={(e) => setHour(e.target.value)}
+              placeholder={t("channel.members.wakeLimit.none")}
+              aria-label={t("channel.members.wakeLimit.perHour")}
+              className="input input-sm w-20 text-right"
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2">
+            <span>{t("channel.members.wakeLimit.perDay")}</span>
+            <input
+              inputMode="numeric"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+              placeholder={t("channel.members.wakeLimit.none")}
+              aria-label={t("channel.members.wakeLimit.perDay")}
+              className="input input-sm w-20 text-right"
+            />
+          </label>
+          <p className="text-fg-muted">
+            {t("channel.members.wakeLimit.used", { hour: wakes.spentHour, day: wakes.spentDay })}
+          </p>
+          {change.error && (
+            <p role="alert" className="text-danger">
+              {change.error.message}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setOpen(false)}>
+              {t("channel.members.wakeLimit.cancel")}
+            </button>
+            <button type="submit" className="btn-primary btn-sm" disabled={!valid || change.isPending}>
+              {t("channel.members.wakeLimit.save")}
+            </button>
+          </div>
+        </form>
+      )}
+    </span>
+  );
+}
+
+/**
+ * What starts a turn for one of your pekos in this group (ADR-082,
+ * ADR-128): posts that address it (the default), also people's posts
+ * that address no one, or nothing. Saved as soon as it changes; a
+ * refusal (not your peko) shows inline.
  */
 function WakePicker({
   channelId,

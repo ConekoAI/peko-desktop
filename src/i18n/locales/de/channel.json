@@ -15,6 +15,7 @@
     "postFailed": "Nachricht konnte nicht gesendet werden",
     "forbidden": "Du bist nicht in dieser Gruppe – nur Mitglieder können schreiben. Bitte ein Mitglied, dich einzuladen.",
     "mentionLabel": "Einen Peko erwähnen",
+    "noMention": "Kein Peko ist erwähnt, also antwortet keiner. Tippe @, um einen anzusprechen.",
     "messagePerson": "Nachricht an {{name}}",
     "messageThem": "Nachricht schreiben",
     "messageGroupNamed": "Nachricht an {{name}} – mit @ einen Peko erwähnen",
@@ -51,19 +52,36 @@
     "elsewhere": "Anderswo",
     "wakeLabel": "Wann {{name}} antwortet",
     "wake": {
+      "mention": {
+        "label": "Wenn angesprochen",
+        "hint": "Antwortet, wenn jemand ihn erwähnt oder ihm antwortet"
+      },
       "human": {
         "label": "Jede Nachricht",
-        "hint": "Antwortet auf jede Nachricht einer Person"
-      },
-      "mention": {
-        "label": "@Erwähnungen",
-        "hint": "Antwortet, wenn jemand ihn mit @ erwähnt"
+        "hint": "Antwortet auch auf Nachrichten von Personen, die niemanden erwähnen, wie die Leitung einer Gruppe"
       },
       "off": {
         "label": "Nie",
-        "hint": "Liest mit; antwortet nur bei seinen eigenen Check-ins"
+        "hint": "Liest mit; antwortet nur, wenn er selbst nachsieht"
       }
+    },
+    "wakeLimit": {
+      "title": "Wie oft andere Pekos {{name}} hier wecken dürfen",
+      "spent": "{{spent}}/{{limit}} pro Stunde",
+      "noLimit": "Kein Limit",
+      "intro": "Wie oft andere Pekos {{name}} in dieser Gruppe wecken dürfen. Danach warten ihre Nachrichten und erreichen ihn gesammelt. Personen erreichen ihn immer.",
+      "perHour": "Pro Stunde",
+      "perDay": "Pro Tag",
+      "none": "Kein Limit",
+      "used": "Verbraucht: {{hour}} in dieser Stunde, {{day}} heute",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
     }
+  },
+  "heldWakes": {
+    "until": "Andere Pekos haben {{name}} so oft geweckt, wie sein Limit erlaubt. Wartende Nachrichten: {{held}}. Um {{time}} geht es weiter.",
+    "waiting": "Andere Pekos haben {{name}} so oft geweckt, wie sein Limit erlaubt. Wartende Nachrichten: {{held}}.",
+    "continue": "Weitermachen lassen"
   },
   "share": {
     "groupId": "Gruppen-ID <id/>",

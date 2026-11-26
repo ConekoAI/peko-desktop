@@ -11,6 +11,8 @@ import {
   channelGet,
   channelInfo,
   channelSetWake,
+  channelWakes,
+  type ChannelWakes,
   channelInvite,
   channelLeave,
   channelList,
@@ -343,6 +345,44 @@ export function useSetChannelWake(channelId: string | undefined) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["channel-info", channelId] });
+    },
+  });
+}
+
+// ─── Wakes by other pekos (runtime ADR-128) ──────────────────────
+
+/**
+ * How often other pekos may wake one of your pekos in a group, what is
+ * spent and what waits. Read again every 15 s while shown, so posts that
+ * start to wait appear without a reload. An engine that predates the
+ * request answers with an error, and the caller shows nothing.
+ */
+export function useChannelWakes(channelId: string | undefined, pekoName: string | undefined) {
+  return useQuery<ChannelWakes, ChannelError>({
+    queryKey: ["channel-wakes", channelId, pekoName],
+    enabled: !!channelId && !!pekoName,
+    queryFn: () => channelWakes(channelId!, pekoName!).catch(rethrowAsChannelError),
+    refetchInterval: 15_000,
+    retry: false,
+  });
+}
+
+/** Set a peko's wake limits in a group, or let it continue at once. */
+export function useChangeChannelWakes(channelId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation<
+    ChannelWakes,
+    ChannelError,
+    { pekoName: string; perHour?: string; perDay?: string; reset?: boolean }
+  >({
+    mutationFn: ({ pekoName, ...change }) => {
+      if (!channelId) return Promise.reject(new Error("channel id required"));
+      return channelWakes(channelId, pekoName, change).catch(rethrowAsChannelError);
+    },
+    onSuccess: (wakes, vars) => {
+      qc.setQueryData(["channel-wakes", channelId, vars.pekoName], wakes);
+      // A held request leaves the peko's approvals once it continues.
+      void qc.invalidateQueries({ queryKey: ["approvals"] });
     },
   });
 }

@@ -15,6 +15,7 @@
     "postFailed": "Failed to post message",
     "forbidden": "You aren't in this group — only members can post. Ask a current member to invite you.",
     "mentionLabel": "Mention a peko",
+    "noMention": "No peko is mentioned, so none will answer. Type @ to address one.",
     "messagePerson": "Message {{name}}",
     "messageThem": "Message them",
     "messageGroupNamed": "Message {{name}} — @ to mention a peko",
@@ -51,19 +52,36 @@
     "elsewhere": "Elsewhere",
     "wakeLabel": "When {{name}} replies",
     "wake": {
+      "mention": {
+        "label": "When addressed",
+        "hint": "Answers when someone mentions it or replies to it"
+      },
       "human": {
         "label": "Every message",
-        "hint": "Replies to every message from a person"
-      },
-      "mention": {
-        "label": "@mentions",
-        "hint": "Replies when someone @mentions it"
+        "hint": "Also answers people's messages that mention no one, as a group's chair does"
       },
       "off": {
         "label": "Never",
-        "hint": "Reads along; replies only when it checks in"
+        "hint": "Reads along; answers only when it checks in"
       }
+    },
+    "wakeLimit": {
+      "title": "How often other pekos may wake {{name}} here",
+      "spent": "{{spent}}/{{limit}} an hour",
+      "noLimit": "No limit",
+      "intro": "How often other pekos may wake {{name}} in this group. Past that, their messages wait and reach it together. People always reach it.",
+      "perHour": "Per hour",
+      "perDay": "Per day",
+      "none": "No limit",
+      "used": "Used: {{hour}} this hour, {{day}} today",
+      "cancel": "Cancel",
+      "save": "Save"
     }
+  },
+  "heldWakes": {
+    "until": "Other pekos have woken {{name}} as often as its limit allows. Messages waiting for it: {{held}}. It continues at {{time}}.",
+    "waiting": "Other pekos have woken {{name}} as often as its limit allows. Messages waiting for it: {{held}}.",
+    "continue": "Let it continue"
   },
   "share": {
     "groupId": "Group ID <id/>",

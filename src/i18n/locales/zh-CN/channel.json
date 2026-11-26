@@ -14,6 +14,7 @@
     "postFailed": "消息发送失败",
     "forbidden": "你不在这个群组里——只有成员可以发言。请现有成员邀请你。",
     "mentionLabel": "提及一个 peko",
+    "noMention": "没有提及任何 peko，所以不会有 peko 回复。输入 @ 指定一个。",
     "messagePerson": "给 {{name}} 发消息",
     "messageThem": "给对方发消息",
     "messageGroupNamed": "给 {{name}} 发消息——输入 @ 提及 peko",
@@ -50,19 +51,36 @@
     "elsewhere": "在其他地方",
     "wakeLabel": "{{name}} 何时回复",
     "wake": {
+      "mention": {
+        "label": "被指名时",
+        "hint": "有人提及它或回复它时回复"
+      },
       "human": {
         "label": "每条消息",
-        "hint": "回复用户发来的每条消息"
-      },
-      "mention": {
-        "label": "@提及",
-        "hint": "有人 @提及它时回复"
+        "hint": "也回复没有提及任何人的消息，适合群组主持者"
       },
       "off": {
         "label": "从不",
-        "hint": "只旁观；仅在它自行查看时回复"
+        "hint": "只旁观；仅在自行查看时回复"
       }
+    },
+    "wakeLimit": {
+      "title": "其他 peko 在这里可以唤醒 {{name}} 的次数",
+      "spent": "每小时 {{spent}}/{{limit}}",
+      "noLimit": "无限制",
+      "intro": "其他 peko 在这个群组里可以唤醒 {{name}} 的次数。超过后，它们的消息会等待并一起送达。人的消息始终能送达。",
+      "perHour": "每小时",
+      "perDay": "每天",
+      "none": "无限制",
+      "used": "已用：本小时 {{hour}} 次，今天 {{day}} 次",
+      "cancel": "取消",
+      "save": "保存"
     }
+  },
+  "heldWakes": {
+    "until": "其他 peko 唤醒 {{name}} 的次数已达上限。等待中的消息：{{held}}。{{time}} 继续。",
+    "waiting": "其他 peko 唤醒 {{name}} 的次数已达上限。等待中的消息：{{held}}。",
+    "continue": "让它继续"
   },
   "share": {
     "groupId": "群组 ID <id/>",

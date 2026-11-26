@@ -2482,6 +2482,41 @@ export async function channelSetWake(
 }
 
 /**
+ * How often other pekos may wake one of your pekos in a group, and what
+ * waits past that (runtime ADR-128).
+ */
+export interface ChannelWakes {
+  /** A number as text, or `none`. */
+  perHour: string;
+  perDay: string;
+  spentHour: number;
+  spentDay: number;
+  /** Posts to the peko that wait for the limit to have room. */
+  held: number;
+  /** When the limit next has room (RFC3339), when it holds posts now. */
+  freeAt: string | null;
+}
+
+/**
+ * Read how often other pekos may wake `principalName` in a group; with
+ * `change`, set the limits (a number as text, or `none`) or let the peko
+ * continue at once (`reset`) first. Only the peko's owner, groups only.
+ */
+export async function channelWakes(
+  channelId: string,
+  principalName: string,
+  change: { perHour?: string; perDay?: string; reset?: boolean } = {},
+): Promise<ChannelWakes> {
+  return invoke<ChannelWakes>("channel_wakes", {
+    channelId,
+    principalName,
+    perHour: change.perHour ?? null,
+    perDay: change.perDay ?? null,
+    reset: change.reset ?? false,
+  });
+}
+
+/**
  * PR-2a: post a message to `channelId` from `senderName`. `parent`
  * is the optional task id of the message being replied to. Returns
  * the runtime-minted `task_id` (a UUID-shaped string) so the frontend

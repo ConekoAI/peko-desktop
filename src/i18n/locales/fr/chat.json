@@ -59,7 +59,12 @@
     "approve": "Approuver",
     "alwaysTitle": "Approuver et toujours l'autoriser pour {{name}}",
     "always": "Toujours autoriser",
-    "deny": "Refuser"
+    "deny": "Refuser",
+    "wakeLimit": "D'autres pekos ont réveillé {{peko}} dans un groupe autant que sa limite le permet. Leurs messages pour lui attendent.",
+    "wakeLimitContinue": "Le laisser continuer",
+    "wakeLimitNoLimit": "Sans limite dans ce groupe",
+    "wakeLimitNoLimitTitle": "Le laisser continuer et ne plus limiter le nombre de fois où d'autres pekos réveillent {{peko}} dans ce groupe",
+    "wakeLimitNotNow": "Pas maintenant"
   },
   "secret": {
     "request": "{{peko}} demande <name/>",
