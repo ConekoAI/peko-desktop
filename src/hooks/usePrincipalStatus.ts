@@ -209,7 +209,7 @@ export function statusBadge(value: PrincipalStatusValue): {
 } {
   switch (value) {
     case "online":
-      return { label: t("peko.status.online"), color: "text-ok", icon: "circle" };
+      return { label: t("peko.status.online"), color: "text-lime-text", icon: "circle" };
     case "busy":
       return { label: t("peko.status.busy"), color: "text-warn", icon: "dot" };
     case "offline":

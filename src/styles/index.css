@@ -5,12 +5,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Peko design system, shared with the hub (pekohub/frontend): black,
- * white and neutral grays (`ink`), hairline borders, Inter. Primary
- * actions are black on light and white on dark. Peko teal (`peko`, the
- * logo color #008880) is an accent used sparingly: the logo, focus rings,
- * the online dot and unread counts. Components should reach for the
- * semantic tokens below so one class serves both themes.
+ * Peko design system, shared with the hub (pekohub/frontend): neutral
+ * grays (`ink`), hairline borders, Inter, and the logo's two leaves for
+ * color. Peko teal (`peko`, #008880 on light, #4eb8af on dark) is the main
+ * color: primary actions, links, selected items, focus rings. Peko lime
+ * (#b7dd6b) is the secondary: signs of life and things to look at, never
+ * actions: the online dot and unread counts. Components should reach for
+ * the semantic tokens below so one class serves both themes.
  */
 @theme {
   --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -76,10 +77,11 @@
  *   surface-sunken  hover and pressed fills, code headers
  *   line / line-strong   hairlines; control borders
  *   fg / fg-soft / fg-muted / fg-subtle   text, by emphasis
- *   brand           primary fills (buttons): black on light, white on dark
- *   brand-text      emphasised text and icons (links, active items): fg
- *   brand-soft      a neutral fill for selected and active rows
- *   accent(-soft)   Peko teal, sparingly: focus rings, online, unread
+ *   brand           primary fills (buttons): Peko teal
+ *   brand-text      emphasised text and icons (links, active items): teal
+ *   brand-soft      a teal tint for selected and active rows
+ *   accent(-soft)   focus rings (teal)
+ *   lime(-text/-soft/-fg)   Peko lime, the secondary: online, unread
  *   danger(-soft) / warn(-soft) / ok(-soft)   status
  *
  * Dark matches the hub; light is its daytime counterpart.
@@ -96,13 +98,17 @@
   --fg-soft: #2b2b2b;
   --fg-muted: #5f5f5f;
   --fg-subtle: #8a8a8a;
-  --brand: #111111;
-  --brand-hover: #2b2b2b;
-  --brand-soft: #ececec;
+  --brand: #008880;
+  --brand-hover: #006f67;
+  --brand-soft: #e2f3f1;
   --brand-fg: #ffffff;
-  --brand-text: #0a0a0a;
+  --brand-text: #006f67;
   --accent: #008880;
   --accent-soft: rgb(0 136 128 / 0.2);
+  --lime: #b7dd6b;
+  --lime-fg: #1d2a0b;
+  --lime-text: #5b8a17;
+  --lime-soft: #eef7d6;
   --danger: #c8344f;
   --danger-soft: #fdeef1;
   --warn: #a35c06;
@@ -127,13 +133,17 @@
   --fg-soft: #d4d4d4;
   --fg-muted: #a3a3a3;
   --fg-subtle: #868686;
-  --brand: #f5f5f5;
-  --brand-hover: #ffffff;
-  --brand-soft: rgb(255 255 255 / 0.08);
+  --brand: #4eb8af;
+  --brand-hover: #7ed3ca;
+  --brand-soft: rgb(78 184 175 / 0.14);
   --brand-fg: #17181b;
-  --brand-text: #fafafa;
-  --accent: #30a097;
-  --accent-soft: rgb(48 160 151 / 0.25);
+  --brand-text: #7ed3ca;
+  --accent: #4eb8af;
+  --accent-soft: rgb(78 184 175 / 0.25);
+  --lime: #b7dd6b;
+  --lime-fg: #17181b;
+  --lime-text: #c9e68c;
+  --lime-soft: rgb(183 221 107 / 0.14);
   --danger: #fb7185;
   --danger-soft: rgb(251 113 133 / 0.1);
   --warn: #fbbf24;
@@ -163,6 +173,10 @@
   --color-brand-text: var(--brand-text);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-lime: var(--lime);
+  --color-lime-fg: var(--lime-fg);
+  --color-lime-text: var(--lime-text);
+  --color-lime-soft: var(--lime-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-warn: var(--warn);
@@ -421,7 +435,7 @@ select option {
   @apply badge bg-ok-soft text-ok;
 }
 @utility count-badge {
-  @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-white;
+  @apply inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-lime px-1 text-[10px] font-semibold leading-none text-lime-fg;
 }
 
 /* Notes */
