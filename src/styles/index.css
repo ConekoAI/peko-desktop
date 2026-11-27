@@ -113,22 +113,24 @@
   color-scheme: light;
 }
 
+/* Dark surfaces are grey, not black: the same ramp as PekoHub's `ink`
+   scale and the phone app's dark palette. */
 .dark {
-  --surface: #0a0a0a;
-  --surface-rail: #050505;
-  --surface-card: #141414;
-  --surface-raised: #101010;
-  --surface-sunken: #1c1c1c;
-  --line: #222222;
-  --line-strong: #333333;
+  --surface: #17181b;
+  --surface-rail: #121316;
+  --surface-card: #1d1e22;
+  --surface-raised: #1a1b1e;
+  --surface-sunken: #28292e;
+  --line: #2e2f35;
+  --line-strong: #37383f;
   --fg: #f5f5f5;
   --fg-soft: #d4d4d4;
   --fg-muted: #a3a3a3;
-  --fg-subtle: #737373;
+  --fg-subtle: #868686;
   --brand: #f5f5f5;
   --brand-hover: #ffffff;
   --brand-soft: rgb(255 255 255 / 0.08);
-  --brand-fg: #0a0a0a;
+  --brand-fg: #17181b;
   --brand-text: #fafafa;
   --accent: #30a097;
   --accent-soft: rgb(48 160 151 / 0.25);
@@ -138,7 +140,7 @@
   --warn-soft: rgb(251 191 36 / 0.1);
   --ok: #34d399;
   --ok-soft: rgb(52 211 153 / 0.1);
-  --scrollbar: #2b2b2b;
+  --scrollbar: #37383f;
   color-scheme: dark;
 }
 
