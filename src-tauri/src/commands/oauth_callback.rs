@@ -19,7 +19,9 @@
 //       loaded, say, and the user tried again).
 //
 // In every case the listener is dropped and the port freed, so the
-// next attempt can bind it; a superseded attempt rejects at once.
+// next attempt can bind it; a superseded attempt rejects at once. An
+// attempt claims its place before it binds, so one that starts while
+// another is still binding replaces it too.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -43,35 +45,52 @@ pub struct OAuthCallbackPayload {
 /// even if multiple requests land on the same port.
 type CallbackSender = Arc<Mutex<Option<oneshot::Sender<Result<OAuthCallbackPayload, String>>>>>;
 
-/// The sign-in currently listening, so a newer one can end it and take
-/// its port: its sender (to reject it) and its accept task (to free the
-/// port).
-struct ActiveListener {
-    tx: CallbackSender,
-    task: tokio::task::AbortHandle,
-}
+/// The sender of the sign-in currently waiting, so a newer one can end it
+/// and take its port.
+static ACTIVE: Mutex<Option<CallbackSender>> = Mutex::new(None);
 
-static ACTIVE: Mutex<Option<ActiveListener>> = Mutex::new(None);
-
-/// End the sign-in that is listening, if any: it rejects, and its port is
-/// freed once its accept task stops.
-fn supersede_active() {
-    let previous = ACTIVE.lock().unwrap_or_else(|e| e.into_inner()).take();
+/// Make `tx` the waiting sign-in, ending the one before it, if any: that one
+/// rejects, and frees its port once its accept task stops.
+fn take_over(tx: &CallbackSender) {
+    let previous = ACTIVE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .replace(tx.clone());
     if let Some(previous) = previous {
-        if let Some(tx) = previous.tx.lock().unwrap_or_else(|e| e.into_inner()).take() {
-            let _ = tx.send(Err("a newer sign-in started".to_string()));
+        if let Some(sender) = previous.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            let _ = sender.send(Err("a newer sign-in started".to_string()));
         }
-        previous.task.abort();
     }
 }
 
-/// Bind `addr`, waiting briefly for a superseded listener to let go of it.
+/// This attempt is over: it no longer holds the slot (unless a newer one
+/// already took it).
+fn let_go(tx: &CallbackSender) {
+    let mut active = ACTIVE.lock().unwrap_or_else(|e| e.into_inner());
+    if active.as_ref().is_some_and(|a| Arc::ptr_eq(a, tx)) {
+        *active = None;
+    }
+}
+
+/// Stops the accept task, and so frees the port, however the attempt ends
+/// (even when the command's future is dropped).
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Bind `addr`, waiting up to two seconds for a superseded listener to let
+/// go of it (its task stops on the runtime's next turn, later on a busy
+/// machine).
 async fn bind_freed(addr: &str) -> std::io::Result<TcpListener> {
     let mut tries = 0;
     loop {
         match TcpListener::bind(addr).await {
             Ok(listener) => return Ok(listener),
-            Err(e) if tries < 40 && e.kind() == std::io::ErrorKind::AddrInUse => {
+            Err(e) if tries < 80 && e.kind() == std::io::ErrorKind::AddrInUse => {
                 tries += 1;
                 tokio::time::sleep(Duration::from_millis(25)).await;
             }
@@ -92,42 +111,36 @@ pub async fn start_oauth_callback_listener(
     let path = path.unwrap_or_else(|| "/callback".to_string());
     let bind_addr = format!("127.0.0.1:{port}");
 
-    supersede_active();
-    let listener = bind_freed(&bind_addr)
-        .await
-        .map_err(|e| format!("failed to bind {bind_addr}: {e}"))?;
-
     let (tx, rx) = oneshot::channel::<Result<OAuthCallbackPayload, String>>();
     let tx = Arc::new(Mutex::new(Some(tx)));
+    take_over(&tx);
+
+    let listener = match bind_freed(&bind_addr).await {
+        Ok(listener) => listener,
+        Err(e) => {
+            let_go(&tx);
+            return Err(format!("failed to bind {bind_addr}: {e}"));
+        }
+    };
 
     // Drive the accept loop on a background task so this future
     // can `select!` between the channel and the timeout.
     let path_for_task = path.clone();
     let tx_for_task = tx.clone();
-    let task = tokio::spawn(async move {
+    let _task = AbortOnDrop(tokio::spawn(async move {
         accept_loop(listener, &path_for_task, tx_for_task).await;
-    });
-    *ACTIVE.lock().unwrap_or_else(|e| e.into_inner()) = Some(ActiveListener {
-        tx: tx.clone(),
-        task: task.abort_handle(),
-    });
+    }));
 
     let outcome = tokio::select! {
         res = rx => res.map_err(|_| "callback channel closed".to_string()).and_then(|r| r),
         _ = tokio::time::sleep(CALLBACK_TIMEOUT) => {
-            task.abort();
             Err(format!(
                 "OAuth callback timed out after {}s — did the browser redirect land?",
                 CALLBACK_TIMEOUT.as_secs()
             ))
         }
     };
-    // This attempt is over: it no longer holds the slot (unless a newer
-    // one already took it).
-    let mut active = ACTIVE.lock().unwrap_or_else(|e| e.into_inner());
-    if active.as_ref().is_some_and(|a| Arc::ptr_eq(&a.tx, &tx)) {
-        *active = None;
-    }
+    let_go(&tx);
     outcome
 }
 
@@ -165,7 +178,7 @@ async fn accept_loop(listener: TcpListener, path: &str, tx: CallbackSender) {
 /// Parse `request` for the first GET on `path`. If it carries
 /// `code`+`state` query params, ship them off via the oneshot and
 /// return a friendly HTML success body. Otherwise return a 4xx
-/// status with an error body.
+/// status with an error body (410 when the sign-in is already over).
 fn handle_request(
     request: &str,
     path: &str,
@@ -217,10 +230,17 @@ fn handle_request(
         }
     };
 
-    // Send exactly once — take() the oneshot sender.
-    if let Some(sender) = tx.lock().unwrap().take() {
-        let _ = sender.send(Ok(OAuthCallbackPayload { code, state }));
-    }
+    // Send exactly once — take() the oneshot sender. An empty slot means
+    // this sign-in is over (a newer one replaced it, or it timed out): its
+    // listener can still accept once before it stops, and must not tell
+    // the browser the sign-in worked when nothing will receive the code.
+    let Some(sender) = tx.lock().unwrap_or_else(|e| e.into_inner()).take() else {
+        return (
+            "HTTP/1.1 410 Gone".to_string(),
+            error_page("This sign-in was replaced by a newer one."),
+        );
+    };
+    let _ = sender.send(Ok(OAuthCallbackPayload { code, state }));
 
     ("HTTP/1.1 200 OK".to_string(), success_page())
 }
@@ -332,6 +352,15 @@ mod tests {
     }
 
     #[test]
+    fn handle_request_after_the_sign_in_ended_does_not_claim_success() {
+        let tx_slot: CallbackSender = Arc::new(Mutex::new(None));
+        let req = "GET /callback?code=c&state=s HTTP/1.1\r\n\r\n";
+        let (status, body) = handle_request(req, "/callback", &tx_slot);
+        assert!(status.starts_with("HTTP/1.1 410"), "{status}");
+        assert!(body.contains("replaced by a newer one"));
+    }
+
+    #[test]
     fn handle_request_rejects_missing_code() {
         let (tx, _rx) = oneshot::channel();
         let tx_slot = Arc::new(Mutex::new(Some(tx)));
@@ -354,7 +383,7 @@ mod tests {
             .port();
         let first = tokio::spawn(start_oauth_callback_listener(port, None));
         // Let the first attempt bind.
-        for _ in 0..100 {
+        for _ in 0..500 {
             if tokio::net::TcpStream::connect(("127.0.0.1", port))
                 .await
                 .is_ok()
@@ -372,10 +401,11 @@ mod tests {
 
         // The second attempt gets the redirect.
         let mut sent = false;
-        for _ in 0..100 {
+        for _ in 0..500 {
             if let Ok(mut stream) = tokio::net::TcpStream::connect(("127.0.0.1", port)).await {
                 // A connection can still reach the first attempt as it closes
-                // (Windows then resets it): try again, like a browser would.
+                // (Windows then resets it, elsewhere it may answer 410): try
+                // again, like a browser would.
                 if stream
                     .write_all(b"GET /callback?code=c2&state=s2 HTTP/1.1\r\n\r\n")
                     .await
@@ -406,7 +436,7 @@ mod tests {
 
         // Done: the port is free for the next sign-in.
         let mut freed = false;
-        for _ in 0..100 {
+        for _ in 0..500 {
             if TcpListener::bind(("127.0.0.1", port)).await.is_ok() {
                 freed = true;
                 break;
