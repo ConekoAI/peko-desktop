@@ -27,8 +27,12 @@ export function RailItem({
   badge?: number;
   onClick?: () => void;
   children: ReactNode;
-  /** `tile` for places (Chats, groups); `action` for buttons (+, join). */
-  variant?: "tile" | "action";
+  /**
+   * `tile` for places (groups); `mark` for Chats, which wears the Peko
+   * sprout on its own ground like the app icon; `action` for buttons
+   * (+, join).
+   */
+  variant?: "tile" | "mark" | "action";
   testId?: string;
   ariaCurrent?: boolean;
   buttonRef?: React.Ref<HTMLButtonElement>;
@@ -38,11 +42,19 @@ export function RailItem({
     variant === "action"
       ? [
           "rounded-[22px] border border-dashed border-line-strong text-fg-muted",
-          "group-hover/rail:rounded-xl group-hover/rail:border-solid group-hover/rail:border-brand group-hover/rail:bg-brand group-hover/rail:text-white",
+          "group-hover/rail:rounded-xl group-hover/rail:border-solid group-hover/rail:border-brand group-hover/rail:bg-brand group-hover/rail:text-brand-fg",
         ].join(" ")
+      : variant === "mark"
+        ? [
+            // The app icon's ground: mint in light, dark in dark, in every
+            // state; active and hover only square it off (the pill says
+            // which is active).
+            "bg-linear-to-t from-[#d6f4ef] to-white shadow-sm dark:bg-none dark:bg-surface-card",
+            active ? "rounded-xl" : "rounded-[22px] group-hover/rail:rounded-xl",
+          ].join(" ")
       : active
-        ? "rounded-xl bg-brand text-white shadow-sm"
-        : "rounded-[22px] bg-surface-sunken text-fg-soft group-hover/rail:rounded-xl group-hover/rail:bg-brand group-hover/rail:text-white";
+        ? "rounded-xl bg-brand text-brand-fg shadow-sm"
+        : "rounded-[22px] bg-surface-sunken text-fg-soft group-hover/rail:rounded-xl group-hover/rail:bg-brand group-hover/rail:text-brand-fg";
   return (
     <div
       className="group/rail relative flex w-full justify-center"
