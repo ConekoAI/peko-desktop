@@ -50,7 +50,7 @@ tauri-plugin-notification = "2.8"
 tauri-plugin-dialog = "2.8"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # The pairing code a phone scans (runtime ADR-108), drawn as SVG.
-qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+qrcode = { version = "0.15", default-features = false, features = ["svg"] }
 tauri-plugin-updater = "2"
 # The shortcut that stops a peko using the screen (runtime ADR-123).
 tauri-plugin-global-shortcut = "2"
