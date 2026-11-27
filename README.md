@@ -1,11 +1,12 @@
 <p align="center">
-  <img src="docs/media/logo.svg" width="96" alt="Peko">
+  <img src="docs/media/logo.svg" height="96" alt="Peko">
 </p>
 
 <h1 align="center">Peko Desktop</h1>
 
 <p align="center">
-  <b>AI assistants you own, that keep working when you're away.</b><br>
+  <b>Where minds meet.</b><br>
+  Intelligence of your own, that keeps working when you're away.<br>
   The desktop app for <a href="https://github.com/ConekoAI/Peko">Peko</a>.
 </p>
 
