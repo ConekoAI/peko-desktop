@@ -1517,6 +1517,11 @@ export async function hubOAuthRevoke(baseUrl: string, token: string): Promise<vo
   await invoke("hub_oauth_revoke", { baseUrl, token });
 }
 
+/** This computer's runtime DID, as its engine states it. */
+export async function runtimeDid(): Promise<string> {
+  return invoke<string>("runtime_did");
+}
+
 /** This computer's runtime, registered with PekoHub. */
 export interface HubRegistration {
   hub: string;
@@ -1908,6 +1913,12 @@ export interface AccessiblePrincipal {
   exposure: string;
   /** The computer it runs on, as that computer names itself on PekoHub. */
   runtimeName?: string | null;
+  /**
+   * That computer's runtime DID; absent from hubs that predate sending it.
+   * One of this computer's (see `runtimeDid`) is here or gone, never a
+   * peko on another computer.
+   */
+  runtimeId?: string | null;
   /** When that computer last connected to PekoHub (ISO); null if never. */
   lastSeenAt?: string | null;
 }
@@ -1925,6 +1936,7 @@ interface AccessiblePekoWire {
   description?: unknown;
   exposure?: unknown;
   runtimeName?: unknown;
+  runtimeId?: unknown;
   lastSeenAt?: unknown;
 }
 
@@ -1959,6 +1971,7 @@ export async function pekohubListAccessiblePekos(
     description: textOrNull(w.description),
     exposure: String(w.exposure ?? "private"),
     runtimeName: textOrNull(w.runtimeName),
+    runtimeId: textOrNull(w.runtimeId),
     lastSeenAt: textOrNull(w.lastSeenAt),
   }));
 }
