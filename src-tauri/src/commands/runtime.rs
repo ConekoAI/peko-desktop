@@ -41,6 +41,39 @@ pub async fn runtime_list(state: State<'_, AppState>) -> Result<Vec<RuntimeSumma
     Ok(runtimes.into_iter().map(Into::into).collect())
 }
 
+/// This computer's runtime DID, as the engine states it. PekoHub lists
+/// each of your pekos with the DID of the computer it runs on, so the app
+/// knows which listed pekos are this computer's: those are here, or gone,
+/// never pekos on another computer.
+#[tauri::command]
+pub async fn runtime_did() -> Result<String, String> {
+    let client = crate::ipc::IpcClient::new()
+        .await
+        .map_err(|e| format!("IpcClient::new failed: {e}"))?;
+    let value = client
+        .runtime_id()
+        .await
+        .map_err(|e| format!("runtime_id failed: {e}"))?;
+    did_from(&value)
+}
+
+fn did_from(value: &serde_json::Value) -> Result<String, String> {
+    match value.get("type").and_then(|t| t.as_str()) {
+        Some("runtime_id") => value
+            .get("did")
+            .and_then(|d| d.as_str())
+            .filter(|d| !d.is_empty())
+            .map(str::to_string)
+            .ok_or_else(|| "runtime_id answered no DID".to_string()),
+        Some("error") => Err(value
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("refused")
+            .to_string()),
+        other => Err(format!("unexpected response to runtime_id: {other:?}")),
+    }
+}
+
 /// This computer's runtime, registered with PekoHub.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -395,6 +428,16 @@ pub async fn runtime_reconnect(
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_runtime_did_is_read_from_the_engine_answer() {
+        let ok = serde_json::json!({"type": "runtime_id", "request_id": 1, "did": "did:key:zMac"});
+        assert_eq!(super::did_from(&ok).unwrap(), "did:key:zMac");
+        let empty = serde_json::json!({"type": "runtime_id", "request_id": 1, "did": ""});
+        assert!(super::did_from(&empty).is_err());
+        let refused = serde_json::json!({"type": "error", "request_id": 1, "message": "no"});
+        assert_eq!(super::did_from(&refused).unwrap_err(), "no");
+    }
 
     #[test]
     fn disconnecting_reports_unsent_messages_or_finishes() {

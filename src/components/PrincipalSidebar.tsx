@@ -9,6 +9,7 @@ import {
   longAway,
   ownPekosToAdopt,
   ownPekosToForget,
+  useThisRuntimeDid,
   useAccessiblePrincipals,
   useAdoptPekoDms,
   useRemotePeko,
@@ -330,11 +331,14 @@ export default function PrincipalSidebar({
   // Pekos you have DMs with on other computers join the list the same way.
   useAdoptPekoDms(pekohubBundle ? pekohubBaseUrl : undefined);
 
+  // Which listed pekos are this computer's: its engine says.
+  const { data: thisRuntime } = useThisRuntimeDid();
   const adoptMut = useRemotePrincipalAdopt();
   const adopting = useRef(new Set<string>());
   useEffect(() => {
     if (!accessiblePekos || !principals || !remotePrincipals) return;
-    for (const peko of ownPekosToAdopt(accessiblePekos, principals, remotePrincipals)) {
+    const toAdopt = ownPekosToAdopt(accessiblePekos, principals, remotePrincipals, thisRuntime);
+    for (const peko of toAdopt) {
       const key = `${peko.hubId}:${peko.principalName}`;
       if (adopting.current.has(key)) continue;
       adopting.current.add(key);
@@ -345,14 +349,19 @@ export default function PrincipalSidebar({
         { onSettled: () => adopting.current.delete(key) },
       );
     }
-  }, [accessiblePekos, principals, remotePrincipals, pekohubBaseUrl, adoptMut]);
+  }, [accessiblePekos, principals, remotePrincipals, thisRuntime, pekohubBaseUrl, adoptMut]);
 
   // Yours follow your account: one it no longer lists leaves this list.
   const removeMut = useRemotePrincipalRemove();
   const forgetting = useRef(new Set<string>());
   useEffect(() => {
     if (!ownListed || !accessiblePekos || !remotePrincipals) return;
-    for (const gone of ownPekosToForget(accessiblePekos, pekohubBaseUrl, remotePrincipals)) {
+    for (const gone of ownPekosToForget(
+      accessiblePekos,
+      pekohubBaseUrl,
+      remotePrincipals,
+      thisRuntime,
+    )) {
       const key = gone.hubId ?? gone.principalName;
       if (forgetting.current.has(key)) continue;
       forgetting.current.add(key);
@@ -361,7 +370,7 @@ export default function PrincipalSidebar({
         { onSettled: () => forgetting.current.delete(key) },
       );
     }
-  }, [ownListed, accessiblePekos, pekohubBaseUrl, remotePrincipals, removeMut]);
+  }, [ownListed, accessiblePekos, pekohubBaseUrl, remotePrincipals, thisRuntime, removeMut]);
 
   const filtered = useMemo(() => {
     if (!principals) return [];

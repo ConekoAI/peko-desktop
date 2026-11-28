@@ -9,6 +9,7 @@ import {
   remotePrincipalList,
   remotePrincipalRemove,
   remotePrincipalResolve,
+  runtimeDid,
   remotePekoUndelivered,
   type AccessiblePrincipal,
   type RemotePrincipalResolveResult,
@@ -159,8 +160,8 @@ export function useRemotePrincipalAdd() {
 }
 
 /**
- * Remove a remote principal. Invalidates the cache; the sidebar
- * row disappears on the next render.
+ * Remove a remote principal. The row leaves the cached list at once (a
+ * chat open on it then leaves its address) and the list is read again.
  */
 export function useRemotePrincipalRemove() {
   const qc = useQueryClient();
@@ -170,7 +171,17 @@ export function useRemotePrincipalRemove() {
       owner: string;
       principalName: string;
     }) => remotePrincipalRemove(args),
-    onSuccess: () => {
+    onSuccess: (_removed, args) => {
+      qc.setQueryData<RemotePrincipalSummary[]>(["remote-principals"], (list) =>
+        list?.filter(
+          (r) =>
+            !(
+              r.hubUrl === args.hubUrl &&
+              r.owner === args.owner &&
+              r.principalName === args.principalName
+            ),
+        ),
+      );
       qc.invalidateQueries({ queryKey: ["remote-principals"] });
     },
   });
@@ -207,6 +218,20 @@ export function useAccessiblePrincipals(hubUrl?: string, accessToken?: string) {
 }
 
 /**
+ * This computer's runtime DID, from its engine: your account lists each
+ * peko with the DID of the computer it runs on. Undefined until read (or
+ * when the engine can't say), and then nothing is decided by it.
+ */
+export function useThisRuntimeDid() {
+  return useQuery({
+    queryKey: ["runtime-did"],
+    queryFn: runtimeDid,
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
+/**
  * Save one of your own pekos on another computer (from your account's
  * list) so it sits in Chats like a peko of this computer.
  */
@@ -225,18 +250,24 @@ export function useRemotePrincipalAdopt() {
  * Which of `own` (your account's pekos) to save as remote pekos: those
  * with a Hub ID that live on another computer (not one of `here`, this
  * computer's pekos, by Hub ID or local id) and aren't saved under that
- * name as yours yet (one first saved from a DM becomes yours).
+ * name as yours yet (one first saved from a DM becomes yours). Never one
+ * your account lists on this computer (`thisRuntime`, its DID): this
+ * computer's engine is the authority on its pekos, and one listed here
+ * that it doesn't have was removed — your account lists it until the
+ * engine next tells PekoHub.
  */
 export function ownPekosToAdopt(
   own: AccessiblePrincipal[],
   here: { hubId?: string | null; localId?: string }[],
   saved: RemotePrincipalSummary[],
+  thisRuntime?: string | null,
 ): AccessiblePrincipal[] {
   const hereHub = new Set(here.map((p) => p.hubId).filter(Boolean));
   const hereLocal = new Set(here.map((p) => p.localId).filter(Boolean));
   return sameNameCollapsed(own, saved).filter(
     (p) =>
       !!p.hubId &&
+      !(thisRuntime && p.runtimeId === thisRuntime) &&
       !hereHub.has(p.hubId) &&
       !(p.localId && hereLocal.has(p.localId)) &&
       !saved.some(
@@ -320,18 +351,24 @@ export function longAway(
 /**
  * Saved pekos of yours (`fromAccount`) that your account no longer
  * lists — deleted, made local-only, or given to someone else on their
- * computer — so they leave this computer's list too.
+ * computer — so they leave this computer's list too. So does one your
+ * account lists on this computer (`thisRuntime`, its DID): it is a peko
+ * of this computer, listed as one while the engine has it and gone when
+ * it doesn't, never one on another computer.
  */
 export function ownPekosToForget(
   own: AccessiblePrincipal[],
   hubUrl: string,
   saved: RemotePrincipalSummary[],
+  thisRuntime?: string | null,
 ): RemotePrincipalSummary[] {
-  const listed = new Set(own.map((p) => p.hubId).filter(Boolean));
+  const listed = new Map(own.filter((p) => p.hubId).map((p) => [p.hubId, p]));
   const sameHub = (url: string) => url.replace(/\/+$/, "") === hubUrl.replace(/\/+$/, "");
-  return saved.filter(
-    (r) => r.fromAccount && !!r.hubId && sameHub(r.hubUrl) && !listed.has(r.hubId),
-  );
+  return saved.filter((r) => {
+    if (!r.fromAccount || !r.hubId || !sameHub(r.hubUrl)) return false;
+    const peko = listed.get(r.hubId);
+    return !peko || (!!thisRuntime && peko.runtimeId === thisRuntime);
+  });
 }
 
 /**

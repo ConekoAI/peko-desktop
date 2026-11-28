@@ -1,5 +1,5 @@
 import { Fragment, useState, useRef, useEffect, useLayoutEffect, useMemo } from "react";
-import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Trans, useTranslation } from "react-i18next";
 import {
   usePrincipals,
@@ -134,6 +134,17 @@ function HostOfflineNotice({
       </p>
     </div>
   );
+}
+
+/** The peko a `/chat/<name>` path opens; none for `/` and `/chat`. */
+export function pekoNameFromPath(pathname: string): string | undefined {
+  const m = /^\/chat\/([^/?#]+)/.exec(pathname);
+  if (!m) return undefined;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
 }
 
 /** The error a stream ends with when the run was stopped (`peko stop`). */
@@ -635,7 +646,6 @@ export default function Chat() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const routerState = useRouterState();
-  const params = useParams({ strict: false });
   // The whole URL's search, not one route match's: this page renders at
   // the `/chat` level (`routes/chat.tsx`), where `runtimeId` and `say` —
   // declared by the child `/chat/$pekoName` — would read as absent, and a
@@ -653,15 +663,12 @@ export default function Chat() {
 
   const { data: principals, isLoading } = usePrincipals();
 
-  let principalName: string | undefined;
-  if (pathname === "/" || pathname === "/chat") {
-    principalName = undefined;
-  } else if (pathname.startsWith("/chat/")) {
-    const parts = pathname.split("/").filter(Boolean);
-    principalName = parts[1];
-  }
-  const paramName = (params as Record<string, string | undefined>).pekoName;
-  if (paramName) principalName = paramName;
+  // The peko comes from the same place as `runtimeId`: the URL. The
+  // route's params lag it while a navigation settles, and the two mixed
+  // named a peko that isn't there — the old peko's name on the new
+  // peko's runtime — so leaving a peko on another computer for one of
+  // this computer's bounced back on a phantom chat, and took two clicks.
+  const principalName = pekoNameFromPath(pathname);
 
   const selectedPrincipal = principalName ?? principals?.[0]?.name ?? "";
   // A peko on another runtime, reached through a hub: its face comes
@@ -708,9 +715,15 @@ export default function Chat() {
     !!principalName &&
     !!principals &&
     !principals.some((p) => p.name === principalName);
+  // The same for a peko on another computer that is no longer saved
+  // (taken off the list, or gone from your account): its chat would open
+  // empty, with nothing to answer it.
+  const missingRemotePeko =
+    runtimeId !== "local" && !!principalName && !!remotePrincipals && !remotePeko;
+  const missingPeko = missingLocalPeko || missingRemotePeko;
   useEffect(() => {
-    if (missingLocalPeko) navigate({ to: "/chat", replace: true });
-  }, [missingLocalPeko, navigate]);
+    if (missingPeko) navigate({ to: "/chat", replace: true });
+  }, [missingPeko, navigate]);
 
   useEffect(() => {
     if ((pathname === "/" || pathname === "/chat") && selectedPrincipal) {

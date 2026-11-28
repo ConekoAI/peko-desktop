@@ -2035,6 +2035,17 @@ impl IpcClient {
 
     /// How this computer connects to other computers, and the path to
     /// each (runtime ADR-125 D9). Answered with `network_status_result`.
+    /// This computer's runtime DID: the id PekoHub lists its pekos under.
+    pub async fn runtime_id(&self) -> Result<serde_json::Value> {
+        ensure_daemon().await?;
+        let req = serde_json::json!({
+            "type": "runtime_id",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": 1u64,
+        });
+        self.request_response(req).await
+    }
+
     pub async fn network_status(&self) -> Result<serde_json::Value> {
         ensure_daemon().await?;
         let req = serde_json::json!({

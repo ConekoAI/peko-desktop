@@ -91,6 +91,7 @@ vi.mock("../hooks/useRemotePrincipals", async (importOriginal) => ({
   ownPekosToForget: (await importOriginal<typeof import("../hooks/useRemotePrincipals")>())
     .ownPekosToForget,
   useAdoptPekoDms: () => ({ data: 0 }),
+  useThisRuntimeDid: () => ({ data: undefined }),
   useRemotePrincipalRemove: () => ({ mutate: removeMock, isPending: false }),
   useRemotePrincipals: () => remoteList,
   useRemotePeko: (_runtimeId: string, name: string) => ({
