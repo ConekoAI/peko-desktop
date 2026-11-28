@@ -1,3 +1,8 @@
+> [!IMPORTANT]
+> **Peko Desktop moved into [ConekoAI/Peko](https://github.com/ConekoAI/Peko/tree/master/desktop)** (`desktop/`, history included).
+> From 0.8.0 it is released there, beside the command line: [download the latest](https://github.com/ConekoAI/Peko/releases/latest).
+> Issues and pull requests go to [ConekoAI/Peko](https://github.com/ConekoAI/Peko/issues). This repository is archived; apps up to 0.7.3 came from it and update to Peko's releases on their own.
+
 <p align="center">
   <img src="docs/media/logo.svg" height="96" alt="Peko">
 </p>
