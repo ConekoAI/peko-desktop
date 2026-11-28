@@ -175,7 +175,15 @@
     "tryAgain": "もう一度試す",
     "starting": "開始中…",
     "stepReady": "完了",
-    "stepPending": "未完了"
+    "stepPending": "未完了",
+    "needsModelTitle": "{{name}} の初期設定にはモデルが必要です",
+    "modelGone": "{{name}} は {{model}} を使う設定ですが、このコンピュータにはもうありません。あなたのモデルを選ぶと、もう一度始めます。",
+    "noModel": "{{name}} にはモデルが設定されていません。あなたのモデルを選ぶと始めます。",
+    "noModels": "このコンピュータにはまだモデルがありません。設定で追加してから、ここに戻ってください。",
+    "pickModel": "モデル",
+    "useModel": "このモデルを使う",
+    "stuckTitle": "{{name}} は初期設定を終えられませんでした",
+    "failed": "最初のターンが失敗しました: {{error}}"
   },
   "code": {
     "label": "コード",

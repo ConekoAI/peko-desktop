@@ -176,7 +176,15 @@
     "tryAgain": "Erneut versuchen",
     "starting": "Wird gestartet…",
     "stepReady": "Bereit",
-    "stepPending": "Nicht erledigt"
+    "stepPending": "Nicht erledigt",
+    "needsModelTitle": "{{name}} braucht ein Modell, um sich einzurichten",
+    "modelGone": "{{name}} ist auf {{model}} eingestellt, das es auf diesem Computer nicht mehr gibt. Wähle eines deiner Modelle, dann beginnt es von vorn.",
+    "noModel": "{{name}} ist auf kein Modell eingestellt. Wähle eines deiner Modelle, dann beginnt es.",
+    "noModels": "Dieser Computer hat noch keine Modelle. Füge eines in den Einstellungen hinzu und komm dann hierher zurück.",
+    "pickModel": "Modell",
+    "useModel": "Dieses Modell verwenden",
+    "stuckTitle": "{{name}} konnte sich nicht fertig einrichten",
+    "failed": "Sein erster Durchgang ist fehlgeschlagen: {{error}}"
   },
   "code": {
     "label": "Code",

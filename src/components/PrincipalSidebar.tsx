@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { isGenesisPending, usePrincipals } from "../hooks/usePrincipals";
+import { useModels } from "../hooks/useModels";
 import { usePekohubBundle } from "../hooks/useRuntimes";
 import { useSettings } from "../hooks/useSettings";
 import {
@@ -36,6 +37,7 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import { configuredHubUrl, type RemotePrincipalSummary } from "../lib/api";
 import PekoAvatar from "./peko/PekoAvatar";
@@ -299,6 +301,11 @@ export default function PrincipalSidebar({
   const currentRuntimeId = routeSearch.runtimeId ?? "local";
 
   const { data: principals, isLoading } = usePrincipals();
+  // A peko still setting itself up whose model isn't here can't go on:
+  // its badge says so, and its chat shows the fix.
+  const { data: models } = useModels();
+  const needsModel = (p: { preferredModelId?: string }) =>
+    !!models && !models.some((m) => m.enabled && m.id === p.preferredModelId);
   const { data: remotePrincipals } = useRemotePrincipals();
   const [search, setSearch] = useState("");
   const [profilePeko, setProfilePeko] = useState<{ name: string; runtimeId: string } | null>(
@@ -495,16 +502,26 @@ export default function PrincipalSidebar({
                       a few minutes. `isGenesisPending` treats an absent
                       `bootState` (older runtimes) as already organized, so
                       the badge never shows stale. */}
-                  {isGenesisPending(p) && (
-                    <span
-                      className="badge-warn shrink-0"
-                      data-testid={`waking-badge-${p.name}`}
-                      title={t("sidebar.wakingTitle")}
-                    >
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                      {t("sidebar.waking")}
-                    </span>
-                  )}
+                  {isGenesisPending(p) &&
+                    (needsModel(p) ? (
+                      <span
+                        className="badge-warn shrink-0"
+                        data-testid={`needs-model-badge-${p.name}`}
+                        title={t("sidebar.needsModelTitle")}
+                      >
+                        <AlertTriangle className="h-2.5 w-2.5" />
+                        {t("sidebar.needsModel")}
+                      </span>
+                    ) : (
+                      <span
+                        className="badge-warn shrink-0"
+                        data-testid={`waking-badge-${p.name}`}
+                        title={t("sidebar.wakingTitle")}
+                      >
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        {t("sidebar.waking")}
+                      </span>
+                    ))}
                   <LocalStatusDot name={p.name} />
                 </button>
               );

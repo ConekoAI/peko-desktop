@@ -6,6 +6,8 @@
   "loading": "불러오는 중…",
   "wakingTitle": "이 peko는 아직 초기 설정 중입니다",
   "waking": "깨어나는 중…",
+  "needsModel": "모델 필요",
+  "needsModelTitle": "이 컴퓨터에 해당 모델이 없습니다. 채팅을 열어 모델을 고르세요",
   "away": "{{days}}일 넘게 접속 없음 ({{n}})",
   "noPekos": "아직 peko가 없습니다",
   "createFirst": "첫 peko 만들기",

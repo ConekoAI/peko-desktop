@@ -6,6 +6,8 @@
   "loading": "Chargement…",
   "wakingTitle": "Ce peko est encore en train de s'installer",
   "waking": "réveil…",
+  "needsModel": "il lui faut un modèle",
+  "needsModelTitle": "Son modèle n'est pas sur cet ordinateur : ouvrez sa conversation pour en choisir un",
   "away": "Pas vus depuis plus de {{days}} jours ({{n}})",
   "noPekos": "Aucun peko pour l'instant",
   "createFirst": "Créer votre premier peko",

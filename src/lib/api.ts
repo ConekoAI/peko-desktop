@@ -286,6 +286,14 @@ export interface SetupStatus {
   setupState: string;
   /** Each setup step with its result; empty when not known. */
   results: SetupResult[];
+  /** Why its first turn last failed, while nothing will run it again. */
+  firstTurnError?: string | null;
+  /**
+   * The model its turns need and this computer doesn't have: the id it is
+   * set to, or `""` when it is set to none. Absent when its model is here,
+   * and from engines that don't say.
+   */
+  missingModel?: string | null;
 }
 
 /** `null` for a remote peko, or when nothing can be said about it. */

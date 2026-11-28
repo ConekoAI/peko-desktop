@@ -22,7 +22,27 @@ vi.mock("../hooks/useSetup", async () => {
   };
 });
 
+const updateMock = vi.fn();
+const modelsSignal: { value: Array<{ id: string; displayName: string; enabled: boolean }> } = {
+  value: [],
+};
+vi.mock("../hooks/usePrincipals", () => ({
+  usePrincipalUpdate: () => ({ mutate: updateMock, isPending: false, error: null }),
+}));
+vi.mock("../hooks/useModels", () => ({
+  useModels: () => ({ data: modelsSignal.value }),
+}));
+
 import SetupPanel from "../components/peko/SetupPanel";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+function renderPanel(name = "pip") {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <SetupPanel name={name} />
+    </QueryClientProvider>,
+  );
+}
 
 const none: SetupStatus = {
   settingUp: false,
@@ -60,12 +80,88 @@ const finished: SetupStatus = {
 beforeEach(() => {
   stopMock.mockClear();
   runMock.mockClear();
+  updateMock.mockClear();
+  modelsSignal.value = [
+    { id: "gpt-6.2-sol", displayName: "GPT-6.2-Sol", enabled: true },
+    { id: "old-off", displayName: "Old", enabled: false },
+    { id: "claude-haiku-5-5", displayName: "Claude Haiku", enabled: true },
+  ];
   stopState.isPending = false;
   stopState.error = null;
   runState.isPending = false;
   runState.error = null;
   statusSignal.value = undefined;
   localStorage.clear();
+});
+
+describe("a first turn that can't go on", () => {
+  // Field report (2026-11-28): a peko set to a model since removed sat at
+  // "setting itself up… Nothing yet" for good, with nothing saying why.
+  const stuck: SetupStatus = {
+    ...none,
+    settingUp: true,
+    running: false,
+    firstTurnError: "no model configured for this call",
+    missingModel: "mimo-v2.6-flash",
+  };
+
+  it("says its model is gone and sets the one you pick", () => {
+    statusSignal.value = stuck;
+    renderPanel();
+    expect(screen.getByTestId("setup-stuck")).toHaveTextContent(
+      "pip needs a model to set itself up",
+    );
+    expect(screen.getByTestId("setup-stuck-reason")).toHaveTextContent(
+      "pip is set to mimo-v2.6-flash, which isn't on this computer any more",
+    );
+    expect(screen.queryByText(/Nothing yet/)).toBeNull();
+    expect(screen.queryByTestId("setup-stop")).toBeNull();
+    // Only models that are turned on are offered.
+    const select = screen.getByTestId("setup-model") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(["gpt-6.2-sol", "claude-haiku-5-5"]);
+    fireEvent.change(select, { target: { value: "claude-haiku-5-5" } });
+    fireEvent.click(screen.getByTestId("setup-use-model"));
+    expect(updateMock).toHaveBeenCalledWith(
+      { name: "pip", preferredModelId: "claude-haiku-5-5", runtimeId: undefined },
+      expect.anything(),
+    );
+  });
+
+  it("says when it is set to no model", () => {
+    statusSignal.value = { ...stuck, missingModel: "" };
+    renderPanel();
+    expect(screen.getByTestId("setup-stuck-reason")).toHaveTextContent(
+      "pip isn't set to a model",
+    );
+  });
+
+  it("points to Settings when this computer has no models", () => {
+    statusSignal.value = stuck;
+    modelsSignal.value = [];
+    renderPanel();
+    expect(screen.getByTestId("setup-stuck")).toHaveTextContent("Add one in Settings");
+    expect(screen.queryByTestId("setup-use-model")).toBeNull();
+  });
+
+  it("shows another failure and tries again", () => {
+    statusSignal.value = { ...stuck, missingModel: null, firstTurnError: "rate limited" };
+    renderPanel();
+    expect(screen.getByTestId("setup-stuck")).toHaveTextContent(
+      "pip couldn't finish setting itself up",
+    );
+    expect(screen.getByTestId("setup-stuck-reason")).toHaveTextContent(
+      "Its first turn failed: rate limited",
+    );
+    fireEvent.click(screen.getByTestId("setup-first-turn-retry"));
+    expect(runMock).toHaveBeenCalledWith({ name: "pip", runtimeId: undefined });
+  });
+
+  it("is not stuck while its first turn runs", () => {
+    statusSignal.value = { ...firstTurn, missingModel: "mimo-v2.6-flash" };
+    renderPanel();
+    expect(screen.queryByTestId("setup-stuck")).toBeNull();
+    expect(screen.getByTestId("setup-panel")).toBeTruthy();
+  });
 });
 
 describe("SetupPanel", () => {

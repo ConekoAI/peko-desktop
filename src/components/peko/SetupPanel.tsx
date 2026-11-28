@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Check, Circle, Loader2, RotateCw, Square, X } from "lucide-react";
+import { AlertTriangle, Check, Circle, Loader2, RotateCw, Square, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { isSettingUp, useRunSetup, useSetupStatus, useStopSetup } from "../../hooks/useSetup";
-import type { RuntimeId, SetupResult } from "../../lib/api";
+import { useModels } from "../../hooks/useModels";
+import { usePrincipalUpdate } from "../../hooks/usePrincipals";
+import type { RuntimeId, SetupResult, SetupStatus } from "../../lib/api";
 
 const DISMISSED_KEY = "peko.setupReportDismissed";
 
@@ -36,6 +39,10 @@ export default function SetupPanel({ name, runtimeId }: { name: string; runtimeI
   const [hidden, setHidden] = useState<string[]>(dismissed);
 
   if (!status) return null;
+  // Its first turn can't go on: show why, and what fixes it.
+  if (firstTurnStuck(status)) {
+    return <StuckFirstTurn name={name} runtimeId={runtimeId} status={status} />;
+  }
   const working = isSettingUp(status);
   const steps = status.results;
   // An engine that predates step-by-step results sends only the report.
@@ -167,6 +174,116 @@ export default function SetupPanel({ name, runtimeId }: { name: string; runtimeI
           {report}
         </pre>
       )}
+    </section>
+  );
+}
+
+/**
+ * Whether a peko's first turn can't go on by itself: nothing runs it, and
+ * its model isn't on this computer or its last try failed. It used to sit
+ * at "setting itself up… Nothing yet" for good (2026-11-28: a peko set to a
+ * model that was since removed).
+ */
+export function firstTurnStuck(status: SetupStatus): boolean {
+  return (
+    status.settingUp &&
+    !status.running &&
+    (status.missingModel != null || !!status.firstTurnError)
+  );
+}
+
+/** A first turn that can't go on: why, and the fix (a model, or another try). */
+function StuckFirstTurn({
+  name,
+  runtimeId,
+  status,
+}: {
+  name: string;
+  runtimeId?: RuntimeId;
+  status: SetupStatus;
+}) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const run = useRunSetup();
+  const update = usePrincipalUpdate();
+  const { data: models } = useModels();
+  const usable = (models ?? []).filter((m) => m.enabled);
+  const [picked, setPicked] = useState("");
+  const choice = picked || usable[0]?.id || "";
+  const missing = status.missingModel;
+
+  function applyModel() {
+    if (!choice) return;
+    update.mutate(
+      { name, preferredModelId: choice, runtimeId },
+      // The engine runs the first turn again with it.
+      { onSettled: () => void qc.invalidateQueries({ queryKey: ["setupStatus"] }) },
+    );
+  }
+
+  const reason =
+    missing == null
+      ? t("peko.setup.failed", { error: status.firstTurnError })
+      : missing === ""
+        ? t("peko.setup.noModel", { name })
+        : t("peko.setup.modelGone", { name, model: missing });
+  const failure = errorText(update.error) ?? errorText(run.error);
+
+  return (
+    <section
+      className="mx-4 mt-3 rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs"
+      data-testid="setup-stuck"
+      aria-live="polite"
+    >
+      <h2 className="flex items-center gap-1.5 font-medium text-fg">
+        <AlertTriangle className="h-3.5 w-3.5 text-warn" />
+        {missing == null
+          ? t("peko.setup.stuckTitle", { name })
+          : t("peko.setup.needsModelTitle", { name })}
+      </h2>
+      <p className="mt-1 break-words text-fg-soft" data-testid="setup-stuck-reason">
+        {reason}
+      </p>
+      {missing == null ? (
+        <button
+          type="button"
+          className="btn-secondary mt-2 inline-flex items-center gap-1"
+          disabled={run.isPending}
+          onClick={() => run.mutate({ name, runtimeId })}
+          data-testid="setup-first-turn-retry"
+        >
+          <RotateCw className="h-3 w-3" />
+          {run.isPending ? t("peko.setup.starting") : t("peko.setup.tryAgain")}
+        </button>
+      ) : usable.length === 0 ? (
+        <p className="mt-2 text-fg-muted">{t("peko.setup.noModels")}</p>
+      ) : (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <select
+            className="select max-w-full"
+            value={choice}
+            onChange={(e) => setPicked(e.target.value)}
+            aria-label={t("peko.setup.pickModel")}
+            data-testid="setup-model"
+          >
+            {usable.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.displayName || m.id}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={!choice || update.isPending}
+            onClick={applyModel}
+            data-testid="setup-use-model"
+          >
+            {update.isPending ? t("peko.setup.starting") : t("peko.setup.useModel")}
+          </button>
+        </div>
+      )}
+      {failure && <p className="mt-2 text-danger">{failure}</p>}
     </section>
   );
 }

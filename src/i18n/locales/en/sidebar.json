@@ -6,6 +6,8 @@
   "loading": "Loading...",
   "wakingTitle": "This peko is still setting itself up",
   "waking": "waking…",
+  "needsModel": "needs a model",
+  "needsModelTitle": "Its model isn't on this computer: open its chat to pick one",
   "away": "Not seen for {{days}}+ days ({{n}})",
   "noPekos": "No pekos yet",
   "createFirst": "Create your first peko",
