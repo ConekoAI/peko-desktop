@@ -176,7 +176,15 @@
     "tryAgain": "Try again",
     "starting": "Starting…",
     "stepReady": "Ready",
-    "stepPending": "Not done"
+    "stepPending": "Not done",
+    "needsModelTitle": "{{name}} needs a model to set itself up",
+    "modelGone": "{{name}} is set to {{model}}, which isn't on this computer any more. Pick one of yours and it starts again.",
+    "noModel": "{{name}} isn't set to a model. Pick one of yours and it starts.",
+    "noModels": "This computer has no models yet. Add one in Settings, then come back here.",
+    "pickModel": "Model",
+    "useModel": "Use this model",
+    "stuckTitle": "{{name}} couldn't finish setting itself up",
+    "failed": "Its first turn failed: {{error}}"
   },
   "code": {
     "label": "Code",

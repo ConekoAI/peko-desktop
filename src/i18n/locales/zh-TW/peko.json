@@ -175,7 +175,15 @@
     "tryAgain": "重試",
     "starting": "正在開始…",
     "stepReady": "已就緒",
-    "stepPending": "未完成"
+    "stepPending": "未完成",
+    "needsModelTitle": "{{name}} 需要一個模型才能完成設定",
+    "modelGone": "{{name}} 設定的是 {{model}}，但這台電腦上已經沒有了。選一個你的模型，它會重新開始。",
+    "noModel": "{{name}} 沒有設定模型。選一個你的模型，它就會開始。",
+    "noModels": "這台電腦還沒有模型。先在設定中新增一個，再回到這裡。",
+    "pickModel": "模型",
+    "useModel": "使用這個模型",
+    "stuckTitle": "{{name}} 沒能完成設定",
+    "failed": "它的第一輪失敗了：{{error}}"
   },
   "code": {
     "label": "代碼",

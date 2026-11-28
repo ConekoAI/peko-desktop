@@ -177,7 +177,15 @@
     "tryAgain": "Réessayer",
     "starting": "Démarrage…",
     "stepReady": "Prêt",
-    "stepPending": "Pas fait"
+    "stepPending": "Pas fait",
+    "needsModelTitle": "{{name}} a besoin d'un modèle pour se configurer",
+    "modelGone": "{{name}} utilise {{model}}, qui n'est plus sur cet ordinateur. Choisissez un de vos modèles et il recommence.",
+    "noModel": "{{name}} n'a pas de modèle. Choisissez un de vos modèles et il commence.",
+    "noModels": "Cet ordinateur n'a pas encore de modèle. Ajoutez-en un dans les Réglages, puis revenez ici.",
+    "pickModel": "Modèle",
+    "useModel": "Utiliser ce modèle",
+    "stuckTitle": "{{name}} n'a pas pu finir de se configurer",
+    "failed": "Son premier tour a échoué : {{error}}"
   },
   "code": {
     "label": "Code",

@@ -334,6 +334,12 @@ pub struct SetupStatus {
     /// Each setup step with its result, in order. Empty from an engine
     /// that does not say; `report` is then all there is.
     pub results: Vec<SetupResult>,
+    /// Why its first turn last failed, while nothing will run it again.
+    pub first_turn_error: Option<String>,
+    /// The model its turns need and this computer doesn't have: the id it
+    /// is set to, or `""` when it is set to none. `None` when its model is
+    /// here, and from an engine that does not say.
+    pub missing_model: Option<String>,
 }
 
 /// Project the daemon's `principal_setup_status` envelope. `None` when
@@ -382,6 +388,8 @@ fn project_setup_status(value: &serde_json::Value) -> Option<SetupStatus> {
                 })
             })
             .collect(),
+        first_turn_error: text(value, "first_turn_error").filter(|e| !e.trim().is_empty()),
+        missing_model: text(value, "missing_model"),
     })
 }
 
@@ -1812,6 +1820,33 @@ mod tests {
         assert_eq!(stepwise.results[0].note.as_deref(), Some("rg --version"));
         assert_eq!(stepwise.results[1].status, "failed");
         assert_eq!(stepwise.results[1].note, None, "a blank note is none");
+        // An engine that predates them says nothing of a stuck first turn.
+        assert_eq!(stepwise.first_turn_error, None);
+        assert_eq!(stepwise.missing_model, None);
+
+        // A first turn that can't go on: why, and the model it lacks.
+        let stuck = project_setup_status(&serde_json::json!({
+            "type": "principal_setup_status",
+            "boot_state": "genesis_pending",
+            "running": false,
+            "setup": [],
+            "steps": [],
+            "first_turn_error": "no model configured for this call",
+            "missing_model": "mimo-v2.6-flash"
+        }))
+        .unwrap();
+        assert_eq!(
+            stuck.first_turn_error.as_deref(),
+            Some("no model configured for this call")
+        );
+        assert_eq!(stuck.missing_model.as_deref(), Some("mimo-v2.6-flash"));
+        let unset = project_setup_status(&serde_json::json!({
+            "type": "principal_setup_status",
+            "boot_state": "genesis_pending",
+            "missing_model": ""
+        }))
+        .unwrap();
+        assert_eq!(unset.missing_model.as_deref(), Some(""), "set to no model");
 
         // Starting setup again: started, refused with a reason, or an error.
         assert!(setup_run_outcome(&serde_json::json!({"type": "done", "success": true})).is_ok());

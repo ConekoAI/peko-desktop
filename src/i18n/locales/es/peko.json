@@ -177,7 +177,15 @@
     "tryAgain": "Reintentar",
     "starting": "Iniciando…",
     "stepReady": "Listo",
-    "stepPending": "Sin hacer"
+    "stepPending": "Sin hacer",
+    "needsModelTitle": "{{name}} necesita un modelo para configurarse",
+    "modelGone": "{{name}} usa {{model}}, que ya no está en este ordenador. Elige uno de tus modelos y empezará de nuevo.",
+    "noModel": "{{name}} no tiene ningún modelo asignado. Elige uno de tus modelos y empezará.",
+    "noModels": "Este ordenador aún no tiene modelos. Añade uno en Ajustes y vuelve aquí.",
+    "pickModel": "Modelo",
+    "useModel": "Usar este modelo",
+    "stuckTitle": "{{name}} no pudo terminar de configurarse",
+    "failed": "Su primer turno falló: {{error}}"
   },
   "code": {
     "label": "Código",

@@ -6,6 +6,8 @@
   "loading": "正在載入…",
   "wakingTitle": "這個 peko 還在進行初始設定",
   "waking": "喚醒中…",
+  "needsModel": "需要模型",
+  "needsModelTitle": "這台電腦上沒有它的模型：打開聊天選一個",
   "away": "已有 {{days}} 天以上未上線（{{n}}）",
   "noPekos": "還沒有 peko",
   "createFirst": "建立你的第一個 peko",
